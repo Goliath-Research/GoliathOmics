@@ -1,0 +1,68 @@
+{
+    "chromosomes": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "X"
+    ],
+    "contexts": [
+        "CG",
+        "CHG",
+        "CHH"
+    ],
+    "base_config": {
+        "laboratory": "psomagen",
+        "disease": "breast cancer",
+        "group": "stage 3",
+        "batch": "AN00026500",
+        "chrom": "1",
+        "ctx": "CG",
+        "output_dir": "/home/ubuntu/Work/w/humans/psomagen/bc/centroids/c-4",
+        "add_samples": [
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/1632_0115_020009_3_11_16_8G_9_27_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/1632_0140_020574_2_22_17_8G_24_27_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/017420_8H_1_42_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/018121_8H_2_2_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/017110_8H_4_22_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/018379_8H_6_32_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/029039_8H_17_67_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/031198_8H_22_87_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/031888_8H_27_87_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/1632_0146_003576_5_25_17_8M_1_52_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/033634_8N_11_22_2",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00026500/data/038673_8N_11_77_2"
+        ],
+        "remove_samples": [],
+        "outliers": [],
+        "min_coverage": 4,
+        "max_iterations_percentage": 0.1,
+        "\u03b1": 0.05,
+        "min_samples": 3,
+        "distance_metrics": [
+            "jensen_shannon",
+            "wasserstein"
+        ],
+        "min_metrics_agree": 0
+    },
+    "continue_on_error": true,
+    "save_batch_summary": true
+}

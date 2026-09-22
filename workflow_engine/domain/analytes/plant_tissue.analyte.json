@@ -1,0 +1,13 @@
+{
+  "name": "plant_tissue",
+  "version": "1",
+  "description": "Plant tissue WGBS matrix (CG/CHG/CHH biology).",
+  "aliases": ["plant", "leaf", "plant_leaf", "root_tissue", "root", "meristem", "seed"],
+  "catalog": {
+    "title": "Plant tissue",
+    "summary": "Plant WGBS tissue; plant-safe QC (non-CpG methylation treated as biology).",
+    "visibility": "operator",
+    "lifecycle": "active",
+    "family": "analyte"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "executionScopeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Execution scope id (compiler-injected; unused by compute).",
+      "title": "Executionscopeid"
+    },
+    "hyperparamSetId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Deprecated alias for executionScopeId (compiler-injected; unused by compute).",
+      "title": "Hyperparamsetid"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Study manifest path (compiler-injected; provenance only).",
+      "title": "Projectpath"
+    },
+    "tool": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Catalog tool label (compiler-injected).",
+      "title": "Tool"
+    },
+    "value": {
+      "description": "Filesystem path string to publish into scope.",
+      "title": "Value",
+      "type": "string"
+    }
+  },
+  "required": [
+    "value"
+  ],
+  "title": "ConstPathTaskInput",
+  "type": "object"
+}

@@ -1,0 +1,9 @@
+{
+  "comparison": "healthy_vs_disease",
+  "outputDir": "/work/p/rna_de/healthy_vs_disease",
+  "project": null,
+  "projectPath": "/work/p/project.json",
+  "resolvedConfigPath": null,
+  "stepOverride": null,
+  "tool": "RnaDeSelect"
+}

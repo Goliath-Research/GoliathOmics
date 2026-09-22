@@ -1,0 +1,52 @@
+{
+  "actionConfig": {
+    "gene_selection": {
+      "max_dmps": 1000,
+      "max_genes": 200
+    },
+    "storage_transfer": {
+      "max_concurrency": 8,
+      "multipart_chunksize_mb": 16,
+      "multipart_threshold_mb": 32,
+      "max_attempts": 10
+    }
+  },
+  "reference_selection": {
+    "linear": "linear/Zm-B73-REFERENCE-NAM-5.0/ensembl-plants-58",
+    "gene_annotation": "annotation/zea_mays/nam-5.0"
+  },
+  "reference_genome": {
+    "fasta": "/work/genomes/linear/Zm-B73-REFERENCE-NAM-5.0/ensembl-plants-58/Zea_mays.Zm-B73-REFERENCE-NAM-5.0.dna.toplevel.fa"
+  },
+  "annotation": {
+    "gtf": "/work/genomes/annotation/zea_mays/nam-5.0/Zea_mays.Zm-B73-REFERENCE-NAM-5.0.58.gtf"
+  },
+  "methyl_mapper_home": "/work/cache/methyl_mapper",
+  "caches": {
+    "string_edges": "/work/cache/methylenricher/string_edges_4577"
+  },
+  "testing": {
+    "samples": {
+      "plant_tissue": {
+        "sample_id": "REF_MAIZE_01",
+        "sample_dir": "/work/samples/__testref_maize__",
+        "analyte": "plant_tissue",
+        "chromosomes": ["1"],
+        "contexts": ["CG", "CHG", "CHH"],
+        "provenance": "Public/consented Zea mays WGBS; MethylExtractor <release>."
+      }
+    },
+    "groups": {
+      "control": {
+        "label": "control",
+        "analyte": "plant_tissue",
+        "sample_dirs": ["/work/samples/__testref_control_1__", "/work/samples/__testref_control_2__"]
+      },
+      "drought": {
+        "label": "drought",
+        "analyte": "plant_tissue",
+        "sample_dirs": ["/work/samples/__testref_drought_1__", "/work/samples/__testref_drought_2__"]
+      }
+    }
+  }
+}

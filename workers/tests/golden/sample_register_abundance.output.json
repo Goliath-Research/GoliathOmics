@@ -1,0 +1,20 @@
+{
+  "abundanceH5": "/work/samples/S1/S1.abundance.h5",
+  "action_name": null,
+  "artifacts": [],
+  "capability": null,
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "manifest_path": null,
+  "n_proteins": 4200,
+  "result_code": 0,
+  "sampleId": "S1",
+  "schema_version": "1.0",
+  "source": "diann",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

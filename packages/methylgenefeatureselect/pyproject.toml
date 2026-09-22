@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "methyl-gene-feature-select"
+version = "0.1.0"
+description = "Structural (gene x region) ECDF OvR k-search for tabular structural_scored backends"
+authors = ["MethylPipeline Team"]
+readme = "README.md"
+packages = [{include = "methyl_gene_feature_select"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.15"
+pydantic = ">=2.6.0,<3.0.0"
+numpy = ">=2.0.0,<3.0.0"
+pandas = ">=2.1.0,<3.0.0"
+click = ">=8.1.0,<9.0.0"
+methylutils = {path = "../methylutils", develop = true}
+methyl-gene-select = {path = "../methylgeneselect", develop = true}
+
+[tool.poetry.scripts]
+methyl-gene-feature-select = "methyl_gene_feature_select.cli.main:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

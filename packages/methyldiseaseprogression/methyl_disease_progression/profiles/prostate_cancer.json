@@ -1,0 +1,14 @@
+{
+  "replication": [
+    "MCM2", "MCM3", "MCM4", "PCNA", "RFC3", "RFC4", "POLA1", "PRIM1", "CDC45", "CDC6"
+  ],
+  "DNA_repair": [
+    "BRCA1", "BRCA2", "RAD51", "ATM", "ATR", "CHEK1", "CHEK2", "PARP1", "MLH1", "MSH2"
+  ],
+  "AR_pathway": [
+    "AR", "KLK3", "NKX3-1", "TMPRSS2", "FKBP5", "PMEPA1", "UBE2J1", "SGK1", "SEC24D"
+  ],
+  "metabolic": [
+    "HK2", "PKM", "LDHA", "IDH1", "IDH2", "ACLY", "FASN", "G6PD", "ME1", "PGK1"
+  ]
+}

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Executive Opportunity Brief: Florida Community-Access Partnership</title>
+<style>
+  :root {
+    --ink: #0f172a;
+    --muted: #475569;
+    --line: #e2e8f0;
+    --accent: #0f766e;
+    --accent-soft: #f0fdfa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto;
+    max-width: 62rem;
+    padding: 2.5rem 1.5rem 4rem;
+    color: var(--ink);
+    background: #fff;
+    font: 16px/1.62 "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  h1, h2, h3, h4 { line-height: 1.25; margin: 2.2rem 0 0.8rem; }
+  h1 { font-size: 1.95rem; margin-top: 0; }
+  h2 { font-size: 1.45rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 1.15rem; }
+  p, li { margin: 0.55rem 0; }
+  a { color: var(--accent); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 2.4rem 0; }
+  strong { color: #0b1220; }
+  code {
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.05rem 0.3rem;
+  }
+  pre {
+    background: #f8fafc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+    overflow-x: auto;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.2rem 0;
+    font-size: 0.93rem;
+  }
+  th, td { border: 1px solid var(--line); padding: 0.5rem 0.65rem; text-align: left; vertical-align: top; }
+  th { background: var(--accent-soft); }
+  blockquote {
+    margin: 1.2rem 0;
+    padding: 0.2rem 1rem;
+    border-left: 3px solid var(--accent);
+    color: var(--muted);
+  }
+  pre.mermaid {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    overflow-x: auto;
+  }
+  pre.mermaid svg { max-width: 100%; height: auto; }
+  .mermaid-offline-note {
+    display: none;
+    margin: 1.2rem 0;
+    padding: 0.7rem 1rem;
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+    background: var(--accent-soft);
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .mermaid-offline-note.show { display: block; }
+  @media print {
+    body { max-width: none; padding: 0; }
+    .mermaid-offline-note { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<p class="mermaid-offline-note" id="mermaid-offline-note">
+  Diagrams need a network connection: Mermaid is loaded from a CDN. The diagram
+  source below each heading stays readable as plain text when offline.
+</p>
+<h1>Executive Opportunity Brief: Florida Community-Access Partnership</h1>
+<p><strong>Presenting organization:</strong> Goliath Research Inc. (Winter Haven, FL)<br><strong>Product platform:</strong> <strong>GoliathOmics</strong> (powered by <em>GoliathWorkflow</em>, <em>mojo-align</em>, and <em>MethylExtractor</em>)<br><strong>Architecture pillar:</strong> 100% free &amp; open-source toolchain (PostgreSQL and auditable open languages)<br><strong>Initiative:</strong> Statewide community-access software partnership &amp; joint Florida/federal grant strategy<br><strong>Intended partners:</strong> UF Health Cancer Center (HiPerGator), Sylvester Comprehensive Cancer Center (Pegasus), AdventHealth (Winter Haven → Orlando TRI) as clinical/equity arm<br><strong>Not the lead IT partner:</strong> Moffitt’s commercial OCI–NVIDIA–Deloitte shared fabric (see internal <a href="florida-hub-partnership-assessment.md">florida-hub-partnership-assessment.md</a>)<br><strong>Date:</strong> September 15, 2026<br><strong>Science note:</strong> Native EM-Seq <strong>MHB/MHL + overall-survival</strong> (<code>cfdna_emseq_mhl_survival</code>) implements the <em>published</em> Wong/Wang 2026 method class; that is not a Moffitt enterprise deployment.</p>
+<hr>
+<h2>1. Executive Summary &amp; Strategic Vision</h2>
+<h3>The Mission</h3>
+<p>Goliath Research Inc., based in <strong>Winter Haven</strong>, is offering <strong>GoliathOmics</strong> as an open, community-accessible multiomics platform so that <strong>grant dollars buy sequencing and care, not software seats</strong>. The goal is statewide access at the lowest possible cost—especially in Polk / Heartland counties that sit between NCI centers but do not share Tampa’s enterprise cloud budget.</p>
+<p>We seek <strong>academic HPC hosts</strong> that already paid for GPUs (UF HiPerGator, Sylvester Pegasus) and a <strong>local clinical arm</strong> (AdventHealth Winter Haven → Orlando Translational Research Institute). We are <strong>not</strong> proposing to replace Moffitt’s OCI–NVIDIA–Deloitte fabric, ThinkHub tumor boards, or digital-pathology stack.</p>
+<h3>The Problem in Cancer Genomics &amp; Early Detection</h3>
+<p>Modern oncology diagnostics increasingly require combining multiple genomic modalities—liquid biopsy cell-free DNA (cfDNA) methylation, whole-genome bisulfite sequencing (WGBS), enzymatic methylation sequencing (EM-Seq), RNA-Seq transcriptomics, and mass-spectrometry proteomics. However, clinical translation is severely hindered by three universal bottlenecks:</p>
+<ol>
+<li><strong>Computational Inefficiency &amp; Modality Sprawl:</strong> Each omics assay traditionally requires a bespoke software stack, multiplying compute costs and fragmenting bioinformatics workflows across disconnected pipelines.</li>
+<li><strong>Proprietary Software Lock-In &amp; Budget Drain:</strong> Commercial diagnostic platforms often saddle academic medical centers with expensive proprietary database licenses and closed-source runtimes, diverting grant dollars away from clinical sequencing.</li>
+<li><strong>Methodological Artifacts &amp; Data Leakage:</strong> Paired-end read-overlap double counting, reference bias in linear genome alignment, and accidental mixing of training and holdout patients (&quot;data leakage&quot;) lead to irreproducible biomarker claims.</li>
+<li><strong>The &quot;FDA Chasm&quot;:</strong> Academic discoveries frequently stall because research pipelines lack the auditability, configuration locking, patient-partition enforcement, and traceability needed for CLIA validation and FDA Software as a Medical Device (SaMD) regulatory clearance.</li>
+</ol>
+<h3>The Solution: GoliathOmics with a 100% Free Toolchain Foundation</h3>
+<p><strong>GoliathOmics</strong> is an enterprise-grade, regulatory-ready platform designed for comprehensive genomics and multiomics diagnostic development. It is built entirely on a <strong>free and open-source toolchain</strong>:</p>
+<ul>
+<li><strong>PostgreSQL as the Single, Unified Database:</strong> All database operations (configuration, task scheduling, leases, audit logs) run on open-source <strong>PostgreSQL</strong>. There are no recurring database license fees. The same engine deploys on bare-metal institutional HPC clusters, private servers, or any cloud (AWS, GCP, Azure).</li>
+<li><strong>Open Language Stack:</strong> The platform is written in modern, auditable, open-source languages: <strong>Python</strong>, <strong>Mojo</strong>, native <strong>C / HTSlib</strong>, and <strong>TypeScript</strong>.</li>
+<li><strong>Packs Architecture for &quot;Anything Genomics&quot;:</strong> Couples generalized genomics services with modular <strong>Process Packs</strong> (DNA Methylation, RNA-Seq, Proteomics, Variant Calling) on a unified modeling plane.</li>
+<li><strong>Backend Database &amp; Orchestration Engine (<code>GoliathWorkflow</code>):</strong> The distributed execution engine managing DomainProgram compilation, task queues, lease recovery, Content-Addressed Action Store (CAAS) caching, and SaMD claim gates over PostgreSQL.</li>
+<li><strong>Open-source alignment and extraction (published method class, MIT):</strong><ul>
+<li><strong><code>mojo-align</code></strong>: Native-Mojo multi-GPU alignment engine (linear path follows <strong>bwa-meth</strong>; pangenome path follows methylGrapher / vg giraffe) delivering pangenome graph alignment (eliminating reference bias across diverse Florida populations) on NVIDIA CUDA and AMD ROCm.</li>
+<li><strong><code>MethylExtractor</code></strong>: MIT fork of <strong>MethylDackel</strong> — high-throughput C cytosine extractor with coordinate-based paired-end mate clipping to eliminate double-counting artifacts, writing high-density chunked Zstd HDF5 storage.</li>
+</ul>
+</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    subgraph Client_Layer[&quot;Clinical &amp; Research Users (Florida HPC + community hospitals)&quot;]
+        UI[&quot;EpiPortal Web Interface · REST API Services · CLI Administration&quot;]
+    end
+
+    subgraph GoliathOmics_Platform[&quot;&lt;b&gt;GoliathOmics Platform Layer&lt;/b&gt; (Exposed Services for Anything Genomics)&quot;]
+        direction TB
+        subgraph Packs[&quot;Modular Packs Architecture&quot;]
+            direction LR
+            P_METH[&quot;&lt;b&gt;DNA Methylation Pack&lt;/b&gt;&lt;br/&gt;WGBS · EM-Seq · cfDNA&lt;br/&gt;FeatureCuts · MHB/MHL + Cox&quot;]
+            P_RNA[&quot;&lt;b&gt;RNA-Seq Pack&lt;/b&gt;&lt;br/&gt;STAR / Kallisto Quant&lt;br/&gt;Expression &amp; DE Panels&quot;]
+            P_PROT[&quot;&lt;b&gt;Proteomics Pack&lt;/b&gt;&lt;br/&gt;DIA-NN · Sage · Prosit&lt;br/&gt;Mass-Spec Feature Seam&quot;]
+            P_VAR[&quot;&lt;b&gt;Genomic Variant Pack&lt;/b&gt;&lt;br/&gt;Somatic / Germline SNVs&lt;br/&gt;Fragmentomics &amp; CNV&quot;]
+        end
+        FEAT_SEAM[&quot;&lt;b&gt;Unified Feature Seam&lt;/b&gt; (samples × features tabular modeling)&quot;]
+        Packs --&gt; FEAT_SEAM
+    end
+
+    subgraph Backend_Engine[&quot;&lt;b&gt;GoliathWorkflow&lt;/b&gt; Engine · Open-Source PostgreSQL&quot;]
+        direction LR
+        DB[(&quot;&lt;b&gt;PostgreSQL Single DB&lt;/b&gt;&lt;br/&gt;&lt;code&gt;cfg&lt;/code&gt; &amp; &lt;code&gt;wf&lt;/code&gt; Schemas&lt;br/&gt;&lt;i&gt;(Free · Open-Source · Portable)&lt;/i&gt;&quot;)]
+        GW_ENG[&quot;Distributed Gateway &amp; Scheduler&lt;br/&gt;DomainProgram Compiler&quot;]
+        CAAS[&quot;CAAS Content-Addressed Store&lt;br/&gt;Zero-Redundancy Compute&quot;]
+        SAMD[&quot;SaMD State Machine&lt;br/&gt;Claim Gates &amp; Partitions&quot;]
+        DB &lt;--&gt; GW_ENG &lt;--&gt; CAAS &lt;--&gt; SAMD
+    end
+
+    subgraph Compute_Hardware[&quot;High-Performance Execution Layer&quot;]
+        MA[&quot;&lt;b&gt;mojo-align&lt;/b&gt;&lt;br/&gt;GPU Pangenome &amp; Linear Aligner&lt;br/&gt;&lt;i&gt;(NVIDIA CUDA &amp; AMD ROCm)&lt;/i&gt;&quot;]
+        ME[&quot;&lt;b&gt;MethylExtractor&lt;/b&gt;&lt;br/&gt;High-Throughput C Extractor&lt;br/&gt;&lt;i&gt;(Coordinate Clip &amp; Zstd HDF5)&lt;/i&gt;&quot;]
+        WORKERS[&quot;Stateless GPU/CPU Workers&lt;br/&gt;&lt;i&gt;(HiPerGator · Pegasus · hospital BYOC)&lt;/i&gt;&quot;]
+    end
+
+    UI --&gt; GoliathOmics_Platform
+    GoliathOmics_Platform &lt;--&gt; Backend_Engine
+    Backend_Engine --&gt; Compute_Hardware
+</pre>
+<hr>
+<h2>2. Core Architectural Pillars: Free Toolchain &amp; Zero Vendor Lock-In</h2>
+<h3>1. PostgreSQL: Zero License Fees, Maximum Data Sovereignty</h3>
+<ul>
+<li><strong>Single Database Architecture:</strong> GoliathWorkflow consolidates all system schemas (<code>cfg</code> configuration registry, <code>wf</code> workflow orchestration, worker leases, node executions, and audit records) exclusively onto <strong>PostgreSQL</strong>.</li>
+<li><strong>No proprietary database licenses:</strong> Partners are not billed for commercial database seats; PostgreSQL is free to run at any scale the institution already operates.</li>
+<li><strong>True Deployment Agnosticism (BYOC):</strong> PostgreSQL runs identically on UF HiPerGator or Sylvester Pegasus partitions, a community-hospital Linux GPU, or any cloud (AWS, GCP, Azure, OCI). Sensitive clinical sequencing data remains inside the <strong>host institution’s</strong> boundary—we do not require a new commercial AI tenancy.</li>
+</ul>
+<h3>2. Open-Source Codebase</h3>
+<ul>
+<li><strong>Auditability &amp; Community Maintenance:</strong> The entire codebase is implemented in open, transparent, and reproducible languages:<ul>
+<li><strong>Python:</strong> Clean Pydantic data schemas, statistical validation, and orchestration compiler.</li>
+<li><strong>Mojo:</strong> Next-generation systems programming language for GPU kernels and pangenome graph alignment.</li>
+<li><strong>C / HTSlib:</strong> High-performance cytosine calling and binary compression.</li>
+<li><strong>TypeScript / React:</strong> Clean, responsive clinical and laboratory operator interfaces.</li>
+</ul>
+</li>
+<li><strong>Grant Budget Optimization:</strong> Because the entire software stack is built on free and open-source foundations, <strong>100% of grant funding</strong> (from the Florida Department of Health or NIH) goes directly toward clinical personnel, biobank retrieval, wet-lab reagents, and compute—with zero budget wasted on commercial software licenses.</li>
+</ul>
+<hr>
+<h2>3. Platform Architecture: The &quot;Packs&quot; Ecosystem for Anything Genomics</h2>
+<p>GoliathOmics avoids the trap of single-assay monolithic software by organizing science into three decoupled layers: <strong>Process Packs</strong>, <strong>Assay Procedure Packs</strong>, and <strong>Application Packs</strong>.</p>
+<pre class="mermaid">flowchart LR
+    subgraph Process[&quot;1. Process Packs (Modality)&quot;]
+        METH[&quot;Methylation&lt;br/&gt;(WGBS / EM-Seq)&quot;]
+        RNA[&quot;RNA-Seq&lt;br/&gt;(Expression / DE)&quot;]
+        PROT[&quot;Proteomics&lt;br/&gt;(DIA-NN / Sage)&quot;]
+    end
+
+    subgraph Procedure[&quot;2. Assay Procedure Packs (Protocol)&quot;]
+        BUFFY[&quot;buffy_wgbs_pangenome_gene_fc&quot;]
+        CFDNA[&quot;cfdna_wgbs_plasma&quot;]
+        EMSEQ[&quot;cfdna_emseq_targeted&quot;]
+        MHL[&quot;cfdna_emseq_mhl_survival&quot;]
+        RNA_PROC[&quot;rna_parabricks_star_de&quot;]
+    end
+
+    subgraph Application[&quot;3. Application Packs (Indication)&quot;]
+        PROST[&quot;Prostate Cancer Gatekeeper&quot;]
+        MCRPC[&quot;mCRPC OS Prognosis&lt;br/&gt;(Wong / Wang method class)&quot;]
+        MCED[&quot;Multi-Cancer Liquid Biopsy&quot;]
+        AD[&quot;Alzheimer cfDNA&quot;]
+    end
+
+    METH --&gt; BUFFY &amp; CFDNA &amp; EMSEQ &amp; MHL
+    RNA --&gt; RNA_PROC
+    BUFFY --&gt; PROST
+    CFDNA --&gt; PROST &amp; MCED &amp; AD
+    EMSEQ --&gt; PROST &amp; MCED
+    MHL --&gt; MCRPC
+</pre>
+<h3>The Three-Layer Packs Model</h3>
+<ol>
+<li><strong>Process Packs (Omics Modalities):</strong> Defines data structures, QC contracts, and typed actions for an analytical modality:<ul>
+<li><strong>DNA Methylation Pack:</strong> FASTQ ingress, pangenome/linear bisulfite alignment, coordinate-clipped extraction, CpG/CHG/CHH methylation metrics, and read-level co-methylation pattern tiles.</li>
+<li><strong>RNA-Seq Transcriptomics Pack:</strong> GPU-accelerated STAR alignment (<code>sample.parabricks_rna_fq2bam</code>) or pseudo-alignment (<code>kallisto</code>), RNA QC contracts, differential expression (DE) feature selection, and tabular integration.</li>
+<li><strong>Mass-Spectrometry Proteomics Pack:</strong> GPU-accelerated DIA-NN, CPU Sage DDA, Prosit/Casanovo spectral prediction, and protein matrix ingestion.</li>
+<li><strong>Multiomics Seam:</strong> Joins disparate data streams into a standardized <code>samples × features</code> modeling layer for unified machine learning classification.</li>
+</ul>
+</li>
+<li><strong>Assay Procedure Packs (Protocols &amp; Recipes):</strong> Curated, versioned configurations that specify exactly how a sample matrix is sequenced and scored without modifying underlying code:<ul>
+<li><code>cfdna_wgbs_plasma</code>: Plasma cfDNA whole-genome bisulfite sequencing with integrated fragmentomics.</li>
+<li><code>buffy_wgbs_pangenome_gene_fc</code>: Peripheral blood buffy coat WGBS using pangenome graph alignment and Houseman/HiTIMED immune cell deconvolution.</li>
+<li><code>cfdna_emseq_targeted</code>: Targeted deep enzymatic capture (2,000×–5,000× depth) using operator-supplied BED panels and coverage capping — <strong>gene FeatureCuts / ECDF classification</strong>.</li>
+<li><code>cfdna_emseq_mhl_survival</code>: Same EM-Seq SamplePrep; native methylation-haplotype-block (MHB) discovery or locked BED, Guo/Wong <strong>methylation haplotype load (MHL)</strong>, and <strong>Cox / KM / time-AUC</strong> (optional nomogram). Does <strong>not</strong> replace FeatureCuts; it is the method class in Wong et al., <em>npj Precis Oncol</em> (2026) 10:29 (published from the Wang laboratory). Open implementation for any Florida PI—not a Moffitt IT integration.</li>
+</ul>
+</li>
+<li><strong>Application Packs (Clinical Indications &amp; Disease Overlays):</strong> Lightweight configuration overlays applying clinical cohorts, stage hierarchies, and regulatory settings for specific diseases (e.g., Prostate Cancer Gatekeeper, <strong>mCRPC overall-survival prognosis</strong>, Alzheimer cfDNA, Pan-Cancer Early Detection) with <strong>zero code changes</strong>.</li>
+</ol>
+<hr>
+<h2>4. The Product Suite: Core Technical Attributes &amp; Differentiators</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Product / Component</th>
+<th align="left">Architectural Layer</th>
+<th align="left">Primary Technology</th>
+<th align="left">Key Differentiators</th>
+<th align="left">Clinical &amp; Operational Impact</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong><code>GoliathOmics</code></strong></td>
+<td align="left"><strong>Clinical &amp; Scientific Platform Layer</strong></td>
+<td align="left">TypeScript, Python, OpenAPI, Pydantic</td>
+<td align="left">• Modular Packs Architecture (Methylation, RNA-Seq, Proteomics)<br/>• Unified multiomics <code>samples × features</code> modeling seam<br/>• General-purpose genomics services with automated clinical reporting</td>
+<td align="left">• Eliminates modality sprawl; unifies multiomics under one roof<br/>• Deploys new cancer indications via config overlays in hours</td>
+</tr>
+<tr>
+<td align="left"><strong><code>GoliathWorkflow</code></strong></td>
+<td align="left"><strong>Backend Database &amp; Engine</strong></td>
+<td align="left"><strong>Single PostgreSQL Database</strong> (<code>cfg</code> &amp; <code>wf</code>), REST Gateway</td>
+<td align="left">• <strong>100% free / open-source toolchain</strong><br/>• Four-layer configuration hierarchy (Site → Profile → Study → Program)<br/>• Monte Carlo stability selection &amp; biological FeatureCuts<br/>• Content-Addressed Action Store (CAAS) for zero-redundancy compute<br/>• Built-in FDA SaMD evidence ladder with code-enforced claim gates</td>
+<td align="left">• Zero database license fees; runs on any cloud or local HPC<br/>• Enforces strict reproducibility and zero data leakage<br/>• Slashes compute costs via CAAS caching across large cohorts<br/>• Auto-assembles FDA 510(k)/De Novo submission scaffolds</td>
+</tr>
+<tr>
+<td align="left"><strong><code>mojo-align</code></strong></td>
+<td align="left"><strong>Open-source GPU alignment</strong></td>
+<td align="left">Modular <strong>Mojo</strong>, CUDA/ROCm DeviceContext, SIMD (<strong>MIT</strong>; bwa-meth / methylGrapher lineage)</td>
+<td align="left">• Dual-graph pangenome WGBS (<code>MojoGiraffe</code> C2T ∥ G2A)<br/>• Linear WGBS <code>fq2bam-meth</code> matching/beating Clara Parabricks<br/>• Zero-dialect portability across NVIDIA CUDA &amp; AMD ROCm</td>
+<td align="left">• Eliminates reference bias across diverse Florida demographics<br/>• Slashes alignment wall-clock time and cloud GPU costs by &gt;60%</td>
+</tr>
+<tr>
+<td align="left"><strong><code>MethylExtractor</code></strong></td>
+<td align="left"><strong>Open-source extraction &amp; QC</strong></td>
+<td align="left">Native <strong>C / HTSlib</strong>, OpenMP, HDF5, Zstd (<strong>MIT</strong> MethylDackel fork)</td>
+<td align="left">• Coordinate-based overlapping read pair clipping<br/>• Compact 12-byte on-disk record with Zstd chunking<br/>• Native extraction manifests &amp; context QC sidecars</td>
+<td align="left">• Completely removes artificial double-counting in paired-end WGBS<br/>• Slashes storage footprint by &gt;70% compared to bedGraph/TSV</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>Deep Dive 1: <code>mojo-align</code> — Next-Generation Multi-GPU Sequence Alignment</h3>
+<p>Traditional bisulfite aligners (e.g., Bismark, BWA-meth) are CPU-bound, taking 15–30 hours per 30× human genome. While proprietary accelerators exist (such as NVIDIA Clara Parabricks), they enforce vendor lock-in and cannot perform graph-aware pangenome bisulfite alignment.</p>
+<ul>
+<li><strong>Dual-Graph Pangenome Alignment (<code>MojoGiraffe</code>):</strong> Implements dual C2T and G2A graph streaming alignment over GBZ pangenome reference graphs (e.g., Human Pangenome Reference Consortium). It maps bisulfite reads directly to variation graphs, emitting graph-aware GAF alignments that completely resolve structural variation bias and mapping dropouts in repetitive or hypervariable cancer loci.</li>
+<li><strong>Portable Linear Acceleration (<code>fq2bam-meth</code>):</strong> Open-source Mojo implementation of the published <strong>bwa-meth</strong> linear WGBS method. It operates across NVIDIA GPUs (sm_90/GH200/H100) and AMD Instinct GPUs (MI300X) through a unified DeviceContext abstraction, streaming BAMs directly into memory-managed sorting, mate-fixing, and duplicate marking.</li>
+<li><strong>Automated Memory-Aware Tiling:</strong> Dynamically sizes GPU allocations and uncompressed BAM buffers against available hardware High Bandwidth Memory (HBM), enabling seamless execution across varying hardware tiers without out-of-memory crashes.</li>
+</ul>
+<h3>Deep Dive 2: <code>MethylExtractor</code> — Deterministic, High-Throughput Cytosine Extraction</h3>
+<p><code>MethylExtractor</code> is an MIT <strong>MethylDackel</strong> fork (Devon P. Ryan), not a closed-source extractor. Methylation calling from bisulfite BAM files is notoriously vulnerable to technical artifacts that distort downstream statistical classifiers.</p>
+<ul>
+<li><strong>Coordinate-Based Overlapping Mate Clipping:</strong> In paired-end sequencing, paired reads frequently overlap in the middle of sequenced fragments. Standard extraction tools double-count cytosines in these overlapping segments, falsely inflating coverage and skewing methylation ratios. <code>MethylExtractor</code> implements precise coordinate-based clipping (<code>bases_skipped_overlap_clip</code>), ensuring every genomic cytosine is counted exactly once per sequenced molecule.</li>
+<li><strong>Optimized 12-Byte Binary Record &amp; Zstd HDF5:</strong> Instead of bloated, multi-gigabyte text bedGraph files, <code>MethylExtractor</code> structures output into chunked HDF5 containers utilizing a 12-byte binary record per site (<code>genomic_pos: uint32</code>, <code>mC: uint16</code>, <code>uC: uint16</code>, <code>tnc: uint8</code>). Integrated Zstd compression provides rapid streaming I/O for cohort-wide discovery.</li>
+<li><strong>Rigorous Quality Gate Integration:</strong> Natively enforces MAPQ ≥ 30, Phred quality ≥ 20, coverage capping (<code>-C</code>) to counteract PCR bias, and emits comprehensive sample-level JSON manifests consumed directly by automated pipeline quality guardrails (<code>methylextractionqc</code>).</li>
+</ul>
+<h3>Deep Dive 3: <code>GoliathWorkflow</code> — SaMD-Ready Distributed Workflow &amp; Database Engine</h3>
+<p><code>GoliathWorkflow</code> serves as the robust backend database and execution plane for GoliathOmics, built from inception around software as a medical device (SaMD) principles:</p>
+<ul>
+<li><strong>Single PostgreSQL Database Engine:</strong> One open-source database for configuration and orchestration, with rock-solid ACID transactions, advisory locking, and clean schema migrations.</li>
+<li><strong>DomainProgram Intermediate Representation (IR):</strong> Workflows are declared as structured JSON graphs supporting typed actions, loops (<code>foreach</code>), branching (<code>if/then/else</code>), multi-way dispatch (<code>switch</code>), and concurrent branch execution.</li>
+<li><strong>Strict Four-Layer Configuration Hierarchy:</strong> Configuration is resolved across Site, Profile, Study Manifest, and Program layers. Tunable clinical parameters are declared strictly in configuration schemas—<strong>never hardcoded as constants</strong>.</li>
+<li><strong>Monte Carlo Stability Selection &amp; Biological FeatureCuts:</strong> Rather than selecting biomarkers from a single overfit training split, the engine runs Monte Carlo resampling cross-validation, computing recurrence frequencies and biological relevance (Storey FDR, STRING PPI, Enrichr pathways) to isolate invariant, stable biomarker signatures.</li>
+<li><strong>Content-Addressed Action Store (CAAS):</strong> Computes cryptographic signatures of all task inputs, parameters, and container environments. When downstream machine learning models or classification thresholds are modified, CAAS instantly reuses upstream alignment and extraction artifacts, saving hundreds of compute hours across cohort studies.</li>
+</ul>
+<hr>
+<h2>5. Clinical &amp; Cancer Focus: Early Detection &amp; Gatekeeper Diagnostics</h2>
+<h3>Liquid Biopsy &amp; Low-Tumor Fraction Challenges</h3>
+<p>Early-stage cancer detection in peripheral blood (cfDNA) operates at the biological limit of detection: circulating tumor fractions are frequently below 0.1% to 1.0%. GoliathOmics is specifically configured to overcome this barrier:</p>
+<ul>
+<li><strong>Host Immune Response &amp; ctDNA Synergy:</strong> Analyte-aware configurations support both whole-blood buffy coat profiling (capturing systemic immune and epigenetic remodeling) and plasma cfDNA (capturing tumor-derived hypomethylation and hypermethylated promoter marks).</li>
+<li><strong>Fragmentomics Integration:</strong> Integrates fragment length profiles, end-motif frequencies, and copy-number variation alongside methylation signals to boost sensitivity in ultra-low ctDNA regimes.</li>
+<li><strong>EM-Seq &amp; Targeted Deep Hybrid Capture:</strong> Natively supports high-depth enzymatic methylation capture protocols (2,000×–5,000× depth), applying panel-specific BED filtering and coverage capping to optimize diagnostic yield.</li>
+</ul>
+<h3>Method-level alignment with published Wong / Wang 2026 science</h3>
+<p>The published plasma cfDNA mCRPC work is <strong>haplotype-block MHL + time-to-event modeling</strong>, not mean-methylation FeatureCuts. GoliathOmics runs that <strong>method class</strong> as a first-class procedure so Florida PIs can use the paper’s science on an open engine without a classifier bake-off and <strong>without</strong> joining Moffitt’s commercial cloud.</p>
+<table>
+<thead>
+<tr>
+<th align="left">Wong et al. 2026 step</th>
+<th align="left">GoliathOmics today</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">EM-Seq + Twist capture BAM</td>
+<td align="left">Linear align (Parabricks <code>fq2bam_meth</code> or <code>mojo-align</code>); methylation BAM tags; operator <code>target_panel_bed</code></td>
+</tr>
+<tr>
+<td align="left">mHapSuite haplotypes</td>
+<td align="left">Same extract pass: <code>{chrom}-CG.mhap.h5</code> (native store; not a mHapSuite wrap)</td>
+</tr>
+<tr>
+<td align="left">MHBDiscovery (window 3, (r^2&gt;0.3), (p&lt;0.05))</td>
+<td align="left"><code>pipeline.mhb_mhl</code> with those defaults, or a <strong>locked</strong> operator MHB BED</td>
+</tr>
+<tr>
+<td align="left">MHL lengths 1–10; ≥3 CpGs; median reads &gt;50</td>
+<td align="left">Native MHL (<code>mhl_max_length</code> 10); same filter knobs</td>
+</tr>
+<tr>
+<td align="left">Cox PH, KM, time-dependent ROC, nomogram</td>
+<td align="left"><code>backend_profiles.cox</code> + study <code>survival_path</code> (time, event, optional PSA/ALP/LDH/ctDNA)</td>
+</tr>
+<tr>
+<td align="left">Nested test vs labs / predicted ctDNA</td>
+<td align="left">Optional nested LRT when those columns are on the sidecar</td>
+</tr>
+</tbody></table>
+<p><strong>What a collaborating lab still supplies (not hardcoded in product):</strong> capture panel BED and control regions, OS/labs dictionary, optional locked 15-MHB gene list. GREAT and an in-process ctdna.org API remain optional follow-ons. InformME entropy tiles and HiTIMED tumor fraction are <strong>not</strong> substitutes for MHL or the paper’s clinical ctDNA predictor.</p>
+<p>This path does <strong>not</strong> claim a rerun of the published 96-patient nomogram. A UF or Sylvester pilot can compare native MHL/Cox to mHapSuite+R on a shared subset.</p>
+<h3>Prostate &amp; Solid Tumor &quot;Gatekeeper&quot; Paradigms</h3>
+<p>A prime translational target for <strong>Central Florida community sites and academic HPC partners</strong> is non-invasive <strong>&quot;gatekeeper&quot; rule-out diagnostics</strong> to spare patients from unnecessary invasive biopsies:</p>
+<ul>
+<li><strong>High Negative Predictive Value (NPV ≥ 95%):</strong> Configured to optimize lower confidence bounds (LCB) for NPV in intended-use screening populations, separating indolent conditions (e.g., Gleason Grade 1 / 3+3) from clinically significant disease (Gleason Grade ≥ 2 / 3+4).</li>
+<li><strong>Disease Progression &amp; Staged Modeling:</strong> Built-in disease progression actions trace trajectory shifts across pre-malignant, early-stage, and metastatic phenotypes rather than simplistic binary distinctions.</li>
+<li><strong>Prognosis vs detection (keep the labels distinct):</strong> Gatekeeper NPV (FeatureCuts on <code>cfdna_emseq_targeted</code>) and mCRPC overall-survival nomograms (MHL on <code>cfdna_emseq_mhl_survival</code>) are <strong>separate intended uses</strong>. Partners can run both; they must not be scored as if they were the same study.</li>
+</ul>
+<hr>
+<h2>6. Built-in SaMD &amp; Regulatory Rigor: Solving the &quot;FDA Chasm&quot;</h2>
+<p>Academic software almost universally fails regulatory review because the development history lacks verifiable traceability. GoliathOmics and its GoliathWorkflow backend satisfy FDA 21 CFR Part 820, ISO 13485, and Good Machine Learning Practice (GMLP) requirements.</p>
+<pre class="mermaid">flowchart TD
+    subgraph Ladder[&quot;Three-Profile SaMD Lifecycle Ladder&quot;]
+        P1[&quot;&lt;b&gt;1. samd_research&lt;/b&gt;&lt;br/&gt;Exploratory discovery · Hyperparameter tuning&lt;br/&gt;Patient-disjoint partitions recommended&quot;]
+        P2[&quot;&lt;b&gt;2. samd_holdout_enrichment&lt;/b&gt;&lt;br/&gt;Locked hyperparameters · Strict locked_test holdout&lt;br/&gt;Freeze biological panel · Reproducibility check&quot;]
+        P3[&quot;&lt;b&gt;3. samd_pivotal&lt;/b&gt;&lt;br/&gt;Pivotal validation cohort · Sealed independent test&lt;br/&gt;&lt;b&gt;Code-enforced claim gate unlocked&lt;/b&gt;&quot;]
+        P1 --&gt; P2 --&gt; P3
+    end
+
+    subgraph Scaffolds[&quot;Automated Regulatory Evidence Packages&quot;]
+        D1[&quot;&lt;b&gt;Release Identity:&lt;/b&gt; Docker &amp; Git SHA hashes&quot;]
+        D2[&quot;&lt;b&gt;Data Provenance:&lt;/b&gt; Non-overlapping partition IDs&quot;]
+        D3[&quot;&lt;b&gt;Analytical Verification:&lt;/b&gt; Monte Carlo stability CIs&quot;]
+        D4[&quot;&lt;b&gt;Clinical Metrics:&lt;/b&gt; Wilson LCB for Sensitivity, Specificity, NPV&quot;]
+        D5[&quot;&lt;b&gt;FDA Submission Scaffolds:&lt;/b&gt; Auto-generated 510(k) / De Novo topic maps&quot;]
+        P3 --&gt; D1 &amp; D2 &amp; D3 &amp; D4 &amp; D5
+    end
+</pre>
+<h3>Architectural Controls &amp; Quality Assurances</h3>
+<ol>
+<li><strong>Code-Enforced Claim Gates:</strong> The platform actively blocks clinical performance claims in software output if the study configuration is set to exploratory or research stages. Clinical claim generation is permitted <em>only</em> when executed under <code>samd_pivotal</code> against declared, untouched holdout partitions.</li>
+<li><strong>Strict Patient-Disjoint Partition Enforcement:</strong> Enforces patient-level independence keys across all splits, mathematically preventing longitudinal or multi-sample data leakage between training and validation cohorts.</li>
+<li><strong>Immutable Audit Trails (<code>.action_results</code>):</strong> Every node execution outputs a cryptographic manifest capturing input hashes, tool revisions, hardware flags, random seeds, and execution durations.</li>
+<li><strong>Automated Submission Scaffolding:</strong> Natively generates pre-formatted documentation mapping analytical and clinical results directly into FDA 510(k), De Novo, and CLIA analytical validation topic formats.</li>
+</ol>
+<hr>
+<h2>7. Strategic Alignment &amp; Joint Funding Roadmap</h2>
+<p><strong>UF or Sylvester</strong> is the grant-eligible cancer-institute lead and HPC host. <strong>Goliath Research (Winter Haven)</strong> is the technology co-investigator. <strong>AdventHealth (Winter Haven / Orlando TRI)</strong> is the Polk–Central Florida clinical and community-access arm. Compute runs as <strong>BYOC on HiPerGator or Pegasus</strong> (or a small hospital GPU)—not as a new commercial AI tenancy.</p>
+<p>Mayo Florida (GCP enterprise) and Moffitt (OCI enterprise) are <strong>not</strong> lead IT partners; see <a href="florida-hub-partnership-assessment.md">florida-hub-partnership-assessment.md</a>.</p>
+<h3>Funding Target 1: Florida Cancer Innovation Fund (FCIF) — FY 2026–2027 (Immediate Priority)</h3>
+<ul>
+<li><strong>Funding Available:</strong> ~$70 Million total state appropriation; up to <strong>$2,000,000</strong> per award for a 12-month project.</li>
+<li><strong>Upcoming Deadlines:</strong> <strong>Period 2: October 22, 2026</strong>; Period 3: December 18, 2026.</li>
+<li><strong>Target Categories:</strong> <em>Rapid Translation Grant</em> or <em>High-Impact Pilot Grant</em> (Novel Technologies for Diagnosis).</li>
+<li><strong>Strategic Positioning:</strong><ul>
+<li><strong>Lead Applicant:</strong> UF Health Cancer Center <strong>or</strong> Sylvester Comprehensive Cancer Center (licensed Florida cancer institute; HPC already in place).</li>
+<li><strong>Technology co-investigator:</strong> Goliath Research Inc. (Winter Haven).</li>
+<li><strong>Clinical / equity arm:</strong> AdventHealth Winter Haven and Orlando TRI (Polk / Heartland access).</li>
+<li><strong>Project Concept:</strong> <em>&quot;Open-toolchain, pangenome-aware liquid biopsy for underserved Central Florida populations, hosted on academic HPC.&quot;</em> Optional published-method arm: MHL+OS concordance (<code>cfdna_emseq_mhl_survival</code>) as science, not as a FeatureCuts substitute.</li>
+<li><strong>Zero Software Licensing Overhead:</strong> PostgreSQL and open tools so the request funds personnel, sequencing, and HPC queue time—not seats or OCI markup.</li>
+<li><strong>Measurable 12-Month Deliverables:</strong> Deploy GoliathOmics on HiPerGator or Pegasus; process a Polk/Central Florida retrospective cfDNA or WGBS set via AdventHealth; establish locked research metrics with Wilson CIs; document $0 software licenses.</li>
+</ul>
+</li>
+</ul>
+<h3>Funding Target 2: Bankhead-Coley Cancer Research Program (FY 2026–2027)</h3>
+<ul>
+<li><strong>Funding Available:</strong> $600,000 to $1,500,000 over 36–48 months.</li>
+<li><strong>Target Mechanism:</strong> <em>Technology Transfer Feasibility</em> or <em>Discovery Science</em>.</li>
+<li><strong>Focus:</strong> Deepening clinical validation of early-detection markers (e.g., localized prostate cancer rule-out or lung cancer liquid biopsy) using UF/Sylvester science cores and AdventHealth residual or prospective samples.</li>
+</ul>
+<h3>Funding Target 3: Federal NIH / NCI Mechanisms (Parallel Pipeline)</h3>
+<ul>
+<li><strong>NCI Informatics Technology for Cancer Research (ITCR U01/U24):</strong> Open-access informatics platforms—natural fit for UF or Sylvester as academic home.</li>
+<li><strong>NIH/NCI Academic–Industrial Partnerships (PAR-25-338):</strong> Only if the academic lead is UF or Sylvester (not an OCI/GCP enterprise tenancy).</li>
+<li><strong>SBA SBIR / STTR Fast-Track (Phase I/II):</strong> Non-dilutive validation funding (up to $2.4M).</li>
+</ul>
+<hr>
+<h2>8. Proposed Collaboration &amp; Governance Model</h2>
+<pre><code class="language-text">┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                               COLLABORATION FRAMEWORK                                  │
+├─────────────────────────────┬──────────────────────────────┬───────────────────────────┤
+│ UF or Sylvester             │ Goliath Research (Winter     │ AdventHealth Winter Haven │
+│                             │ Haven)                       │ / Orlando TRI             │
+│ • FCIF-eligible lead / PI   │ • Technology co-investigator │ • Polk / Heartland access │
+│ • HiPerGator or Pegasus GPU │ • GoliathOmics deploy &amp;      │ • Residual / community    │
+│ • Science cores, IRB home   │   SaMD evidence packaging    │   cohorts, local IRB      │
+└─────────────────────────────┴──────────────────────────────┴───────────────────────────┘
+                                           │
+                                           ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                COMMUNITY BENEFIT                                       │
+│ • 100% free toolchain: PostgreSQL, Python, Mojo, C — ZERO software seat licenses.      │
+│ • Compute on academic HPC or hospital BYOC — not a new commercial AI tenancy.          │
+│ • Data sovereignty: PHI stays in the host institution firewall.                        │
+│ • IP: partners own clinical discoveries and panels; Goliath retains core software IP.  │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr>
+<h2>9. Immediate Next Steps &amp; Action Checklist</h2>
+<ol>
+<li><strong>Track A — grant-eligible HPC (this month, before FCIF Period 2):</strong><ul>
+<li>UF Bioinformatics / computational biology shared resource: HiPerGator queue pilot (20–50 de-identified samples; wall-clock vs nf-core/Bismark).</li>
+<li>Sylvester Cancer Epigenetics / Precision Medicine: same pilot on Pegasus; pangenome + cfDNA story for South Florida diversity.</li>
+</ul>
+</li>
+<li><strong>Track B — local clinical access:</strong><ul>
+<li>AdventHealth Winter Haven and Orlando TRI: residual plasma, Polk equity narrative, community screening overlay.</li>
+</ul>
+</li>
+<li><strong>LOI / MOU:</strong><ul>
+<li>Name <strong>UF or Sylvester</strong> as corresponding PI / lead applicant; Goliath as technology co-I; AdventHealth as clinical site. Do not designate Moffitt Innovation as lead.</li>
+</ul>
+</li>
+<li><strong>Florida Cancer Innovation Fund (Period 2):</strong><ul>
+<li><strong>Deadline:</strong> October 22, 2026.</li>
+<li>Budget justification: <strong>$0 software licenses</strong>; HPC queue time + sequencing + Heartland access.</li>
+<li>Specific aims: deploy on academic HPC; Polk/Central Florida cohort; locked research metrics.</li>
+</ul>
+</li>
+<li><strong>System staging:</strong><ul>
+<li>Runtime bundle on HiPerGator or Pegasus (Slurm-friendly workers), not an OCI tenancy.</li>
+<li>Optional MHL concordance with a Florida PI using public/published methods (<code>cfdna_emseq_mhl_survival</code>)—not contingent on Moffitt enterprise IT.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h3>Contact Information</h3>
+<p><strong>Goliath Research Inc.</strong><br>Winter Haven, Florida<br><em>Leadership &amp; Technology Team</em><br>Email: <a href="mailto:partnerships@goliathresearch.com">partnerships@goliathresearch.com</a><br>Web: <a href="https://goliathresearch.com">goliathresearch.com</a><br>Platform: <strong>GoliathOmics</strong> (Powered by <code>GoliathWorkflow</code> [PostgreSQL], <code>MethylExtractor</code>, and <code>mojo-align</code>)  </p>
+
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      darkMode: false,
+      background: "#ffffff",
+      fontFamily: "Segoe UI, Helvetica Neue, Arial, sans-serif",
+      primaryColor: "#ccfbf1",
+      primaryTextColor: "#0f172a",
+      primaryBorderColor: "#0f766e",
+      lineColor: "#334155",
+      textColor: "#0f172a",
+      clusterBkg: "#f0fdfa",
+      clusterBorder: "#0d9488",
+      edgeLabelBackground: "#ffffff"
+    }
+  });
+  await mermaid.run({ querySelector: "pre.mermaid" });
+</script>
+<script>
+  // CDN blocked or offline: keep the page usable and say why.
+  window.addEventListener("load", () => {
+    if (!document.querySelector("pre.mermaid svg")) {
+      document.getElementById("mermaid-offline-note")?.classList.add("show");
+    }
+  });
+</script>
+</body>
+</html>

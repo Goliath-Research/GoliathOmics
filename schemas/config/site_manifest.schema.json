@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SiteManifest",
+  "description": "Site-wide infrastructure defaults for MethylPipeline (genomes, caches, cluster settings). Not study-specific.",
+  "type": "object",
+  "properties": {
+    "reference_selection": {
+      "type": "object",
+      "description": "Pinned inventory paths under /work/genomes (and goliath/genomes/). Inventory may hold many versions; only these pins are active. Operators set this at site/cfg — not Python defaults.",
+      "properties": {
+        "linear": {
+          "type": "string",
+          "description": "Relative path under genomes/ for the linear FASTA+indexes (e.g. linear/GRCh38/ensembl-116)"
+        },
+        "gene_annotation": {
+          "type": "string",
+          "description": "Relative path under genomes/ for GENCODE GTF (e.g. annotation/gencode/v50)"
+        },
+        "pangenome": {
+          "type": "string",
+          "description": "Relative path under genomes/ for the Giraffe bundle (e.g. pangenome/GRCh38/d9/1.70)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reference_genome": {
+      "type": "object",
+      "properties": {
+        "fasta": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "annotation": {
+      "type": "object",
+      "properties": {
+        "gtf": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "methyl_mapper_home": { "type": "string" },
+    "caches": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "parabricks": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "methyl_extract": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "pangenome_genome": {
+      "type": "object",
+      "description": "Stock HPRC / vg Giraffe pangenome graph bundle (surjected to linear_ref_fasta). Not bisulfite-aware; use pangenome_wgbs_genome / actionConfig.methylgrapher_wgbs for WGBS.",
+      "properties": {
+        "gbz": { "type": "string", "description": "Path to .gbz graph index" },
+        "dist": { "type": "string", "description": "Path to Giraffe distance index (.dist)" },
+        "min": { "type": "string", "description": "Path to Giraffe minimizer index (.min)" },
+        "zipcodes": { "type": "string", "description": "Path to Giraffe zipcodes index" },
+        "ref_paths": { "type": "string", "description": "Path to GRCh38 ref-paths file for surjection" },
+        "linear_ref_fasta": {
+          "type": "string",
+          "description": "Linear GRCh38 FASTA matching ref_paths (used by collectmultiplemetrics and MethylExtractor)"
+        }
+      },
+      "additionalProperties": true
+    },
+    "pangenome_wgbs_genome": {
+      "type": "object",
+      "description": "methylGrapher C2T/G2A bisulfite pangenome bundle (QNAP asset pangenome-grch38-d9-bs-1.70). Prefer baking paths into actionConfig.methylgrapher_wgbs for workers.",
+      "properties": {
+        "index_prefix": { "type": "string", "description": "PrepareGenome-style index prefix (e.g. /work/genomes/pangenome/GRCh38/d9-bs/1.70/hprc-d9-bs)" },
+        "c2t": {
+          "type": "object",
+          "properties": {
+            "gbz": { "type": "string" },
+            "dist": { "type": "string" },
+            "min": { "type": "string" },
+            "zipcodes": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "g2a": {
+          "type": "object",
+          "properties": {
+            "gbz": { "type": "string" },
+            "dist": { "type": "string" },
+            "min": { "type": "string" },
+            "zipcodes": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "original_gbz": { "type": "string" },
+        "ref_paths": { "type": "string" },
+        "cpg_tsv": { "type": "string" },
+        "node_replacement_json": { "type": "string" },
+        "linear_ref_fasta": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "rna_reference": {
+      "type": "object",
+      "description": "RNA-Seq reference assets for the transcriptomics process pack. STAR index + GTF feed pbrun rna_fq2bam; the kallisto index feeds pbrun kallisto. Operators pin these at site/cfg, not in Python.",
+      "properties": {
+        "star_index_dir": { "type": "string", "description": "Directory containing a STAR genome index (used by pbrun rna_fq2bam)" },
+        "gtf": { "type": "string", "description": "Gene annotation GTF for STAR gene counts / feature assignment" },
+        "reference_fasta": { "type": "string", "description": "Genome FASTA matching the STAR index" },
+        "kallisto_index": { "type": "string", "description": "Path to a prebuilt kallisto transcriptome index (.idx)" },
+        "transcriptome_fasta": { "type": "string", "description": "Transcriptome FASTA used to build the kallisto index" },
+        "tx2gene": { "type": "string", "description": "Optional transcript-to-gene map (TSV) for aggregating kallisto transcript abundances to genes" }
+      },
+      "additionalProperties": true
+    },
+    "proteomics_reference": {
+      "type": "object",
+      "description": "Proteomics reference assets for the mass-spec process pack. protein_fasta + spectral_library feed DIA-NN; prosit_model / casanovo_model pin DL weights (as cfg reference_assets). Operators pin these at site/cfg, not in Python.",
+      "properties": {
+        "protein_fasta": { "type": "string", "description": "Protein sequence FASTA for DIA-NN search / library-free prediction" },
+        "spectral_library": { "type": "string", "description": "DIA spectral library (.tsv/.speclib) for DIA-NN; omit for library-free" },
+        "prosit_model": { "type": "string", "description": "Pinned Prosit model weights path (rescoring / in-silico library)" },
+        "casanovo_model": { "type": "string", "description": "Pinned Casanovo model weights path (de novo)" }
+      },
+      "additionalProperties": true
+    },
+    "actionConfig": {
+      "type": "object",
+      "description": "Optional per-action defaults keyed by catalog action_config_key. QC slices use the site full-guardrails type; other keys remain free-form.",
+      "properties": {
+        "alignment_qc": {
+          "$ref": "sample_prep_guardrails.schema.json#/properties/alignment_qc"
+        },
+        "extraction_qc": {
+          "$ref": "sample_prep_guardrails.schema.json#/properties/extraction_qc"
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "testing": {
+      "type": "object",
+      "description": "Optional TestDataRegistry: designated real reference samples per analyte and named groups for @pytest.mark.real_data tests. See schemas/config/test_data_registry.schema.json and docs/reference/test-data-registry.md.",
+      "properties": {
+        "committed_fixture_dir": { "type": "string" },
+        "samples": {
+          "type": "object",
+          "description": "Reference samples keyed by analyte or logical name (e.g. cfdna, buffy_coat).",
+          "additionalProperties": { "type": "object", "additionalProperties": true }
+        },
+        "groups": {
+          "type": "object",
+          "description": "Named cohorts keyed by group name (e.g. healthy, PCa).",
+          "additionalProperties": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

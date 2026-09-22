@@ -1,0 +1,19 @@
+{
+  "name": "pangenome-grch38-d9-bs-1.70",
+  "version": "1",
+  "assetType": "pangenome_wgbs_bundle",
+  "destRoot": "/work/genomes/pangenome/GRCh38/d9-bs/1.70",
+  "storageEndpoint": "goliath-genomes",
+  "inventoryPrefix": "pangenome/GRCh38/d9-bs/1.70",
+  "recipe": {
+    "steps": [
+      { "op": "mkdir" },
+      {
+        "op": "s3_sync",
+        "storageEndpoint": "goliath-genomes",
+        "key": "pangenome/GRCh38/d9-bs/1.70/",
+        "dest": "/work/genomes/pangenome/GRCh38/d9-bs/1.70"
+      }
+    ]
+  }
+}

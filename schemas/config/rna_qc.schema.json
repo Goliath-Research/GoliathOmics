@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "min_genes_detected": {
+      "default": 5000,
+      "title": "Min Genes Detected",
+      "type": "integer"
+    },
+    "min_input_reads": {
+      "default": 1000000,
+      "title": "Min Input Reads",
+      "type": "integer"
+    },
+    "min_mapping_rate": {
+      "default": 0.5,
+      "title": "Min Mapping Rate",
+      "type": "number"
+    },
+    "min_pseudoalignment_rate": {
+      "default": 0.4,
+      "title": "Min Pseudoalignment Rate",
+      "type": "number"
+    },
+    "min_uniquely_mapped_rate": {
+      "default": 0.4,
+      "title": "Min Uniquely Mapped Rate",
+      "type": "number"
+    }
+  },
+  "title": "RnaQcGuardrailConfig",
+  "type": "object"
+}

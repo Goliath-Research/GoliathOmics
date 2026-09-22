@@ -1,0 +1,19 @@
+{
+  "name": "rna-grch38-kallisto-gencode-v50",
+  "version": "1",
+  "assetType": "rna_kallisto_index",
+  "destRoot": "/work/genomes/rna/GRCh38/kallisto",
+  "storageEndpoint": "goliath-genomes",
+  "inventoryPrefix": "rna/GRCh38/kallisto",
+  "recipe": {
+    "steps": [
+      { "op": "mkdir" },
+      {
+        "op": "s3_sync",
+        "storageEndpoint": "goliath-genomes",
+        "key": "rna/GRCh38/kallisto/",
+        "dest": "/work/genomes/rna/GRCh38/kallisto"
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+
+{
+  "model_path": "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/detection/pb-hc-1_G/classifier-2-CG.pkl",
+  "samples": [
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-051425-111148",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-060525-111386",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-060525-111387",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-060625-111394",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-061025-111424",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-061025-111427",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-061325-111495",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-062725-111661",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-063025-111652",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-071025-111803",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-071025-111804",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-071025-111805",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-071025-111806",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-071025-111807",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/DBCST-071125-111814"
+
+
+  ],
+  "output_path": "/home/ubuntu/working_dir/MethylClassifierResults/MethylClassifier_pb_hc1/2-CG/cancer_pre-pilot.csv",
+  "debug": false,
+  "no_filter": false,
+  "log_level": "INFO"
+}

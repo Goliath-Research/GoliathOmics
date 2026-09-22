@@ -1,0 +1,4400 @@
+{
+  "$defs": {
+    "BackendProfilesConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "cox": {
+          "$ref": "#/$defs/CoxBackendProfile"
+        },
+        "ecdf": {
+          "$ref": "#/$defs/EcdfBackendProfile"
+        },
+        "generative_hybrid": {
+          "$ref": "#/$defs/GenerativeBackendProfile"
+        },
+        "tabular_sklearn": {
+          "$ref": "#/$defs/TabularBackendProfile"
+        }
+      },
+      "title": "BackendProfilesConfig",
+      "type": "object"
+    },
+    "CompositionGroup": {
+      "additionalProperties": false,
+      "description": "A simplex (sum-to-1) covariate set encoded by additive log-ratio (ALR).\n\nEvery proportion/probability vector has one redundant part; ALR drops the\n``reference`` (default: last column) and emits ``K - 1`` log-ratio coordinates.\nOperators declare one group per composition (e.g. cell fractions); parts must\nbe disjoint across groups and from numeric/ordinal/categorical roles.",
+      "properties": {
+        "columns": {
+          "description": "Ordered simplex parts (K >= 2); values are closed to sum 1 before ALR.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Columns",
+          "type": "array"
+        },
+        "name": {
+          "description": "Group name (feature-provenance label).",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "pseudocount": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Numerical guard added before the log-ratio. Required per group when composition ALR runs; set in profile/site actionConfig (no code default).",
+          "title": "Pseudocount"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ALR denominator part; defaults to the last column when unset.",
+          "title": "Reference"
+        },
+        "standardize": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Z-score the ALR coordinates (default true). ALR coords are unbounded.",
+          "title": "Standardize"
+        }
+      },
+      "required": [
+        "name",
+        "columns"
+      ],
+      "title": "CompositionGroup",
+      "type": "object"
+    },
+    "CoxBackendParams": {
+      "additionalProperties": false,
+      "properties": {
+        "chromosome_distance_metrics": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Non-parametric sample-vs-centroid distance metrics for chromosome family: subset of js, hellinger, wasserstein. Default all three when null.",
+          "title": "Chromosome Distance Metrics"
+        },
+        "chromosome_hypo_beta_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Beta cutoff for hypomethylation burden features (chromosome family). Operator-set per profile/site; builder uses 0.2 when null.",
+          "title": "Chromosome Hypo Beta Threshold"
+        },
+        "chromosome_intermediate_beta_hi": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Upper bound for intermediate-methylation fraction (chromosome family). Default 0.75 when null.",
+          "title": "Chromosome Intermediate Beta Hi"
+        },
+        "chromosome_intermediate_beta_lo": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lower bound for intermediate-methylation fraction (chromosome family). Default 0.25 when null.",
+          "title": "Chromosome Intermediate Beta Lo"
+        },
+        "chromosome_list": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional chromosome allow-list for chromosome-family features. When null, chromosomes are inferred from the DMP panel.",
+          "title": "Chromosome List"
+        },
+        "clinical_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional lab columns from the survival sidecar (psa, alp, ldh, predicted_ctdna_fraction).",
+          "title": "Clinical Columns"
+        },
+        "covariate_categorical_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Categorical Columns"
+        },
+        "covariate_composition_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Columns"
+        },
+        "covariate_composition_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CompositionGroup"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Typed simplex covariate groups (ALR). Preferred over the single-group covariate_composition_* keys; parts must be disjoint from each other and from numeric/ordinal/categorical roles.",
+          "title": "Covariate Composition Groups"
+        },
+        "covariate_composition_pseudocount": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Legacy single-group ALR pseudocount. Required when using covariate_composition_transform; prefer covariate_composition_groups[].pseudocount.",
+          "title": "Covariate Composition Pseudocount"
+        },
+        "covariate_composition_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Reference"
+        },
+        "covariate_composition_transform": {
+          "anyOf": [
+            {
+              "const": "alr",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Transform"
+        },
+        "covariate_id_column": {
+          "default": "sample_id",
+          "title": "Covariate Id Column",
+          "type": "string"
+        },
+        "covariate_missing_numeric_strategy": {
+          "default": "mean",
+          "title": "Covariate Missing Numeric Strategy",
+          "type": "string"
+        },
+        "covariate_numeric_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Numeric Columns"
+        },
+        "covariate_ordinal_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Ordinal Columns"
+        },
+        "covariate_ordinal_maps": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Ordinal Maps"
+        },
+        "covariate_ordinal_unknown_value": {
+          "default": 0.0,
+          "title": "Covariate Ordinal Unknown Value",
+          "type": "number"
+        },
+        "covariate_standardize_numeric": {
+          "default": true,
+          "title": "Covariate Standardize Numeric",
+          "type": "boolean"
+        },
+        "covariates_missing_samples": {
+          "anyOf": [
+            {
+              "enum": [
+                "fail",
+                "drop"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Row policy when sample IDs are missing from the covariates sidecar. 'drop' excludes those samples from the covariate-using stage and warns. 'fail' raises. When unset, covariates_strict_join=true fails and false reindexes (cell impute; composition ALR still cannot fill a missing row). Operator-set per profile/site.",
+          "title": "Covariates Missing Samples"
+        },
+        "covariates_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariates Path"
+        },
+        "covariates_strict_join": {
+          "default": false,
+          "title": "Covariates Strict Join",
+          "type": "boolean"
+        },
+        "ecdf_second_stage_probability_epsilon": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 0.5,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ALR pseudocount for multiclass (K>2) first-stage class probabilities in the ECDF second stage. Not required for binary (K=2). Set in profile/site actionConfig (no code default).",
+          "title": "Ecdf Second Stage Probability Epsilon"
+        },
+        "ecdf_second_stage_probability_transform": {
+          "anyOf": [
+            {
+              "const": "logit_class1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ecdf Second Stage Probability Transform"
+        },
+        "feature_family_set": {
+          "default": "dmp_scored",
+          "title": "Feature Family Set",
+          "type": "string"
+        },
+        "feature_mode": {
+          "default": "raw_dmp",
+          "title": "Feature Mode",
+          "type": "string"
+        },
+        "gene_feature_loading": {
+          "default": "frozen",
+          "description": "For observed_hybrid gene-family features: frozen (use only frozen DMP loci) or range (expand to all loci inside frozen gene-feature ranges).",
+          "title": "Gene Feature Loading",
+          "type": "string"
+        },
+        "gene_scored_contrast_pairs": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional extra directional contrast pairs [[left, right], ...]; emits gene_directional_contrast__{left}__{right} = score(right)-score(left). Auto extreme pair added when K>=2 unless already listed.",
+          "title": "Gene Scored Contrast Pairs"
+        },
+        "gene_scored_gene_weight": {
+          "default": "importance_x_sqrt_support",
+          "description": "Gene-level weighting when pooling to gene_directional_score: importance_x_sqrt_support or importance_only.",
+          "title": "Gene Scored Gene Weight",
+          "type": "string"
+        },
+        "gene_scored_min_support_n": {
+          "default": 2,
+          "description": "Minimum gene_support_n for a gene to enter the gene_scored comparison panel (feature_family_set gene_scored or dmp_scored+gene_scored).",
+          "minimum": 1,
+          "title": "Gene Scored Min Support N",
+          "type": "integer"
+        },
+        "gene_scored_ordered_comparison_labels": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for gene_scored progression order. When null, order is taken from step_config.progression.ordered_comparison_labels or project get_ordered_comparison_labels().",
+          "title": "Gene Scored Ordered Comparison Labels"
+        },
+        "gene_scored_use_region_weight": {
+          "default": true,
+          "description": "Multiply per-locus weights by region_weight when building gene_directional_score features.",
+          "title": "Gene Scored Use Region Weight",
+          "type": "boolean"
+        },
+        "mapper_annotation_collapse_mode": {
+          "default": "priority",
+          "description": "How to collapse multi-feature mapper intersections to one row per locus in mapper_dmp_annotations.csv: priority (promoter>exon>intron>gene_body>terminator) or weight (legacy highest combined_weight wins).",
+          "title": "Mapper Annotation Collapse Mode",
+          "type": "string"
+        },
+        "mapper_annotation_unknown_fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "gene_body",
+          "description": "Parent feature bucket assigned to classifier loci with unknown or missing feature_type after mapper merge. Set null to leave unknown loci uncovered.",
+          "title": "Mapper Annotation Unknown Fallback"
+        },
+        "mapper_gene_columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mapper Gene Columns",
+          "type": "array"
+        },
+        "mhl_matrix_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to mhl_matrix.csv (samples \u00d7 blocks). Operator-set per procedure.",
+          "title": "Mhl Matrix Path"
+        },
+        "model_bundle_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Bundle Dir"
+        },
+        "model_weight_column": {
+          "default": "effect_size",
+          "title": "Model Weight Column",
+          "type": "string"
+        },
+        "nested_lrt": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Report nested LRT of MHL+labs vs labs-only. Operator-set.",
+          "title": "Nested Lrt"
+        },
+        "observed_feature_dmr_window_bp": {
+          "default": 100000,
+          "minimum": 1,
+          "title": "Observed Feature Dmr Window Bp",
+          "type": "integer"
+        },
+        "observed_feature_include_chromosome": {
+          "default": true,
+          "title": "Observed Feature Include Chromosome",
+          "type": "boolean"
+        },
+        "observed_feature_include_dmp": {
+          "default": true,
+          "title": "Observed Feature Include Dmp",
+          "type": "boolean"
+        },
+        "observed_feature_include_dmr": {
+          "default": true,
+          "title": "Observed Feature Include Dmr",
+          "type": "boolean"
+        },
+        "observed_feature_include_gene": {
+          "default": true,
+          "title": "Observed Feature Include Gene",
+          "type": "boolean"
+        },
+        "observed_feature_max_dmrs": {
+          "default": 32,
+          "minimum": 0,
+          "title": "Observed Feature Max Dmrs",
+          "type": "integer"
+        },
+        "observed_feature_max_genes": {
+          "default": 32,
+          "minimum": 0,
+          "title": "Observed Feature Max Genes",
+          "type": "integer"
+        },
+        "observed_feature_min_coverage": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Observed Feature Min Coverage",
+          "type": "integer"
+        },
+        "observed_feature_min_obs_fraction": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Observed Feature Min Obs Fraction",
+          "type": "number"
+        },
+        "observed_feature_quality_columns": {
+          "description": "Observed-hybrid columns computed and exported but excluded from model training.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Observed Feature Quality Columns",
+          "type": "array"
+        },
+        "observed_feature_quantiles": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Observed Feature Quantiles",
+          "type": "array"
+        },
+        "observed_hist_alpha": {
+          "default": 0.5,
+          "minimum": 0.0,
+          "title": "Observed Hist Alpha",
+          "type": "number"
+        },
+        "observed_hist_eps": {
+          "default": 1e-06,
+          "exclusiveMinimum": 0.0,
+          "title": "Observed Hist Eps",
+          "type": "number"
+        },
+        "observed_hist_evidence_clip_cap": {
+          "default": 5.0,
+          "minimum": 0.0,
+          "title": "Observed Hist Evidence Clip Cap",
+          "type": "number"
+        },
+        "observed_hist_tail_agreement_threshold": {
+          "default": 0.1,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Observed Hist Tail Agreement Threshold",
+          "type": "number"
+        },
+        "region_directional_min_loci": {
+          "default": 1,
+          "description": "Minimum panel loci in the classifier DMP index required to emit structural_scored columns for a (comparison, region) pair.",
+          "minimum": 1,
+          "title": "Region Directional Min Loci",
+          "type": "integer"
+        },
+        "region_directional_region_types": {
+          "description": "Structural region types considered when building structural_scored features (feature_family_set structural_scored or dmp_scored+structural_scored).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Region Directional Region Types",
+          "type": "array"
+        },
+        "structural_scored_contrast_pairs": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional extra directional contrast pairs [[left, right], ...] per region type; emits structural_directional_contrast__{left}__{right}__{region}. Auto extreme pair added when K>=2 unless already listed.",
+          "title": "Structural Scored Contrast Pairs"
+        },
+        "structural_scored_min_support_n": {
+          "default": 2,
+          "description": "Minimum n_dmps_in_feature for a gene-feature row to enter the structural_scored panel (feature_family_set structural_scored or dmp_scored+structural_scored).",
+          "minimum": 1,
+          "title": "Structural Scored Min Support N",
+          "type": "integer"
+        },
+        "structural_scored_ordered_comparison_labels": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for structural_scored progression order. When null, order is taken from step_config.progression.ordered_comparison_labels or project get_ordered_comparison_labels().",
+          "title": "Structural Scored Ordered Comparison Labels"
+        },
+        "structural_scored_use_region_weight": {
+          "default": true,
+          "description": "Multiply per-locus weights by region_weight when building structural_directional_score features.",
+          "title": "Structural Scored Use Region Weight",
+          "type": "boolean"
+        },
+        "structural_scored_weight": {
+          "default": "compound_x_sqrt_support",
+          "description": "Gene-feature weighting when pooling to structural_directional_score: compound_x_sqrt_support or compound_only.",
+          "title": "Structural Scored Weight",
+          "type": "string"
+        },
+        "tabular_max_dmps": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional cap for loci retained from model bundle. null/0 means keep all stable DMPs.",
+          "title": "Tabular Max Dmps"
+        },
+        "time_auc_horizons": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Horizons for time-dependent AUC. Operator-set; no coded Wong years.",
+          "title": "Time Auc Horizons"
+        },
+        "write_nomogram": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Write nomogram.json (coefficients + mean risk). Operator-set.",
+          "title": "Write Nomogram"
+        }
+      },
+      "title": "CoxBackendParams",
+      "type": "object"
+    },
+    "CoxBackendProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "params": {
+          "$ref": "#/$defs/CoxBackendParams"
+        }
+      },
+      "title": "CoxBackendProfile",
+      "type": "object"
+    },
+    "EcdfBackendParams": {
+      "additionalProperties": false,
+      "properties": {
+        "chromosome_distance_metrics": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Non-parametric sample-vs-centroid distance metrics for chromosome family: subset of js, hellinger, wasserstein. Default all three when null.",
+          "title": "Chromosome Distance Metrics"
+        },
+        "chromosome_hypo_beta_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Beta cutoff for hypomethylation burden features (chromosome family). Operator-set per profile/site; builder uses 0.2 when null.",
+          "title": "Chromosome Hypo Beta Threshold"
+        },
+        "chromosome_intermediate_beta_hi": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Upper bound for intermediate-methylation fraction (chromosome family). Default 0.75 when null.",
+          "title": "Chromosome Intermediate Beta Hi"
+        },
+        "chromosome_intermediate_beta_lo": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lower bound for intermediate-methylation fraction (chromosome family). Default 0.25 when null.",
+          "title": "Chromosome Intermediate Beta Lo"
+        },
+        "chromosome_list": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional chromosome allow-list for chromosome-family features. When null, chromosomes are inferred from the DMP panel.",
+          "title": "Chromosome List"
+        },
+        "covariate_categorical_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Categorical Columns"
+        },
+        "covariate_composition_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Columns"
+        },
+        "covariate_composition_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CompositionGroup"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Typed simplex covariate groups (ALR). Preferred over the single-group covariate_composition_* keys; parts must be disjoint from each other and from numeric/ordinal/categorical roles.",
+          "title": "Covariate Composition Groups"
+        },
+        "covariate_composition_pseudocount": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Legacy single-group ALR pseudocount. Required when using covariate_composition_transform; prefer covariate_composition_groups[].pseudocount.",
+          "title": "Covariate Composition Pseudocount"
+        },
+        "covariate_composition_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Reference"
+        },
+        "covariate_composition_transform": {
+          "anyOf": [
+            {
+              "const": "alr",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Transform"
+        },
+        "covariate_id_column": {
+          "default": "sample_id",
+          "title": "Covariate Id Column",
+          "type": "string"
+        },
+        "covariate_missing_numeric_strategy": {
+          "default": "mean",
+          "title": "Covariate Missing Numeric Strategy",
+          "type": "string"
+        },
+        "covariate_numeric_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Numeric Columns"
+        },
+        "covariate_ordinal_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Ordinal Columns"
+        },
+        "covariate_ordinal_maps": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Ordinal Maps"
+        },
+        "covariate_ordinal_unknown_value": {
+          "default": 0.0,
+          "title": "Covariate Ordinal Unknown Value",
+          "type": "number"
+        },
+        "covariate_standardize_numeric": {
+          "default": true,
+          "title": "Covariate Standardize Numeric",
+          "type": "boolean"
+        },
+        "covariates_missing_samples": {
+          "anyOf": [
+            {
+              "enum": [
+                "fail",
+                "drop"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Row policy when sample IDs are missing from the covariates sidecar. 'drop' excludes those samples from the covariate-using stage and warns. 'fail' raises. When unset, covariates_strict_join=true fails and false reindexes (cell impute; composition ALR still cannot fill a missing row). Operator-set per profile/site.",
+          "title": "Covariates Missing Samples"
+        },
+        "covariates_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariates Path"
+        },
+        "covariates_strict_join": {
+          "default": false,
+          "title": "Covariates Strict Join",
+          "type": "boolean"
+        },
+        "ecdf_aggregated_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When true, train/use aggregated observed-hybrid ECDF OvR package (experimental). When null/false, aggregated mode is disabled.",
+          "title": "Ecdf Aggregated Enabled"
+        },
+        "ecdf_aggregated_n_bins": {
+          "default": 100,
+          "description": "Histogram bin count per feature for aggregated ECDF heads.",
+          "maximum": 512,
+          "minimum": 8,
+          "title": "Ecdf Aggregated N Bins",
+          "type": "integer"
+        },
+        "ecdf_second_stage_enabled": {
+          "default": false,
+          "description": "Enable the ECDF second-stage logistic stacker that fuses first-stage class probabilities with covariates and/or optional observed-hybrid features. This is the sole run gate for the stacker. When covariates_path is set, config validation coerces this flag to true so operators cannot leave a contradictory false+covariates state. Does not by itself include observed-hybrid methylation features; set ecdf_second_stage_include_observed_hybrid for that.",
+          "title": "Ecdf Second Stage Enabled",
+          "type": "boolean"
+        },
+        "ecdf_second_stage_include_observed_hybrid": {
+          "default": false,
+          "description": "When the ECDF second-stage stacker already runs (ecdf_second_stage_enabled), include observed-hybrid methylation features restricted to the freeze-time stable/frozen gene panel. Does not start the stacker by itself. Default false: covariate fusion only (recommended for raw_gene + deconvolution covariates).",
+          "title": "Ecdf Second Stage Include Observed Hybrid",
+          "type": "boolean"
+        },
+        "ecdf_second_stage_probability_epsilon": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 0.5,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ALR pseudocount for multiclass (K>2) first-stage class probabilities in the ECDF second stage. Not required for binary (K=2). Set in profile/site actionConfig (no code default).",
+          "title": "Ecdf Second Stage Probability Epsilon"
+        },
+        "ecdf_second_stage_probability_transform": {
+          "anyOf": [
+            {
+              "const": "logit_class1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ecdf Second Stage Probability Transform"
+        },
+        "feature_family_set": {
+          "default": "dmp_scored",
+          "title": "Feature Family Set",
+          "type": "string"
+        },
+        "feature_mode": {
+          "default": "raw_dmp",
+          "title": "Feature Mode",
+          "type": "string"
+        },
+        "gene_feature_loading": {
+          "default": "frozen",
+          "description": "For observed_hybrid gene-family features: frozen (use only frozen DMP loci) or range (expand to all loci inside frozen gene-feature ranges).",
+          "title": "Gene Feature Loading",
+          "type": "string"
+        },
+        "gene_scored_contrast_pairs": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional extra directional contrast pairs [[left, right], ...]; emits gene_directional_contrast__{left}__{right} = score(right)-score(left). Auto extreme pair added when K>=2 unless already listed.",
+          "title": "Gene Scored Contrast Pairs"
+        },
+        "gene_scored_gene_weight": {
+          "default": "importance_x_sqrt_support",
+          "description": "Gene-level weighting when pooling to gene_directional_score: importance_x_sqrt_support or importance_only.",
+          "title": "Gene Scored Gene Weight",
+          "type": "string"
+        },
+        "gene_scored_min_support_n": {
+          "default": 2,
+          "description": "Minimum gene_support_n for a gene to enter the gene_scored comparison panel (feature_family_set gene_scored or dmp_scored+gene_scored).",
+          "minimum": 1,
+          "title": "Gene Scored Min Support N",
+          "type": "integer"
+        },
+        "gene_scored_ordered_comparison_labels": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for gene_scored progression order. When null, order is taken from step_config.progression.ordered_comparison_labels or project get_ordered_comparison_labels().",
+          "title": "Gene Scored Ordered Comparison Labels"
+        },
+        "gene_scored_use_region_weight": {
+          "default": true,
+          "description": "Multiply per-locus weights by region_weight when building gene_directional_score features.",
+          "title": "Gene Scored Use Region Weight",
+          "type": "boolean"
+        },
+        "mapper_annotation_collapse_mode": {
+          "default": "priority",
+          "description": "How to collapse multi-feature mapper intersections to one row per locus in mapper_dmp_annotations.csv: priority (promoter>exon>intron>gene_body>terminator) or weight (legacy highest combined_weight wins).",
+          "title": "Mapper Annotation Collapse Mode",
+          "type": "string"
+        },
+        "mapper_annotation_unknown_fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "gene_body",
+          "description": "Parent feature bucket assigned to classifier loci with unknown or missing feature_type after mapper merge. Set null to leave unknown loci uncovered.",
+          "title": "Mapper Annotation Unknown Fallback"
+        },
+        "mapper_gene_columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mapper Gene Columns",
+          "type": "array"
+        },
+        "model_bundle_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Bundle Dir"
+        },
+        "model_weight_column": {
+          "default": "effect_size",
+          "title": "Model Weight Column",
+          "type": "string"
+        },
+        "observed_feature_dmr_window_bp": {
+          "default": 100000,
+          "minimum": 1,
+          "title": "Observed Feature Dmr Window Bp",
+          "type": "integer"
+        },
+        "observed_feature_include_chromosome": {
+          "default": true,
+          "title": "Observed Feature Include Chromosome",
+          "type": "boolean"
+        },
+        "observed_feature_include_dmp": {
+          "default": true,
+          "title": "Observed Feature Include Dmp",
+          "type": "boolean"
+        },
+        "observed_feature_include_dmr": {
+          "default": true,
+          "title": "Observed Feature Include Dmr",
+          "type": "boolean"
+        },
+        "observed_feature_include_gene": {
+          "default": true,
+          "title": "Observed Feature Include Gene",
+          "type": "boolean"
+        },
+        "observed_feature_max_dmrs": {
+          "default": 32,
+          "minimum": 0,
+          "title": "Observed Feature Max Dmrs",
+          "type": "integer"
+        },
+        "observed_feature_max_genes": {
+          "default": 32,
+          "minimum": 0,
+          "title": "Observed Feature Max Genes",
+          "type": "integer"
+        },
+        "observed_feature_min_coverage": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Observed Feature Min Coverage",
+          "type": "integer"
+        },
+        "observed_feature_min_obs_fraction": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Observed Feature Min Obs Fraction",
+          "type": "number"
+        },
+        "observed_feature_quality_columns": {
+          "description": "Observed-hybrid columns computed and exported but excluded from model training.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Observed Feature Quality Columns",
+          "type": "array"
+        },
+        "observed_feature_quantiles": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Observed Feature Quantiles",
+          "type": "array"
+        },
+        "observed_hist_alpha": {
+          "default": 0.5,
+          "minimum": 0.0,
+          "title": "Observed Hist Alpha",
+          "type": "number"
+        },
+        "observed_hist_eps": {
+          "default": 1e-06,
+          "exclusiveMinimum": 0.0,
+          "title": "Observed Hist Eps",
+          "type": "number"
+        },
+        "observed_hist_evidence_clip_cap": {
+          "default": 5.0,
+          "minimum": 0.0,
+          "title": "Observed Hist Evidence Clip Cap",
+          "type": "number"
+        },
+        "observed_hist_tail_agreement_threshold": {
+          "default": 0.1,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Observed Hist Tail Agreement Threshold",
+          "type": "number"
+        },
+        "region_directional_min_loci": {
+          "default": 1,
+          "description": "Minimum panel loci in the classifier DMP index required to emit structural_scored columns for a (comparison, region) pair.",
+          "minimum": 1,
+          "title": "Region Directional Min Loci",
+          "type": "integer"
+        },
+        "region_directional_region_types": {
+          "description": "Structural region types considered when building structural_scored features (feature_family_set structural_scored or dmp_scored+structural_scored).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Region Directional Region Types",
+          "type": "array"
+        },
+        "structural_scored_contrast_pairs": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional extra directional contrast pairs [[left, right], ...] per region type; emits structural_directional_contrast__{left}__{right}__{region}. Auto extreme pair added when K>=2 unless already listed.",
+          "title": "Structural Scored Contrast Pairs"
+        },
+        "structural_scored_min_support_n": {
+          "default": 2,
+          "description": "Minimum n_dmps_in_feature for a gene-feature row to enter the structural_scored panel (feature_family_set structural_scored or dmp_scored+structural_scored).",
+          "minimum": 1,
+          "title": "Structural Scored Min Support N",
+          "type": "integer"
+        },
+        "structural_scored_ordered_comparison_labels": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for structural_scored progression order. When null, order is taken from step_config.progression.ordered_comparison_labels or project get_ordered_comparison_labels().",
+          "title": "Structural Scored Ordered Comparison Labels"
+        },
+        "structural_scored_use_region_weight": {
+          "default": true,
+          "description": "Multiply per-locus weights by region_weight when building structural_directional_score features.",
+          "title": "Structural Scored Use Region Weight",
+          "type": "boolean"
+        },
+        "structural_scored_weight": {
+          "default": "compound_x_sqrt_support",
+          "description": "Gene-feature weighting when pooling to structural_directional_score: compound_x_sqrt_support or compound_only.",
+          "title": "Structural Scored Weight",
+          "type": "string"
+        },
+        "tabular_max_dmps": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional cap for loci retained from model bundle. null/0 means keep all stable DMPs.",
+          "title": "Tabular Max Dmps"
+        }
+      },
+      "title": "EcdfBackendParams",
+      "type": "object"
+    },
+    "EcdfBackendProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "params": {
+          "$ref": "#/$defs/EcdfBackendParams"
+        }
+      },
+      "title": "EcdfBackendProfile",
+      "type": "object"
+    },
+    "GenerativeBackendParams": {
+      "additionalProperties": false,
+      "properties": {
+        "chromosome_distance_metrics": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Non-parametric sample-vs-centroid distance metrics for chromosome family: subset of js, hellinger, wasserstein. Default all three when null.",
+          "title": "Chromosome Distance Metrics"
+        },
+        "chromosome_hypo_beta_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Beta cutoff for hypomethylation burden features (chromosome family). Operator-set per profile/site; builder uses 0.2 when null.",
+          "title": "Chromosome Hypo Beta Threshold"
+        },
+        "chromosome_intermediate_beta_hi": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Upper bound for intermediate-methylation fraction (chromosome family). Default 0.75 when null.",
+          "title": "Chromosome Intermediate Beta Hi"
+        },
+        "chromosome_intermediate_beta_lo": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lower bound for intermediate-methylation fraction (chromosome family). Default 0.25 when null.",
+          "title": "Chromosome Intermediate Beta Lo"
+        },
+        "chromosome_list": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional chromosome allow-list for chromosome-family features. When null, chromosomes are inferred from the DMP panel.",
+          "title": "Chromosome List"
+        },
+        "covariate_categorical_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Categorical Columns"
+        },
+        "covariate_composition_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Columns"
+        },
+        "covariate_composition_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CompositionGroup"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Typed simplex covariate groups (ALR). Preferred over the single-group covariate_composition_* keys; parts must be disjoint from each other and from numeric/ordinal/categorical roles.",
+          "title": "Covariate Composition Groups"
+        },
+        "covariate_composition_pseudocount": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Legacy single-group ALR pseudocount. Required when using covariate_composition_transform; prefer covariate_composition_groups[].pseudocount.",
+          "title": "Covariate Composition Pseudocount"
+        },
+        "covariate_composition_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Reference"
+        },
+        "covariate_composition_transform": {
+          "anyOf": [
+            {
+              "const": "alr",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Transform"
+        },
+        "covariate_id_column": {
+          "default": "sample_id",
+          "title": "Covariate Id Column",
+          "type": "string"
+        },
+        "covariate_missing_numeric_strategy": {
+          "default": "mean",
+          "title": "Covariate Missing Numeric Strategy",
+          "type": "string"
+        },
+        "covariate_numeric_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Numeric Columns"
+        },
+        "covariate_ordinal_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Ordinal Columns"
+        },
+        "covariate_ordinal_maps": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Ordinal Maps"
+        },
+        "covariate_ordinal_unknown_value": {
+          "default": 0.0,
+          "title": "Covariate Ordinal Unknown Value",
+          "type": "number"
+        },
+        "covariate_standardize_numeric": {
+          "default": true,
+          "title": "Covariate Standardize Numeric",
+          "type": "boolean"
+        },
+        "covariates_missing_samples": {
+          "anyOf": [
+            {
+              "enum": [
+                "fail",
+                "drop"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Row policy when sample IDs are missing from the covariates sidecar. 'drop' excludes those samples from the covariate-using stage and warns. 'fail' raises. When unset, covariates_strict_join=true fails and false reindexes (cell impute; composition ALR still cannot fill a missing row). Operator-set per profile/site.",
+          "title": "Covariates Missing Samples"
+        },
+        "covariates_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariates Path"
+        },
+        "covariates_strict_join": {
+          "default": false,
+          "title": "Covariates Strict Join",
+          "type": "boolean"
+        },
+        "ecdf_second_stage_probability_epsilon": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 0.5,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ALR pseudocount for multiclass (K>2) first-stage class probabilities in the ECDF second stage. Not required for binary (K=2). Set in profile/site actionConfig (no code default).",
+          "title": "Ecdf Second Stage Probability Epsilon"
+        },
+        "ecdf_second_stage_probability_transform": {
+          "anyOf": [
+            {
+              "const": "logit_class1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ecdf Second Stage Probability Transform"
+        },
+        "feature_family_set": {
+          "default": "dmp_scored",
+          "title": "Feature Family Set",
+          "type": "string"
+        },
+        "feature_mode": {
+          "default": "raw_dmp",
+          "title": "Feature Mode",
+          "type": "string"
+        },
+        "gene_feature_loading": {
+          "default": "frozen",
+          "description": "For observed_hybrid gene-family features: frozen (use only frozen DMP loci) or range (expand to all loci inside frozen gene-feature ranges).",
+          "title": "Gene Feature Loading",
+          "type": "string"
+        },
+        "gene_scored_contrast_pairs": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional extra directional contrast pairs [[left, right], ...]; emits gene_directional_contrast__{left}__{right} = score(right)-score(left). Auto extreme pair added when K>=2 unless already listed.",
+          "title": "Gene Scored Contrast Pairs"
+        },
+        "gene_scored_gene_weight": {
+          "default": "importance_x_sqrt_support",
+          "description": "Gene-level weighting when pooling to gene_directional_score: importance_x_sqrt_support or importance_only.",
+          "title": "Gene Scored Gene Weight",
+          "type": "string"
+        },
+        "gene_scored_min_support_n": {
+          "default": 2,
+          "description": "Minimum gene_support_n for a gene to enter the gene_scored comparison panel (feature_family_set gene_scored or dmp_scored+gene_scored).",
+          "minimum": 1,
+          "title": "Gene Scored Min Support N",
+          "type": "integer"
+        },
+        "gene_scored_ordered_comparison_labels": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for gene_scored progression order. When null, order is taken from step_config.progression.ordered_comparison_labels or project get_ordered_comparison_labels().",
+          "title": "Gene Scored Ordered Comparison Labels"
+        },
+        "gene_scored_use_region_weight": {
+          "default": true,
+          "description": "Multiply per-locus weights by region_weight when building gene_directional_score features.",
+          "title": "Gene Scored Use Region Weight",
+          "type": "boolean"
+        },
+        "generative_batch_size": {
+          "default": 64,
+          "minimum": 1,
+          "title": "Generative Batch Size",
+          "type": "integer"
+        },
+        "generative_calibrate": {
+          "default": false,
+          "title": "Generative Calibrate",
+          "type": "boolean"
+        },
+        "generative_covariates_strict": {
+          "default": true,
+          "title": "Generative Covariates Strict",
+          "type": "boolean"
+        },
+        "generative_density_type": {
+          "default": "diag_gaussian",
+          "title": "Generative Density Type",
+          "type": "string"
+        },
+        "generative_epochs": {
+          "default": 50,
+          "minimum": 1,
+          "title": "Generative Epochs",
+          "type": "integer"
+        },
+        "generative_kl_weight": {
+          "default": 0.1,
+          "minimum": 0.0,
+          "title": "Generative Kl Weight",
+          "type": "number"
+        },
+        "generative_latent_dim": {
+          "default": 16,
+          "minimum": 2,
+          "title": "Generative Latent Dim",
+          "type": "integer"
+        },
+        "generative_seed": {
+          "default": 13,
+          "title": "Generative Seed",
+          "type": "integer"
+        },
+        "mapper_annotation_collapse_mode": {
+          "default": "priority",
+          "description": "How to collapse multi-feature mapper intersections to one row per locus in mapper_dmp_annotations.csv: priority (promoter>exon>intron>gene_body>terminator) or weight (legacy highest combined_weight wins).",
+          "title": "Mapper Annotation Collapse Mode",
+          "type": "string"
+        },
+        "mapper_annotation_unknown_fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "gene_body",
+          "description": "Parent feature bucket assigned to classifier loci with unknown or missing feature_type after mapper merge. Set null to leave unknown loci uncovered.",
+          "title": "Mapper Annotation Unknown Fallback"
+        },
+        "mapper_gene_columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mapper Gene Columns",
+          "type": "array"
+        },
+        "model_bundle_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Bundle Dir"
+        },
+        "model_weight_column": {
+          "default": "effect_size",
+          "title": "Model Weight Column",
+          "type": "string"
+        },
+        "observed_feature_dmr_window_bp": {
+          "default": 100000,
+          "minimum": 1,
+          "title": "Observed Feature Dmr Window Bp",
+          "type": "integer"
+        },
+        "observed_feature_include_chromosome": {
+          "default": true,
+          "title": "Observed Feature Include Chromosome",
+          "type": "boolean"
+        },
+        "observed_feature_include_dmp": {
+          "default": true,
+          "title": "Observed Feature Include Dmp",
+          "type": "boolean"
+        },
+        "observed_feature_include_dmr": {
+          "default": true,
+          "title": "Observed Feature Include Dmr",
+          "type": "boolean"
+        },
+        "observed_feature_include_gene": {
+          "default": true,
+          "title": "Observed Feature Include Gene",
+          "type": "boolean"
+        },
+        "observed_feature_max_dmrs": {
+          "default": 32,
+          "minimum": 0,
+          "title": "Observed Feature Max Dmrs",
+          "type": "integer"
+        },
+        "observed_feature_max_genes": {
+          "default": 32,
+          "minimum": 0,
+          "title": "Observed Feature Max Genes",
+          "type": "integer"
+        },
+        "observed_feature_min_coverage": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Observed Feature Min Coverage",
+          "type": "integer"
+        },
+        "observed_feature_min_obs_fraction": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Observed Feature Min Obs Fraction",
+          "type": "number"
+        },
+        "observed_feature_quality_columns": {
+          "description": "Observed-hybrid columns computed and exported but excluded from model training.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Observed Feature Quality Columns",
+          "type": "array"
+        },
+        "observed_feature_quantiles": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Observed Feature Quantiles",
+          "type": "array"
+        },
+        "observed_hist_alpha": {
+          "default": 0.5,
+          "minimum": 0.0,
+          "title": "Observed Hist Alpha",
+          "type": "number"
+        },
+        "observed_hist_eps": {
+          "default": 1e-06,
+          "exclusiveMinimum": 0.0,
+          "title": "Observed Hist Eps",
+          "type": "number"
+        },
+        "observed_hist_evidence_clip_cap": {
+          "default": 5.0,
+          "minimum": 0.0,
+          "title": "Observed Hist Evidence Clip Cap",
+          "type": "number"
+        },
+        "observed_hist_tail_agreement_threshold": {
+          "default": 0.1,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Observed Hist Tail Agreement Threshold",
+          "type": "number"
+        },
+        "region_directional_min_loci": {
+          "default": 1,
+          "description": "Minimum panel loci in the classifier DMP index required to emit structural_scored columns for a (comparison, region) pair.",
+          "minimum": 1,
+          "title": "Region Directional Min Loci",
+          "type": "integer"
+        },
+        "region_directional_region_types": {
+          "description": "Structural region types considered when building structural_scored features (feature_family_set structural_scored or dmp_scored+structural_scored).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Region Directional Region Types",
+          "type": "array"
+        },
+        "structural_scored_contrast_pairs": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional extra directional contrast pairs [[left, right], ...] per region type; emits structural_directional_contrast__{left}__{right}__{region}. Auto extreme pair added when K>=2 unless already listed.",
+          "title": "Structural Scored Contrast Pairs"
+        },
+        "structural_scored_min_support_n": {
+          "default": 2,
+          "description": "Minimum n_dmps_in_feature for a gene-feature row to enter the structural_scored panel (feature_family_set structural_scored or dmp_scored+structural_scored).",
+          "minimum": 1,
+          "title": "Structural Scored Min Support N",
+          "type": "integer"
+        },
+        "structural_scored_ordered_comparison_labels": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for structural_scored progression order. When null, order is taken from step_config.progression.ordered_comparison_labels or project get_ordered_comparison_labels().",
+          "title": "Structural Scored Ordered Comparison Labels"
+        },
+        "structural_scored_use_region_weight": {
+          "default": true,
+          "description": "Multiply per-locus weights by region_weight when building structural_directional_score features.",
+          "title": "Structural Scored Use Region Weight",
+          "type": "boolean"
+        },
+        "structural_scored_weight": {
+          "default": "compound_x_sqrt_support",
+          "description": "Gene-feature weighting when pooling to structural_directional_score: compound_x_sqrt_support or compound_only.",
+          "title": "Structural Scored Weight",
+          "type": "string"
+        },
+        "tabular_max_dmps": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional cap for loci retained from model bundle. null/0 means keep all stable DMPs.",
+          "title": "Tabular Max Dmps"
+        }
+      },
+      "title": "GenerativeBackendParams",
+      "type": "object"
+    },
+    "GenerativeBackendProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "params": {
+          "$ref": "#/$defs/GenerativeBackendParams"
+        }
+      },
+      "title": "GenerativeBackendProfile",
+      "type": "object"
+    },
+    "HistGradientBoostingMethodConfig": {
+      "properties": {
+        "method": {
+          "const": "hist_gradient_boosting",
+          "title": "Method",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/HistGradientBoostingMethodParams"
+        }
+      },
+      "required": [
+        "method"
+      ],
+      "title": "HistGradientBoostingMethodConfig",
+      "type": "object"
+    },
+    "HistGradientBoostingMethodParams": {
+      "properties": {
+        "learning_rate": {
+          "default": 0.1,
+          "exclusiveMinimum": 0.0,
+          "title": "Learning Rate",
+          "type": "number"
+        },
+        "max_depth": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Depth"
+        },
+        "max_iter": {
+          "default": 100,
+          "minimum": 1,
+          "title": "Max Iter",
+          "type": "integer"
+        },
+        "random_state": {
+          "default": 13,
+          "title": "Random State",
+          "type": "integer"
+        }
+      },
+      "title": "HistGradientBoostingMethodParams",
+      "type": "object"
+    },
+    "LogisticRegressionMethodConfig": {
+      "properties": {
+        "method": {
+          "const": "logistic_regression",
+          "title": "Method",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/LogisticRegressionMethodParams"
+        }
+      },
+      "required": [
+        "method"
+      ],
+      "title": "LogisticRegressionMethodConfig",
+      "type": "object"
+    },
+    "LogisticRegressionMethodParams": {
+      "properties": {
+        "c": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "C",
+          "type": "number"
+        },
+        "class_weight": {
+          "default": "balanced",
+          "title": "Class Weight",
+          "type": "string"
+        },
+        "max_iter": {
+          "default": 1000,
+          "minimum": 1,
+          "title": "Max Iter",
+          "type": "integer"
+        },
+        "penalty": {
+          "default": "l2",
+          "title": "Penalty",
+          "type": "string"
+        },
+        "random_state": {
+          "default": 13,
+          "title": "Random State",
+          "type": "integer"
+        },
+        "solver": {
+          "default": "lbfgs",
+          "title": "Solver",
+          "type": "string"
+        }
+      },
+      "title": "LogisticRegressionMethodParams",
+      "type": "object"
+    },
+    "RandomForestMethodConfig": {
+      "properties": {
+        "method": {
+          "const": "random_forest",
+          "title": "Method",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/RandomForestMethodParams"
+        }
+      },
+      "required": [
+        "method"
+      ],
+      "title": "RandomForestMethodConfig",
+      "type": "object"
+    },
+    "RandomForestMethodParams": {
+      "properties": {
+        "class_weight": {
+          "default": "balanced_subsample",
+          "title": "Class Weight",
+          "type": "string"
+        },
+        "min_samples_leaf": {
+          "default": 2,
+          "minimum": 1,
+          "title": "Min Samples Leaf",
+          "type": "integer"
+        },
+        "n_estimators": {
+          "default": 300,
+          "minimum": 1,
+          "title": "N Estimators",
+          "type": "integer"
+        },
+        "n_jobs": {
+          "default": -1,
+          "title": "N Jobs",
+          "type": "integer"
+        },
+        "random_state": {
+          "default": 13,
+          "title": "Random State",
+          "type": "integer"
+        }
+      },
+      "title": "RandomForestMethodParams",
+      "type": "object"
+    },
+    "RegulatoryLifecycleConfig": {
+      "additionalProperties": false,
+      "description": "Explicit product-lifecycle framing and claim boundary metadata.",
+      "properties": {
+        "allow_clinical_performance_claims": {
+          "default": false,
+          "description": "Whether FDA-facing clinical performance claims are allowed at this stage.",
+          "title": "Allow Clinical Performance Claims",
+          "type": "boolean"
+        },
+        "auto_apply_analyte_profile": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When true (default when primary_analyte is set), merge analyte-specific step_config defaults (fragmentomics, CIS-BP, bisulfite QC, etc.). Set false to opt out.",
+          "title": "Auto Apply Analyte Profile"
+        },
+        "claim_boundary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit statement of allowed claims at this stage (e.g. feasibility-only, no final clinical claims).",
+          "title": "Claim Boundary"
+        },
+        "intended_use_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Short intended-use statement for reports.",
+          "title": "Intended Use Summary"
+        },
+        "model_training_analyte": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Analyte matrix used for stability/freeze/classifier training on this project. Defaults to primary_analyte when omitted. Set to cfdna for plasma/cfDNA retrain paths.",
+          "title": "Model Training Analyte"
+        },
+        "primary_analyte": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Primary biological analyte for interpretation framing (e.g., buffy_coat, cfdna, combined).",
+          "title": "Primary Analyte"
+        },
+        "reference_standard": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Standard"
+        },
+        "sample_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sample Type"
+        },
+        "stage": {
+          "default": "feasibility",
+          "description": "Current product lifecycle stage for evidence framing.",
+          "title": "Stage",
+          "type": "string"
+        },
+        "target_population": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Population"
+        }
+      },
+      "title": "RegulatoryLifecycleConfig",
+      "type": "object"
+    },
+    "TabularBackendParams": {
+      "additionalProperties": false,
+      "properties": {
+        "chromosome_distance_metrics": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Non-parametric sample-vs-centroid distance metrics for chromosome family: subset of js, hellinger, wasserstein. Default all three when null.",
+          "title": "Chromosome Distance Metrics"
+        },
+        "chromosome_hypo_beta_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Beta cutoff for hypomethylation burden features (chromosome family). Operator-set per profile/site; builder uses 0.2 when null.",
+          "title": "Chromosome Hypo Beta Threshold"
+        },
+        "chromosome_intermediate_beta_hi": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Upper bound for intermediate-methylation fraction (chromosome family). Default 0.75 when null.",
+          "title": "Chromosome Intermediate Beta Hi"
+        },
+        "chromosome_intermediate_beta_lo": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lower bound for intermediate-methylation fraction (chromosome family). Default 0.25 when null.",
+          "title": "Chromosome Intermediate Beta Lo"
+        },
+        "chromosome_list": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional chromosome allow-list for chromosome-family features. When null, chromosomes are inferred from the DMP panel.",
+          "title": "Chromosome List"
+        },
+        "covariate_categorical_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Categorical Columns"
+        },
+        "covariate_composition_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Columns"
+        },
+        "covariate_composition_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CompositionGroup"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Typed simplex covariate groups (ALR). Preferred over the single-group covariate_composition_* keys; parts must be disjoint from each other and from numeric/ordinal/categorical roles.",
+          "title": "Covariate Composition Groups"
+        },
+        "covariate_composition_pseudocount": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Legacy single-group ALR pseudocount. Required when using covariate_composition_transform; prefer covariate_composition_groups[].pseudocount.",
+          "title": "Covariate Composition Pseudocount"
+        },
+        "covariate_composition_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Reference"
+        },
+        "covariate_composition_transform": {
+          "anyOf": [
+            {
+              "const": "alr",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Composition Transform"
+        },
+        "covariate_id_column": {
+          "default": "sample_id",
+          "title": "Covariate Id Column",
+          "type": "string"
+        },
+        "covariate_missing_numeric_strategy": {
+          "default": "mean",
+          "title": "Covariate Missing Numeric Strategy",
+          "type": "string"
+        },
+        "covariate_numeric_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Numeric Columns"
+        },
+        "covariate_ordinal_columns": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Ordinal Columns"
+        },
+        "covariate_ordinal_maps": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariate Ordinal Maps"
+        },
+        "covariate_ordinal_unknown_value": {
+          "default": 0.0,
+          "title": "Covariate Ordinal Unknown Value",
+          "type": "number"
+        },
+        "covariate_standardize_numeric": {
+          "default": true,
+          "title": "Covariate Standardize Numeric",
+          "type": "boolean"
+        },
+        "covariates_missing_samples": {
+          "anyOf": [
+            {
+              "enum": [
+                "fail",
+                "drop"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Row policy when sample IDs are missing from the covariates sidecar. 'drop' excludes those samples from the covariate-using stage and warns. 'fail' raises. When unset, covariates_strict_join=true fails and false reindexes (cell impute; composition ALR still cannot fill a missing row). Operator-set per profile/site.",
+          "title": "Covariates Missing Samples"
+        },
+        "covariates_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covariates Path"
+        },
+        "covariates_strict_join": {
+          "default": false,
+          "title": "Covariates Strict Join",
+          "type": "boolean"
+        },
+        "ecdf_second_stage_probability_epsilon": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 0.5,
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ALR pseudocount for multiclass (K>2) first-stage class probabilities in the ECDF second stage. Not required for binary (K=2). Set in profile/site actionConfig (no code default).",
+          "title": "Ecdf Second Stage Probability Epsilon"
+        },
+        "ecdf_second_stage_probability_transform": {
+          "anyOf": [
+            {
+              "const": "logit_class1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ecdf Second Stage Probability Transform"
+        },
+        "feature_family_set": {
+          "default": "dmp_scored",
+          "title": "Feature Family Set",
+          "type": "string"
+        },
+        "feature_mode": {
+          "default": "raw_dmp",
+          "title": "Feature Mode",
+          "type": "string"
+        },
+        "gene_feature_loading": {
+          "default": "frozen",
+          "description": "For observed_hybrid gene-family features: frozen (use only frozen DMP loci) or range (expand to all loci inside frozen gene-feature ranges).",
+          "title": "Gene Feature Loading",
+          "type": "string"
+        },
+        "gene_scored_contrast_pairs": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional extra directional contrast pairs [[left, right], ...]; emits gene_directional_contrast__{left}__{right} = score(right)-score(left). Auto extreme pair added when K>=2 unless already listed.",
+          "title": "Gene Scored Contrast Pairs"
+        },
+        "gene_scored_gene_weight": {
+          "default": "importance_x_sqrt_support",
+          "description": "Gene-level weighting when pooling to gene_directional_score: importance_x_sqrt_support or importance_only.",
+          "title": "Gene Scored Gene Weight",
+          "type": "string"
+        },
+        "gene_scored_min_support_n": {
+          "default": 2,
+          "description": "Minimum gene_support_n for a gene to enter the gene_scored comparison panel (feature_family_set gene_scored or dmp_scored+gene_scored).",
+          "minimum": 1,
+          "title": "Gene Scored Min Support N",
+          "type": "integer"
+        },
+        "gene_scored_ordered_comparison_labels": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for gene_scored progression order. When null, order is taken from step_config.progression.ordered_comparison_labels or project get_ordered_comparison_labels().",
+          "title": "Gene Scored Ordered Comparison Labels"
+        },
+        "gene_scored_use_region_weight": {
+          "default": true,
+          "description": "Multiply per-locus weights by region_weight when building gene_directional_score features.",
+          "title": "Gene Scored Use Region Weight",
+          "type": "boolean"
+        },
+        "mapper_annotation_collapse_mode": {
+          "default": "priority",
+          "description": "How to collapse multi-feature mapper intersections to one row per locus in mapper_dmp_annotations.csv: priority (promoter>exon>intron>gene_body>terminator) or weight (legacy highest combined_weight wins).",
+          "title": "Mapper Annotation Collapse Mode",
+          "type": "string"
+        },
+        "mapper_annotation_unknown_fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "gene_body",
+          "description": "Parent feature bucket assigned to classifier loci with unknown or missing feature_type after mapper merge. Set null to leave unknown loci uncovered.",
+          "title": "Mapper Annotation Unknown Fallback"
+        },
+        "mapper_gene_columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mapper Gene Columns",
+          "type": "array"
+        },
+        "model_bundle_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Bundle Dir"
+        },
+        "model_weight_column": {
+          "default": "effect_size",
+          "title": "Model Weight Column",
+          "type": "string"
+        },
+        "observed_feature_dmr_window_bp": {
+          "default": 100000,
+          "minimum": 1,
+          "title": "Observed Feature Dmr Window Bp",
+          "type": "integer"
+        },
+        "observed_feature_include_chromosome": {
+          "default": true,
+          "title": "Observed Feature Include Chromosome",
+          "type": "boolean"
+        },
+        "observed_feature_include_dmp": {
+          "default": true,
+          "title": "Observed Feature Include Dmp",
+          "type": "boolean"
+        },
+        "observed_feature_include_dmr": {
+          "default": true,
+          "title": "Observed Feature Include Dmr",
+          "type": "boolean"
+        },
+        "observed_feature_include_gene": {
+          "default": true,
+          "title": "Observed Feature Include Gene",
+          "type": "boolean"
+        },
+        "observed_feature_max_dmrs": {
+          "default": 32,
+          "minimum": 0,
+          "title": "Observed Feature Max Dmrs",
+          "type": "integer"
+        },
+        "observed_feature_max_genes": {
+          "default": 32,
+          "minimum": 0,
+          "title": "Observed Feature Max Genes",
+          "type": "integer"
+        },
+        "observed_feature_min_coverage": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Observed Feature Min Coverage",
+          "type": "integer"
+        },
+        "observed_feature_min_obs_fraction": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Observed Feature Min Obs Fraction",
+          "type": "number"
+        },
+        "observed_feature_quality_columns": {
+          "description": "Observed-hybrid columns computed and exported but excluded from model training.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Observed Feature Quality Columns",
+          "type": "array"
+        },
+        "observed_feature_quantiles": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Observed Feature Quantiles",
+          "type": "array"
+        },
+        "observed_hist_alpha": {
+          "default": 0.5,
+          "minimum": 0.0,
+          "title": "Observed Hist Alpha",
+          "type": "number"
+        },
+        "observed_hist_eps": {
+          "default": 1e-06,
+          "exclusiveMinimum": 0.0,
+          "title": "Observed Hist Eps",
+          "type": "number"
+        },
+        "observed_hist_evidence_clip_cap": {
+          "default": 5.0,
+          "minimum": 0.0,
+          "title": "Observed Hist Evidence Clip Cap",
+          "type": "number"
+        },
+        "observed_hist_tail_agreement_threshold": {
+          "default": 0.1,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Observed Hist Tail Agreement Threshold",
+          "type": "number"
+        },
+        "region_directional_min_loci": {
+          "default": 1,
+          "description": "Minimum panel loci in the classifier DMP index required to emit structural_scored columns for a (comparison, region) pair.",
+          "minimum": 1,
+          "title": "Region Directional Min Loci",
+          "type": "integer"
+        },
+        "region_directional_region_types": {
+          "description": "Structural region types considered when building structural_scored features (feature_family_set structural_scored or dmp_scored+structural_scored).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Region Directional Region Types",
+          "type": "array"
+        },
+        "structural_scored_contrast_pairs": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional extra directional contrast pairs [[left, right], ...] per region type; emits structural_directional_contrast__{left}__{right}__{region}. Auto extreme pair added when K>=2 unless already listed.",
+          "title": "Structural Scored Contrast Pairs"
+        },
+        "structural_scored_min_support_n": {
+          "default": 2,
+          "description": "Minimum n_dmps_in_feature for a gene-feature row to enter the structural_scored panel (feature_family_set structural_scored or dmp_scored+structural_scored).",
+          "minimum": 1,
+          "title": "Structural Scored Min Support N",
+          "type": "integer"
+        },
+        "structural_scored_ordered_comparison_labels": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for structural_scored progression order. When null, order is taken from step_config.progression.ordered_comparison_labels or project get_ordered_comparison_labels().",
+          "title": "Structural Scored Ordered Comparison Labels"
+        },
+        "structural_scored_use_region_weight": {
+          "default": true,
+          "description": "Multiply per-locus weights by region_weight when building structural_directional_score features.",
+          "title": "Structural Scored Use Region Weight",
+          "type": "boolean"
+        },
+        "structural_scored_weight": {
+          "default": "compound_x_sqrt_support",
+          "description": "Gene-feature weighting when pooling to structural_directional_score: compound_x_sqrt_support or compound_only.",
+          "title": "Structural Scored Weight",
+          "type": "string"
+        },
+        "tabular_max_dmps": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional cap for loci retained from model bundle. null/0 means keep all stable DMPs.",
+          "title": "Tabular Max Dmps"
+        },
+        "tabular_method_selection_metric": {
+          "default": "balanced_accuracy",
+          "title": "Tabular Method Selection Metric",
+          "type": "string"
+        },
+        "tabular_method_selection_stat": {
+          "default": "mean",
+          "title": "Tabular Method Selection Stat",
+          "type": "string"
+        },
+        "tabular_methods": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "hist_gradient_boosting": "#/$defs/HistGradientBoostingMethodConfig",
+                "logistic_regression": "#/$defs/LogisticRegressionMethodConfig",
+                "random_forest": "#/$defs/RandomForestMethodConfig",
+                "xgboost": "#/$defs/XGBoostMethodConfig"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/RandomForestMethodConfig"
+              },
+              {
+                "$ref": "#/$defs/HistGradientBoostingMethodConfig"
+              },
+              {
+                "$ref": "#/$defs/LogisticRegressionMethodConfig"
+              },
+              {
+                "$ref": "#/$defs/XGBoostMethodConfig"
+              }
+            ]
+          },
+          "title": "Tabular Methods",
+          "type": "array"
+        },
+        "tabular_model_type": {
+          "default": "random_forest",
+          "title": "Tabular Model Type",
+          "type": "string"
+        },
+        "tabular_reuse_train_dataset": {
+          "default": true,
+          "title": "Tabular Reuse Train Dataset",
+          "type": "boolean"
+        },
+        "tabular_save_test_dataset": {
+          "default": true,
+          "title": "Tabular Save Test Dataset",
+          "type": "boolean"
+        },
+        "tabular_save_train_dataset": {
+          "default": true,
+          "title": "Tabular Save Train Dataset",
+          "type": "boolean"
+        },
+        "tabular_test_dataset_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tabular Test Dataset Path"
+        },
+        "tabular_train_dataset_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tabular Train Dataset Path"
+        }
+      },
+      "title": "TabularBackendParams",
+      "type": "object"
+    },
+    "TabularBackendProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "params": {
+          "$ref": "#/$defs/TabularBackendParams"
+        }
+      },
+      "title": "TabularBackendProfile",
+      "type": "object"
+    },
+    "ValidationPartitionContract": {
+      "additionalProperties": false,
+      "description": "Named dataset partitions for lifecycle-stage evidence contracts.",
+      "properties": {
+        "development_train": {
+          "description": "Sample paths for model development/training partition.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Development Train",
+          "type": "array"
+        },
+        "independence_keys": {
+          "description": "Metadata keys that must remain independent across partitions when available (e.g., sample_id, patient_id, site_id, batch).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Independence Keys",
+          "type": "array"
+        },
+        "internal_validation": {
+          "description": "Sample paths for internal model selection/validation partition.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Internal Validation",
+          "type": "array"
+        },
+        "locked_test": {
+          "description": "Sample paths reserved as locked test (never used for tuning).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Locked Test",
+          "type": "array"
+        },
+        "pivotal_validation": {
+          "description": "Sample paths reserved for pivotal/clinical validation.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Pivotal Validation",
+          "type": "array"
+        },
+        "post_market_monitoring": {
+          "description": "Optional sample paths used for post-market monitoring analyses.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Post Market Monitoring",
+          "type": "array"
+        }
+      },
+      "title": "ValidationPartitionContract",
+      "type": "object"
+    },
+    "XGBoostMethodConfig": {
+      "properties": {
+        "method": {
+          "const": "xgboost",
+          "title": "Method",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/XGBoostMethodParams"
+        }
+      },
+      "required": [
+        "method"
+      ],
+      "title": "XGBoostMethodConfig",
+      "type": "object"
+    },
+    "XGBoostMethodParams": {
+      "properties": {
+        "colsample_bytree": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Colsample Bytree",
+          "type": "number"
+        },
+        "eval_metric": {
+          "default": "mlogloss",
+          "title": "Eval Metric",
+          "type": "string"
+        },
+        "learning_rate": {
+          "default": 0.1,
+          "exclusiveMinimum": 0.0,
+          "title": "Learning Rate",
+          "type": "number"
+        },
+        "max_depth": {
+          "default": 6,
+          "minimum": 1,
+          "title": "Max Depth",
+          "type": "integer"
+        },
+        "min_child_weight": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Min Child Weight",
+          "type": "number"
+        },
+        "n_estimators": {
+          "default": 300,
+          "minimum": 1,
+          "title": "N Estimators",
+          "type": "integer"
+        },
+        "n_jobs": {
+          "default": -1,
+          "title": "N Jobs",
+          "type": "integer"
+        },
+        "objective": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Objective"
+        },
+        "random_state": {
+          "default": 13,
+          "title": "Random State",
+          "type": "integer"
+        },
+        "reg_lambda": {
+          "default": 1.0,
+          "minimum": 0.0,
+          "title": "Reg Lambda",
+          "type": "number"
+        },
+        "subsample": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Subsample",
+          "type": "number"
+        },
+        "tree_method": {
+          "default": "hist",
+          "title": "Tree Method",
+          "type": "string"
+        },
+        "verbosity": {
+          "default": 0,
+          "title": "Verbosity",
+          "type": "integer"
+        }
+      },
+      "title": "XGBoostMethodParams",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "abort_on_step_failure": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If True, abort all iterations when a pipeline step fails; if False, skip the iteration.",
+      "title": "Abort On Step Failure"
+    },
+    "backend_profiles": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BackendProfilesConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Typed backend profile registry. Runtime backend config is resolved exclusively from this field."
+    },
+    "biological_review_confirmed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "After review, set True in step_config.validation to allow --model (classifier + predictor).",
+      "title": "Biological Review Confirmed"
+    },
+    "dmp_featurecuts_fail_if_below_target": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "Strict DMP FC: exclude iteration when BA target unmet or panel below min_dmps (do not expand into worse BA).",
+      "title": "Dmp Featurecuts Fail If Below Target"
+    },
+    "dmp_featurecuts_max_dmps": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Upper cap on DMP FeatureCuts k-search / export.",
+      "title": "Dmp Featurecuts Max Dmps"
+    },
+    "dmp_featurecuts_min_dmps": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum DMP panel size after FC; fail/exclude run when unmet (no BA-diluting expansion).",
+      "title": "Dmp Featurecuts Min Dmps"
+    },
+    "dmp_featurecuts_target_ba": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Held-out BA gate for DMP FeatureCuts (separate from gene FC).",
+      "title": "Dmp Featurecuts Target Ba"
+    },
+    "dmp_modeling_mode": {
+      "anyOf": [
+        {
+          "enum": [
+            "raw_pool",
+            "featurecuts",
+            "stable_panel"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Statistical DMP axis: raw_pool (discovery only), featurecuts (BA-gated panel), or stable_panel (frozen consensus from prior phase). Seeds legacy stability flags when set.",
+      "title": "Dmp Modeling Mode"
+    },
+    "enforce_training_analyte_match": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If True, --model fails when step_config.validation.regulatory training analyte does not match locked_model_spec.json (blocks buffy-trained model on cfDNA projects).",
+      "title": "Enforce Training Analyte Match"
+    },
+    "freeze_gene_importance_min": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional lower bound on gene_importance when building freeze-time fixed_gene_panel.",
+      "title": "Freeze Gene Importance Min"
+    },
+    "freeze_min_dmps_per_feature": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 1,
+      "description": "Minimum number of unique frozen DMPs required for a gene\u00d7region panel row (union over isoform/GTF intervals) to be included in freeze-time fixed_gene_features output.",
+      "title": "Freeze Min Dmps Per Feature"
+    },
+    "freeze_stable_dmp_csv": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Path to stable_dmps_production.csv for --freeze (default: monte_carlo_runs/stability/stable_dmps_production.csv).",
+      "title": "Freeze Stable Dmp Csv"
+    },
+    "freeze_stable_gene_csv": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Path to stable_genes_production.csv for freeze gene-axis wiring (default: monte_carlo_runs/stability/stable_genes_production.csv when present).",
+      "title": "Freeze Stable Gene Csv"
+    },
+    "freeze_top_genes": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional cap per comparison for top-ranked genes in freeze-time fixed_gene_panel.",
+      "title": "Freeze Top Genes"
+    },
+    "frozen_project_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "project.json from --freeze production build; merged into each run for predictor_only mode.",
+      "title": "Frozen Project Path"
+    },
+    "gene_featurecuts_loci_source": {
+      "anyOf": [
+        {
+          "enum": [
+            "raw_pool",
+            "featurecuts_selected",
+            "stable_panel"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Loci fed into gene FC: raw_pool (discovery), featurecuts_selected (classifier), or stable_panel (Phase B two-stage workflows).",
+      "title": "Gene Featurecuts Loci Source"
+    },
+    "gene_featurecuts_max_genes": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Cap ranked mapper gene pool before gene FC k-search.",
+      "title": "Gene Featurecuts Max Genes"
+    },
+    "gene_featurecuts_min_genes": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum gene panel size after gene FC (alias for stability_min_selected_genes).",
+      "title": "Gene Featurecuts Min Genes"
+    },
+    "gene_featurecuts_target_ba": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Held-out BA gate for gene FeatureCuts (separate from DMP FC).",
+      "title": "Gene Featurecuts Target Ba"
+    },
+    "gene_modeling_mode": {
+      "anyOf": [
+        {
+          "enum": [
+            "none",
+            "mapper_ranked",
+            "featurecuts",
+            "from_stable_dmp_panel"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Statistical gene axis: none, mapper_ranked (annotation stability), featurecuts (BA-gated gene panel), or from_stable_dmp_panel (map stable loci then optional gene FC).",
+      "title": "Gene Modeling Mode"
+    },
+    "holdout_ci": {
+      "anyOf": [
+        {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.95,
+      "description": "Two-sided confidence level for bootstrap intervals on hold-out QC metrics.",
+      "title": "Holdout Ci"
+    },
+    "holdout_eval": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If True, run the true held-out batch evaluation (Workflow 3): score a frozen model on a designated hold-out partition (never used for training/selection) and bootstrap the QC metric distributions. Requires frozen_project_path (or the default monte_carlo_runs/production/project.json) and a populated validation_partitions hold-out role.",
+      "title": "Holdout Eval"
+    },
+    "holdout_exclude_from_training": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": true,
+      "description": "Preflight guard: fail --holdout-eval if hold-out samples also appear in the frozen model's training cohorts, which would invalidate the held-out claim.",
+      "title": "Holdout Exclude From Training"
+    },
+    "holdout_n_bootstrap": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 1000,
+      "description": "Number of bootstrap resamples used to characterize hold-out QC metric distributions.",
+      "title": "Holdout N Bootstrap"
+    },
+    "holdout_partition": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "locked_test",
+      "description": "Which validation_partitions role provides the held-out batch samples for --holdout-eval (e.g. locked_test, pivotal_validation, post_market_monitoring).",
+      "title": "Holdout Partition"
+    },
+    "holdout_seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Random seed for hold-out bootstrap resampling (None = nondeterministic).",
+      "title": "Holdout Seed"
+    },
+    "holdout_stratified": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": true,
+      "description": "Resample within each class (stratified bootstrap) so class proportions are preserved.",
+      "title": "Holdout Stratified"
+    },
+    "min_sensitivity_lcb": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional minimum lower confidence bound acceptance criterion for sensitivity.",
+      "title": "Min Sensitivity Lcb"
+    },
+    "min_specificity_lcb": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional minimum lower confidence bound acceptance criterion for specificity.",
+      "title": "Min Specificity Lcb"
+    },
+    "n_iterations": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Number of Monte Carlo iterations (e.g. 50\u2013200).",
+      "title": "N Iterations"
+    },
+    "parallel_mc_centroid_seed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When true (default), plan a shared per-group centroid seed and cohort-relative iteration deltas so MC iterations can run in parallel. Set false for legacy sequential iteration chaining.",
+      "title": "Parallel Mc Centroid Seed"
+    },
+    "path_remap": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional prefix remap (old -> new) for path strings in project JSON (e.g. samples_base_path, paths to cohort list files). User cohort CSVs and MV training_*.csv use basenames only; MV testing_*.csv uses absolute paths in a path column and is rewritten during --freeze when needed. Bases like samples_base_path must match the machine. Put under step_config.validation in the project JSON, or pass --path-remap OLD=NEW.",
+      "title": "Path Remap"
+    },
+    "predictor_only": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If True, each iteration only runs methyl-predictor (no centroid/detector/classifier). Requires frozen_project_path (or default monte_carlo_runs/production/project.json) so model paths resolve to the frozen build.",
+      "title": "Predictor Only"
+    },
+    "production_output_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Output directory for the final production run (defaults to monte_carlo_runs/production).",
+      "title": "Production Output Dir"
+    },
+    "regulatory": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RegulatoryLifecycleConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Lifecycle-stage framing and claim-boundary metadata for FDA-oriented reporting."
+    },
+    "require_biological_review_for_model": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If True, methyl-validation --model exits unless biological_review_confirmed is true (set in step_config.validation after expert review).",
+      "title": "Require Biological Review For Model"
+    },
+    "require_complete_enricher": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If True, readiness audit treats incomplete enricher_completeness.json as no_go (not only a warning).",
+      "title": "Require Complete Enricher"
+    },
+    "rollout_balanced_accuracy_drop_max": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.005,
+      "description": "Dual-run promotion guard: max allowed BA drop vs baseline.",
+      "title": "Rollout Balanced Accuracy Drop Max"
+    },
+    "rollout_brier_improvement_min_frac": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.02,
+      "description": "Dual-run promotion target: minimum relative Brier improvement.",
+      "title": "Rollout Brier Improvement Min Frac"
+    },
+    "rollout_ece_improvement_min_frac": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.05,
+      "description": "Dual-run promotion target: minimum relative ECE improvement.",
+      "title": "Rollout Ece Improvement Min Frac"
+    },
+    "rollout_macro_f1_drop_max": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.005,
+      "description": "Dual-run promotion guard: max allowed macro-F1 drop vs baseline.",
+      "title": "Rollout Macro F1 Drop Max"
+    },
+    "rollout_nll_improvement_min_frac": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.02,
+      "description": "Dual-run promotion target: minimum relative NLL improvement.",
+      "title": "Rollout Nll Improvement Min Frac"
+    },
+    "run_stability": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If True, run stability analysis on discovery DMPs after the main loop (gene stability only if enricher ran).",
+      "title": "Run Stability"
+    },
+    "seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional RNG seed for reproducibility.",
+      "title": "Seed"
+    },
+    "stability_classifier_export_margin_abs": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "MC detector override: extra top-ranked DMPs in extended classifier CSV beyond k_core.",
+      "title": "Stability Classifier Export Margin Abs"
+    },
+    "stability_classifier_export_margin_pct": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "MC detector override: extended classifier CSV margin as a fraction above k_core.",
+      "title": "Stability Classifier Export Margin Pct"
+    },
+    "stability_classifier_export_max_dmps": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "MC detector override: per-chromosome cap on extended classifier CSV size.",
+      "title": "Stability Classifier Export Max Dmps"
+    },
+    "stability_convergence_jaccard": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.98,
+      "description": "Minimum Jaccard similarity required between current and lagged stable DMP panels.",
+      "title": "Stability Convergence Jaccard"
+    },
+    "stability_convergence_max_size_delta": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.02,
+      "description": "Maximum allowed relative panel-size change between current and lagged stable DMP panels.",
+      "title": "Stability Convergence Max Size Delta"
+    },
+    "stability_convergence_patience": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 3,
+      "description": "Number of consecutive convergence checkpoints that must pass before stopping early.",
+      "title": "Stability Convergence Patience"
+    },
+    "stability_convergence_window": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 5,
+      "description": "Window size (in qualifying runs) for comparing stable panels S_k vs S_(k-window).",
+      "title": "Stability Convergence Window"
+    },
+    "stability_default_freeze_tier": {
+      "anyOf": [
+        {
+          "enum": [
+            "core",
+            "extended",
+            "exploratory"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "extended",
+      "description": "Tier whose stable_dmps_production.csv is aliased to root stability/stable_dmps_production.csv for default --freeze behavior.",
+      "title": "Stability Default Freeze Tier"
+    },
+    "stability_dmp_freq": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.7,
+      "description": "Minimum frequency (across runs) for a DMP to be considered stable. Set to 0.0 when DMP FeatureCuts is off (dmp_modeling_mode=raw_pool) so stability emits the union discovery locus pool for gene mapping \u2014 not a recurrence-filtered DMP biomarker panel (see dmp_panel_role in stability_summary).",
+      "title": "Stability Dmp Freq"
+    },
+    "stability_dual_cutoff_enabled": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If true, stability outputs both strict and relaxed stable DMP panels using score = effect_size * sqrt(frequency) with log-score elbow cutoff.",
+      "title": "Stability Dual Cutoff Enabled"
+    },
+    "stability_early_stop_enabled": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If true, evaluate convergence of stable DMP panels during the MC loop and stop early when convergence thresholds hold for the configured patience.",
+      "title": "Stability Early Stop Enabled"
+    },
+    "stability_featurecuts_enabled": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If true, MC detector runs force classifier_dmp_selection=featurecuts_validation so stability can be computed from discriminatory classifier panels.",
+      "title": "Stability Featurecuts Enabled"
+    },
+    "stability_gene_biomarker_filter_enabled": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If true, apply in-process disease CSV filters and optional STRING PPI hub ranking to narrow the gene pool before MC gene FeatureCuts (no full methyl-enricher step).",
+      "title": "Stability Gene Biomarker Filter Enabled"
+    },
+    "stability_gene_biomarker_min_degree": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 1,
+      "description": "Drop PPI nodes with degree below this threshold (0 keeps all nodes).",
+      "title": "Stability Gene Biomarker Min Degree"
+    },
+    "stability_gene_biomarker_mode": {
+      "anyOf": [
+        {
+          "enum": [
+            "disease_only",
+            "ppi_only",
+            "disease_and_ppi"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "ppi_only",
+      "description": "Biomarker gene pool mode: disease_only (CSV filters only), ppi_only or disease_and_ppi (disease filters then STRING PPI hub ranking).",
+      "title": "Stability Gene Biomarker Mode"
+    },
+    "stability_gene_biomarker_ppi_cache_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "STRING edge cache directory or file for MC biomarker PPI. Defaults to step_config.enricher.network_refinement.cache_path.",
+      "title": "Stability Gene Biomarker Ppi Cache Path"
+    },
+    "stability_gene_biomarker_ppi_top_hubs": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 100,
+      "description": "Max PPI hub genes passed to gene FeatureCuts pool.",
+      "title": "Stability Gene Biomarker Ppi Top Hubs"
+    },
+    "stability_gene_biomarker_top_genes": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 150,
+      "description": "Cap genes entering PPI fetch after disease CSV filters (mirrors enricher top).",
+      "title": "Stability Gene Biomarker Top Genes"
+    },
+    "stability_gene_featurecuts_dmp_source": {
+      "anyOf": [
+        {
+          "enum": [
+            "discovery",
+            "classifier",
+            "stable"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "discovery",
+      "description": "DMP CSV layer used to build gene FeatureCuts features. 'discovery' maps all biologically filtered loci to genes (recommended for discovery_gene_featurecuts). 'classifier' uses FeatureCuts-selected DMP panels only. 'stable' uses a frozen stable DMP panel CSV (two-phase mode 5).",
+      "title": "Stability Gene Featurecuts Dmp Source"
+    },
+    "stability_gene_featurecuts_enabled": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If true, each MC iteration runs methyl-mapper then gene FeatureCuts (ECDF OvR k-search) after detector, and stability aggregates stable genes from genes-classifier exports.",
+      "title": "Stability Gene Featurecuts Enabled"
+    },
+    "stability_gene_featurecuts_max_dmps": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Genome-wide cap on DMP loci used for MC gene FeatureCuts (after deduplication). Set in site manifest or profile actionConfig.validation (not in code).",
+      "title": "Stability Gene Featurecuts Max Dmps"
+    },
+    "stability_gene_featurecuts_max_genes": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Cap the ranked mapper gene pool before MC gene FeatureCuts k-search. Set in site manifest or profile actionConfig.validation (not in code).",
+      "title": "Stability Gene Featurecuts Max Genes"
+    },
+    "stability_gene_freq": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.5,
+      "description": "Minimum frequency for a gene to be considered stable. When stability_gene_featurecuts_enabled, counts genes from per-run classifier gene panels.",
+      "title": "Stability Gene Freq"
+    },
+    "stability_gene_recurrence_source": {
+      "anyOf": [
+        {
+          "enum": [
+            "enricher",
+            "mapper",
+            "classifier"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Gene stability aggregation source. For gene FeatureCuts packs use 'classifier' (genes-classifier.csv from methyl-mapper + FeatureCuts). 'mapper' uses mapper-ranked gene tables. 'enricher' is for enricher-hub recurrence only \u2014 disease enrichment is usually applied at freeze, not as the MC gene-recurrence source for gene FeatureCuts.",
+      "title": "Stability Gene Recurrence Source"
+    },
+    "stability_gene_region_hits": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional region tokens (promoter, exon, intron, gene_body, terminator). Require corresponding mapper hits_* > 0 before biomarker filtering.",
+      "title": "Stability Gene Region Hits"
+    },
+    "stability_mapper_enrich_disease": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "When true, MC methyl-mapper iterations run Grok/OpenTargets disease enrichment. Default false for speed; production --freeze mapper uses project step_config.mapper.enrich_disease.",
+      "title": "Stability Mapper Enrich Disease"
+    },
+    "stability_min_balanced_accuracy": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "If set, stability counts DMPs only from iterations whose validation_metrics.json balanced_accuracy is >= this value. Frequencies are over those qualifying runs only. Requires DMP or gene FeatureCuts (dmp_modeling_mode=featurecuts and/or gene_modeling_mode=featurecuts|from_stable_dmp_panel); without FeatureCuts per-run balanced_accuracy is unavailable.",
+      "title": "Stability Min Balanced Accuracy"
+    },
+    "stability_min_core_dmps": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional small guardrail on detector k_core during MC FeatureCuts (passed to detector min_core_dmps).",
+      "title": "Stability Min Core Dmps"
+    },
+    "stability_min_iterations": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 20,
+      "description": "Minimum number of qualifying runs required before stability convergence checks can trigger.",
+      "title": "Stability Min Iterations"
+    },
+    "stability_min_selected_genes": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional lower bound for gene classifier panel size in gene FeatureCuts mode. Final selected k is max(featurecuts_k, stability_min_selected_genes).",
+      "title": "Stability Min Selected Genes"
+    },
+    "stability_relaxed_cutoff_mode": {
+      "anyOf": [
+        {
+          "enum": [
+            "elbow_log_score",
+            "strict_multiplier"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "elbow_log_score",
+      "description": "How to derive relaxed stability cutoff when dual-cutoff is enabled: elbow_log_score (second elbow in tail) or strict_multiplier.",
+      "title": "Stability Relaxed Cutoff Mode"
+    },
+    "stability_relaxed_multiplier": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.5,
+      "description": "Multiplier applied to strict score threshold when stability_relaxed_cutoff_mode='strict_multiplier'.",
+      "title": "Stability Relaxed Multiplier"
+    },
+    "stability_score_eps": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 1e-12,
+      "description": "Small epsilon used in log(score + eps) elbow detection.",
+      "title": "Stability Score Eps"
+    },
+    "stability_target_balanced_accuracy": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional target BA for detector FeatureCuts: choose minimum top-k DMPs that reach this BA on detector validation splits. Also enables binary-search k selection in MC gene FeatureCuts.",
+      "title": "Stability Target Balanced Accuracy"
+    },
+    "stability_tier_core_freq": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.85,
+      "description": "Core tier threshold for frequency-based stability.",
+      "title": "Stability Tier Core Freq"
+    },
+    "stability_tier_exploratory_freq": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.7,
+      "description": "Exploratory tier threshold for frequency-based stability.",
+      "title": "Stability Tier Exploratory Freq"
+    },
+    "stability_tier_extended_freq": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 0.8,
+      "description": "Extended tier threshold for frequency-based stability.",
+      "title": "Stability Tier Extended Freq"
+    },
+    "stability_tiers_enabled": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": false,
+      "description": "If true, write three tiered stability outputs under stability/tier_core, stability/tier_extended, stability/tier_exploratory.",
+      "title": "Stability Tiers Enabled"
+    },
+    "subgroup_columns": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional metadata columns for subgroup reporting in clinical performance reports (e.g., sex, age_bin, site_id, race_ethnicity).",
+      "title": "Subgroup Columns"
+    },
+    "train_fraction": {
+      "anyOf": [
+        {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Fraction of samples used for training per cohort (e.g. 0.8).",
+      "title": "Train Fraction"
+    },
+    "validation_partitions": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ValidationPartitionContract"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional named partition contract (development/internal/locked/pivotal/post-market)."
+    }
+  },
+  "title": "ValidationStepConfig",
+  "type": "object"
+}

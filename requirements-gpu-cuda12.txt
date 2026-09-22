@@ -1,0 +1,10 @@
+# GPU/accelerated requirements (CUDA 12.x, ARM64-compatible profile).
+# Install with:
+#   pip install -r requirements-gpu-cuda12.txt --extra-index-url https://pypi.nvidia.com
+#
+# This profile intentionally excludes Torch/CUDA13 packages and keeps a
+# CuPy version known to be stable in this project environment.
+cupy-cuda12x==13.6.0
+cudf-cu12==26.4.0
+pylibcudf-cu12==26.4.0
+rmm-cu12==26.4.0

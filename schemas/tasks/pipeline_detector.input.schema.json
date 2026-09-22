@@ -1,0 +1,400 @@
+{
+  "$defs": {
+    "DetectorStepOverride": {
+      "additionalProperties": false,
+      "description": "Scope fields and detection-step overrides folded into methyl-detector --step-override.",
+      "properties": {
+        "base_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SampleCohortOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "chromosome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chromosome"
+        },
+        "classifier_dmp_selection": {
+          "anyOf": [
+            {
+              "enum": [
+                "elbow",
+                "featurecuts_validation"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classifier Dmp Selection"
+        },
+        "classifier_export_margin_abs": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classifier Export Margin Abs"
+        },
+        "classifier_export_margin_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classifier Export Margin Pct"
+        },
+        "classifier_export_max_dmps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classifier Export Max Dmps"
+        },
+        "comparison": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comparison"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context"
+        },
+        "contexts": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contexts"
+        },
+        "detection_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "legacy",
+                "discovery_only"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detection Mode"
+        },
+        "dmp_export_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "unified",
+                "dual"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dmp Export Mode"
+        },
+        "export_classifier": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Export Classifier"
+        },
+        "fixed_dmp_panel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fixed Dmp Panel"
+        },
+        "min_core_dmps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Core Dmps"
+        },
+        "output_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Dir"
+        },
+        "target_balanced_accuracy": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Balanced Accuracy"
+        }
+      },
+      "title": "DetectorStepOverride",
+      "type": "object"
+    },
+    "SampleCohortOverride": {
+      "additionalProperties": false,
+      "description": "Incremental sample cohort changes (synthesized by worker or passed in base_config).",
+      "properties": {
+        "add_samples": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Add Samples"
+        },
+        "remove_samples": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remove Samples"
+        }
+      },
+      "title": "SampleCohortOverride",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "centroid1Dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Centroid1Dir"
+    },
+    "centroid2Dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Centroid2Dir"
+    },
+    "chromosome": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Chromosome"
+    },
+    "comparison": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comparison"
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context"
+    },
+    "fixedDmpPanel": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fixeddmppanel"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Group"
+    },
+    "outputDir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Outputdir"
+    },
+    "project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Project"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Projectpath"
+    },
+    "stepOverride": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DetectorStepOverride"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "tool": {
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tool"
+  ],
+  "title": "DetectorTaskInput",
+  "type": "object"
+}

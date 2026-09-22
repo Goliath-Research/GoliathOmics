@@ -1,0 +1,22 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "balanced_accuracy": null,
+  "capability": null,
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "gene_dmp_loci_csv": null,
+  "genes_classifier_csv": null,
+  "manifest_path": null,
+  "metrics_json": null,
+  "result_code": 0,
+  "run_dir": "/work/p/mc/run_0001",
+  "schema_version": "1.0",
+  "selected_k": 25,
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

@@ -1,0 +1,20 @@
+{
+  "projectPath": "/work/projects/plant-abiotic-stress-wheat/configs/project_Control_vs_Drought_wheat.json",
+  "pipelineProcedure": "plant_wgbs_gene_fc",
+  "pipelineProfile": "samd_research",
+  "runProgressionAnalysis": false,
+  "actionConfig": {
+    "mapper": {
+      "enrich_disease": false
+    },
+    "enricher": {
+      "library_preset": "plant-stress-core",
+      "organism": "Triticum_aestivum",
+      "string_species": 4565,
+      "disease_only": false
+    },
+    "progression": {
+      "enabled": false
+    }
+  }
+}

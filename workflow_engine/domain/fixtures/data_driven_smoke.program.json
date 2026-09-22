@@ -1,0 +1,98 @@
+{
+  "programVersion": 2,
+  "name": "DataDriven_Smoke",
+  "description": "Smoke data-driven two-group DomainProgram for CI.",
+  "body": [
+    {
+      "for": {
+        "in": {
+          "ref": "project.comparisons"
+        },
+        "as": "comparison",
+        "parallel": true
+      },
+      "do": [
+        {
+          "for": {
+            "in": {
+              "ref": "project.contexts"
+            },
+            "as": "context",
+            "parallel": true
+          },
+          "do": [
+            {
+              "for": {
+                "in": {
+                  "ref": "project.chromosomes"
+                },
+                "as": "chromosome",
+                "parallel": true
+              },
+              "do": [
+                {
+                  "parallel": [
+                    {
+                      "do": "pipeline.centroid",
+                      "with": {
+                        "group": {
+                          "ref": "comparison.control_group"
+                        },
+                        "chromosome": {
+                          "ref": "chromosome"
+                        },
+                        "context": {
+                          "ref": "context"
+                        }
+                      },
+                      "node_key": "centroid_g1"
+                    },
+                    {
+                      "do": "pipeline.centroid",
+                      "with": {
+                        "group": {
+                          "ref": "comparison.disease_group"
+                        },
+                        "chromosome": {
+                          "ref": "chromosome"
+                        },
+                        "context": {
+                          "ref": "context"
+                        }
+                      },
+                      "node_key": "centroid_g2"
+                    }
+                  ]
+                },
+                {
+                  "do": "pipeline.detector",
+                  "with": {
+                    "chromosome": {
+                      "ref": "chromosome"
+                    },
+                    "context": {
+                      "ref": "context"
+                    },
+                    "comparison": {
+                      "ref": "comparison.label"
+                    }
+                  },
+                  "node_key": "detect"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "do": "pipeline.mapper",
+      "node_key": "mapper"
+    },
+    {
+      "do": "pipeline.enricher",
+      "node_key": "enricher"
+    }
+  ],
+  "projectPath": "workflow_engine/domain/checks/buffy_healthy_vs_pca/configs/project_Buffy_healthy_vs_PCa_smoke.json"
+}

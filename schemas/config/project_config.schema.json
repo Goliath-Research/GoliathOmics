@@ -1,0 +1,538 @@
+{
+  "$defs": {
+    "ComparisonSpec": {
+      "description": "One comparison: a pair of control group vs disease group to run through detection, mapper, enricher, classifier.",
+      "properties": {
+        "comparison_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output folder name for this comparison (default: disease_group)",
+          "title": "Comparison Label"
+        },
+        "control_group": {
+          "description": "Label of the control sub-group (must exist in control.groups)",
+          "title": "Control Group",
+          "type": "string"
+        },
+        "disease_group": {
+          "description": "Label of the disease sub-group (must exist in disease.groups)",
+          "title": "Disease Group",
+          "type": "string"
+        }
+      },
+      "required": [
+        "control_group",
+        "disease_group"
+      ],
+      "title": "ComparisonSpec",
+      "type": "object"
+    },
+    "ControlDiseaseSide": {
+      "description": "One side (control or disease) with a display label and one or more sub-groups.",
+      "properties": {
+        "groups": {
+          "description": "Sub-groups, each with label and sample_paths (and optional level_labels_path, samples_base_path)",
+          "items": {
+            "$ref": "#/$defs/GroupConfig"
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "label": {
+          "description": "Display name for this side (e.g. caucasians, prostate cancer)",
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "ControlDiseaseSide",
+      "type": "object"
+    },
+    "GroupConfig": {
+      "description": "One cohort or one level within a cohort.\nIf level_labels_path is set, this group is expanded into one logical group per level\n(sample_paths are split by the level column); centroid dirs are created per level.\nWhen subcluster is set and persist_centroids is True, MethylCluster runs first and the group\nis expanded into one sub-group per cluster (e.g. healthy_c0, healthy_c1); no single centroid\nfor the parent label is built. When samples_base_path is set (project or group), sample_paths\nmay be paths to CSV/text files containing only sample folder names (one per line or one column);\neach name is resolved to samples_base_path / name.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Human-readable meaning of this cohort or stage (e.g. clinical stage); do not put file paths here.",
+          "title": "Description"
+        },
+        "label": {
+          "description": "Group label; used for centroid subdir name (e.g. healthy, pcancer)",
+          "title": "Label",
+          "type": "string"
+        },
+        "level_labels_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional path to CSV with columns mapping sample_path or sample name to level (path, level). When set, this group is expanded into one centroid dir per level; dir name is {label}_{level}.",
+          "title": "Level Labels Path"
+        },
+        "order_index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional numeric ordering hint for progression synthesis when JSON order is insufficient.",
+          "title": "Order Index"
+        },
+        "sample_paths": {
+          "description": "List of sample directory paths, or paths to files containing one path per line, JSON array, or (when samples_base_path is set) one sample name per line / single column CSV.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Sample Paths",
+          "type": "array"
+        },
+        "samples_base_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Base directory to resolve sample names from file (overrides project-level samples_base_path). When set, entries in sample_paths files are treated as folder names and resolved to this path.",
+          "title": "Samples Base Path"
+        },
+        "stages": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/GroupConfig"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional child strata under this disease family (JSON key is 'stages' but children may be stage, molecular subtype, or any mutually exclusive bins\u2014not only TNM stage). When set, parent must not use sample_paths; each child has its own label and sample_paths. Resolved centroid labels are {parent.label}_{child.label}. See methylutils/docs/COHORT_TREE.md.",
+          "title": "Stages"
+        },
+        "subcluster": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SubclusterRequest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When set, run MethylCluster on this group's samples; if persist_centroids, expand to one centroid per cluster."
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "GroupConfig",
+      "type": "object"
+    },
+    "SubclusterRequest": {
+      "description": "Request to run MethylCluster on this group's samples before building centroids.\nWhen enabled and persist_centroids is True, the group is expanded into one sub-group per\ndiscovered cluster (e.g. healthy_c0, healthy_c1); centroids are built per cluster via MethylCentroid.\nWhen persist_centroids is False, MethylCluster runs and writes assignments only; the group\nremains a single centroid (all samples) as usual.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Enable sub-clustering for this group",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "force_k": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Force K clusters (centroid/hierarchical); bypasses automatic K selection",
+          "title": "Force K"
+        },
+        "method": {
+          "default": "centroid",
+          "description": "MethylCluster clustering method (centroid recommended for methylation data)",
+          "enum": [
+            "centroid",
+            "hdbscan",
+            "hierarchical"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "metric": {
+          "default": "jensen_shannon",
+          "description": "Distance metric for clustering (e.g. jensen_shannon, hellinger)",
+          "title": "Metric",
+          "type": "string"
+        },
+        "min_cluster_size": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum samples per cluster (HDBSCAN); defaults to MethylCluster default if unset",
+          "title": "Min Cluster Size"
+        },
+        "output_subdir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Subdir under project clustering output (default: side/group_label, e.g. control/healthy)",
+          "title": "Output Subdir"
+        },
+        "persist_centroids": {
+          "default": true,
+          "description": "If True, run MethylCentroid per cluster and expand group to healthy_c0, healthy_c1, ...",
+          "title": "Persist Centroids",
+          "type": "boolean"
+        }
+      },
+      "title": "SubclusterRequest",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Single source of truth for a MethylPipeline project.\n\nPreferred schema:\n- `controls` / `diseases` (or singular `control` / `disease`)\n- explicit `comparisons`\n- shared `chromosomes`, `contexts`, `path_remap`\n- tool parameters live in pipeline profiles (`actionConfig`) and site manifest\n\nBackward compatibility is retained for `group1`/`group2`, flat `groups`,\nand a few historically nested keys that are promoted to the top level at\nload time. ``step_config`` is not accepted (use profiles + site manifest).",
+  "properties": {
+    "batch": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Batch identifier for metadata.",
+      "title": "Batch"
+    },
+    "chromosomes": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Shared chromosome list (e.g. ['1','2',...,'X','Y'])",
+      "title": "Chromosomes"
+    },
+    "cohort_hierarchy": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional reporting tree: e.g. disease_families[{label, stage_labels[]}], control_strata[]. Filled automatically when using disease groups with stages if omitted.",
+      "title": "Cohort Hierarchy"
+    },
+    "comparisons": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/ComparisonSpec"
+          },
+          "type": "array"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When control+disease: list of {control_group, disease_group, comparison_label?} or shorthand: \"control_vs_each_disease\" (first control vs each disease), \"all_pairs\" (every control group \u00d7 every disease leaf).",
+      "title": "Comparisons"
+    },
+    "contexts": {
+      "anyOf": [
+        {
+          "items": {
+            "enum": [
+              "CG",
+              "CHG",
+              "CHH"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Shared contexts (e.g. ['CG'])",
+      "title": "Contexts"
+    },
+    "control": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ControlDiseaseSide"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When set with disease: control side (label + groups). Centroids go to centroids/controls/{group.label}."
+    },
+    "disease": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ControlDiseaseSide"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When set with control: disease side (label + groups). Centroids go to centroids/diseases/{disease_subdir}/{group.label}."
+    },
+    "disease_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Human-readable disease name for metadata (e.g. 'Prostate Cancer'). Use 'disease' when it's a string and 'diseases' for structure.",
+      "title": "Disease Name"
+    },
+    "group1": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GroupConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "First cohort (e.g. control/healthy). Required when groups is not set."
+    },
+    "group2": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GroupConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Second cohort (e.g. disease/cancer). Required when groups is not set."
+    },
+    "groups": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/GroupConfig"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional N groups (overrides group1/group2 when set). Each group can have level_labels_path for stratification.",
+      "title": "Groups"
+    },
+    "laboratory": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Laboratory name for metadata.",
+      "title": "Laboratory"
+    },
+    "output_base": {
+      "description": "Global output folder; each project uses a subfolder {output_base}/{project_name} for all step outputs",
+      "title": "Output Base",
+      "type": "string"
+    },
+    "path_remap": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Prefix replacement when sample paths moved (e.g. NAS); longest match applied",
+      "title": "Path Remap"
+    },
+    "progression_labels": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Explicit comparison tokens when progression_order is 'explicit'.",
+      "title": "Progression Labels"
+    },
+    "progression_order": {
+      "anyOf": [
+        {
+          "enum": [
+            "from_stages",
+            "from_comparisons",
+            "explicit"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "How to order disease stages for progression synthesis. Default: from_stages when nested stages exist.",
+      "title": "Progression Order"
+    },
+    "project_name": {
+      "description": "Project identifier for metadata and naming (e.g. PCa_vs_Healthy)",
+      "title": "Project Name",
+      "type": "string"
+    },
+    "regulatory": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Regulatory / analyte metadata (primary_analyte, stage, intended_use_summary, \u2026).",
+      "title": "Regulatory"
+    },
+    "samples_base_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Base directory to resolve sample names. When set, group sample_paths that point to files can list only sample folder names (one per line or single-column CSV); each is resolved to this path.",
+      "title": "Samples Base Path"
+    },
+    "survival_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional CSV sidecar for time-to-event modeling: sample_id, time, event, and optional psa/alp/ldh/predicted_ctdna_fraction. Operator-supplied; no in-process ctdna.org call.",
+      "title": "Survival Path"
+    },
+    "validation_partitions": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Cohort partition CSV paths for validation governance (development_train, locked_test, \u2026).",
+      "title": "Validation Partitions"
+    }
+  },
+  "required": [
+    "project_name",
+    "output_base"
+  ],
+  "title": "ProjectConfig",
+  "type": "object"
+}

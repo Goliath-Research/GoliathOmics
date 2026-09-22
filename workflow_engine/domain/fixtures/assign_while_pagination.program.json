@@ -1,0 +1,44 @@
+{
+  "programVersion": 2,
+  "name": "AssignWhilePagination",
+  "description": "Generic pagination sketch: typed assign + WHILE (not a production methylation program).",
+  "projectPath": "/work/projects/example/configs/project.json",
+  "variables": {
+    "hasMore": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "Continue pagination while true"
+    },
+    "pagePath": {
+      "schemaRef": "schemas/vars/path.schema.json",
+      "description": "Path to current page JSON document"
+    }
+  },
+  "body": [
+    {
+      "assign": "pagePath",
+      "using": "workflow.const_path",
+      "with": { "value": "/work/cache/example/page.json" },
+      "node_key": "seed_page_path"
+    },
+    {
+      "assign": "hasMore",
+      "using": "workflow.const_bool",
+      "with": { "value": true },
+      "node_key": "seed_has_more"
+    },
+    {
+      "while": "${hasMore}",
+      "do": [
+        {
+          "assign": "hasMore",
+          "using": "workflow.json_path_bool",
+          "with": {
+            "documentPath": { "ref": "pagePath" },
+            "jsonPath": "$.hasMore"
+          },
+          "node_key": "read_has_more"
+        }
+      ]
+    }
+  ]
+}

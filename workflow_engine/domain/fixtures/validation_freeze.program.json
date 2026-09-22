@@ -1,0 +1,103 @@
+{
+  "programVersion": 2,
+  "name": "ValidationFreeze",
+  "description": "Freeze stable panels / readiness after MC stability.",
+  "body": [
+    {
+      "do": "validation.prepare_freeze_project",
+      "node_key": "prepare_freeze"
+    },
+    {
+      "for": {
+        "in": {
+          "ref": "groups"
+        },
+        "as": "group",
+        "parallel": true
+      },
+      "do": [
+        {
+          "for": {
+            "in": {
+              "ref": "project.chromosomes"
+            },
+            "as": "chromosome",
+            "parallel": true
+          },
+          "do": [
+            {
+              "do": "pipeline.centroid",
+              "with": {
+                "group": {
+                  "ref": "group.label"
+                },
+                "chromosome": {
+                  "ref": "chromosome"
+                },
+                "context": {
+                  "ref": "context"
+                }
+              },
+              "node_key": "freeze_centroid"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "for": {
+        "in": {
+          "ref": "project.comparisons"
+        },
+        "as": "comparison",
+        "parallel": true
+      },
+      "do": [
+        {
+          "for": {
+            "in": {
+              "ref": "project.chromosomes"
+            },
+            "as": "chromosome",
+            "parallel": true
+          },
+          "do": [
+            {
+              "do": "pipeline.detector",
+              "with": {
+                "chromosome": {
+                  "ref": "chromosome"
+                },
+                "context": {
+                  "ref": "context"
+                },
+                "comparison": {
+                  "ref": "comparison.label"
+                },
+                "fixedDmpPanel": "${var.fixedDmpPanel}"
+              },
+              "node_key": "freeze_detect"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "do": "pipeline.mapper",
+      "node_key": "mapper"
+    },
+    {
+      "do": "pipeline.enricher",
+      "node_key": "enricher"
+    },
+    {
+      "do": "validation.finalize_freeze_model_bundle",
+      "node_key": "finalize_freeze_model_bundle"
+    },
+    {
+      "do": "pipeline.progression",
+      "node_key": "progression"
+    }
+  ],
+  "projectPath": "workflow_engine/domain/checks/pca1_5_cg/configs/project_Healthy_vs_PCa1-5-CG_smoke.json"
+}

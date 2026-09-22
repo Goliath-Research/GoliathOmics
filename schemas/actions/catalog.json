@@ -1,0 +1,2678 @@
+{
+  "actions": [
+    {
+      "action_config_key": "centroid",
+      "action_name": "pipeline.centroid",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "residualizeCoefDir": "--residualize-coef-dir",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-centroid",
+      "category": "modeling",
+      "cli_tool": "methyl-centroid",
+      "context_vars": [
+        "group",
+        "chromosome",
+        "context",
+        "outputDir",
+        "stepOverride",
+        "addSamples",
+        "removeSamples",
+        "centroidSeedDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Build per-group methylation centroids (chr\u00d7context HDF5 aggregates).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "MethylGroup"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [
+          {
+            "field": "outputDir",
+            "scope_var": "centroid1Dir",
+            "side": "control"
+          },
+          {
+            "field": "outputDir",
+            "scope_var": "centroid2Dir",
+            "side": "disease"
+          }
+        ],
+        "writes_types": [
+          "MethylCentroidRef"
+        ]
+      },
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_centroid.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_centroid.output.schema.json",
+      "schema_id": "pipeline.centroid",
+      "tool": "MethylCentroid"
+    },
+    {
+      "action_config_key": "detection",
+      "action_name": "pipeline.detector",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "group": "--group",
+        "project": "--project",
+        "projectPath": "--project",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-detector",
+      "category": "modeling",
+      "cli_tool": "methyl-detector",
+      "context_vars": [
+        "chromosome",
+        "context",
+        "comparison",
+        "fixedDmpPanel",
+        "stepOverride"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Detect differentially methylated positions between cohort pairs.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "ComparisonSpec",
+          "MethylCentroidRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [
+          {
+            "absent_also": [],
+            "field": "centroid1Dir",
+            "only_if_absent": false,
+            "scope_var": "centroid1Dir"
+          },
+          {
+            "absent_also": [],
+            "field": "centroid2Dir",
+            "only_if_absent": false,
+            "scope_var": "centroid2Dir"
+          },
+          {
+            "absent_also": [],
+            "field": "outputDir",
+            "only_if_absent": false,
+            "scope_var": "detectOutDir"
+          },
+          {
+            "absent_also": [
+              "label"
+            ],
+            "field": "comparison",
+            "only_if_absent": true,
+            "scope_var": "label"
+          }
+        ],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylDetectionRef"
+        ]
+      },
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_detector.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_detector.output.schema.json",
+      "schema_id": "pipeline.detector",
+      "tool": "MethylDetector"
+    },
+    {
+      "action_config_key": "dmp_selection",
+      "action_name": "pipeline.dmp_select",
+      "argv_map": {
+        "chromosome": "--chromosome",
+        "discoveryCsv": "--discovery-csv",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-dmp-select",
+      "category": "modeling",
+      "cli_tool": "methyl-dmp-select",
+      "context_vars": [
+        "chromosome",
+        "context",
+        "comparison",
+        "discoveryCsv",
+        "outputDir",
+        "stepOverride"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Select minimal discriminatory DMP panel from discovery exports (FeatureCuts / elbow).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "ComparisonSpec",
+          "MethylCentroidRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylDetectionRef"
+        ]
+      },
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_dmp_select.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_dmp_select.output.schema.json",
+      "schema_id": "pipeline.dmp_select",
+      "tool": "MethylDmpSelect"
+    },
+    {
+      "action_config_key": "mapper",
+      "action_name": "pipeline.mapper",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-mapper",
+      "category": "modeling",
+      "cli_tool": "methyl-mapper",
+      "context_vars": [],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Map DMPs to genes and genomic features.",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_mapper.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_mapper.output.schema.json",
+      "schema_id": "pipeline.mapper",
+      "tool": "MethylMapper"
+    },
+    {
+      "action_config_key": "derived_measures",
+      "action_name": "pipeline.derived_measures",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-derived-measures",
+      "category": "modeling",
+      "cli_tool": "methyl-derived-measures",
+      "context_vars": [],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Genome-wide per-sample derived methylation measures (sidecar CSV).",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_derived_measures.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_derived_measures.output.schema.json",
+      "schema_id": "pipeline.derived_measures",
+      "tool": "MethylDerivedMeasures"
+    },
+    {
+      "action_config_key": "cell_deconvolution",
+      "action_name": "pipeline.cell_deconvolution",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-cell-deconv",
+      "category": "modeling",
+      "cli_tool": "methyl-cell-deconv",
+      "context_vars": [],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Cell-type deconvolution (Houseman or HiTIMED) from a path-configured atlas JSON; plant_tissue requires an operator-supplied seed/hierarchy basis (no blood fallback).",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_cell_deconvolution.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_cell_deconvolution.output.schema.json",
+      "schema_id": "pipeline.cell_deconvolution",
+      "tool": "MethylCellDeconv"
+    },
+    {
+      "action_config_key": "residualize",
+      "action_name": "pipeline.residualize_fit",
+      "argv_map": {
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-residualize-fit",
+      "category": "modeling",
+      "cli_tool": "methyl-residualize-fit",
+      "context_vars": [
+        "outputDir",
+        "stepOverride",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Train-only M-value residualization coefficients (no Group label; freeze for inference).",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_residualize_fit.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_residualize_fit.output.schema.json",
+      "schema_id": "pipeline.residualize_fit",
+      "tool": "MethylResidualizeFit"
+    },
+    {
+      "action_config_key": "methylation_confounder_scores",
+      "action_name": "pipeline.methylation_confounder_scores",
+      "argv_map": {
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-confounder-scores",
+      "category": "modeling",
+      "cli_tool": "methyl-confounder-scores",
+      "context_vars": [
+        "outputDir",
+        "stepOverride",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Label-free methylation confounder scores (smoking, clock, BMI, inflammation).",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_methylation_confounder_scores.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_methylation_confounder_scores.output.schema.json",
+      "schema_id": "pipeline.methylation_confounder_scores",
+      "tool": "MethylConfounderScores"
+    },
+    {
+      "action_config_key": "info_measures",
+      "action_name": "pipeline.info_measures",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-infotheory",
+      "category": "modeling",
+      "cli_tool": "methyl-infotheory",
+      "context_vars": [],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Read-level information-theoretic methylation measures (entropy, JSD, confirmation).",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_info_measures.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_info_measures.output.schema.json",
+      "schema_id": "pipeline.info_measures",
+      "tool": "MethylInfoTheory"
+    },
+    {
+      "action_config_key": "mhb_mhl",
+      "action_name": "pipeline.mhb_mhl",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-mhl",
+      "category": "modeling",
+      "cli_tool": "methyl-mhl",
+      "context_vars": [],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Native MHB discovery and methylation haplotype load (MHL) from haplotype sidecars.",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_mhb_mhl.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_mhb_mhl.output.schema.json",
+      "schema_id": "pipeline.mhb_mhl",
+      "tool": "MethylMhl"
+    },
+    {
+      "action_config_key": "gene_selection",
+      "action_name": "pipeline.gene_select",
+      "argv_map": {
+        "biomarkerFilter": "--biomarker-filter",
+        "project": "--project",
+        "projectPath": "--project",
+        "runDir": "--run-dir"
+      },
+      "capability": "methyl-gene-select",
+      "category": "modeling",
+      "cli_tool": "methyl-gene-select",
+      "context_vars": [
+        "comparison",
+        "runDir",
+        "biomarkerFilter"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Validation-driven gene panel selection (ECDF OvR FeatureCuts).",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_gene_select.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_gene_select.output.schema.json",
+      "schema_id": "pipeline.gene_select",
+      "tool": "MethylGeneSelect"
+    },
+    {
+      "action_config_key": "gene_selection",
+      "action_name": "pipeline.gene_feature_select",
+      "argv_map": {
+        "mapperDir": "--mapper-dir",
+        "outputDir": "--output-dir"
+      },
+      "capability": "methyl-gene-feature-select",
+      "category": "modeling",
+      "cli_tool": "methyl-gene-feature-select",
+      "context_vars": [
+        "mapperDir",
+        "outputDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Select structural gene \u00d7 region features for tabular structural_scored backends.",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_gene_feature_select.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_gene_feature_select.output.schema.json",
+      "schema_id": "pipeline.gene_feature_select",
+      "tool": "MethylGeneFeatureSelect"
+    },
+    {
+      "action_config_key": "enricher",
+      "action_name": "pipeline.enricher",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-enricher",
+      "category": "modeling",
+      "cli_tool": "methyl-enricher",
+      "context_vars": [],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Functional enrichment on mapped gene sets.",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_enricher.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_enricher.output.schema.json",
+      "schema_id": "pipeline.enricher",
+      "tool": "MethylEnricher"
+    },
+    {
+      "action_config_key": "progression",
+      "action_name": "pipeline.progression",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-disease-progression",
+      "category": "modeling",
+      "cli_tool": "methyl-disease-progression",
+      "context_vars": [],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Ordered disease-stage progression analysis across comparisons.",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_progression.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_progression.output.schema.json",
+      "schema_id": "pipeline.progression",
+      "tool": "MethylDiseaseProgression"
+    },
+    {
+      "action_config_key": "classifier",
+      "action_name": "pipeline.classifier",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "residualizeCoefDir": "--residualize-coef-dir",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-classifier",
+      "category": "modeling",
+      "cli_tool": "methyl-classifier",
+      "context_vars": [],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Train production classifier from frozen centroids and DMP panel.",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_classifier.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_classifier.output.schema.json",
+      "schema_id": "pipeline.classifier",
+      "tool": "MethylClassifier"
+    },
+    {
+      "action_config_key": "predictor",
+      "action_name": "pipeline.predictor",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "residualizeCoefDir": "--residualize-coef-dir",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-predictor",
+      "category": "modeling",
+      "cli_tool": "methyl-predictor",
+      "context_vars": [],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Run predictor on holdout samples using trained classifier.",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_predictor.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_predictor.output.schema.json",
+      "schema_id": "pipeline.predictor",
+      "tool": "MethylPredictor"
+    },
+    {
+      "action_name": "context.resolve_project",
+      "argv_map": {},
+      "capability": "context.resolve-project",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "monteCarloRunsRoot",
+        "cohortPathsList"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Materialize study manifest paths and cohorts into a typed ResolvedProject.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "MethylGroup",
+          "ComparisonSpec"
+        ],
+        "scope_bindings": [
+          {
+            "output_json_path": "$.resolvedProject",
+            "var_name": "resolvedProject"
+          }
+        ],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ResolvedProject"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_context_resolve_project",
+      "input_schema_ref": "schemas/tasks/context_resolve_project.input.schema.json",
+      "output_schema_ref": "schemas/tasks/context_resolve_project.output.schema.json",
+      "schema_id": "context.resolve_project",
+      "tool": "ContextResolveProject"
+    },
+    {
+      "action_name": "sample.download_fastq",
+      "argv_map": {},
+      "capability": "sample.download-fastq",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "sampleRoot",
+        "fastqSource"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Download sample FASTQ files from external object storage.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.fastqFiles",
+            "scope_field": "fastqFiles"
+          }
+        ],
+        "reads_types": [
+          "MethylIngestRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_download_fastq",
+      "input_schema_ref": "schemas/tasks/sample_download_fastq.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_download_fastq.output.schema.json",
+      "schema_id": "sample.download_fastq",
+      "tool": "SampleDownloadFastq"
+    },
+    {
+      "action_config_key": "demultiplex",
+      "action_name": "sample.demultiplex",
+      "argv_map": {},
+      "capability": "sample.demultiplex",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Demultiplex barcode-tagged PE FASTQs (epi-GBS / reduced-rep); barcode table via resolvedConfig.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_demultiplex",
+      "input_schema_ref": "schemas/tasks/sample_demultiplex.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_demultiplex.output.schema.json",
+      "schema_id": "sample.demultiplex",
+      "tool": "SampleDemultiplex"
+    },
+    {
+      "action_config_key": "docker_align",
+      "action_name": "sample.docker_align",
+      "argv_map": {},
+      "capability": "align.docker",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Align bisulfite FASTQs with a config-described Docker image (epi-GBS / alternate aligners).",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.bamPath",
+            "scope_field": "bamPath"
+          },
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.metricsJson",
+            "scope_field": "metricsJson"
+          },
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.qcMetricsTar",
+            "scope_field": "qcMetricsTar"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_docker_align",
+      "input_schema_ref": "schemas/tasks/sample_docker_align.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_docker_align.output.schema.json",
+      "schema_id": "sample.docker_align",
+      "tool": "SampleDockerAlign"
+    },
+    {
+      "action_config_key": "parabricks",
+      "action_name": "sample.parabricks_fq2bam",
+      "argv_map": {},
+      "capability": "parabricks.fq2bam",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Align bisulfite FASTQs to BAM using NVIDIA Clara Parabricks fq2bam_meth (Docker).",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "exclusive_worker": true,
+        "max_per_worker": 1,
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.bamPath",
+            "scope_field": "bamPath"
+          },
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.metricsJson",
+            "scope_field": "metricsJson"
+          },
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.qcMetricsTar",
+            "scope_field": "qcMetricsTar"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_parabricks_fq2bam",
+      "input_schema_ref": "schemas/tasks/sample_parabricks_fq2bam.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_parabricks_fq2bam.output.schema.json",
+      "schema_id": "sample.parabricks_fq2bam",
+      "tool": "ParabricksFq2Bam"
+    },
+    {
+      "action_config_key": "parabricks",
+      "action_name": "sample.parabricks_giraffe",
+      "argv_map": {},
+      "capability": "parabricks.giraffe",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Align FASTQs with Parabricks vg Giraffe (HPRC pangenome, GRCh38 surjection) + collectmultiplemetrics QC.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "exclusive_worker": true,
+        "max_per_worker": 1,
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.bamPath",
+            "scope_field": "bamPath"
+          },
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.metricsJson",
+            "scope_field": "metricsJson"
+          },
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.qcMetricsTar",
+            "scope_field": "qcMetricsTar"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_parabricks_giraffe",
+      "input_schema_ref": "schemas/tasks/sample_parabricks_giraffe.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_parabricks_giraffe.output.schema.json",
+      "schema_id": "sample.parabricks_giraffe",
+      "tool": "ParabricksGiraffe"
+    },
+    {
+      "action_config_key": "methylgrapher_wgbs",
+      "action_name": "sample.methylgrapher_wgbs_align",
+      "argv_map": {},
+      "capability": "methylgrapher.wgbs_align",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Align WGBS FASTQs with methylGrapher dual C2T/G2A graphs and emit QC-compatible GRCh38 BAM.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "exclusive_worker": true,
+        "max_per_worker": 1,
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.bamPath",
+            "scope_field": "bamPath"
+          },
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.metricsJson",
+            "scope_field": "metricsJson"
+          },
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.qcMetricsTar",
+            "scope_field": "qcMetricsTar"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_methylgrapher_wgbs_align",
+      "input_schema_ref": "schemas/tasks/sample_methylgrapher_wgbs_align.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_methylgrapher_wgbs_align.output.schema.json",
+      "schema_id": "sample.methylgrapher_wgbs_align",
+      "tool": "MethylGrapherWgbsAlign"
+    },
+    {
+      "action_config_key": "rna_align",
+      "action_name": "sample.parabricks_rna_fq2bam",
+      "argv_map": {},
+      "capability": "parabricks.rna_fq2bam",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Align RNA-Seq FASTQs and quantify gene counts using NVIDIA Clara Parabricks rna_fq2bam (STAR, Docker).",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "exclusive_worker": true,
+        "max_per_worker": 1,
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_parabricks_rna_fq2bam",
+      "input_schema_ref": "schemas/tasks/sample_parabricks_rna_fq2bam.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_parabricks_rna_fq2bam.output.schema.json",
+      "schema_id": "sample.parabricks_rna_fq2bam",
+      "tool": "ParabricksRnaFq2Bam"
+    },
+    {
+      "action_config_key": "rna_align",
+      "action_name": "sample.kallisto",
+      "argv_map": {},
+      "capability": "parabricks.kallisto",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Quantify RNA-Seq FASTQs with NVIDIA Clara Parabricks kallisto pseudo-alignment (Docker).",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_kallisto",
+      "input_schema_ref": "schemas/tasks/sample_kallisto.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_kallisto.output.schema.json",
+      "schema_id": "sample.kallisto",
+      "tool": "ParabricksKallisto"
+    },
+    {
+      "action_config_key": "rna_qc",
+      "action_name": "sample.rna_qc",
+      "argv_map": {},
+      "capability": "rna-qc",
+      "category": "sample_prep",
+      "cli_tool": "rna-alignment-qc",
+      "context_vars": [
+        "projectPath",
+        "sampleId",
+        "sampleDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "RNA-Seq alignment/quantification QC guardrails (mapping/pseudoalignment rate, genes detected).",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [],
+        "scope_bindings": [
+          {
+            "output_json_path": "$.guardrails.overall_pass",
+            "var_name": "qcPass"
+          },
+          {
+            "output_json_path": "$.rnaQcPass",
+            "var_name": "rnaQcPass"
+          }
+        ],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": []
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_rna_qc",
+      "input_schema_ref": "schemas/tasks/sample_rna_qc.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_rna_qc.output.schema.json",
+      "schema_id": "sample.rna_qc",
+      "tool": "RnaAlignmentQc"
+    },
+    {
+      "action_config_key": "rna_align",
+      "action_name": "sample.register_expression",
+      "argv_map": {},
+      "capability": "sample.register-expression",
+      "category": "sample_prep",
+      "cli_tool": "methyl-rna-register-expression",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Normalize STAR gene counts or kallisto transcript abundances into a canonical expression.h5.",
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_register_expression",
+      "input_schema_ref": "schemas/tasks/sample_register_expression.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_register_expression.output.schema.json",
+      "schema_id": "sample.register_expression",
+      "tool": "RnaRegisterExpression"
+    },
+    {
+      "action_config_key": "rna_de_select",
+      "action_name": "pipeline.rna_de_select",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-rna-de-select",
+      "category": "modeling",
+      "cli_tool": "methyl-rna-de-select",
+      "context_vars": [
+        "comparison",
+        "outputDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "RNA-Seq differential-expression gene panel selection + tabular classification (replaces methylation centroid/detector).",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_rna_de_select.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_rna_de_select.output.schema.json",
+      "schema_id": "pipeline.rna_de_select",
+      "tool": "RnaDeSelect"
+    },
+    {
+      "action_name": "sample.download_msdata",
+      "argv_map": {},
+      "capability": "sample.download-msdata",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "fastqSource"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Download proteomics MS data files (.raw/.mzML/.d) from external object storage.",
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_download_fastq",
+      "input_schema_ref": "schemas/tasks/sample_download_msdata.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_download_msdata.output.schema.json",
+      "schema_id": "sample.download_msdata",
+      "tool": "SampleDownloadMsdata"
+    },
+    {
+      "action_config_key": "proteomics_quant",
+      "action_name": "sample.diann",
+      "argv_map": {},
+      "capability": "proteomics.diann",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Quantify DIA mass-spec data with GPU DIA-NN (Docker; own image env, not Parabricks).",
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_diann",
+      "input_schema_ref": "schemas/tasks/sample_diann.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_diann.output.schema.json",
+      "schema_id": "sample.diann",
+      "tool": "ProteomicsDiann"
+    },
+    {
+      "action_config_key": "proteomics_quant",
+      "action_name": "sample.sage",
+      "argv_map": {},
+      "capability": "proteomics.sage",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "DDA database search + LFQ quantification with Sage (Apache-2.0 Rust; CPU, open MSFragger alternative).",
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_sage",
+      "input_schema_ref": "schemas/tasks/sample_sage.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_sage.output.schema.json",
+      "schema_id": "sample.sage",
+      "tool": "ProteomicsSage"
+    },
+    {
+      "action_config_key": "proteomics_quant",
+      "action_name": "sample.ingest_panel",
+      "argv_map": {},
+      "capability": "proteomics.panel_ingest",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Ingest an affinity/aptamer panel matrix (Olink NPX / SomaScan RFU / open) to the abundance contract (CPU).",
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_ingest_panel",
+      "input_schema_ref": "schemas/tasks/sample_ingest_panel.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_ingest_panel.output.schema.json",
+      "schema_id": "sample.ingest_panel",
+      "tool": "ProteomicsIngestPanel"
+    },
+    {
+      "action_config_key": "proteomics_quant",
+      "action_name": "sample.dl_rescore",
+      "argv_map": {},
+      "capability": "proteomics.prosit",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Prosit deep-learning rescoring of a DIA-NN report (GPU Docker) to lift IDs at fixed FDR.",
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_dl_rescore",
+      "input_schema_ref": "schemas/tasks/sample_dl_rescore.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_dl_rescore.output.schema.json",
+      "schema_id": "sample.dl_rescore",
+      "tool": "ProteomicsProsit"
+    },
+    {
+      "action_config_key": "proteomics_quant",
+      "action_name": "sample.casanovo",
+      "argv_map": {},
+      "capability": "proteomics.casanovo",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Casanovo de novo peptide sequencing (GPU Docker) for novel/variant peptides.",
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_casanovo",
+      "input_schema_ref": "schemas/tasks/sample_casanovo.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_casanovo.output.schema.json",
+      "schema_id": "sample.casanovo",
+      "tool": "ProteomicsCasanovo"
+    },
+    {
+      "action_config_key": "proteomics_quant",
+      "action_name": "sample.register_abundance",
+      "argv_map": {},
+      "capability": "sample.register-abundance",
+      "category": "sample_prep",
+      "cli_tool": "methyl-register-abundance",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Normalize DIA-NN / panel proteomics output into a canonical abundance.h5.",
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_register_abundance",
+      "input_schema_ref": "schemas/tasks/sample_register_abundance.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_register_abundance.output.schema.json",
+      "schema_id": "sample.register_abundance",
+      "tool": "ProteomicsRegisterAbundance"
+    },
+    {
+      "action_config_key": "proteomics_qc",
+      "action_name": "sample.proteomics_qc",
+      "argv_map": {},
+      "capability": "proteomics-qc",
+      "category": "sample_prep",
+      "cli_tool": "proteomics-qc",
+      "context_vars": [
+        "projectPath",
+        "sampleId",
+        "sampleDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Proteomics QC guardrails (proteins identified, missingness).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [],
+        "scope_bindings": [
+          {
+            "output_json_path": "$.guardrails.overall_pass",
+            "var_name": "qcPass"
+          },
+          {
+            "output_json_path": "$.proteomicsQcPass",
+            "var_name": "proteomicsQcPass"
+          }
+        ],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": []
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_proteomics_qc",
+      "input_schema_ref": "schemas/tasks/sample_proteomics_qc.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_proteomics_qc.output.schema.json",
+      "schema_id": "sample.proteomics_qc",
+      "tool": "ProteomicsQc"
+    },
+    {
+      "action_config_key": "protein_de_select",
+      "action_name": "pipeline.protein_de_select",
+      "argv_map": {
+        "centroid1Dir": "--centroid1-dir",
+        "centroid2Dir": "--centroid2-dir",
+        "chromosome": "--chromosome",
+        "comparison": "--comparison",
+        "context": "--context",
+        "group": "--group",
+        "outputDir": "--output-dir",
+        "project": "--project",
+        "projectPath": "--project",
+        "resolvedConfigPath": "--resolved-config",
+        "stepOverride": "--step-override"
+      },
+      "capability": "methyl-protein-de-select",
+      "category": "modeling",
+      "cli_tool": "methyl-protein-de-select",
+      "context_vars": [
+        "comparison",
+        "outputDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Proteomics differential-abundance protein panel selection + tabular classification.",
+      "execution_mode": "cli",
+      "idempotency_enabled": true,
+      "input_schema_ref": "schemas/tasks/pipeline_protein_de_select.input.schema.json",
+      "output_schema_ref": "schemas/tasks/pipeline_protein_de_select.output.schema.json",
+      "schema_id": "pipeline.protein_de_select",
+      "tool": "ProteinDeSelect"
+    },
+    {
+      "action_name": "sample.delete_fastqs",
+      "argv_map": {},
+      "capability": "sample.delete-fastqs",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "sampleRoot"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": false
+      },
+      "default_node_type": "ACTION",
+      "description": "Delete FASTQ files after final QC (pass or final fail) to reclaim storage.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": false,
+      "idempotency_opt_out_reason": "destructive",
+      "in_process_handler": "_handle_delete_fastqs",
+      "input_schema_ref": "schemas/tasks/sample_delete_fastqs.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_delete_fastqs.output.schema.json",
+      "schema_id": "sample.delete_fastqs",
+      "tool": "SampleDeleteFastqs"
+    },
+    {
+      "action_name": "sample.trim_fastq",
+      "argv_map": {},
+      "capability": "sample.trim-fastq",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "trimFront1",
+        "trimTail1",
+        "trimFront2",
+        "trimTail2",
+        "remediationReason"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Trim Read 1/2 start or end bases with fastp before forced realign.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_trim_fastq",
+      "input_schema_ref": "schemas/tasks/sample_trim_fastq.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_trim_fastq.output.schema.json",
+      "schema_id": "sample.trim_fastq",
+      "tool": "SampleTrimFastq"
+    },
+    {
+      "action_config_key": "alignment_qc",
+      "action_name": "sample.methyl_qc",
+      "argv_map": {},
+      "capability": "methyl-qc",
+      "category": "sample_prep",
+      "cli_tool": "methyl-qc",
+      "context_vars": [
+        "projectPath",
+        "sampleId",
+        "sampleDir",
+        "primaryAnalyte",
+        "alignmentMode"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Alignment QC metrics (Picard-style) with guardrails JSON export.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.alignmentQc",
+            "scope_field": "alignmentQc"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [
+          {
+            "output_json_path": "$.guardrails.overall_pass",
+            "var_name": "qcPass"
+          },
+          {
+            "output_json_path": "$.screening.disposition",
+            "var_name": "qcDisposition"
+          },
+          {
+            "output_json_path": "$.screening.trim_front1",
+            "var_name": "trimFront1"
+          },
+          {
+            "output_json_path": "$.screening.trim_tail1",
+            "var_name": "trimTail1"
+          },
+          {
+            "output_json_path": "$.screening.trim_front2",
+            "var_name": "trimFront2"
+          },
+          {
+            "output_json_path": "$.screening.trim_tail2",
+            "var_name": "trimTail2"
+          },
+          {
+            "output_json_path": "$.screening.message",
+            "var_name": "qcAttemptReason"
+          },
+          {
+            "output_json_path": "$.remediateAlignment",
+            "var_name": "remediateAlignment"
+          },
+          {
+            "output_json_path": "$.remediateR2Trim",
+            "var_name": "remediateR2Trim"
+          },
+          {
+            "output_json_path": "$.qcPath",
+            "var_name": "qcPath"
+          }
+        ],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_methyl_qc",
+      "input_schema_ref": "schemas/tasks/sample_methyl_qc.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_methyl_qc.output.schema.json",
+      "schema_id": "sample.methyl_qc",
+      "tool": "MethylAlignmentQc"
+    },
+    {
+      "action_config_key": "fragmentomics",
+      "action_name": "sample.fragmentomics",
+      "argv_map": {},
+      "capability": "methyl-fragmentomics",
+      "category": "sample_prep",
+      "cli_tool": "methyl-fragmentomics",
+      "context_vars": [
+        "projectPath",
+        "sampleId",
+        "sampleDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "cfDNA fragmentomic analysis (WPS, end motifs) when analyte is cfDNA.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.fragmentomics",
+            "scope_field": "fragmentomics"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_methyl_fragmentomics",
+      "input_schema_ref": "schemas/tasks/sample_fragmentomics.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_fragmentomics.output.schema.json",
+      "schema_id": "sample.fragmentomics",
+      "tool": "MethylFragmentomics"
+    },
+    {
+      "action_config_key": "methyl_extract",
+      "action_name": "sample.methyl_extract",
+      "argv_map": {},
+      "capability": "methyl-extract",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Extract BAM to per-chromosome HDF5 via native MethylExtractor (resolvedConfig.methyl_extract).",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.methylation",
+            "scope_field": "methylation"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_methyl_extract",
+      "input_schema_ref": "schemas/tasks/sample_methyl_extract.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_methyl_extract.output.schema.json",
+      "schema_id": "sample.methyl_extract",
+      "tool": "MethylExtract"
+    },
+    {
+      "action_config_key": "methylgrapher_wgbs",
+      "action_name": "sample.methylgrapher_wgbs_extract",
+      "argv_map": {},
+      "capability": "methylgrapher.wgbs_extract",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Graph-aware methylGrapher extraction into {chrom}-{context}.h5 and patterns.h5 contracts.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.methylation",
+            "scope_field": "methylation"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_methylgrapher_wgbs_extract",
+      "input_schema_ref": "schemas/tasks/sample_methylgrapher_wgbs_extract.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_methylgrapher_wgbs_extract.output.schema.json",
+      "schema_id": "sample.methylgrapher_wgbs_extract",
+      "tool": "MethylGrapherWgbsExtract"
+    },
+    {
+      "action_config_key": "extraction_qc",
+      "action_name": "sample.extraction_qc",
+      "argv_map": {},
+      "capability": "methyl-extraction-qc",
+      "category": "sample_prep",
+      "cli_tool": "methyl-extraction-qc",
+      "context_vars": [
+        "projectPath",
+        "sampleId",
+        "sampleDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Evaluate MethylExtractor manifest guardrails and write extraction QC JSON.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.extractionQc",
+            "scope_field": "extractionQc"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [
+          {
+            "output_json_path": "$.guardrails.overall_pass",
+            "var_name": "extractionQcPass"
+          }
+        ],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_methyl_extraction_qc",
+      "input_schema_ref": "schemas/tasks/sample_extraction_qc.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_extraction_qc.output.schema.json",
+      "schema_id": "sample.extraction_qc",
+      "tool": "MethylExtractionQc"
+    },
+    {
+      "action_name": "sample.archive_sample",
+      "argv_map": {},
+      "capability": "sample.archive-sample",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "sampleRoot",
+        "sampleDestination",
+        "h5Destination",
+        "projectPath",
+        "mode",
+        "rejectReason",
+        "qcPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": false
+      },
+      "default_node_type": "ACTION",
+      "description": "Archive sample bundle (FASTQs, QC JSON, HDF5) or QC-only reject record to durable storage.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.sampleArchive",
+            "scope_field": "sampleArchive"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [
+          {
+            "output_json_path": "$.sampleArchived",
+            "var_name": "sampleArchived"
+          }
+        ],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": false,
+      "idempotency_opt_out_reason": "remote_upload_etag_only",
+      "in_process_handler": "_handle_archive_sample",
+      "input_schema_ref": "schemas/tasks/sample_archive_sample.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_archive_sample.output.schema.json",
+      "schema_id": "sample.archive_sample",
+      "tool": "SampleArchive"
+    },
+    {
+      "action_name": "sample.delete_bam",
+      "argv_map": {},
+      "capability": "sample.delete-bam",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": false
+      },
+      "default_node_type": "ACTION",
+      "description": "Delete BAM after methylation extraction to reclaim storage.",
+      "dispatch": {
+        "affinity_key_field": "sampleId",
+        "prefer_continue_group": true,
+        "prefer_previous_worker": true
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": false,
+      "idempotency_opt_out_reason": "destructive",
+      "in_process_handler": "_handle_delete_bam",
+      "input_schema_ref": "schemas/tasks/sample_delete_bam.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_delete_bam.output.schema.json",
+      "schema_id": "sample.delete_bam",
+      "tool": "SampleDeleteBam"
+    },
+    {
+      "action_name": "sample.qc_failed",
+      "argv_map": {},
+      "capability": "sample.mark-failed",
+      "category": "sample_prep",
+      "context_vars": [
+        "sampleId",
+        "sampleDir",
+        "reason"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": false
+      },
+      "default_node_type": "ACTION",
+      "description": "Mark sample QC_FAILED and skip downstream steps when guardrails fail.",
+      "domain_effects": {
+        "output_bindings": [
+          {
+            "domain_type": "MethylSampleRef",
+            "output_json_path": "$.status",
+            "scope_field": "status"
+          }
+        ],
+        "reads_types": [
+          "MethylSampleRef"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "MethylSampleRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": false,
+      "idempotency_opt_out_reason": "control_flow",
+      "in_process_handler": "_handle_mark_failed",
+      "input_schema_ref": "schemas/tasks/sample_qc_failed.input.schema.json",
+      "output_schema_ref": "schemas/tasks/sample_qc_failed.output.schema.json",
+      "schema_id": "sample.qc_failed",
+      "tool": "SampleMarkFailed"
+    },
+    {
+      "action_config_key": "validation",
+      "action_name": "validation.plan_iterations",
+      "argv_map": {},
+      "capability": "validation.plan-iterations",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "featureIterations",
+        "qualityIterations"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Monte Carlo planner: stratified per-cohort subsamples and materialize run projects.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "MethylGroup"
+        ],
+        "scope_bindings": [
+          {
+            "output_json_path": "$.iterations",
+            "var_name": "iterations"
+          },
+          {
+            "output_json_path": "$.centroidSeedGroups",
+            "var_name": "centroidSeedGroups"
+          }
+        ],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "StratifiedCohortDraw",
+          "CentroidSeedGroup"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_plan_iterations",
+      "input_schema_ref": "schemas/tasks/validation_plan_iterations.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_plan_iterations.output.schema.json",
+      "schema_id": "validation.plan_iterations"
+    },
+    {
+      "action_config_key": "validation",
+      "action_name": "validation.stability",
+      "argv_map": {},
+      "capability": "validation.stability",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "monteCarloRunsRoot",
+        "outputDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Aggregate Monte Carlo DMP/gene stability and write production-ready panels.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_stability",
+      "input_schema_ref": "schemas/tasks/validation_stability.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_stability.output.schema.json",
+      "schema_id": "validation.stability"
+    },
+    {
+      "action_config_key": "validation",
+      "action_name": "validation.biomarker_filter",
+      "argv_map": {},
+      "capability": "validation.biomarker-filter",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "runDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "In-process disease CSV + PPI hub biomarker gene pool filter (MC stability).",
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_biomarker_filter",
+      "input_schema_ref": "schemas/tasks/validation_biomarker_filter.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_biomarker_filter.output.schema.json",
+      "schema_id": "validation.biomarker_filter"
+    },
+    {
+      "action_config_key": "validation",
+      "action_name": "validation.prepare_freeze_project",
+      "argv_map": {},
+      "capability": "validation.prepare-freeze-project",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "stableDmpCsv",
+        "productionOutputDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Write production/project.json with fixed_dmp_panel for granular freeze workflows.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [
+          {
+            "output_json_path": "$.fixedDmpPanel",
+            "var_name": "fixedDmpPanel"
+          },
+          {
+            "output_json_path": "$.projectPath",
+            "var_name": "projectPath"
+          },
+          {
+            "output_json_path": "$.centroid1Dir",
+            "var_name": "centroid1Dir"
+          },
+          {
+            "output_json_path": "$.centroid2Dir",
+            "var_name": "centroid2Dir"
+          },
+          {
+            "output_json_path": "$.detectOutDir",
+            "var_name": "detectOutDir"
+          }
+        ],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_prepare_freeze",
+      "input_schema_ref": "schemas/tasks/validation_prepare_freeze_project.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_prepare_freeze_project.output.schema.json",
+      "schema_id": "validation.prepare_freeze_project"
+    },
+    {
+      "action_config_key": "validation",
+      "action_name": "validation.finalize_freeze_model_bundle",
+      "argv_map": {},
+      "capability": "validation.finalize-freeze-model-bundle",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "productionOutputDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "After freeze mapper: write mapper_dmp_annotations + frozen gene panel and wire production project.json.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_finalize_freeze_model_bundle",
+      "input_schema_ref": "schemas/tasks/validation_finalize_freeze_model_bundle.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_finalize_freeze_model_bundle.output.schema.json",
+      "schema_id": "validation.finalize_freeze_model_bundle"
+    },
+    {
+      "action_config_key": "validation",
+      "action_name": "validation.stability_freeze_readiness",
+      "argv_map": {},
+      "capability": "validation.stability-freeze-readiness",
+      "category": "validation",
+      "context_vars": [
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Audit stability, freeze, and progression artifacts before model training.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_stability_freeze_readiness",
+      "input_schema_ref": "schemas/tasks/validation_stability_freeze_readiness.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_stability_freeze_readiness.output.schema.json",
+      "schema_id": "validation.stability_freeze_readiness"
+    },
+    {
+      "action_name": "validation.link_artifacts",
+      "argv_map": {},
+      "capability": "validation.link-artifacts",
+      "category": "validation",
+      "context_vars": [
+        "sourceRunDir",
+        "targetRunDir",
+        "runDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Symlink centroids/detections from a source MC run into a model-mc iteration dir.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_link_artifacts",
+      "input_schema_ref": "schemas/tasks/validation_link_artifacts.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_link_artifacts.output.schema.json",
+      "schema_id": "validation.link_artifacts"
+    },
+    {
+      "action_name": "validation.model_bundle",
+      "argv_map": {},
+      "capability": "validation.model-bundle",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "bundleDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Build model feature bundle (tabular/generative) from frozen detections.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_model_bundle",
+      "input_schema_ref": "schemas/tasks/validation_model_bundle.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_model_bundle.output.schema.json",
+      "schema_id": "validation.model_bundle"
+    },
+    {
+      "action_name": "validation.model_train",
+      "argv_map": {},
+      "capability": "validation.model-train",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "backend",
+        "runDir",
+        "bundleH5",
+        "outputDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Train tabular or generative backend model for one MC model iteration.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_model_train",
+      "input_schema_ref": "schemas/tasks/validation_model_train.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_model_train.output.schema.json",
+      "schema_id": "validation.model_train"
+    },
+    {
+      "action_name": "validation.model_predict",
+      "argv_map": {},
+      "capability": "validation.model-predict",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "backend",
+        "runDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Predict with tabular or generative backend for one MC model iteration.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_model_predict",
+      "input_schema_ref": "schemas/tasks/validation_model_predict.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_model_predict.output.schema.json",
+      "schema_id": "validation.model_predict"
+    },
+    {
+      "action_config_key": "validation",
+      "action_name": "validation.select_best_model",
+      "argv_map": {},
+      "capability": "validation.select-best-model",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "modelMcRoot",
+        "backends",
+        "selectionMetric",
+        "selectionStat"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Rank model-mc backends and build final production model on all data.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [
+          {
+            "output_json_path": "$.selectedBackend",
+            "var_name": "selectedBackend"
+          }
+        ],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_select_best_model",
+      "input_schema_ref": "schemas/tasks/validation_select_best_model.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_select_best_model.output.schema.json",
+      "schema_id": "validation.select_best_model"
+    },
+    {
+      "action_config_key": "validation",
+      "action_name": "validation.model_mc",
+      "argv_map": {},
+      "capability": "validation.model-mc",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "monteCarloRunsRoot",
+        "backends",
+        "productionOutputDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Monte Carlo model training across backends, optionally requiring strict reuse of primary centroid/detector artifacts.",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_model_mc",
+      "input_schema_ref": "schemas/tasks/validation_model_mc.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_model_mc.output.schema.json",
+      "schema_id": "validation.model_mc"
+    },
+    {
+      "action_config_key": "validation",
+      "action_name": "validation.post_model_validation",
+      "argv_map": {},
+      "capability": "validation.post-model-validation",
+      "category": "validation",
+      "context_vars": [
+        "projectPath",
+        "outputDir",
+        "productionOutputDir"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Holdout evaluation with frozen production artifacts (predictor-only / frozen inference).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [
+          "StratifiedCohortDraw"
+        ],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": [
+          "ValidationArtifactRef"
+        ]
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_validation_post_model_validation",
+      "input_schema_ref": "schemas/tasks/validation_post_model_validation.input.schema.json",
+      "output_schema_ref": "schemas/tasks/validation_post_model_validation.output.schema.json",
+      "schema_id": "validation.post_model_validation"
+    },
+    {
+      "action_name": "workflow.const_bool",
+      "argv_map": {},
+      "capability": "workflow.const-bool",
+      "category": "validation",
+      "context_vars": [
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Publish a boolean constant into scope (typed assign helper).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": []
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_workflow_const_bool",
+      "input_schema_ref": "schemas/tasks/workflow_const_bool.input.schema.json",
+      "output_schema_ref": "schemas/tasks/workflow_const_bool.output.schema.json",
+      "schema_id": "workflow.const_bool",
+      "tool": "WorkflowConstBool"
+    },
+    {
+      "action_name": "workflow.const_int",
+      "argv_map": {},
+      "capability": "workflow.const-int",
+      "category": "validation",
+      "context_vars": [
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Publish an integer constant into scope (typed assign helper).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": []
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_workflow_const_int",
+      "input_schema_ref": "schemas/tasks/workflow_const_int.input.schema.json",
+      "output_schema_ref": "schemas/tasks/workflow_const_int.output.schema.json",
+      "schema_id": "workflow.const_int",
+      "tool": "WorkflowConstInt"
+    },
+    {
+      "action_name": "workflow.const_string",
+      "argv_map": {},
+      "capability": "workflow.const-string",
+      "category": "validation",
+      "context_vars": [
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Publish a string constant into scope (typed assign helper).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": []
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_workflow_const_string",
+      "input_schema_ref": "schemas/tasks/workflow_const_string.input.schema.json",
+      "output_schema_ref": "schemas/tasks/workflow_const_string.output.schema.json",
+      "schema_id": "workflow.const_string",
+      "tool": "WorkflowConstString"
+    },
+    {
+      "action_name": "workflow.const_path",
+      "argv_map": {},
+      "capability": "workflow.const-path",
+      "category": "validation",
+      "context_vars": [
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Publish a filesystem path string into scope (typed assign helper).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": []
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_workflow_const_path",
+      "input_schema_ref": "schemas/tasks/workflow_const_path.input.schema.json",
+      "output_schema_ref": "schemas/tasks/workflow_const_path.output.schema.json",
+      "schema_id": "workflow.const_path",
+      "tool": "WorkflowConstPath"
+    },
+    {
+      "action_name": "workflow.json_path_bool",
+      "argv_map": {},
+      "capability": "workflow.json-path-bool",
+      "category": "validation",
+      "context_vars": [
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Extract a boolean from a JSON file via dotted path (typed assign helper).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": []
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_workflow_json_path_bool",
+      "input_schema_ref": "schemas/tasks/workflow_json_path_bool.input.schema.json",
+      "output_schema_ref": "schemas/tasks/workflow_json_path_bool.output.schema.json",
+      "schema_id": "workflow.json_path_bool",
+      "tool": "WorkflowJsonPathBool"
+    },
+    {
+      "action_name": "workflow.json_path_int",
+      "argv_map": {},
+      "capability": "workflow.json-path-int",
+      "category": "validation",
+      "context_vars": [
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Extract an integer from a JSON file via dotted path (typed assign helper).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": []
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_workflow_json_path_int",
+      "input_schema_ref": "schemas/tasks/workflow_json_path_int.input.schema.json",
+      "output_schema_ref": "schemas/tasks/workflow_json_path_int.output.schema.json",
+      "schema_id": "workflow.json_path_int",
+      "tool": "WorkflowJsonPathInt"
+    },
+    {
+      "action_name": "workflow.json_path_string",
+      "argv_map": {},
+      "capability": "workflow.json-path-string",
+      "category": "validation",
+      "context_vars": [
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Extract a string from a JSON file via dotted path (typed assign helper).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": []
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": true,
+      "in_process_handler": "_handle_workflow_json_path_string",
+      "input_schema_ref": "schemas/tasks/workflow_json_path_string.input.schema.json",
+      "output_schema_ref": "schemas/tasks/workflow_json_path_string.output.schema.json",
+      "schema_id": "workflow.json_path_string",
+      "tool": "WorkflowJsonPathString"
+    },
+    {
+      "action_name": "workflow.fs_stat",
+      "argv_map": {},
+      "capability": "workflow.fs-stat",
+      "category": "validation",
+      "context_vars": [
+        "projectPath"
+      ],
+      "control": {
+        "can_continue": false,
+        "can_pause": false,
+        "can_stop": true
+      },
+      "default_node_type": "ACTION",
+      "description": "Stat a filesystem path; value=exists (mtime included \u2014 CAAS skip may be inappropriate).",
+      "domain_effects": {
+        "output_bindings": [],
+        "reads_types": [],
+        "scope_bindings": [],
+        "template_defaults": [],
+        "template_group_side_defaults": [],
+        "writes_types": []
+      },
+      "execution_mode": "in_process",
+      "idempotency_enabled": false,
+      "idempotency_opt_out_reason": "mtime_sensitive",
+      "in_process_handler": "_handle_workflow_fs_stat",
+      "input_schema_ref": "schemas/tasks/workflow_fs_stat.input.schema.json",
+      "output_schema_ref": "schemas/tasks/workflow_fs_stat.output.schema.json",
+      "schema_id": "workflow.fs_stat",
+      "tool": "WorkflowFsStat"
+    }
+  ],
+  "version": 1
+}

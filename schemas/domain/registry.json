@@ -1,0 +1,36 @@
+{
+  "domain_program": "domain_program.schema.json",
+  "schemas": {
+    "AlignmentQcRef": "alignment_qc_ref.schema.json",
+    "CentroidSeedGroup": "centroid_seed_group.schema.json",
+    "ComparisonSpec": "comparison_spec.schema.json",
+    "ExtractionQcRef": "extraction_qc_ref.schema.json",
+    "FragmentomicsRef": "fragmentomics_ref.schema.json",
+    "MethylCentroidRef": "methyl_centroid_ref.schema.json",
+    "MethylDetectionRef": "methyl_detection_ref.schema.json",
+    "MethylGroup": "methyl_group.schema.json",
+    "MethylIngestRef": "methyl_ingest_ref.schema.json",
+    "MethylSampleRef": "methyl_sample_ref.schema.json",
+    "MethylationMatrixRef": "methylation_matrix_ref.schema.json",
+    "ResolvedComparison": "resolved_comparison.schema.json",
+    "ResolvedProject": "resolved_project.schema.json",
+    "StratifiedCohortDraw": "stratified_cohort_draw.schema.json"
+  },
+  "types": [
+    "MethylIngestRef",
+    "MethylSampleRef",
+    "AlignmentQcRef",
+    "ExtractionQcRef",
+    "FragmentomicsRef",
+    "MethylationMatrixRef",
+    "MethylGroup",
+    "MethylCentroidRef",
+    "MethylDetectionRef",
+    "StratifiedCohortDraw",
+    "CentroidSeedGroup",
+    "ComparisonSpec",
+    "ResolvedComparison",
+    "ResolvedProject"
+  ],
+  "version": 1
+}

@@ -1,0 +1,1115 @@
+{
+  "$defs": {
+    "AlignmentQcRef": {
+      "description": "Alignment QC JSON artifact and pass/fail gate.",
+      "properties": {
+        "$type": {
+          "const": "AlignmentQcRef",
+          "default": "AlignmentQcRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "guardrails": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Guardrails"
+        },
+        "overallPass": {
+          "title": "Overallpass",
+          "type": "boolean"
+        },
+        "qcPath": {
+          "title": "Qcpath",
+          "type": "string"
+        }
+      },
+      "required": [
+        "qcPath",
+        "overallPass"
+      ],
+      "title": "AlignmentQcRef",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "description": "Reference to a file or object written under shared storage (/work).",
+      "properties": {
+        "bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bytes"
+        },
+        "kind": {
+          "default": "file",
+          "title": "Kind",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CentroidGroupScope": {
+      "additionalProperties": false,
+      "description": "Per-group centroid wire payload for one MC iteration (workflow FOREACH item).",
+      "properties": {
+        "addSamples": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Addsamples",
+          "type": "array"
+        },
+        "centroidDir": {
+          "title": "Centroiddir",
+          "type": "string"
+        },
+        "centroidSeedDir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Centroidseeddir"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "removeSamples": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Removesamples",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "centroidDir"
+      ],
+      "title": "CentroidGroupScope",
+      "type": "object"
+    },
+    "CentroidSeedGroup": {
+      "description": "Shared per-cohort centroid seed built before parallel MC iterations.",
+      "properties": {
+        "$type": {
+          "const": "CentroidSeedGroup",
+          "default": "CentroidSeedGroup",
+          "title": "$Type",
+          "type": "string"
+        },
+        "addSamples": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Addsamples",
+          "type": "array"
+        },
+        "centroidDir": {
+          "title": "Centroiddir",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "removeSamples": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Removesamples",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "centroidDir"
+      ],
+      "title": "CentroidSeedGroup",
+      "type": "object"
+    },
+    "ComparisonSpecRef": {
+      "description": "Pairwise control vs disease comparison.",
+      "properties": {
+        "$type": {
+          "const": "ComparisonSpec",
+          "default": "ComparisonSpec",
+          "title": "$Type",
+          "type": "string"
+        },
+        "comparisonLabel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comparisonlabel"
+        },
+        "controlGroup": {
+          "title": "Controlgroup",
+          "type": "string"
+        },
+        "diseaseGroup": {
+          "title": "Diseasegroup",
+          "type": "string"
+        }
+      },
+      "required": [
+        "controlGroup",
+        "diseaseGroup"
+      ],
+      "title": "ComparisonSpecRef",
+      "type": "object"
+    },
+    "ExtractionQcRef": {
+      "description": "Post-extraction QC JSON artifact and pass/fail gate.",
+      "properties": {
+        "$type": {
+          "const": "ExtractionQcRef",
+          "default": "ExtractionQcRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "guardrails": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Guardrails"
+        },
+        "overallPass": {
+          "title": "Overallpass",
+          "type": "boolean"
+        },
+        "qcPath": {
+          "title": "Qcpath",
+          "type": "string"
+        }
+      },
+      "required": [
+        "qcPath",
+        "overallPass"
+      ],
+      "title": "ExtractionQcRef",
+      "type": "object"
+    },
+    "FragmentomicsRef": {
+      "description": "cfDNA fragmentomics run artifacts.",
+      "properties": {
+        "$type": {
+          "const": "FragmentomicsRef",
+          "default": "FragmentomicsRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "outputDir": {
+          "title": "Outputdir",
+          "type": "string"
+        },
+        "summaryPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summarypath"
+        }
+      },
+      "required": [
+        "outputDir"
+      ],
+      "title": "FragmentomicsRef",
+      "type": "object"
+    },
+    "McIterationTaskConfig": {
+      "additionalProperties": false,
+      "description": "Structured MC iteration taskConfig embedded in StratifiedCohortDraw / planner output.",
+      "properties": {
+        "centroidGroup1Override": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Centroidgroup1Override"
+        },
+        "centroidGroup2Override": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Centroidgroup2Override"
+        },
+        "centroidOverridesByLabel": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Centroidoverridesbylabel"
+        },
+        "detectorStepOverride": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detectorstepoverride"
+        },
+        "iteration": {
+          "minimum": 0,
+          "title": "Iteration",
+          "type": "integer"
+        },
+        "layout": {
+          "title": "Layout",
+          "type": "string"
+        },
+        "monteCarloRunsRoot": {
+          "title": "Montecarlorunsroot",
+          "type": "string"
+        },
+        "phase": {
+          "title": "Phase",
+          "type": "string"
+        },
+        "projectJson": {
+          "title": "Projectjson",
+          "type": "string"
+        },
+        "runDir": {
+          "title": "Rundir",
+          "type": "string"
+        },
+        "runId": {
+          "title": "Runid",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "testControlCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Testcontrolcsv"
+        },
+        "testDiseaseCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Testdiseasecsv"
+        },
+        "testGroupsJson": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Testgroupsjson"
+        },
+        "trainFraction": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Trainfraction",
+          "type": "number"
+        },
+        "valControlCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valcontrolcsv"
+        },
+        "valDiseaseCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valdiseasecsv"
+        },
+        "valGroupsJson": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valgroupsjson"
+        }
+      },
+      "required": [
+        "runId",
+        "phase",
+        "iteration",
+        "layout",
+        "trainFraction",
+        "projectJson",
+        "runDir",
+        "monteCarloRunsRoot"
+      ],
+      "title": "McIterationTaskConfig",
+      "type": "object"
+    },
+    "MethylGroup": {
+      "description": "Cohort of samples (static project group or MC train/val draw).",
+      "properties": {
+        "$type": {
+          "const": "MethylGroup",
+          "default": "MethylGroup",
+          "title": "$Type",
+          "type": "string"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Count"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "projectPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Projectpath"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "control",
+                "disease",
+                "stage",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "sampleCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Samplecsv"
+        },
+        "sampleRefs": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/MethylSampleRef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Samplerefs"
+        },
+        "testCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Testcsv"
+        },
+        "trainCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Traincsv"
+        },
+        "valCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valcsv"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "MethylGroup",
+      "type": "object"
+    },
+    "MethylSampleRef": {
+      "description": "Sample lifecycle handle; fields accumulate through sample prep.",
+      "properties": {
+        "$type": {
+          "const": "MethylSampleRef",
+          "default": "MethylSampleRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "alignmentQc": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlignmentQcRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "bamPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bampath"
+        },
+        "extractionQc": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExtractionQcRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "fastqFiles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fastqfiles"
+        },
+        "fragmentomics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FragmentomicsRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "h5Archive": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "H5Archive"
+        },
+        "methylation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MethylationMatrixRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "metricsJson": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metricsjson"
+        },
+        "sampleDir": {
+          "title": "Sampledir",
+          "type": "string"
+        },
+        "sampleId": {
+          "title": "Sampleid",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "required": [
+        "sampleId",
+        "sampleDir"
+      ],
+      "title": "MethylSampleRef",
+      "type": "object"
+    },
+    "MethylationMatrixRef": {
+      "description": "Post-extract per-chromosome HDF5 methylation matrices on disk.",
+      "properties": {
+        "$type": {
+          "const": "MethylationMatrixRef",
+          "default": "MethylationMatrixRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "chromosomes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Chromosomes",
+          "type": "array"
+        },
+        "contexts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Contexts",
+          "type": "array"
+        },
+        "h5Files": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "H5Files"
+        },
+        "h5Pattern": {
+          "default": "{chr}-{ctx}.h5",
+          "title": "H5Pattern",
+          "type": "string"
+        },
+        "sampleDir": {
+          "title": "Sampledir",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sampleDir"
+      ],
+      "title": "MethylationMatrixRef",
+      "type": "object"
+    },
+    "ValidationPlannedIteration": {
+      "additionalProperties": false,
+      "description": "One planned Monte Carlo iteration with typed centroid scope and draw metadata.",
+      "properties": {
+        "$type": {
+          "const": "StratifiedCohortDraw",
+          "default": "StratifiedCohortDraw",
+          "title": "$Type",
+          "type": "string"
+        },
+        "centroid1Dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Centroid1Dir"
+        },
+        "centroid2Dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Centroid2Dir"
+        },
+        "centroidGroups": {
+          "items": {
+            "$ref": "#/$defs/CentroidGroupScope"
+          },
+          "title": "Centroidgroups",
+          "type": "array"
+        },
+        "comparisons": {
+          "items": {
+            "$ref": "#/$defs/ComparisonSpecRef"
+          },
+          "title": "Comparisons",
+          "type": "array"
+        },
+        "detectOutDir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detectoutdir"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/MethylGroup"
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "phase": {
+          "title": "Phase",
+          "type": "string"
+        },
+        "previousRunDir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previousrundir"
+        },
+        "projectPath": {
+          "title": "Projectpath",
+          "type": "string"
+        },
+        "runDir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rundir"
+        },
+        "runId": {
+          "title": "Runid",
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "taskConfig": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/McIterationTaskConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "trainFraction": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trainfraction"
+        }
+      },
+      "required": [
+        "runId",
+        "phase",
+        "projectPath"
+      ],
+      "title": "ValidationPlannedIteration",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "action_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Action Name"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "capability": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Capability"
+    },
+    "centroidSeedGroups": {
+      "items": {
+        "$ref": "#/$defs/CentroidSeedGroup"
+      },
+      "title": "Centroidseedgroups",
+      "type": "array"
+    },
+    "domainSample": {
+      "anyOf": [
+        {},
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Domainsample"
+    },
+    "duration_ms": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duration Ms"
+    },
+    "exit_code": {
+      "default": 0,
+      "title": "Exit Code",
+      "type": "integer"
+    },
+    "finished_at_utc": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At Utc"
+    },
+    "iterations": {
+      "items": {
+        "$ref": "#/$defs/ValidationPlannedIteration"
+      },
+      "title": "Iterations",
+      "type": "array"
+    },
+    "manifest_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Manifest Path"
+    },
+    "n_iterations": {
+      "default": 0,
+      "title": "N Iterations",
+      "type": "integer"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Projectpath"
+    },
+    "result_code": {
+      "default": 0,
+      "title": "Result Code",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "started_at_utc": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Started At Utc"
+    },
+    "status": {
+      "default": "ok",
+      "enum": [
+        "ok",
+        "skipped",
+        "failed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "stdout_tail": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stdout Tail"
+    },
+    "tool": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool"
+    }
+  },
+  "title": "ValidationPlanTaskOutput",
+  "type": "object"
+}

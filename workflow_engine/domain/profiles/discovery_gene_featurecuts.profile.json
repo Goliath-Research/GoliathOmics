@@ -1,0 +1,45 @@
+{
+  "pipelineProfile": "discovery_gene_featurecuts",
+  "catalog": {
+    "title": "discovery_gene_featurecuts (deprecated)",
+    "summary": "Deprecated alias \u2192 samd_research + researchMode dual_fc.",
+    "visibility": "hidden",
+    "lifecycle": "deprecated",
+    "family": "legacy",
+    "replacedBy": "samd_research"
+  },
+  "runDmpSelection": true,
+  "runGeneFeaturecuts": true,
+  "runBiomarkerFilter": false,
+  "runGeneFeatureSelect": false,
+  "stabilityFeaturecutsEnabled": true,
+  "stabilityGeneFeaturecutsEnabled": true,
+  "stabilityGeneBiomarkerFilterEnabled": false,
+  "actionConfig": {
+    "detection": {
+      "detection_mode": "discovery_only",
+      "export_classifier": false,
+      "dmp_export_mode": "dual"
+    },
+    "dmp_selection": {
+      "enabled": true,
+      "classifier_dmp_selection": "featurecuts_validation",
+      "target_balanced_accuracy": 0.95
+    },
+    "mapper": {
+      "csv_pattern": "dmps-*-discovery.csv",
+      "enrich_disease": true
+    },
+    "validation": {
+      "run_stability": true,
+      "stability_featurecuts_enabled": true,
+      "stability_gene_featurecuts_enabled": true,
+      "stability_gene_biomarker_filter_enabled": false,
+      "stability_dmp_freq": 0.8,
+      "stability_gene_freq": 0.7,
+      "stability_min_balanced_accuracy": 0.95,
+      "stability_gene_featurecuts_dmp_source": "discovery"
+    },
+    "gene_selection": {}
+  }
+}

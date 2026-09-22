@@ -1,0 +1,24 @@
+{
+  "panel_id": "crp_inflammation_v1",
+  "genome": "GRCh38",
+  "score_name": "crp_score",
+  "score_kind": "weighted_beta",
+  "citation": "Focused CRP/inflammation sites (NLRC5 / AIM2 neighbourhood). Replace with Wielscher et al. Nat Commun 2022 elastic-net weights for production.",
+  "intercept": 0.0,
+  "sites": [
+    {
+      "illumina_id": "cg08122652",
+      "gene": "NLRC5",
+      "chrom": "16",
+      "position": 57023009,
+      "weight": 1.0
+    },
+    {
+      "illumina_id": "cg17501210",
+      "gene": "AIM2",
+      "chrom": "1",
+      "position": 159056809,
+      "weight": 1.0
+    }
+  ]
+}

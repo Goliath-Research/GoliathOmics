@@ -1,0 +1,31 @@
+{
+  "programVersion": 2,
+  "name": "RnaSeqStudyLifecycle",
+  "description": "RNA-Seq study modeling: per-comparison differential-expression gene panel selection + tabular classification (pipeline.rna_de_select). RNA analogue of the methylation centroid/detector study path; reuses the same scheduler and CAAS. outputDir is bound per instance via ${var.rnaDeOutputDir}.",
+  "projectPath": "${var.projectPath}",
+  "variables": {
+    "rnaDeOutputDir": {
+      "schemaRef": "schemas/vars/path.schema.json",
+      "description": "Output directory root for RNA DE gene panels and classification results (instance context)."
+    }
+  },
+  "body": [
+    {
+      "for": {
+        "in": { "ref": "project.comparisons" },
+        "as": "comparison",
+        "parallel": true
+      },
+      "do": [
+        {
+          "do": "pipeline.rna_de_select",
+          "with": {
+            "comparison": { "ref": "comparison.label" },
+            "outputDir": "${var.rnaDeOutputDir}"
+          },
+          "node_key": "rna_de_select"
+        }
+      ]
+    }
+  ]
+}

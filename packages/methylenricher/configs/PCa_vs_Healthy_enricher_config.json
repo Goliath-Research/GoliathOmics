@@ -1,0 +1,16 @@
+{
+    "input": "/work/data/david-gladys/all-prostate/detection/PCa_vs_Healthy/mapped_features/all-gene_name-combined.csv",
+    "outdir": "/work/data/david-gladys/all-prostate/detection/PCa_vs_Healthy/enricher_pca",
+    "gene_column": "gene_name",
+    "disease_only": true,
+    "disease_association_type": ["direct", "indirect"],
+    "min_disease_evidence_level": "low",
+    "min_disease_score": 0.2,
+    "min_dmp_count": 2,
+    "max_gene_q_value": 0.05,
+    "sort_by": "gene_importance",
+    "top": 150,
+    "cutoff": 0.05,
+    "organism": "Human",
+    "library_preset": "cancer-extended"
+  }

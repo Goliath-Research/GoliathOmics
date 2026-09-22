@@ -1,0 +1,250 @@
+{
+  "$defs": {
+    "CentroidSeedGroup": {
+      "description": "Shared per-cohort centroid seed built before parallel MC iterations.",
+      "properties": {
+        "$type": {
+          "const": "CentroidSeedGroup",
+          "default": "CentroidSeedGroup",
+          "title": "$Type",
+          "type": "string"
+        },
+        "addSamples": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Addsamples",
+          "type": "array"
+        },
+        "centroidDir": {
+          "title": "Centroiddir",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "removeSamples": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Removesamples",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "centroidDir"
+      ],
+      "title": "CentroidSeedGroup",
+      "type": "object"
+    },
+    "TaskMode": {
+      "description": "High-level task kind.",
+      "enum": [
+        "discovery",
+        "predictor_only"
+      ],
+      "title": "TaskMode",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One Monte Carlo \"discovery\" iteration: run centroid/detector (or predictor-only) for a\npre-planned `run_####` directory.",
+  "properties": {
+    "centroid_group1_override": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Centroid Group1 Override"
+    },
+    "centroid_group2_override": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Centroid Group2 Override"
+    },
+    "centroid_seed_groups": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/CentroidSeedGroup"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Centroid Seed Groups"
+    },
+    "centroid_seed_root": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Centroid Seed Root"
+    },
+    "detector_step_override_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Detector Step Override Path"
+    },
+    "frozen_project_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Frozen Project Path"
+    },
+    "iteration": {
+      "description": "0-based index within the MC plan",
+      "minimum": 0,
+      "title": "Iteration",
+      "type": "integer"
+    },
+    "layout": {
+      "enum": [
+        "binary",
+        "multiclass",
+        "hierarchical_multiclass"
+      ],
+      "title": "Layout",
+      "type": "string"
+    },
+    "mc_config_path": {
+      "description": "Path to mc_config.json snapshot in queue/",
+      "title": "Mc Config Path",
+      "type": "string"
+    },
+    "mode": {
+      "$ref": "#/$defs/TaskMode",
+      "default": "discovery"
+    },
+    "monte_carlo_runs_root": {
+      "title": "Monte Carlo Runs Root",
+      "type": "string"
+    },
+    "per_cancer_group": {
+      "default": false,
+      "title": "Per Cancer Group",
+      "type": "boolean"
+    },
+    "predictor_only": {
+      "default": false,
+      "title": "Predictor Only",
+      "type": "boolean"
+    },
+    "project_json": {
+      "description": "Absolute path to the run's project.json",
+      "title": "Project Json",
+      "type": "string"
+    },
+    "run_dir": {
+      "title": "Run Dir",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "e.g. run_0001",
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "skip_centroid": {
+      "default": false,
+      "title": "Skip Centroid",
+      "type": "boolean"
+    },
+    "task_id": {
+      "description": "Stable id for the queue, e.g. discovery_run_0001",
+      "minLength": 1,
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Task Schema Version",
+      "type": "string"
+    },
+    "val_control_csv": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Val Control Csv"
+    },
+    "val_disease_csv": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Val Disease Csv"
+    },
+    "val_groups_json": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Val Groups Json"
+    }
+  },
+  "required": [
+    "task_id",
+    "run_id",
+    "iteration",
+    "layout",
+    "project_json",
+    "monte_carlo_runs_root",
+    "run_dir",
+    "mc_config_path"
+  ],
+  "title": "DiscoveryRunTaskV1",
+  "type": "object"
+}

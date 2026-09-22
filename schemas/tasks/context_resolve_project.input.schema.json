@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cohortPathsList": {
+      "anyOf": [
+        {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "type": "array"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional list of (group_label, sample_paths) for MC seed centroids.",
+      "title": "Cohortpathslist"
+    },
+    "monteCarloRunsRoot": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When set with cohortPathsList, materialize centroidSeedGroups.",
+      "title": "Montecarlorunsroot"
+    },
+    "projectPath": {
+      "title": "Projectpath",
+      "type": "string"
+    },
+    "tool": {
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tool",
+    "projectPath"
+  ],
+  "title": "ResolveProjectTaskInput",
+  "type": "object"
+}

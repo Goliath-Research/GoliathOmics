@@ -1,0 +1,33 @@
+{
+    "chromosomes": [
+        "1",
+        "2",
+        "3"
+    ],
+    "contexts": [
+        "CG",
+        "CHG",
+        "CHH"
+    ],
+    "base_config": {
+        "laboratory": "example-lab",
+        "disease": "example-disease",
+        "group": "healthy",
+        "batch": "2026-03",
+        "chrom": "1",
+        "ctx": "CG",
+        "output_dir": "/path/to/output/centroids/healthy",
+        "add_samples": [
+            "/path/to/samples/sample_001",
+            "/path/to/samples/sample_002"
+        ],
+        "remove_samples": [],
+        "min_coverage": 4,
+        "min_samples": 1,
+        "binned_stats_bins": 20,
+        "use_gpu": true,
+        "verbose": true
+    },
+    "continue_on_error": true,
+    "save_batch_summary": true
+}

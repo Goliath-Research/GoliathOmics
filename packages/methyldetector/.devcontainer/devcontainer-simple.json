@@ -1,0 +1,127 @@
+{
+  "name": "MethylDetector Development Environment",
+  "image": "goliath",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "none",
+  
+  // Mount additional volumes for development
+  "mounts": [
+    "source=/home/ubuntu/MethylUtils,target=/home/ubuntu/MethylUtils,type=bind,consistency=cached",
+    "source=/home/ubuntu/Work,target=/home/ubuntu/Work,type=bind,consistency=cached",
+    "source=/home/ubuntu/working_dir,target=/home/ubuntu/working_dir,type=bind,consistency=cached"
+  ],
+  
+  // Environment variables
+  "containerEnv": {
+    "PYTHONPATH": "/home/ubuntu/MethylUtils:${PYTHONPATH}",
+    "METHYL_UTILS_PATH": "/home/ubuntu/MethylUtils",
+    "NVIDIA_VISIBLE_DEVICES": "all",
+    "CUDA_VISIBLE_DEVICES": "0",
+    "OMP_NUM_THREADS": "8",
+    "MKL_NUM_THREADS": "8",
+    "NUMEXPR_NUM_THREADS": "8",
+    "PYTHONUNBUFFERED": "1",
+    "HDF5_USE_FILE_LOCKING": "FALSE",
+    "PYTORCH_CUDA_ALLOC_CONF": "max_split_size_mb:512",
+    "DEBIAN_FRONTEND": "noninteractive"
+  },
+  
+  // Configure the remote user
+  "remoteUser": "ubuntu",
+  
+  // Post-create command to set up the development environment
+  "postCreateCommand": "bash -c 'cd /workspace && poetry install --with dev && echo \"Development environment ready!\"'",
+  
+  // Configure VS Code/Cursor extensions
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.pylint",
+        "ms-python.black-formatter",
+        "ms-python.isort",
+        "ms-toolsai.jupyter",
+        "ms-python.flake8",
+        "ms-python.mypy-type-checker",
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+        "ms-vscode.hexeditor",
+        "ms-vscode.vscode-markdown",
+        "ms-vscode.vscode-github-pullrequest"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/methylutils/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true,
+        "python.linting.flake8Enabled": true,
+        "python.linting.mypyEnabled": true,
+        "python.formatting.provider": "black",
+        "python.formatting.blackArgs": ["--line-length", "88"],
+        "python.sortImports.args": ["--profile", "black"],
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": true
+        },
+        "files.associations": {
+          "*.h5": "hdf5",
+          "*.hdf5": "hdf5"
+        },
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash",
+            "args": ["-l"]
+          }
+        }
+      }
+    }
+  },
+  
+  // Configure port forwarding for Jupyter notebooks if needed
+  "forwardPorts": [8888, 8889],
+  "portsAttributes": {
+    "8888": {
+      "label": "Jupyter Notebook",
+      "onAutoForward": "notify"
+    },
+    "8889": {
+      "label": "Jupyter Lab",
+      "onAutoForward": "notify"
+    }
+  },
+  
+  // Features to install in the container
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  
+  // Configure the development environment
+  "remoteEnv": {
+    "PYTHONPATH": "/home/ubuntu/MethylUtils:${PYTHONPATH}"
+  },
+  
+  // Lifecycle scripts
+  "onCreateCommand": "echo 'Setting up MethylDetector development environment...'",
+  "updateContentCommand": "echo 'Updating MethylDetector development environment...'",
+  "postStartCommand": "echo 'MethylDetector development environment is ready!'",
+  
+  // Configure the terminal
+  "terminal": {
+    "defaultProfile": "bash"
+  },
+  
+  // GPU support configuration
+  "runArgs": [
+    "--gpus=all",
+    "--ipc=host",
+    "--ulimit=memlock=-1:-1",
+    "--ulimit=stack=67108864:67108864",
+    "--shm-size=16g"
+  ],
+  
+  // Development-specific settings
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "overrideCommand": false
+}

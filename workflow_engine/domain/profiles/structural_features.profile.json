@@ -1,0 +1,33 @@
+{
+  "pipelineProfile": "structural_features",
+  "catalog": {
+    "title": "Structural features",
+    "summary": "Gene\u00d7region ranked structural feature catalog.",
+    "visibility": "advanced",
+    "lifecycle": "active",
+    "family": "specialty"
+  },
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": false,
+  "runBiomarkerFilter": false,
+  "runGeneFeatureSelect": true,
+  "actionConfig": {
+    "detection": {
+      "detection_mode": "discovery_only",
+      "export_classifier": false
+    },
+    "mapper": {
+      "csv_pattern": "dmps-*-discovery.csv"
+    },
+    "gene_selection": {
+      "stability_gene_feature_select_enabled": true,
+      "stability_gene_region_hits": [
+        "promoter",
+        "gene_body",
+        "exon",
+        "intron",
+        "terminator"
+      ]
+    }
+  }
+}

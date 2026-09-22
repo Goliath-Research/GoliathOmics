@@ -1,0 +1,394 @@
+{
+  "programVersion": 2,
+  "name": "SamplePrepPipeline",
+  "description": "Per-sample upstream preprocessing with alignment QC screening, trim remediation, extraction QC, and sample archive. Gate booleans are typed DomainProgram variables (catalog scope_bindings write them; FOREACH+IF remains the control flow \u2014 hybrid typed assign, not science-in-assign).",
+  "projectPath": "${var.projectPath}",
+  "variables": {
+    "qcPass": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "Alignment QC overall_pass from sample.methyl_qc (catalog binding $.guardrails.overall_pass)"
+    },
+    "remediateAlignment": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "Whether trim+realign remediation is indicated (catalog binding $.remediateAlignment)"
+    },
+    "extractionQcPass": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "Extraction QC overall_pass from sample.extraction_qc (catalog binding $.guardrails.overall_pass)"
+    },
+    "sampleArchived": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "Archive completion flag from sample.archive_sample"
+    },
+    "deleteFastqs": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "When true (default), delete local FASTQs after archive or terminal QC. Set false (instance context or actionConfig.sample_prep.delete_fastqs) to retain under /work/samples."
+    }
+  },
+  "phases": [
+    {
+      "name": "sample_prep",
+      "foreach": {
+        "collection": "samples",
+        "item": "sample",
+        "index": "sampleIndex",
+        "parallel": true
+      },
+      "steps": [
+        {
+          "action": "sample.download_fastq",
+          "node_key": "download_fastq"
+        },
+        {
+          "if": "${useWgbsPangenome}",
+          "then": [
+            {
+              "action": "sample.methylgrapher_wgbs_align",
+              "node_key": "methylgrapher_wgbs_align"
+            }
+          ],
+          "else": [
+            {
+              "if": "${usePangenome}",
+              "then": [
+                {
+                  "action": "sample.parabricks_giraffe",
+                  "node_key": "parabricks_giraffe"
+                }
+              ],
+              "else": [
+                {
+                  "action": "sample.parabricks_fq2bam",
+                  "node_key": "parabricks_fq2bam"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "action": "sample.methyl_qc",
+          "node_key": "methyl_qc"
+        },
+        {
+          "if": "${qcPass}",
+          "then": [
+            {
+              "if": "${isCfdna}",
+              "then": [
+                {
+                  "action": "sample.fragmentomics",
+                  "node_key": "methyl_fragmentomics"
+                }
+              ]
+            },
+            {
+              "if": "${useWgbsPangenome}",
+              "then": [
+                {
+                  "action": "sample.methylgrapher_wgbs_extract",
+                  "node_key": "methylgrapher_wgbs_extract"
+                }
+              ],
+              "else": [
+                {
+                  "action": "sample.methyl_extract",
+                  "node_key": "methyl_extract"
+                }
+              ]
+            },
+            {
+              "action": "sample.extraction_qc",
+              "node_key": "extraction_qc"
+            },
+            {
+              "if": "${extractionQcPass}",
+              "then": [
+                {
+                  "action": "sample.archive_sample",
+                  "node_key": "archive_sample",
+                  "with": {
+                    "mode": "full",
+                    "rejectReason": null
+                  }
+                },
+                {
+                  "if": "${deleteFastqs}",
+                  "then": [
+                    {
+                      "action": "sample.delete_fastqs",
+                      "node_key": "delete_fastqs"
+                    }
+                  ]
+                },
+                {
+                  "action": "sample.delete_bam",
+                  "node_key": "delete_bam"
+                }
+              ],
+              "else": [
+                {
+                  "action": "sample.archive_sample",
+                  "node_key": "archive_sample_qc_only",
+                  "with": {
+                    "mode": "qc_only",
+                    "rejectReason": "extraction_qc_failed"
+                  }
+                },
+                {
+                  "if": "${deleteFastqs}",
+                  "then": [
+                    {
+                      "action": "sample.delete_fastqs",
+                      "node_key": "delete_fastqs_extraction_fail"
+                    }
+                  ]
+                },
+                {
+                  "action": "sample.delete_bam",
+                  "node_key": "delete_bam_extraction_fail"
+                },
+                {
+                  "action": "sample.qc_failed",
+                  "node_key": "extraction_qc_failed",
+                  "with": {
+                    "reason": "extraction_qc_failed"
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "if": "${remediateAlignment}",
+              "then": [
+                {
+                  "action": "sample.trim_fastq",
+                  "node_key": "trim_fastq",
+                  "with": {
+                    "trimFront1": "${var.trimFront1}",
+                    "trimTail1": "${var.trimTail1}",
+                    "trimFront2": "${var.trimFront2}",
+                    "trimTail2": "${var.trimTail2}",
+                    "remediationReason": "${var.qcAttemptReason}",
+                    "workflowNodeKey": "trim_fastq"
+                  }
+                },
+                {
+                  "if": "${useWgbsPangenome}",
+                  "then": [
+                    {
+                      "action": "sample.methylgrapher_wgbs_align",
+                      "node_key": "methylgrapher_wgbs_realign",
+                      "with": {
+                        "forceRealign": true,
+                        "alignmentPass": "post_trim_realign",
+                        "remediationReason": "${var.qcAttemptReason}",
+                        "workflowNodeKey": "methylgrapher_wgbs_realign"
+                      }
+                    }
+                  ],
+                  "else": [
+                    {
+                      "if": "${usePangenome}",
+                      "then": [
+                        {
+                          "action": "sample.parabricks_giraffe",
+                          "node_key": "parabricks_giraffe_realign",
+                          "with": {
+                            "forceRealign": true,
+                            "alignmentPass": "post_trim_realign",
+                            "remediationReason": "${var.qcAttemptReason}",
+                            "workflowNodeKey": "parabricks_realign"
+                          }
+                        }
+                      ],
+                      "else": [
+                        {
+                          "action": "sample.parabricks_fq2bam",
+                          "node_key": "parabricks_realign",
+                          "with": {
+                            "forceRealign": true,
+                            "alignmentPass": "post_trim_realign",
+                            "remediationReason": "${var.qcAttemptReason}",
+                            "workflowNodeKey": "parabricks_realign"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "action": "sample.methyl_qc",
+                  "node_key": "methyl_qc_retry",
+                  "with": {
+                    "qcAttempt": 2,
+                    "alignmentPass": "post_trim_realign",
+                    "qcAttemptReason": "${var.qcAttemptReason}",
+                    "workflowNodeKey": "methyl_qc_retry",
+                    "remediationTrigger": {
+                      "disposition": "${var.qcDisposition}",
+                      "trimFront1": "${var.trimFront1}",
+                      "trimTail1": "${var.trimTail1}",
+                      "trimFront2": "${var.trimFront2}",
+                      "trimTail2": "${var.trimTail2}",
+                      "priorNode": "methyl_qc"
+                    }
+                  }
+                },
+                {
+                  "if": "${qcPass}",
+                  "then": [
+                    {
+                      "if": "${isCfdna}",
+                      "then": [
+                        {
+                          "action": "sample.fragmentomics",
+                          "node_key": "methyl_fragmentomics_retry"
+                        }
+                      ]
+                    },
+                    {
+                      "if": "${useWgbsPangenome}",
+                      "then": [
+                        {
+                          "action": "sample.methylgrapher_wgbs_extract",
+                          "node_key": "methylgrapher_wgbs_extract_retry"
+                        }
+                      ],
+                      "else": [
+                        {
+                          "action": "sample.methyl_extract",
+                          "node_key": "methyl_extract_retry"
+                        }
+                      ]
+                    },
+                    {
+                      "action": "sample.extraction_qc",
+                      "node_key": "extraction_qc_retry"
+                    },
+                    {
+                      "if": "${extractionQcPass}",
+                      "then": [
+                        {
+                          "action": "sample.archive_sample",
+                          "node_key": "archive_sample_retry",
+                          "with": {
+                            "mode": "full",
+                    "rejectReason": null
+                          }
+                        },
+                        {
+                          "if": "${deleteFastqs}",
+                          "then": [
+                            {
+                              "action": "sample.delete_fastqs",
+                              "node_key": "delete_fastqs_after_retry"
+                            }
+                          ]
+                        },
+                        {
+                          "action": "sample.delete_bam",
+                          "node_key": "delete_bam_retry"
+                        }
+                      ],
+                      "else": [
+                        {
+                          "action": "sample.archive_sample",
+                          "node_key": "archive_sample_qc_only_retry",
+                          "with": {
+                            "mode": "qc_only",
+                            "rejectReason": "extraction_qc_failed"
+                          }
+                        },
+                        {
+                          "if": "${deleteFastqs}",
+                          "then": [
+                            {
+                              "action": "sample.delete_fastqs",
+                              "node_key": "delete_fastqs_extraction_fail_retry"
+                            }
+                          ]
+                        },
+                        {
+                          "action": "sample.delete_bam",
+                          "node_key": "delete_bam_extraction_fail_retry"
+                        },
+                        {
+                          "action": "sample.qc_failed",
+                          "node_key": "extraction_qc_failed_retry",
+                          "with": {
+                            "reason": "extraction_qc_failed"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "else": [
+                    {
+                      "action": "sample.archive_sample",
+                      "node_key": "archive_sample_qc_only_align_retry",
+                      "with": {
+                        "mode": "qc_only",
+                        "rejectReason": "alignment_qc_failed_after_retry"
+                      }
+                    },
+                    {
+                      "if": "${deleteFastqs}",
+                      "then": [
+                        {
+                          "action": "sample.delete_fastqs",
+                          "node_key": "delete_fastqs_retry_fail"
+                        }
+                      ]
+                    },
+                    {
+                      "action": "sample.delete_bam",
+                      "node_key": "delete_bam_retry_fail"
+                    },
+                    {
+                      "action": "sample.qc_failed",
+                      "node_key": "qc_failed_after_retry",
+                      "with": {
+                        "reason": "alignment_qc_failed_after_retry"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "else": [
+                {
+                  "action": "sample.archive_sample",
+                  "node_key": "archive_sample_qc_only_align",
+                  "with": {
+                    "mode": "qc_only",
+                    "rejectReason": "alignment_qc_failed"
+                  }
+                },
+                {
+                  "if": "${deleteFastqs}",
+                  "then": [
+                    {
+                      "action": "sample.delete_fastqs",
+                      "node_key": "delete_fastqs_fail"
+                    }
+                  ]
+                },
+                {
+                  "action": "sample.delete_bam",
+                  "node_key": "delete_bam_fail"
+                },
+                {
+                  "action": "sample.qc_failed",
+                  "node_key": "qc_failed",
+                  "with": {
+                    "reason": "alignment_qc_failed"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

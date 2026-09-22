@@ -1,0 +1,39 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "capability": null,
+  "centroidSeedGroups": [],
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "iterations": [
+    {
+      "centroid1Dir": null,
+      "centroid2Dir": null,
+      "centroidGroups": [],
+      "comparisons": [],
+      "detectOutDir": null,
+      "groups": [],
+      "phase": "feature",
+      "previousRunDir": null,
+      "projectPath": "/work/p/monte_carlo_runs/run_0001/project.json",
+      "runDir": "/work/p/monte_carlo_runs/run_0001",
+      "runId": "run_0001",
+      "run_id": "run_0001",
+      "seed": null,
+      "taskConfig": null,
+      "trainFraction": null,
+      "type": "StratifiedCohortDraw"
+    }
+  ],
+  "manifest_path": null,
+  "n_iterations": 2,
+  "projectPath": "/work/p/project.json",
+  "result_code": 0,
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

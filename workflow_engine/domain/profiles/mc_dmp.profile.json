@@ -1,0 +1,40 @@
+{
+  "pipelineProfile": "mc_dmp",
+  "catalog": {
+    "title": "mc_dmp (deprecated)",
+    "summary": "Deprecated alias \u2192 samd_research + researchMode dmp_raw.",
+    "visibility": "hidden",
+    "lifecycle": "deprecated",
+    "family": "legacy",
+    "replacedBy": "samd_research"
+  },
+  "dmp_modeling_mode": "raw_pool",
+  "gene_modeling_mode": "none",
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": false,
+  "stabilityFeaturecutsEnabled": false,
+  "stabilityGeneFeaturecutsEnabled": false,
+  "actionConfig": {
+    "detection": {
+      "detection_mode": "discovery_only",
+      "export_classifier": false,
+      "dmp_export_mode": "dual"
+    },
+    "mapper": {
+      "csv_pattern": "dmps-*-discovery.csv",
+      "enrich_disease": true
+    },
+    "validation": {
+      "run_stability": true,
+      "dmp_modeling_mode": "raw_pool",
+      "gene_modeling_mode": "none",
+      "stability_featurecuts_enabled": false,
+      "stability_gene_featurecuts_enabled": false,
+      "stability_gene_recurrence_source": "enricher",
+      "stability_dmp_freq": 0.8,
+      "stability_gene_freq": 0.7
+    }
+  },
+  "researchMode": "dmp_raw",
+  "deprecatedAliasOf": "samd_research+dmp_raw"
+}

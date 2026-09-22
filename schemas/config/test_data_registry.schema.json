@@ -1,0 +1,1006 @@
+{
+  "$defs": {
+    "SamplePrepCanaryAssetPins": {
+      "additionalProperties": false,
+      "description": "Non-secret reference / image pins required for the three-mode canary.",
+      "properties": {
+        "linear_genome_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Site genomes.linear selection key / release pin.",
+          "title": "Linear Genome Key"
+        },
+        "methylgrapher_image_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Env var name holding the methylGrapher image pin (e.g. METHYL_METHYLGRAPHER_IMAGE).",
+          "title": "Methylgrapher Image Env"
+        },
+        "pangenome_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Site genomes.pangenome (stock Giraffe) pin.",
+          "title": "Pangenome Key"
+        },
+        "pangenome_wgbs_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Site genomes.pangenome_wgbs (methylGrapher BS) pin.",
+          "title": "Pangenome Wgbs Key"
+        }
+      },
+      "title": "SamplePrepCanaryAssetPins",
+      "type": "object"
+    },
+    "SamplePrepCanaryConfig": {
+      "additionalProperties": false,
+      "description": "Typed SamplePrep real-data canary definition (site/testing or standalone JSON).",
+      "properties": {
+        "analyte": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Canonical analyte label for the canary (e.g. buffy_coat).",
+          "title": "Analyte"
+        },
+        "asset_pins": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SamplePrepCanaryAssetPins"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference genome / image pins for preflight."
+        },
+        "directional": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Preferred methylGrapher directional flag for this library chemistry.",
+          "title": "Directional"
+        },
+        "fastq_storage": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Non-secret FastqStorageRef-shaped metadata (type/bucket/basePath/endpointRef). Credentials stay in cfg.credential and are injected at schedule time.",
+          "title": "Fastq Storage"
+        },
+        "full": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SamplePrepCanaryFastqPair"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Full-run FASTQ pair under fastqStorage."
+        },
+        "library_protocol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Procedure libraryProtocol hint (e.g. wgbs_linear / wgbs_pangenome).",
+          "title": "Library Protocol"
+        },
+        "modes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Alignment modes to run: linear, pangenome, pangenome_wgbs.",
+          "title": "Modes"
+        },
+        "provenance_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Repo-relative or absolute path to the committed provenance JSON.",
+          "title": "Provenance Path"
+        },
+        "sample_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Stable canary sample id base (modes append a suffix).",
+          "title": "Sample Id"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SamplePrepCanarySource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned public provenance for the FASTQ pair."
+        },
+        "subset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SamplePrepCanaryFastqPair"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Deterministic paired-read subset under fastqStorage."
+        },
+        "subset_read_pairs": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Target paired-read count used when provisioning the subset tier (operator-set; not a Python science default).",
+          "title": "Subset Read Pairs"
+        },
+        "subset_seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reserved for alternate subset strategies; first-N recipe ignores seed.",
+          "title": "Subset Seed"
+        },
+        "thresholds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SamplePrepCanaryThresholds"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Operator-set acceptance bounds for linear vs pangenome_wgbs."
+        }
+      },
+      "title": "SamplePrepCanaryConfig",
+      "type": "object"
+    },
+    "SamplePrepCanaryFastqPair": {
+      "additionalProperties": false,
+      "description": "Checksummed FASTQ pair layout under fastqStorage (full or subset tier).",
+      "properties": {
+        "expected_read_pairs": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Expected paired-read count for preflight checks.",
+          "title": "Expected Read Pairs"
+        },
+        "prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Object prefix under fastqStorage for this tier (e.g. canary/.../subset/).",
+          "title": "Prefix"
+        },
+        "r1_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "R1 filename under prefix.",
+          "title": "R1 Name"
+        },
+        "r1_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA-256 of R1 after provisioning (operator-filled).",
+          "title": "R1 Sha256"
+        },
+        "r2_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "R2 filename under prefix.",
+          "title": "R2 Name"
+        },
+        "r2_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA-256 of R2 after provisioning (operator-filled).",
+          "title": "R2 Sha256"
+        },
+        "size_bytes_r1": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "R1 size in bytes after provisioning.",
+          "title": "Size Bytes R1"
+        },
+        "size_bytes_r2": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "R2 size in bytes after provisioning.",
+          "title": "Size Bytes R2"
+        }
+      },
+      "title": "SamplePrepCanaryFastqPair",
+      "type": "object"
+    },
+    "SamplePrepCanarySource": {
+      "additionalProperties": false,
+      "description": "Provenance for the pinned public SamplePrep canary FASTQ pair.",
+      "properties": {
+        "bioproject": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "BioProject accession.",
+          "title": "Bioproject"
+        },
+        "geo_sample": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "GEO sample accession (e.g. GSM8140413).",
+          "title": "Geo Sample"
+        },
+        "geo_series": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "GEO series accession (e.g. GSE261315).",
+          "title": "Geo Series"
+        },
+        "individual_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Donor / HPRC individual id when known (e.g. HG00621).",
+          "title": "Individual Id"
+        },
+        "library_layout": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "PAIRED or SINGLE.",
+          "title": "Library Layout"
+        },
+        "library_strategy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SRA library strategy (Bisulfite-Seq).",
+          "title": "Library Strategy"
+        },
+        "license_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Public/consent basis and citation requirements (non-PHI only).",
+          "title": "License Note"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Operator notes / why this run was pinned.",
+          "title": "Notes"
+        },
+        "platform": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sequencing platform string.",
+          "title": "Platform"
+        },
+        "pubmed_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Primary publication PubMed id when available.",
+          "title": "Pubmed Id"
+        },
+        "source_urls": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Canonical GEO/SRA/BioProject URLs.",
+          "title": "Source Urls"
+        },
+        "sra_run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SRA run accession (e.g. SRR28293403).",
+          "title": "Sra Run"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "GEO/SRA sample title.",
+          "title": "Title"
+        }
+      },
+      "title": "SamplePrepCanarySource",
+      "type": "object"
+    },
+    "SamplePrepCanaryThresholds": {
+      "additionalProperties": false,
+      "description": "Operator-set acceptance bounds for linear vs methylGrapher comparison.\n\nStock Giraffe (``pangenome``) is an engineering comparator and does not use\nthese biological parity thresholds.",
+      "properties": {
+        "alignment_time_ratio_max": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Max allowed (pangenome_wgbs alignment_ms / linear alignment_ms). Operator-set cost gate for the dual-mode compare experiment.",
+          "title": "Alignment Time Ratio Max"
+        },
+        "cpg_coverage_min_fraction_of_linear": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum pangenome_wgbs CpG weighted-mean coverage as a fraction of linear. Hypothesis: usable CpG read support should not collapse vs linear.",
+          "title": "Cpg Coverage Min Fraction Of Linear"
+        },
+        "cpg_depth_thresholds": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Operator-set coverage depths for optional H5 fraction-of-CpGs stats (e.g. [1, 5, 10]). Empty/unset skips H5 depth fractions.",
+          "title": "Cpg Depth Thresholds"
+        },
+        "cpg_sites_min_fraction_of_linear": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum CpG sites called by pangenome_wgbs as a fraction of linear.",
+          "title": "Cpg Sites Min Fraction Of Linear"
+        },
+        "duplication_rate_delta": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Max absolute duplication-rate delta between linear and pangenome_wgbs.",
+          "title": "Duplication Rate Delta"
+        },
+        "mapping_rate_delta": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Max absolute mapping-rate delta between linear and pangenome_wgbs.",
+          "title": "Mapping Rate Delta"
+        },
+        "mean_coverage_delta": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Max absolute mean-coverage delta between linear and pangenome_wgbs.",
+          "title": "Mean Coverage Delta"
+        },
+        "overlap_chromosomes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional chromosome list for overlap stats (e.g. [\"1\",\"2\"]). Unset = all *-CG.h5 chromosomes present in both arms.",
+          "title": "Overlap Chromosomes"
+        },
+        "overlap_mean_abs_meth_delta_max": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Max mean |meth_wgbs \u2212 meth_linear| on overlapping CG sites. Operator-set methylation concordance gate.",
+          "title": "Overlap Mean Abs Meth Delta Max"
+        },
+        "overlap_median_cov_ratio_max": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Max median (wgbs_cov / linear_cov) on overlapping sites. Optional \u2014 MethylCall vs MethylExtractor coverage scales differ; leave unset unless comparing like-for-like extractors.",
+          "title": "Overlap Median Cov Ratio Max"
+        },
+        "overlap_meth_pearson_min": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum Pearson correlation of methylation fractions on overlapping CG sites. Operator-set concordance gate.",
+          "title": "Overlap Meth Pearson Min"
+        },
+        "overlap_recall_min_of_linear": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum fraction of linear CG H5 sites also present in pangenome_wgbs (shared chrom/pos). Operator-set site-overlap recall gate.",
+          "title": "Overlap Recall Min Of Linear"
+        },
+        "require_alignment_qc": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When false, missing alignment QC does not fail the mode report (science-only / report-only compares). Unset/true keeps the hard check.",
+          "title": "Require Alignment Qc"
+        },
+        "require_extraction_qc_pass": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When true, every mode must pass extraction QC guardrails.",
+          "title": "Require Extraction Qc Pass"
+        },
+        "require_read_level_patterns": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When true, methylGrapher must emit non-empty patterns.h5 sidecars.",
+          "title": "Require Read Level Patterns"
+        }
+      },
+      "title": "SamplePrepCanaryThresholds",
+      "type": "object"
+    },
+    "TestSampleGroup": {
+      "additionalProperties": false,
+      "description": "A named cohort of real reference samples for cohort-level tests.",
+      "properties": {
+        "analyte": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Canonical analyte for the group (cfdna, buffy_coat, ...).",
+          "title": "Analyte"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Human-readable purpose/notes for the group.",
+          "title": "Description"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cohort label (e.g. healthy, PCa, PCa1).",
+          "title": "Label"
+        },
+        "sample_dirs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sample directories in the group (absolute or repo-relative).",
+          "title": "Sample Dirs"
+        }
+      },
+      "title": "TestSampleGroup",
+      "type": "object"
+    },
+    "TestSampleRef": {
+      "additionalProperties": false,
+      "description": "One designated real reference sample (a directory of ``{chr}-{ctx}.h5``).",
+      "properties": {
+        "analyte": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Canonical analyte (cfdna, buffy_coat, combined, ...) this sample represents.",
+          "title": "Analyte"
+        },
+        "chromosomes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Chromosomes available for this reference sample (e.g. ['21']).",
+          "title": "Chromosomes"
+        },
+        "contexts": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Methylation contexts available (e.g. ['CG']).",
+          "title": "Contexts"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Human-readable purpose/notes for the reference sample.",
+          "title": "Description"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Source, consent basis, and producing MethylExtractor release for regulatory traceability (non-PHI sources only).",
+          "title": "Provenance"
+        },
+        "sample_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directory holding extracted {chr}-{ctx}.h5 files. Absolute (e.g. /work/samples/<id>) or repo-relative (resolved from the repository root).",
+          "title": "Sample Dir"
+        },
+        "sample_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Stable identifier for the reference sample.",
+          "title": "Sample Id"
+        }
+      },
+      "title": "TestSampleRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Registry of real reference samples and groups used by ``real_data`` tests.",
+  "properties": {
+    "committed_fixture_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Repo-relative directory holding the small committed real-format H5 fixture (runs on hosted CI). Absent/empty when only /work samples are used.",
+      "title": "Committed Fixture Dir"
+    },
+    "groups": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/TestSampleGroup"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Named cohorts keyed by group name (e.g. {'healthy': {...}, 'PCa': {...}}).",
+      "title": "Groups"
+    },
+    "sample_prep_canary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SamplePrepCanaryConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional SamplePrep real-WGBS canary definition (full + subset tiers, three alignment modes). Set under site testing or METHYL_TEST_DATA_CONFIG."
+    },
+    "samples": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/TestSampleRef"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Reference samples keyed by analyte or logical name (e.g. {'cfdna': {...}, 'buffy_coat': {...}}).",
+      "title": "Samples"
+    }
+  },
+  "title": "TestDataRegistry",
+  "type": "object"
+}

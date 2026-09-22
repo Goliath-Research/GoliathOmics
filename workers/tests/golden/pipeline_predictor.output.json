@@ -1,0 +1,19 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "balanced_accuracy": 0.85,
+  "capability": null,
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "manifest_path": null,
+  "output_dir": null,
+  "result_code": 0,
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null,
+  "validation_metrics_path": null
+}

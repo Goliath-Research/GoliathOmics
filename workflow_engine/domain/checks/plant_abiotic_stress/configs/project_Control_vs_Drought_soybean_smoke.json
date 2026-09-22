@@ -1,0 +1,46 @@
+{
+  "project_name": "Control_vs_Drought_Soybean",
+  "output_base": "/work/projects/plant-abiotic-stress-soybean",
+  "samples_base_path": "/work/samples",
+  "controls": {
+    "label": "control",
+    "groups": [
+      {
+        "label": "all",
+        "sample_paths": [
+          "data/control.csv"
+        ]
+      }
+    ]
+  },
+  "diseases": {
+    "label": "stress",
+    "groups": [
+      {
+        "label": "drought",
+        "sample_paths": [
+          "data/drought.csv"
+        ]
+      }
+    ]
+  },
+  "comparisons": "control_vs_each_disease",
+  "chromosomes": ["1"],
+  "contexts": ["CG", "CHG", "CHH"],
+  "regulatory": {
+    "stage": "expanded_development",
+    "intended_use_summary": "CI smoke fixture for soybean (Wm82) plant abiotic stress methylation pack.",
+    "primary_modality": "methylation",
+    "primary_analyte": "plant_tissue",
+    "allow_clinical_performance_claims": false,
+    "claim_boundary": "Agricultural research evidence only; SaMD clinical-performance claims do not apply."
+  },
+  "validation_partitions": {
+    "development_train": ["CTRL-TRAIN-001", "CTRL-TRAIN-002", "DROUGHT-TRAIN-001", "DROUGHT-TRAIN-002"],
+    "internal_validation": [],
+    "locked_test": ["CTRL-LOCK-001", "DROUGHT-LOCK-001"],
+    "pivotal_validation": [],
+    "post_market_monitoring": [],
+    "independence_keys": ["sample_id", "plant_id", "accession", "batch"]
+  }
+}

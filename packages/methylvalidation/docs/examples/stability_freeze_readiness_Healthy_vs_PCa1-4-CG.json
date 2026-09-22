@@ -1,0 +1,171 @@
+{
+  "project_root": "/lambda/nfs/Work/prostate-cancer/Healthy_vs_PCa1-4-CG",
+  "paths": {
+    "stability_summary": "/lambda/nfs/Work/prostate-cancer/Healthy_vs_PCa1-4-CG/monte_carlo_runs/stability/stability_summary.json",
+    "production_summary": "/lambda/nfs/Work/prostate-cancer/Healthy_vs_PCa1-4-CG/monte_carlo_runs/production/production_summary.json",
+    "production_project": "/lambda/nfs/Work/prostate-cancer/Healthy_vs_PCa1-4-CG/monte_carlo_runs/production/project.json",
+    "stable_panel": "/lambda/nfs/Work/prostate-cancer/Healthy_vs_PCa1-4-CG/monte_carlo_runs/stability/stable_dmps_production.csv",
+    "merged_panel": "/lambda/nfs/Work/prostate-cancer/Healthy_vs_PCa1-4-CG/monte_carlo_runs/production/stable_dmps_genomewide.csv",
+    "progression_summary": "/lambda/nfs/Work/prostate-cancer/Healthy_vs_PCa1-4-CG/monte_carlo_runs/production/progression/summary.json"
+  },
+  "stability": {
+    "present": true,
+    "dmp_stability": {
+      "n_runs_analyzed": 30,
+      "skipped_no_discovery": 0,
+      "skipped_low_balanced_accuracy": 0,
+      "min_balanced_accuracy": 0.9,
+      "total_unique_dmps": 857123,
+      "stable_dmps_at_threshold": 11303,
+      "min_frequency": 0.8,
+      "stable_dmp_fraction": 0.013187138835383019
+    },
+    "stable_panel_rows": 11303,
+    "dmp_frequency_rows": 857123
+  },
+  "freeze": {
+    "present": true,
+    "success": true,
+    "errors": [],
+    "timings": [
+      {
+        "step_name": "methyl-centroid",
+        "duration_seconds": 2152.201857,
+        "return_code": 0
+      },
+      {
+        "step_name": "methyl-detector",
+        "duration_seconds": 202.523985,
+        "return_code": 0
+      },
+      {
+        "step_name": "methyl-mapper",
+        "duration_seconds": 2374.964504,
+        "return_code": 0
+      },
+      {
+        "step_name": "methyl-enricher",
+        "duration_seconds": 46.727807,
+        "return_code": 0
+      },
+      {
+        "step_name": "methyl-disease-progression",
+        "duration_seconds": 6.73905,
+        "return_code": 0
+      }
+    ],
+    "fixed_dmp_panel_in_project": "/work/projects/prostate-cancer/Healthy_vs_PCa1-4-CG/monte_carlo_runs/production/stable_dmps_genomewide.csv",
+    "merged_panel_rows": 11303,
+    "removed_detector_keys_in_production_project": []
+  },
+  "progression": {
+    "summary_present": true,
+    "ordered_comparison_labels": [
+      "pca_pca1",
+      "pca_pca2",
+      "pca_pca3",
+      "pca_pca4"
+    ],
+    "missing_inputs": [],
+    "row_counts": {
+      "genes": 35326,
+      "pathways": 64347,
+      "modules": 30
+    },
+    "module_trajectory": {
+      "modules_csv": "/work/projects/prostate-cancer/Healthy_vs_PCa1-4-CG/monte_carlo_runs/production/progression/modules_long.csv",
+      "n_rows": 30,
+      "n_unique_entities": 17,
+      "entities_all_stages": 2,
+      "median_abs_pearson_stage_vs_score": 0.6784537233188035,
+      "fraction_monotone_up": 0.4,
+      "fraction_monotone_down": 0.0,
+      "top_by_abs_trend": [
+        {
+          "entity": "Hypoxia / angiogenesis",
+          "pearson_stage_vs_score": 0.9837,
+          "mean_score": 0.5384
+        },
+        {
+          "entity": "EMT / invasion",
+          "pearson_stage_vs_score": 0.9121,
+          "mean_score": 0.546133
+        },
+        {
+          "entity": "RTK / MAPK signaling",
+          "pearson_stage_vs_score": -0.6785,
+          "mean_score": 0.557575
+        },
+        {
+          "entity": "PI3K / growth-factor signaling",
+          "pearson_stage_vs_score": -0.533,
+          "mean_score": 0.468475
+        },
+        {
+          "entity": "metformin hydrochloride",
+          "pearson_stage_vs_score": -0.4494,
+          "mean_score": 0.507233
+        }
+      ],
+      "error": null
+    },
+    "entity_labels": {
+      "n_entities": 29977,
+      "by_type": {
+        "pathway": 21066,
+        "gene": 8894,
+        "module": 17
+      },
+      "label_counts": {
+        "stable_across_stages": 13297,
+        "none": 9171,
+        "monotonic_down": 2566,
+        "monotonic_up": 1905,
+        "stable_across_stages|monotonic_up": 1822,
+        "stage_specific": 740,
+        "stable_across_stages|monotonic_down": 292,
+        "stage_specific|late_only": 158,
+        "stage_specific|early_only": 26
+      }
+    }
+  },
+  "panel_balance": {
+    "source": "stable_dmps_genomewide.csv",
+    "n_positions": 11303,
+    "fraction_by_chromosome": {
+      "X": 0.101654,
+      "1": 0.059984,
+      "2": 0.057153,
+      "7": 0.04751,
+      "6": 0.045298,
+      "19": 0.043528,
+      "17": 0.043086,
+      "12": 0.04229,
+      "11": 0.041759,
+      "4": 0.040963,
+      "3": 0.040874,
+      "16": 0.040255,
+      "8": 0.039812,
+      "5": 0.036893,
+      "10": 0.03592,
+      "9": 0.035654,
+      "14": 0.033354,
+      "18": 0.033089,
+      "21": 0.032115,
+      "13": 0.031673,
+      "22": 0.031408,
+      "15": 0.029019,
+      "Y": 0.028488,
+      "20": 0.028223
+    },
+    "max_chrom_share": 0.101654
+  },
+  "verdict": {
+    "overall": "go",
+    "stability": "pass",
+    "freeze": "pass",
+    "progression": "pass",
+    "reasons": [],
+    "warnings": []
+  }
+}

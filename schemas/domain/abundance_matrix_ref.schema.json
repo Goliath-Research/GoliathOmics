@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Post-quantification per-sample proteomics abundance matrix on disk (protein intensities in HDF5).",
+  "properties": {
+    "$type": {
+      "const": "AbundanceMatrixRef",
+      "default": "AbundanceMatrixRef",
+      "title": "$Type",
+      "type": "string"
+    },
+    "source": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "default": null,
+      "description": "Quantifier that produced the matrix: diann, panel:npx, panel:rfu, ...",
+      "title": "Source"
+    },
+    "abundanceH5": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "default": null,
+      "description": "Path to {sample_id}.abundance.h5 (datasets: feature_id, value).",
+      "title": "AbundanceH5"
+    },
+    "h5Pattern": {
+      "default": "{sample_id}.abundance.h5",
+      "title": "H5Pattern",
+      "type": "string"
+    },
+    "nProteins": {
+      "anyOf": [{ "type": "integer" }, { "type": "null" }],
+      "default": null,
+      "title": "NProteins"
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    }
+  },
+  "required": ["sampleDir"],
+  "title": "AbundanceMatrixRef",
+  "type": "object"
+}

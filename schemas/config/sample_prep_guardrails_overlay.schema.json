@@ -1,0 +1,971 @@
+{
+  "$defs": {
+    "AlignmentGuardrailsOverlay": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Enabled"
+        },
+        "flagstat_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Flagstat Enabled"
+        },
+        "max_secondary_supplementary_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Secondary Supplementary Rate"
+        },
+        "max_supplementary_rate_flagstat": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Supplementary Rate Flagstat"
+        },
+        "min_gc_coverage_uniformity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Gc Coverage Uniformity"
+        },
+        "min_mapping_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Mapping Rate"
+        },
+        "min_properly_paired_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Properly Paired Rate"
+        },
+        "wgbs_min_mapped_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Wgbs Min Mapped Rate"
+        }
+      },
+      "title": "AlignmentGuardrailsOverlay",
+      "type": "object"
+    },
+    "AlignmentQcOverlay": {
+      "additionalProperties": false,
+      "description": "Operator-tunable ``alignment_qc`` slice. No sample paths or output dir.",
+      "properties": {
+        "alignment_guardrails": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlignmentGuardrailsOverlay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study)."
+        },
+        "auto_profile_from_analyte": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Auto Profile From Analyte"
+        },
+        "bisulfite_conversion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BisulfiteConversionOverlay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study)."
+        },
+        "core_guardrails": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CoreGuardrailsOverlay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study)."
+        },
+        "cycle_screening": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CycleScreeningOverlay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study)."
+        },
+        "fragmentomics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FragmentomicsOverlay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study)."
+        },
+        "optional_guardrails": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OptionalGuardrailsOverlay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study)."
+        }
+      },
+      "title": "AlignmentQcOverlay",
+      "type": "object"
+    },
+    "BisulfiteConversionOverlay": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Enabled"
+        },
+        "max_deamination_qscore_proxy": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Deamination Qscore Proxy"
+        },
+        "max_non_cpg_methylation_pct": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Non Cpg Methylation Pct"
+        },
+        "min_conversion_rate_pct": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Conversion Rate Pct"
+        },
+        "sidecar_filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Sidecar Filename"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "enum": [
+                "sidecar",
+                "deamination_proxy",
+                "auto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Source"
+        }
+      },
+      "title": "BisulfiteConversionOverlay",
+      "type": "object"
+    },
+    "CoreGuardrailsOverlay": {
+      "additionalProperties": false,
+      "description": "Sparse overlay of WGBS core thresholds. No published-window defaults.",
+      "properties": {
+        "max_at_dropout": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max At Dropout"
+        },
+        "max_deamination_qscore": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Deamination Qscore"
+        },
+        "max_gc_dropout": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Gc Dropout"
+        },
+        "median_insert_max_bp": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Median Insert Max Bp"
+        },
+        "median_insert_min_bp": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Median Insert Min Bp"
+        },
+        "min_mean_quality": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Mean Quality"
+        },
+        "min_oxog_qscore": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Oxog Qscore"
+        },
+        "min_pf_percent": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Pf Percent"
+        },
+        "min_q30_percent": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Q30 Percent"
+        },
+        "min_quality_post20": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Quality Post20"
+        }
+      },
+      "title": "CoreGuardrailsOverlay",
+      "type": "object"
+    },
+    "CycleScreeningOverlay": {
+      "additionalProperties": false,
+      "properties": {
+        "broad_bad_cycle_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Broad Bad Cycle Count"
+        },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Enabled"
+        },
+        "fallback_trim_front": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Fallback Trim Front"
+        },
+        "fallback_trim_tail": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Fallback Trim Tail"
+        },
+        "localized_max_span": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Localized Max Span"
+        },
+        "max_trim_bases": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Trim Bases"
+        },
+        "multi_region_min_separate_dips": {
+          "anyOf": [
+            {
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Multi Region Min Separate Dips"
+        },
+        "r2_quality_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "R2 Quality Threshold"
+        },
+        "r2_start_window_cycles": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "R2 Start Window Cycles"
+        },
+        "read_edge_window": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Read Edge Window"
+        },
+        "read_length": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Read Length"
+        },
+        "recovery_cycles": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Recovery Cycles"
+        },
+        "remediate_without_cycles": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Remediate Without Cycles"
+        }
+      },
+      "title": "CycleScreeningOverlay",
+      "type": "object"
+    },
+    "ExtractionQcGuardrailOverlay": {
+      "additionalProperties": false,
+      "properties": {
+        "max_chg_methylation_level": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Chg Methylation Level"
+        },
+        "max_chh_methylation_level": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Chh Methylation Level"
+        },
+        "max_discard_fraction": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Discard Fraction"
+        },
+        "min_autosomal_coverage_uniformity_ratio": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Autosomal Coverage Uniformity Ratio"
+        },
+        "min_cpg_weighted_mean_coverage": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Cpg Weighted Mean Coverage"
+        }
+      },
+      "title": "ExtractionQcGuardrailOverlay",
+      "type": "object"
+    },
+    "ExtractionQcOverlay": {
+      "additionalProperties": false,
+      "description": "Operator-tunable ``extraction_qc`` slice. No sample paths.",
+      "properties": {
+        "expected_chromosomes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Expected Chromosomes"
+        },
+        "guardrails": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExtractionQcGuardrailOverlay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study)."
+        }
+      },
+      "title": "ExtractionQcOverlay",
+      "type": "object"
+    },
+    "FragmentomicsOverlay": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Enabled"
+        },
+        "long_fragment_min_bp": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Long Fragment Min Bp"
+        },
+        "max_short_fragment_fraction": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Max Short Fragment Fraction"
+        },
+        "median_insert_max_bp": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Median Insert Max Bp"
+        },
+        "median_insert_min_bp": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Median Insert Min Bp"
+        },
+        "nucleosome_peak_bp_max": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Nucleosome Peak Bp Max"
+        },
+        "nucleosome_peak_bp_min": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Nucleosome Peak Bp Min"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "enum": [
+                "off",
+                "cfdna",
+                "wgbs"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Profile"
+        },
+        "short_fragment_max_bp": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Short Fragment Max Bp"
+        }
+      },
+      "title": "FragmentomicsOverlay",
+      "type": "object"
+    },
+    "OptionalGuardrailsOverlay": {
+      "additionalProperties": false,
+      "properties": {
+        "duplication_rate_max": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Duplication Rate Max"
+        },
+        "min_pf_reads": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to inherit site/profile/procedure. JSON null clears the inherited leaf. Operator-set on the overlay Guardrails editor (profile, procedure, or study).",
+          "title": "Min Pf Reads"
+        }
+      },
+      "title": "OptionalGuardrailsOverlay",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "JSON Schema bind target for overlay Guardrails editors (profile / procedure / study).\n\nThe property grid binds this schema to the **effective** document (inherited\nvalues filled in). Persist only ``sparse_overlay_diff(inherited, edited)``.",
+  "properties": {
+    "alignment_qc": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AlignmentQcOverlay"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Alignment QC guardrails overlay. Omit the object to inherit the whole slice."
+    },
+    "extraction_qc": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExtractionQcOverlay"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Extraction QC guardrails overlay. Omit the object to inherit the whole slice."
+    }
+  },
+  "title": "SamplePrepGuardrailsOverlay",
+  "type": "object"
+}

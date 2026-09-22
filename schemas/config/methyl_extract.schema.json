@@ -1,0 +1,312 @@
+{
+  "$defs": {
+    "MethylExtractMhapConfig": {
+      "additionalProperties": true,
+      "description": "Per-read haplotype sidecar knobs under actionConfig.methyl_extract.mhap.",
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Emit {chrom}-CG.mhap.h5 haplotype sidecars. Operator-set per site/profile.",
+          "title": "Enabled"
+        }
+      },
+      "title": "MethylExtractMhapConfig",
+      "type": "object"
+    },
+    "MethylExtractReadLevelConfig": {
+      "additionalProperties": true,
+      "description": "Read-level pattern sidecar knobs under actionConfig.methyl_extract.read_level.",
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Emit {chrom}-{ctx}.patterns.h5 tile histograms. Operator-set per site/profile.",
+          "title": "Enabled"
+        },
+        "tile_size": {
+          "anyOf": [
+            {
+              "maximum": 8,
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "CpG sites per read-level tile. Operator-set per site/profile.",
+          "title": "Tile Size"
+        }
+      },
+      "title": "MethylExtractReadLevelConfig",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Settings under actionConfig.methyl_extract / resolvedConfig for sample.methyl_extract.\n\nTunable knobs use default=None (config-not-code). extra=allow keeps chrom_mapping,\nextractor_bin, contig_naming, and other operational keys.",
+  "properties": {
+    "cap_cov": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional coverage cap. Operator-set per site/profile.",
+      "title": "Cap Cov"
+    },
+    "chrom_parallel": {
+      "anyOf": [
+        {
+          "maximum": 24,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Max chromosomes processed concurrently (--chrom-parallel). Memory-gated by max_rss_gb. Operator-set per site/profile.",
+      "title": "Chrom Parallel"
+    },
+    "chunk_size": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "HDF5 chunk size. Operator-set per site/profile.",
+      "title": "Chunk Size"
+    },
+    "compression": {
+      "anyOf": [
+        {
+          "maximum": 19,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "HDF5 Zstd (gzip fallback) level. Operator-set per site/profile.",
+      "title": "Compression"
+    },
+    "extract_contexts": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Contexts to extract (CG always implicit). Operator-set per site/profile.",
+      "title": "Extract Contexts"
+    },
+    "max_rss_gb": {
+      "anyOf": [
+        {
+          "maximum": 512,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Peak RSS gate in GiB for chrom-parallel (--max-rss-gb). Operator-set per site.",
+      "title": "Max Rss Gb"
+    },
+    "mhap": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/MethylExtractMhapConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Emit {chrom}-CG.mhap.h5 per-read haplotype sidecars in the same extract pass. Operator-set per site/profile/procedure.",
+      "title": "Mhap"
+    },
+    "min_cov": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum coverage to write a site. Operator-set per site/profile.",
+      "title": "Min Cov"
+    },
+    "min_mapq": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum mapping quality. Operator-set per site/profile.",
+      "title": "Min Mapq"
+    },
+    "min_phred": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum base Phred. Operator-set per site/profile.",
+      "title": "Min Phred"
+    },
+    "output_format": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "hdf5, txt, or both. Operator-set per site/profile.",
+      "title": "Output Format"
+    },
+    "read_level": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/MethylExtractReadLevelConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Read-level pattern sidecars. Operator-set per site/profile.",
+      "title": "Read Level"
+    },
+    "reference_fasta": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Linear FASTA path. Usually from site reference_genome.fasta.",
+      "title": "Reference Fasta"
+    },
+    "split": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Split output by context ({chrom}-{ctx}.h5). Operator-set per site/profile.",
+      "title": "Split"
+    },
+    "target_panel_bed": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional BED to restrict extract (EM-Seq / hybrid-capture).",
+      "title": "Target Panel Bed"
+    },
+    "threads": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Total MethylExtractor worker budget (--threads). Split across in-flight chromosomes. Operator-set per site/profile.",
+      "title": "Threads"
+    },
+    "tile_size": {
+      "anyOf": [
+        {
+          "maximum": 8,
+          "minimum": 2,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Alias for read_level.tile_size. Operator-set per site/profile.",
+      "title": "Tile Size"
+    }
+  },
+  "title": "MethylExtractStepConfig",
+  "type": "object"
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Centroid HDF5 artifact for one group \u00d7 chromosome \u00d7 context.",
+  "properties": {
+    "$type": {
+      "const": "MethylCentroidRef",
+      "default": "MethylCentroidRef",
+      "title": "$Type",
+      "type": "string"
+    },
+    "chromosome": {
+      "title": "Chromosome",
+      "type": "string"
+    },
+    "context": {
+      "default": "CG",
+      "title": "Context",
+      "type": "string"
+    },
+    "groupLabel": {
+      "title": "Grouplabel",
+      "type": "string"
+    },
+    "h5Path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "H5Path"
+    },
+    "outputDir": {
+      "title": "Outputdir",
+      "type": "string"
+    }
+  },
+  "required": [
+    "groupLabel",
+    "outputDir",
+    "chromosome"
+  ],
+  "title": "MethylCentroidRef",
+  "type": "object"
+}

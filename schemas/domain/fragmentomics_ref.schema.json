@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "cfDNA fragmentomics run artifacts.",
+  "properties": {
+    "$type": {
+      "const": "FragmentomicsRef",
+      "default": "FragmentomicsRef",
+      "title": "$Type",
+      "type": "string"
+    },
+    "outputDir": {
+      "title": "Outputdir",
+      "type": "string"
+    },
+    "summaryPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Summarypath"
+    }
+  },
+  "required": [
+    "outputDir"
+  ],
+  "title": "FragmentomicsRef",
+  "type": "object"
+}

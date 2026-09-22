@@ -1,0 +1,8 @@
+{
+  "executionScopeId": null,
+  "projectPath": null,
+  "reason": "alignment_qc_failed",
+  "sampleDir": "/work/samples/S1",
+  "sampleId": "S1",
+  "tool": "SampleMarkFailed"
+}

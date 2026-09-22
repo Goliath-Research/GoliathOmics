@@ -1,0 +1,143 @@
+[project]
+name = "methylpipeline"
+version = "1.0.0"
+description = "Unified Genomics Pipeline for Methylation Analysis"
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+license = {text = "MIT"}
+authors = [
+    {name = "MethylPipeline Team"}
+]
+keywords = ["methylation", "genomics", "bioinformatics", "gpu", "cuda"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312', 'py313', 'py314']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.eggs
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.pytest.ini_options]
+# Prefer monorepo source trees over any older pip-installed copies (editable installs can drift).
+pythonpath = [
+    "packages/methylutils",
+    "packages/methylcentroid",
+    "packages/methyldetector",
+    "packages/methyldmpselect",
+    "packages/methylclassifier",
+    "packages/methylpredictor",
+    "packages/methylvalidation",
+    "packages/methylgeneselect",
+    "packages/methylgenefeatureselect",
+    "packages/methylmapper",
+    "packages/methylcluster",
+    "packages/methylenricher",
+    "packages/methylalignmentqc",
+    "packages/methylextractionqc",
+    "packages/methyldiseaseprogression",
+    "packages/methyldomain",
+    "packages/methylfragmentomics",
+    "packages/methylderivedmeasures",
+    "packages/methyldeconv",
+    "packages/methylinfotheory",
+    "packages/methylmhl",
+    "workers",
+    "workflow_engine",
+    "workflow_engine/local",
+    "workflow_engine/domain",
+    "workflow_engine/contract",
+    "tools",
+]
+testpaths = [
+    "packages/*/tests",
+    "packages/methylcentroid/methyl_centroid/tests",
+    "packages/methylutils/methyl_utils/tests",
+    "workflow_engine/tests",
+    "workers/tests",
+    "tools/tests",
+    "scripts/tests",
+]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+# Coverage flags are intentionally NOT in addopts so subset/local runs do not
+# require pytest-cov. CI enables coverage explicitly via scripts/run_tests_ci.sh.
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "gpu: marks tests that require GPU",
+    "integration: marks tests as integration tests",
+    "real_data: marks tests that require a designated real reference sample (see docs/reference/test-data-registry.md)",
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+follow_imports = "normal"
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["packages/", "workers/", "workflow_engine/"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+

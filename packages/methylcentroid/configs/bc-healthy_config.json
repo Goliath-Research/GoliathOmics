@@ -1,0 +1,33 @@
+{
+    "chrom": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X",
+    "ctx": "CG,CHG,CHH",
+    "output_dir": "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/centroids/healthy",
+    "add_samples": [
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989276",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989277",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989278",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989279",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989280",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989281",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989282",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989283",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989285",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989286",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989287",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989288",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989289",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989290",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025862/data/FS90989291"
+    ],
+    "remove_samples": [],
+    "outliers": [],
+    "min_coverage": 4,
+    "max_iterations_percentage": 0.1,
+    "\u03b1": 0.05,
+    "min_samples": 3,
+    "distance_metrics": [
+        "jensen_shannon",
+        "wasserstein"
+    ],
+    "min_metrics_agree": 0
+}

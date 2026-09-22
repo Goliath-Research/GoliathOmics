@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Post-quantification per-sample RNA-Seq expression matrix on disk (gene counts / TPM in HDF5).",
+  "properties": {
+    "$type": {
+      "const": "ExpressionMatrixRef",
+      "default": "ExpressionMatrixRef",
+      "title": "$Type",
+      "type": "string"
+    },
+    "quantMode": {
+      "anyOf": [
+        { "type": "string" },
+        { "type": "null" }
+      ],
+      "default": null,
+      "description": "Quantifier that produced the matrix: star (pbrun rna_fq2bam) or kallisto.",
+      "title": "QuantMode"
+    },
+    "expressionH5": {
+      "anyOf": [
+        { "type": "string" },
+        { "type": "null" }
+      ],
+      "default": null,
+      "description": "Path to {sample_id}.expression.h5 (datasets: gene_id, count, tpm).",
+      "title": "ExpressionH5"
+    },
+    "h5Pattern": {
+      "default": "{sample_id}.expression.h5",
+      "title": "H5Pattern",
+      "type": "string"
+    },
+    "nGenes": {
+      "anyOf": [
+        { "type": "integer" },
+        { "type": "null" }
+      ],
+      "default": null,
+      "title": "NGenes"
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sampleDir"
+  ],
+  "title": "ExpressionMatrixRef",
+  "type": "object"
+}

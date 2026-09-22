@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Pairwise control vs disease comparison.",
+  "properties": {
+    "$type": {
+      "const": "ComparisonSpec",
+      "default": "ComparisonSpec",
+      "title": "$Type",
+      "type": "string"
+    },
+    "comparisonLabel": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comparisonlabel"
+    },
+    "controlGroup": {
+      "title": "Controlgroup",
+      "type": "string"
+    },
+    "diseaseGroup": {
+      "title": "Diseasegroup",
+      "type": "string"
+    }
+  },
+  "required": [
+    "controlGroup",
+    "diseaseGroup"
+  ],
+  "title": "ComparisonSpecRef",
+  "type": "object"
+}

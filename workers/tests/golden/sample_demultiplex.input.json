@@ -1,0 +1,11 @@
+{
+  "barcodeTsv": null,
+  "executionScopeId": null,
+  "project": null,
+  "projectPath": null,
+  "resolvedConfig": null,
+  "sampleDir": "/work/samples/S1",
+  "sampleId": "S1",
+  "skipDemultiplex": null,
+  "tool": "SampleDemultiplex"
+}

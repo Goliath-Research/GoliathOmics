@@ -1,0 +1,137 @@
+{
+  "programVersion": 2,
+  "name": "SamplePrepProteomicsPipeline",
+  "description": "Per-sample proteomics preprocessing. Ingest selected by ${usePanel}: panel-matrix (Olink/SomaScan/open, CPU) vs DIA-NN GPU search (download -> diann -> optional Prosit rescore -> register_abundance). Then proteomics QC gate and archive. Parallel to SamplePrep(Rna) but produces protein abundances.",
+  "projectPath": "${var.projectPath}",
+  "variables": {
+    "usePanel": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "When true, ingest a panel matrix (Olink NPX / SomaScan RFU / open). Derived from actionConfig.proteomics_quant.ingest_mode=panel."
+    },
+    "useDda": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "When true (and not panel), run DDA search with Sage (CPU) instead of DIA-NN. actionConfig.proteomics_quant.ingest_mode=dda."
+    },
+    "useRescore": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "When true (DIA path), run Prosit deep-learning rescoring after DIA-NN. actionConfig.proteomics_quant.rescore."
+    },
+    "qcPass": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "Proteomics QC overall_pass from sample.proteomics_qc (catalog binding $.guardrails.overall_pass)"
+    },
+    "deleteFastqs": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "When true (default), delete local raw MS files after archive or terminal QC."
+    }
+  },
+  "phases": [
+    {
+      "name": "sample_prep_proteomics",
+      "foreach": {
+        "collection": "samples",
+        "item": "sample",
+        "index": "sampleIndex",
+        "parallel": true
+      },
+      "steps": [
+        {
+          "if": "${usePanel}",
+          "then": [
+            {
+              "action": "sample.ingest_panel",
+              "node_key": "ingest_panel"
+            }
+          ],
+          "else": [
+            {
+              "action": "sample.download_msdata",
+              "node_key": "download_msdata"
+            },
+            {
+              "if": "${useDda}",
+              "then": [
+                {
+                  "action": "sample.sage",
+                  "node_key": "sage"
+                },
+                {
+                  "action": "sample.register_abundance",
+                  "node_key": "register_abundance_dda",
+                  "with": {
+                    "source": "sage"
+                  }
+                }
+              ],
+              "else": [
+                {
+                  "action": "sample.diann",
+                  "node_key": "diann"
+                },
+                {
+                  "if": "${useRescore}",
+                  "then": [
+                    {
+                      "action": "sample.dl_rescore",
+                      "node_key": "dl_rescore"
+                    }
+                  ]
+                },
+                {
+                  "action": "sample.register_abundance",
+                  "node_key": "register_abundance",
+                  "with": {
+                    "source": "diann"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "action": "sample.proteomics_qc",
+          "node_key": "proteomics_qc"
+        },
+        {
+          "if": "${qcPass}",
+          "then": [
+            {
+              "action": "sample.archive_sample",
+              "node_key": "archive_sample",
+              "with": {
+                "mode": "full",
+                    "rejectReason": null
+              }
+            },
+            {
+              "if": "${deleteFastqs}",
+              "then": [
+                {
+                  "action": "sample.delete_fastqs",
+                  "node_key": "delete_fastqs"
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "action": "sample.archive_sample",
+              "node_key": "archive_sample_qc_only",
+              "with": {
+                "mode": "qc_only",
+                "rejectReason": "proteomics_qc_failed"
+              }
+            },
+            {
+              "action": "sample.qc_failed",
+              "node_key": "proteomics_qc_failed",
+              "with": {
+                "reason": "proteomics_qc_failed"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "alignmentMode": null,
+  "alignmentPass": null,
+  "executionScopeId": null,
+  "primaryAnalyte": null,
+  "project": null,
+  "projectPath": "/work/p/project.json",
+  "qcAttempt": null,
+  "qcAttemptReason": null,
+  "remediationTrigger": null,
+  "resolvedConfig": null,
+  "sampleDir": "/work/samples/S1",
+  "sampleId": "S1",
+  "tool": "MethylAlignmentQc",
+  "workflowNodeKey": null
+}

@@ -1,0 +1,11 @@
+{
+  "name": "goliath-archive",
+  "version": "1",
+  "type": "s3",
+  "bucket": "goliath",
+  "region": "us-east-1",
+  "endpointUrl": "https://s3.us-east-1.myqnapcloud.io",
+  "prefixBase": "samples/",
+  "scope": "archive",
+  "credentialName": "goliath-archive-keys"
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "basis_kind": "houseman_seed",
+  "source_package": "synthetic plant CI fixture (not a biological atlas)",
+  "citation": null,
+  "genome_build": "TAIR10",
+  "coordinate_convention": "1-based",
+  "note": "Tiny multi-context Houseman seed for CI. Operators replace with a real plant cell-type atlas under /work and pin actionConfig.cell_deconvolution.seed_basis_path.",
+  "cell_types": ["mesophyll", "vasculature"],
+  "n_markers": 6,
+  "markers": [
+    {
+      "probe_id": "plant_cg_0001",
+      "chrom": "1",
+      "pos": 1000,
+      "context": "CG",
+      "betas": { "mesophyll": 0.90, "vasculature": 0.10 }
+    },
+    {
+      "probe_id": "plant_cg_0002",
+      "chrom": "1",
+      "pos": 1010,
+      "context": "CG",
+      "betas": { "mesophyll": 0.85, "vasculature": 0.15 }
+    },
+    {
+      "probe_id": "plant_chg_0001",
+      "chrom": "1",
+      "pos": 2000,
+      "context": "CHG",
+      "betas": { "mesophyll": 0.20, "vasculature": 0.80 }
+    },
+    {
+      "probe_id": "plant_chg_0002",
+      "chrom": "1",
+      "pos": 2010,
+      "context": "CHG",
+      "betas": { "mesophyll": 0.25, "vasculature": 0.75 }
+    },
+    {
+      "probe_id": "plant_chh_0001",
+      "chrom": "1",
+      "pos": 3000,
+      "context": "CHH",
+      "betas": { "mesophyll": 0.55, "vasculature": 0.45 }
+    },
+    {
+      "probe_id": "plant_chh_0002",
+      "chrom": "1",
+      "pos": 3010,
+      "context": "CHH",
+      "betas": { "mesophyll": 0.60, "vasculature": 0.40 }
+    }
+  ]
+}

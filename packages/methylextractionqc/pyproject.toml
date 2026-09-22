@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "methyl_extraction_qc"
+version = "0.1.0"
+description = "Evaluate MethylExtractor manifest guardrails and write per-sample extraction QC JSON."
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+    "pydantic",
+    "methylutils",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[project.scripts]
+methyl-extraction-qc = "methyl_extraction_qc.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["methyl_extraction_qc*"]

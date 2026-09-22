@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Fully materialized comparison with artifact dirs and per-side sample paths.",
+  "properties": {
+    "$type": {
+      "const": "ResolvedComparison",
+      "default": "ResolvedComparison",
+      "title": "$Type",
+      "type": "string"
+    },
+    "centroid1Dir": {
+      "description": "Control-side centroid output directory.",
+      "title": "Centroid1Dir",
+      "type": "string"
+    },
+    "centroid2Dir": {
+      "description": "Disease-side centroid output directory.",
+      "title": "Centroid2Dir",
+      "type": "string"
+    },
+    "classifierOutDir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Classifier output directory when configured for this comparison.",
+      "title": "Classifieroutdir"
+    },
+    "comparisonLabel": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comparisonlabel"
+    },
+    "controlGroup": {
+      "title": "Controlgroup",
+      "type": "string"
+    },
+    "controlSamplePaths": {
+      "description": "Absolute HDF5/sample paths for the control side.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Controlsamplepaths",
+      "type": "array"
+    },
+    "detectOutDir": {
+      "description": "Detection output directory for this comparison.",
+      "title": "Detectoutdir",
+      "type": "string"
+    },
+    "diseaseGroup": {
+      "title": "Diseasegroup",
+      "type": "string"
+    },
+    "diseaseSamplePaths": {
+      "description": "Absolute HDF5/sample paths for the disease side.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Diseasesamplepaths",
+      "type": "array"
+    },
+    "enricherOutDir": {
+      "description": "Enricher output directory for this comparison.",
+      "title": "Enricheroutdir",
+      "type": "string"
+    },
+    "label": {
+      "description": "Comparison label (usually disease group name).",
+      "title": "Label",
+      "type": "string"
+    },
+    "mapperOutDir": {
+      "description": "Mapper output directory for this comparison.",
+      "title": "Mapperoutdir",
+      "type": "string"
+    }
+  },
+  "required": [
+    "label",
+    "controlGroup",
+    "diseaseGroup",
+    "centroid1Dir",
+    "centroid2Dir",
+    "detectOutDir",
+    "mapperOutDir",
+    "enricherOutDir"
+  ],
+  "title": "ResolvedComparison",
+  "type": "object"
+}

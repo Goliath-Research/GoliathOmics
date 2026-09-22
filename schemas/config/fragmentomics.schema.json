@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Settings under step_config.fragmentomics.",
+  "properties": {
+    "bam_suffix": {
+      "default": ".bam",
+      "description": "When resolving BAM from sample dir, try {sample_dir}/{basename}{bam_suffix}.",
+      "title": "Bam Suffix",
+      "type": "string"
+    },
+    "chromosomes": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Restrict scanning to these chromosomes; default from project chromosomes.",
+      "title": "Chromosomes"
+    },
+    "enabled": {
+      "default": false,
+      "description": "Run methyl-fragmentomics on project samples.",
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "end_motif_k": {
+      "default": 4,
+      "description": "K-mer length at fragment 5' ends.",
+      "maximum": 6,
+      "minimum": 2,
+      "title": "End Motif K",
+      "type": "integer"
+    },
+    "genome_fasta": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Reference FASTA; defaults to step_config.alignment_qc.genome_fasta.",
+      "title": "Genome Fasta"
+    },
+    "max_reads_per_sample": {
+      "anyOf": [
+        {
+          "minimum": 1000,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 2000000,
+      "description": "Cap aligned reads scanned per sample (None = no cap).",
+      "title": "Max Reads Per Sample"
+    },
+    "modes": {
+      "description": "Fragmentomics modes to compute.",
+      "items": {
+        "enum": [
+          "wps",
+          "end_motifs"
+        ],
+        "type": "string"
+      },
+      "title": "Modes",
+      "type": "array"
+    },
+    "output_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Output root; default {project_root}/fragmentomics.",
+      "title": "Output Dir"
+    },
+    "sample_bam_paths": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Explicit map sample_id -> BAM path.",
+      "title": "Sample Bam Paths"
+    },
+    "wps_bin_bp": {
+      "default": 1000,
+      "description": "Genomic bin size for WPS aggregation.",
+      "minimum": 100,
+      "title": "Wps Bin Bp",
+      "type": "integer"
+    },
+    "wps_window_bp": {
+      "default": 2000,
+      "description": "Documented smoothing window (reserved for future smoothing).",
+      "minimum": 100,
+      "title": "Wps Window Bp",
+      "type": "integer"
+    }
+  },
+  "title": "FragmentomicsStepConfig",
+  "type": "object"
+}

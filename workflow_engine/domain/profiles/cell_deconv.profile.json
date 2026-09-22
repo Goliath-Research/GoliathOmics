@@ -1,0 +1,90 @@
+{
+  "pipelineProfile": "cell_deconv",
+  "catalog": {
+    "title": "Cell deconvolution",
+    "summary": "Houseman-style cell-type deconvolution specialty pack.",
+    "visibility": "advanced",
+    "lifecycle": "active",
+    "family": "specialty"
+  },
+  "actionConfig": {
+    "cell_deconvolution": {
+      "contexts": [
+        "CG"
+      ],
+      "marker_min_coverage": 4,
+      "min_marker_fraction": 0.25,
+      "use_gpu": true
+    },
+    "validation": {
+      "backend_profiles": {
+        "ecdf": {
+          "enabled": false,
+          "params": {
+            "feature_mode": "raw_gene",
+            "feature_family_set": "gene_scored",
+            "covariates_path": [
+              "{output_base}/cell_fractions/cell_fractions.csv",
+              "{output_base}/clinical_covariates.csv"
+            ],
+            "covariate_numeric_columns": [
+              "age",
+              "bmi"
+            ],
+            "covariate_composition_groups": [
+              {
+                "name": "cell_fractions",
+                "columns": [
+                  "CD8T",
+                  "CD4T",
+                  "NK",
+                  "Bcell",
+                  "Mono",
+                  "Neu"
+                ],
+                "reference": "Neu",
+                "pseudocount": 1e-06
+              }
+            ],
+            "covariate_id_column": "sample_id",
+            "ecdf_second_stage_probability_epsilon": 1e-06
+          }
+        },
+        "tabular_sklearn": {
+          "enabled": true,
+          "params": {
+            "feature_mode": "observed_hybrid",
+            "feature_family_set": "dmp_scored",
+            "covariates_path": [
+              "{output_base}/cell_fractions/cell_fractions.csv",
+              "{output_base}/clinical_covariates.csv"
+            ],
+            "covariate_numeric_columns": [
+              "age",
+              "bmi"
+            ],
+            "covariate_composition_groups": [
+              {
+                "name": "cell_fractions",
+                "columns": [
+                  "CD8T",
+                  "CD4T",
+                  "NK",
+                  "Bcell",
+                  "Mono",
+                  "Neu"
+                ],
+                "reference": "Neu",
+                "pseudocount": 1e-06
+              }
+            ],
+            "covariate_id_column": "sample_id"
+          }
+        },
+        "generative_hybrid": {
+          "enabled": false
+        }
+      }
+    }
+  }
+}

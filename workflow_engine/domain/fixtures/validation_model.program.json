@@ -1,0 +1,16 @@
+{
+  "programVersion": 2,
+  "name": "ValidationModel",
+  "description": "Lock production model from frozen stability artifacts. With a single enabled backend (e.g. ecdf), builds production directly; with multiple backends, requires prior validation.model_mc metrics.",
+  "body": [
+    {
+      "do": "validation.select_best_model",
+      "node_key": "select_best_model"
+    },
+    {
+      "do": "validation.post_model_validation",
+      "node_key": "post_model_validation"
+    }
+  ],
+  "projectPath": "workflow_engine/domain/checks/pca1_5_cg/configs/project_Healthy_vs_PCa1-5-CG_smoke.json"
+}

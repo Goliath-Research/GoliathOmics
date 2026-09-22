@@ -1,0 +1,18 @@
+{
+  "pipelineProfile": "legacy_dual",
+  "catalog": {
+    "title": "legacy_dual (deprecated)",
+    "summary": "Historical dual-axis layout; prefer samd_research + dual_fc.",
+    "visibility": "hidden",
+    "lifecycle": "deprecated",
+    "family": "legacy",
+    "replacedBy": "samd_research"
+  },
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": false,
+  "runBiomarkerFilter": false,
+  "runGeneFeatureSelect": false,
+  "stabilityFeaturecutsEnabled": true,
+  "stabilityGeneFeaturecutsEnabled": false,
+  "stabilityGeneBiomarkerFilterEnabled": false
+}

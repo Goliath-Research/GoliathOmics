@@ -1,0 +1,19 @@
+{
+  "name": "gencode-v50",
+  "version": "1",
+  "assetType": "gtf",
+  "destRoot": "/work/genomes/annotation/gencode/v50",
+  "storageEndpoint": "goliath-genomes",
+  "inventoryPrefix": "annotation/gencode/v50",
+  "recipe": {
+    "steps": [
+      { "op": "mkdir" },
+      {
+        "op": "s3_sync",
+        "storageEndpoint": "goliath-genomes",
+        "key": "annotation/gencode/v50/",
+        "dest": "/work/genomes/annotation/gencode/v50"
+      }
+    ]
+  }
+}

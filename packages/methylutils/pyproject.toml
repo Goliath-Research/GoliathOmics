@@ -1,0 +1,89 @@
+[tool.poetry]
+name = "methylutils"
+version = "1.0.0"
+description = "Shared utilities for the MethylPipeline ECDF-based methylation workflow"
+authors = ["MethylPipeline Team"]
+maintainers = ["MethylPipeline Team"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Goliath-Research/GoliathWorkflow"
+documentation = "https://github.com/Goliath-Research/GoliathWorkflow/tree/main/packages/methylutils"
+keywords = ["methylation", "genomics", "bioinformatics", "ecdf", "gpu", "cuda"]
+packages = [{include = "methyl_utils"}]
+include = [
+    {path = "methyl_utils/data/confounder_panels/*.json", format = ["sdist", "wheel"]},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: System :: Distributed Computing",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.15"
+numpy = ">=2.0.0,<3.0.0"
+scipy = ">=1.11.0,<2.0.0"
+pandas = ">=2.1.0,<3.0.0"
+pydantic = ">=2.6.0,<3.0.0"
+pyyaml = ">=6.0.0,<6.1.0"
+colorlog = ">=6.7.0,<6.8.0"
+nvidia-ml-py = ">=12.535.0,<13.0.0"
+
+[tool.poetry.group.gpu.dependencies]
+cupy-cuda12x = "==13.6.0"
+cudf-cu12 = ">=26.4.0,<27.0.0"
+pylibcudf-cu12 = ">=26.4.0,<27.0.0"
+rmm-cu12 = ">=26.4.0,<27.0.0"
+
+[tool.poetry.group.hdf5.dependencies]
+h5py = ">=3.10.0,<4.0.0"
+hdf5plugin = ">=5.0.0,<7.0.0"
+
+[tool.poetry.group.monitoring.dependencies]
+prometheus-client = ">=0.17.0,<0.18.0"
+psutil = ">=5.9.0"
+py-cpuinfo = ">=9.0.0,<9.1.0"
+GPUtil = ">=1.4.0,<1.5.0"
+memory-profiler = ">=0.61.0,<0.62.0"
+line-profiler = ">=4.1.0,<4.2.0"
+
+[tool.poetry.group.jupyter.dependencies]
+jupyterlab = ">=4.0.0,<4.1.0"
+ipywidgets = ">=8.0.0,<8.1.0"
+
+[tool.poetry.group.datascience.dependencies]
+scikit-learn = ">=1.4.0,<2.0.0"
+matplotlib = ">=3.8.0,<4.0.0"
+seaborn = ">=0.13.0,<0.14.0"
+plotly = ">=5.18.0,<7.0.0"
+
+[tool.poetry.group.development.dependencies]
+pytest = ">=7.4.0,<7.5.0"
+pytest-cov = ">=4.1.0,<4.2.0"
+pytest-xdist = ">=3.3.0,<3.4.0"
+pytest-benchmark = ">=4.0.0,<4.1.0"
+black = ">=24.0.0,<25.0.0"
+flake8 = ">=7.0.0,<8.0.0"
+mypy = ">=1.10.0,<2.0.0"
+pre-commit = ">=3.7.0,<4.0.0"
+sphinx = ">=7.0.0,<8.0.0"
+sphinx-rtd-theme = ">=2.0.0,<3.0.0"
+
+[tool.poetry.scripts]
+methyl-residualize-fit = "methyl_utils.cli_residualize_fit:main"
+methyl-confounder-scores = "methyl_utils.cli_confounder_scores:main"
+methyl-residualize-sensitivity = "methyl_utils.cli_residualize_sensitivity:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

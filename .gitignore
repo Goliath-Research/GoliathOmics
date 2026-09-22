@@ -1,0 +1,165 @@
+# Delphi executables
+*.exe
+*.dcu
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments (anchor to repo root — bare `env/` also matched deploy/env/)
+venv/
+/ENV/
+/env/
+.venv
+
+# Node (diagram pre-render tooling under docs/diagrams/)
+node_modules/
+docs/diagrams/node_modules/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Cursor IDE internal planning artifacts (keep .cursor/rules tracked)
+.cursor/plans/
+.cursor/**/*.plan.md
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Type checking
+.pytype/
+
+# Documentation
+docs/_build/
+docs/_static/
+docs/_templates/
+# MkDocs static site outputs (build locally or in CI; do not commit)
+/site/
+/site-customer/
+/site-pdf/
+# Legacy Quarto book outputs (retired; do not reintroduce)
+docs/usage/_book/
+docs/theory/_book/
+
+# Docker
+*.tar
+*.tar.gz
+.dockerignore
+
+# HDF5 and data files
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.npy
+*.npz
+
+# Logs
+*.log
+*.pid
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Local configuration
+.env
+.env.local
+*.local
+deploy/gateway_key.pem
+deploy/*.pem
+
+# Local methyl-stability-freeze-readiness dumps (checked-in examples live under packages/methylvalidation/docs/examples/)
+/readiness.json
+/readiness.md
+
+# Working directories
+working_dir/
+output/
+results/
+temp/
+tmp/
+
+# GPU cache
+.cupy/
+
+# Package specific
+*.egg-info/
+methylutils.egg-info/
+methyldetector.egg-info/
+methylcentroid.egg-info/
+methylmapper.egg-info/
+methyltrainer.egg-info/
+methylclassifier.egg-info/
+methylenricher.egg-info/
+
+packages/methylclassifier/classification_dmps_pc-hc12-1-CG.txt
+packages/methyldetector/docs/MethylDetector_Theoretical_Foundation.out
+packages/methyldetector/docs/MethylDetector_Theoretical_Foundation.fdb_latexmk
+packages/methyldetector/docs/MethylDetector_Theoretical_Foundation.toc
+packages/methyldetector/docs/MethylDetector_Theoretical_Foundation.aux
+.hypothesis
+/.quarto/
+**/*.quarto_ipynb
+*.dcu
+workflow_engine/WfEngineSrv.exe
+tools/methyl-config-editor/tests/MethylConfigEditorTests.res
+/tools/methyl-config-editor/*.rsm
+
+# Operator-local migration config (copy from scripts/migrate_work_layout.env.example)
+scripts/migrate_work_layout.env
+
+# Preflight manifest from migrate_work_layout.py --manifest-out (operator runtime output)
+migrate_work_layout.manifest.json
+
+# Ephemeral review/diagnostic output (pytest logs, schema-drift, guard results) — local only
+.review-scratch/
+
+# Local vg source checkout + build tree (scripts/build_methylgrapher_image.sh, ~5 GB)
+.cache/vg-src/
+workers/docker/methylgrapher/engine/
+workers/docker/methylgrapher/src/
+workers/docker/methylgrapher/mojo-env/
+.neon

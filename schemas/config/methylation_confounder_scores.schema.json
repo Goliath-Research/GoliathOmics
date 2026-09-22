@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "actionConfig.methylation_confounder_scores \u2014 panel paths, no science defaults.",
+  "properties": {
+    "age_clock_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "JSON clock coefficients. Procedure default is Hannum 2013 (hannum2013_v1.json); operators may overlay Horvath/PhenoAge.",
+      "title": "Age Clock Path"
+    },
+    "bmi_panel_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "JSON panel for the BMI/adiposity methylation score. Operator-set path.",
+      "title": "Bmi Panel Path"
+    },
+    "contexts": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Contexts to read for score CpGs. Operator-set; typically [CG].",
+      "title": "Contexts"
+    },
+    "inflammation_panel_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "JSON panel for the CRP/inflammation methylation score. Operator-set path.",
+      "title": "Inflammation Panel Path"
+    },
+    "min_coverage": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum coverage at a panel CpG to include it in the weighted score.",
+      "title": "Min Coverage"
+    },
+    "min_sites_fraction": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum fraction of panel sites observed or the score is marked insufficient.",
+      "title": "Min Sites Fraction"
+    },
+    "output_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Output directory; typically {output_base}/confounder_scores.",
+      "title": "Output Dir"
+    },
+    "smoking_panel_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "JSON panel (hg38 sites + weights) for the smoking score. Operator-set path.",
+      "title": "Smoking Panel Path"
+    }
+  },
+  "title": "ConfounderScoresStepConfig",
+  "type": "object"
+}

@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "methyl_mhl"
+version = "0.1.0"
+description = "Native MHB discovery and methylation haplotype load (MHL) for MethylPipeline"
+authors = ["MethylPipeline Team"]
+readme = "README.md"
+packages = [{include = "methyl_mhl"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.15"
+numpy = ">=2.0.0,<3.0.0"
+pandas = ">=2.1.0,<3.0.0"
+pydantic = ">=2.6.0,<3.0.0"
+scipy = ">=1.11.0,<2.0.0"
+methylutils = {path = "../methylutils", develop = true}
+
+[tool.poetry.scripts]
+methyl-mhl = "methyl_mhl.cli:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

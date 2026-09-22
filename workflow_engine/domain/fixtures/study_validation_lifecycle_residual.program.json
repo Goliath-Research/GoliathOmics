@@ -1,0 +1,252 @@
+{
+  "programVersion": 2,
+  "name": "StudyValidationLifecycleResidual",
+  "description": "Study validation lifecycle with train-only M-value residualization: deconv+scores before MC, residualize_fit per iteration and at freeze. Does not change shipped study_validation_lifecycle.",
+  "body": [
+    {
+      "do": "pipeline.cell_deconvolution",
+      "node_key": "cell_deconvolution"
+    },
+    {
+      "do": "pipeline.methylation_confounder_scores",
+      "node_key": "methylation_confounder_scores"
+    },
+    {
+      "do": "validation.plan_iterations",
+      "node_key": "plan_iterations"
+    },
+    {
+      "for": {
+        "in": {
+          "ref": "iterations"
+        },
+        "as": "iteration",
+        "parallel": true
+      },
+      "do": [
+        {
+          "do": "pipeline.residualize_fit",
+          "with": {
+            "projectPath": {
+              "ref": "iteration.projectPath"
+            },
+            "outputDir": "${var.iteration.runDir}/residualize"
+          },
+          "node_key": "residualize_fit"
+        },
+        {
+          "for": {
+            "in": {
+              "ref": "iteration.centroidGroups"
+            },
+            "as": "group",
+            "parallel": true
+          },
+          "do": [
+            {
+              "for": {
+                "in": {
+                  "ref": "project.chromosomes"
+                },
+                "as": "chromosome",
+                "parallel": true
+              },
+              "do": [
+                {
+                  "do": "pipeline.centroid",
+                  "with": {
+                    "group": {
+                      "ref": "group.label"
+                    },
+                    "chromosome": {
+                      "ref": "chromosome"
+                    },
+                    "context": {
+                      "ref": "context"
+                    },
+                    "outputDir": {
+                      "ref": "group.centroidDir"
+                    },
+                    "addSamples": {
+                      "ref": "group.addSamples"
+                    },
+                    "removeSamples": {
+                      "ref": "group.removeSamples"
+                    },
+                    "residualizeCoefDir": "${var.iteration.runDir}/residualize"
+                  },
+                  "node_key": "centroid"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "for": {
+            "in": {
+              "ref": "project.comparisons"
+            },
+            "as": "comparison",
+            "parallel": true
+          },
+          "do": [
+            {
+              "for": {
+                "in": {
+                  "ref": "project.chromosomes"
+                },
+                "as": "chromosome",
+                "parallel": true
+              },
+              "do": [
+                {
+                  "do": "pipeline.detector",
+                  "with": {
+                    "chromosome": {
+                      "ref": "chromosome"
+                    },
+                    "context": {
+                      "ref": "context"
+                    },
+                    "comparison": {
+                      "ref": "comparison.label"
+                    }
+                  },
+                  "node_key": "detect"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "do": "validation.stability",
+      "node_key": "stability"
+    },
+    {
+      "do": "validation.stability_freeze_readiness",
+      "node_key": "readiness"
+    },
+    {
+      "do": "validation.prepare_freeze_project",
+      "node_key": "prepare_freeze"
+    },
+    {
+      "do": "pipeline.residualize_fit",
+      "node_key": "freeze_residualize_fit"
+    },
+    {
+      "for": {
+        "in": {
+          "ref": "groups"
+        },
+        "as": "group",
+        "parallel": true
+      },
+      "do": [
+        {
+          "for": {
+            "in": {
+              "ref": "project.chromosomes"
+            },
+            "as": "chromosome",
+            "parallel": true
+          },
+          "do": [
+            {
+              "do": "pipeline.centroid",
+              "with": {
+                "group": {
+                  "ref": "group.label"
+                },
+                "chromosome": {
+                  "ref": "chromosome"
+                },
+                "context": {
+                  "ref": "context"
+                }
+              },
+              "node_key": "freeze_centroid"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "for": {
+        "in": {
+          "ref": "project.comparisons"
+        },
+        "as": "comparison",
+        "parallel": true
+      },
+      "do": [
+        {
+          "for": {
+            "in": {
+              "ref": "project.chromosomes"
+            },
+            "as": "chromosome",
+            "parallel": true
+          },
+          "do": [
+            {
+              "do": "pipeline.detector",
+              "with": {
+                "chromosome": {
+                  "ref": "chromosome"
+                },
+                "context": {
+                  "ref": "context"
+                },
+                "comparison": {
+                  "ref": "comparison.label"
+                },
+                "fixedDmpPanel": "${var.fixedDmpPanel}"
+              },
+              "node_key": "freeze_detect"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "do": "pipeline.mapper",
+      "node_key": "mapper"
+    },
+    {
+      "do": "pipeline.derived_measures",
+      "node_key": "derived_measures"
+    },
+    {
+      "do": "pipeline.info_measures",
+      "node_key": "info_measures"
+    },
+    {
+      "do": "pipeline.enricher",
+      "node_key": "enricher"
+    },
+    {
+      "do": "validation.finalize_freeze_model_bundle",
+      "node_key": "finalize_freeze_model_bundle"
+    },
+    {
+      "do": "pipeline.progression",
+      "node_key": "progression"
+    },
+    {
+      "do": "validation.model_mc",
+      "node_key": "model_mc"
+    },
+    {
+      "do": "validation.select_best_model",
+      "node_key": "select_best_model"
+    },
+    {
+      "do": "validation.post_model_validation",
+      "node_key": "post_model_validation"
+    }
+  ],
+  "projectPath": "workflow_engine/domain/checks/pca1_5_cg/configs/project_Healthy_vs_PCa1-5-CG_smoke.json"
+}

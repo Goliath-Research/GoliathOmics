@@ -1,0 +1,7 @@
+{
+  "monteCarloRunsRoot": "/work/p/monte_carlo_runs",
+  "productionOutputDir": "/work/p/monte_carlo_runs/production",
+  "project": null,
+  "projectPath": "/work/p/project.json",
+  "tool": null
+}

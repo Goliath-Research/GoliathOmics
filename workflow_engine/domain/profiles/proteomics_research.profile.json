@@ -1,0 +1,38 @@
+{
+  "pipelineProfile": "proteomics_research",
+  "catalog": {
+    "title": "Proteomics research",
+    "summary": "Proteomics process-pack research profile.",
+    "visibility": "advanced",
+    "lifecycle": "active",
+    "family": "specialty"
+  },
+  "description": "Research profile for the proteomics process pack. Selects an ingest mode (dia | panel | dda), optional Prosit rescoring, QC thresholds, and differential-abundance / classification knobs. dda uses Sage (Apache-2.0, CPU); Sage knobs live under proteomics_quant (enzyme/cleave_at, missed_cleavages, precursor_tol_ppm, fragment_tol_ppm, variable_mods for phospho S/T/Y, lfq). Does not use methylation centroid/DMP/deconvolution config.",
+  "deleteFastqs": true,
+  "actionConfig": {
+    "proteomics_quant": {
+      "ingest_mode": "dia",
+      "rescore": false,
+      "threads": 8,
+      "missed_cleavages": 2,
+      "precursor_tol_ppm": 20,
+      "fragment_tol_ppm": 10,
+      "lfq": true
+    },
+    "proteomics_qc": {
+      "guardrails": {
+        "min_proteins_identified": 300,
+        "max_missing_fraction": 0.9
+      }
+    },
+    "protein_de_select": {
+      "max_proteins": 200,
+      "ranking": "abs_t",
+      "transform": "log2",
+      "normalize": "median",
+      "impute": "min",
+      "classifier_method": "logistic_regression",
+      "cv_folds": 5
+    }
+  }
+}

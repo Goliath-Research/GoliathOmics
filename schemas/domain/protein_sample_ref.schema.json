@@ -1,0 +1,104 @@
+{
+  "$defs": {
+    "ProteomicsQcRef": {
+      "description": "Proteomics QC JSON artifact and pass/fail gate.",
+      "properties": {
+        "$type": {
+          "const": "ProteomicsQcRef",
+          "default": "ProteomicsQcRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "guardrails": {
+          "anyOf": [
+            { "additionalProperties": true, "type": "object" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Guardrails"
+        },
+        "overallPass": { "title": "Overallpass", "type": "boolean" },
+        "qcPath": { "title": "Qcpath", "type": "string" }
+      },
+      "required": ["qcPath", "overallPass"],
+      "title": "ProteomicsQcRef",
+      "type": "object"
+    },
+    "AbundanceMatrixRef": {
+      "description": "Post-quantification per-sample proteomics abundance matrix on disk.",
+      "properties": {
+        "$type": {
+          "const": "AbundanceMatrixRef",
+          "default": "AbundanceMatrixRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "title": "Source"
+        },
+        "abundanceH5": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "title": "AbundanceH5"
+        },
+        "h5Pattern": {
+          "default": "{sample_id}.abundance.h5",
+          "title": "H5Pattern",
+          "type": "string"
+        },
+        "nProteins": {
+          "anyOf": [{ "type": "integer" }, { "type": "null" }],
+          "default": null,
+          "title": "NProteins"
+        },
+        "sampleDir": { "title": "Sampledir", "type": "string" }
+      },
+      "required": ["sampleDir"],
+      "title": "AbundanceMatrixRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Proteomics sample lifecycle handle; fields accumulate through the proteomics sample-prep pack.",
+  "properties": {
+    "$type": {
+      "const": "ProteinSampleRef",
+      "default": "ProteinSampleRef",
+      "title": "$Type",
+      "type": "string"
+    },
+    "abundance": {
+      "anyOf": [{ "$ref": "#/$defs/AbundanceMatrixRef" }, { "type": "null" }],
+      "default": null
+    },
+    "reportTsv": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "default": null,
+      "title": "ReportTsv"
+    },
+    "msDataFiles": {
+      "anyOf": [
+        { "items": { "type": "string" }, "type": "array" },
+        { "type": "null" }
+      ],
+      "default": null,
+      "title": "MsDataFiles"
+    },
+    "proteomicsQc": {
+      "anyOf": [{ "$ref": "#/$defs/ProteomicsQcRef" }, { "type": "null" }],
+      "default": null
+    },
+    "sampleDir": { "title": "Sampledir", "type": "string" },
+    "sampleId": { "title": "Sampleid", "type": "string" },
+    "status": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "default": null,
+      "title": "Status"
+    }
+  },
+  "required": ["sampleId", "sampleDir"],
+  "title": "ProteinSampleRef",
+  "type": "object"
+}

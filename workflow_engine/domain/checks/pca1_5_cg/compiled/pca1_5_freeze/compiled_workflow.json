@@ -1,0 +1,475 @@
+{
+  "name": "PCa1_5_Freeze",
+  "description": "Production freeze for Healthy_vs_PCa1-5-CG: prepare project, full centroids, fixed-panel detectors, mapper, enricher, progression.",
+  "version_major": 1,
+  "version_minor": 0,
+  "is_active": true,
+  "root_node_key": "root",
+  "nodes": [
+    {
+      "node_key": "root",
+      "node_type": "SEQUENCE",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": null
+    },
+    {
+      "node_key": "seq_1",
+      "node_type": "SEQUENCE",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": null
+    },
+    {
+      "node_key": "prepare_freeze",
+      "node_type": "ACTION",
+      "action_name": "validation.prepare_freeze_project",
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": {
+        "tool": "validation.prepare_freeze_project",
+        "projectPath": "${var.projectPath}",
+        "project": "${var.projectPath}",
+        "stableDmpCsv": "${var.stableDmpCsv}",
+        "productionOutputDir": "${var.productionOutputDir}"
+      }
+    },
+    {
+      "node_key": "foreach_2",
+      "node_type": "FOREACH",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": "groups",
+      "foreach_item_var": "group",
+      "foreach_index_var": "groupIndex",
+      "foreach_parallel": true,
+      "input_template": null
+    },
+    {
+      "node_key": "seq_3",
+      "node_type": "SEQUENCE",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": null
+    },
+    {
+      "node_key": "foreach_4",
+      "node_type": "FOREACH",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": "chromosomes",
+      "foreach_item_var": "chromosome",
+      "foreach_index_var": "chromosomeIndex",
+      "foreach_parallel": true,
+      "input_template": null
+    },
+    {
+      "node_key": "seq_5",
+      "node_type": "SEQUENCE",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": null
+    },
+    {
+      "node_key": "freeze_centroid",
+      "node_type": "ACTION",
+      "action_name": "pipeline.centroid",
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": {
+        "tool": "MethylCentroid",
+        "projectPath": "${var.projectPath}",
+        "project": "${var.projectPath}",
+        "group": "${var.label}",
+        "chromosome": "${var.chromosome}",
+        "context": "${var.context}",
+        "outputDir": "${var.outputDir}",
+        "addSamples": "${var.addSamples}",
+        "removeSamples": "${var.removeSamples}",
+        "stepOverride": "${var.stepOverride}"
+      }
+    },
+    {
+      "node_key": "foreach_6",
+      "node_type": "FOREACH",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": "comparisons",
+      "foreach_item_var": "comparison",
+      "foreach_index_var": "comparisonIndex",
+      "foreach_parallel": true,
+      "input_template": null
+    },
+    {
+      "node_key": "seq_7",
+      "node_type": "SEQUENCE",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": null
+    },
+    {
+      "node_key": "foreach_8",
+      "node_type": "FOREACH",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": "chromosomes",
+      "foreach_item_var": "chromosome",
+      "foreach_index_var": "chromosomeIndex",
+      "foreach_parallel": true,
+      "input_template": null
+    },
+    {
+      "node_key": "seq_9",
+      "node_type": "SEQUENCE",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": null
+    },
+    {
+      "node_key": "freeze_detect",
+      "node_type": "ACTION",
+      "action_name": "pipeline.detector",
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": {
+        "tool": "MethylDetector",
+        "projectPath": "${var.projectPath}",
+        "project": "${var.projectPath}",
+        "chromosome": "${var.chromosome}",
+        "context": "${var.context}",
+        "comparison": "${var.label}",
+        "fixedDmpPanel": "${var.fixedDmpPanel}",
+        "stepOverride": "${var.stepOverride}",
+        "centroid1Dir": "${var.centroid1Dir}",
+        "centroid2Dir": "${var.centroid2Dir}",
+        "outputDir": "${var.detectOutDir}"
+      }
+    },
+    {
+      "node_key": "mapper",
+      "node_type": "ACTION",
+      "action_name": "pipeline.mapper",
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": {
+        "tool": "MethylMapper",
+        "projectPath": "${var.projectPath}",
+        "project": "${var.projectPath}"
+      }
+    },
+    {
+      "node_key": "enricher",
+      "node_type": "ACTION",
+      "action_name": "pipeline.enricher",
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": {
+        "tool": "MethylEnricher",
+        "projectPath": "${var.projectPath}",
+        "project": "${var.projectPath}"
+      }
+    },
+    {
+      "node_key": "progression",
+      "node_type": "ACTION",
+      "action_name": "pipeline.progression",
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": {
+        "tool": "MethylDiseaseProgression",
+        "projectPath": "${var.projectPath}",
+        "project": "${var.projectPath}"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "parent_node_key": "seq_1",
+      "child_node_key": "prepare_freeze",
+      "child_order": 0,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "seq_1",
+      "child_node_key": "foreach_2",
+      "child_order": 1,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "foreach_2",
+      "child_node_key": "seq_3",
+      "child_order": 0,
+      "branch_kind": "BODY",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "seq_3",
+      "child_node_key": "foreach_4",
+      "child_order": 0,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "foreach_4",
+      "child_node_key": "seq_5",
+      "child_order": 0,
+      "branch_kind": "BODY",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "seq_5",
+      "child_node_key": "freeze_centroid",
+      "child_order": 0,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "seq_1",
+      "child_node_key": "foreach_6",
+      "child_order": 2,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "foreach_6",
+      "child_node_key": "seq_7",
+      "child_order": 0,
+      "branch_kind": "BODY",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "seq_7",
+      "child_node_key": "foreach_8",
+      "child_order": 0,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "foreach_8",
+      "child_node_key": "seq_9",
+      "child_order": 0,
+      "branch_kind": "BODY",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "seq_9",
+      "child_node_key": "freeze_detect",
+      "child_order": 0,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "seq_1",
+      "child_node_key": "mapper",
+      "child_order": 3,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "seq_1",
+      "child_node_key": "enricher",
+      "child_order": 4,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "seq_1",
+      "child_node_key": "progression",
+      "child_order": 5,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "root",
+      "child_node_key": "seq_1",
+      "child_order": 0,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    }
+  ],
+  "input_bindings": [],
+  "output_bindings": [
+    {
+      "node_key": "prepare_freeze",
+      "var_name": "fixedDmpPanel",
+      "source_kind": "output_path",
+      "source_json_path": "$.fixedDmpPanel"
+    }
+  ],
+  "scope_defaults": [
+    {
+      "node_key": "root",
+      "var_name": "projectPath",
+      "default_expr": "${var.projectPath}"
+    },
+    {
+      "node_key": "root",
+      "var_name": "centroid1Dir",
+      "default_expr": "${var.centroid1Dir}"
+    }
+  ],
+  "collection_bindings": [
+    {
+      "scope_var": "project",
+      "kind": "jsonFile",
+      "path_var": "projectPath",
+      "base_var": null,
+      "json_path": null,
+      "bind_order": 0
+    },
+    {
+      "scope_var": "comparisons",
+      "kind": "jsonPath",
+      "path_var": null,
+      "base_var": "project",
+      "json_path": "$.comparisons",
+      "bind_order": 1
+    },
+    {
+      "scope_var": "chromosomes",
+      "kind": "jsonPath",
+      "path_var": null,
+      "base_var": "project",
+      "json_path": "$.chromosomes",
+      "bind_order": 2
+    }
+  ]
+}

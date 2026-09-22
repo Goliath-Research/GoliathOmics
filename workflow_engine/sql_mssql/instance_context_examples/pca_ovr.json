@@ -1,0 +1,31 @@
+{
+  "projectPath": "/work/projects/prostate-cancer/configs/project_PCa3.json",
+  "context": "CG",
+  "centroid1Dir": "/work/projects/prostate-cancer/PCa3/centroids/controls/healthy/all",
+  "group1Label": "group1",
+  "orderedComparisonLabels": ["PCa_Low", "PCa_High"],
+  "workerToolCentroid": "MethylCentroid",
+  "workerToolDetector": "MethylDetector",
+  "workerToolMapper": "MethylMapper",
+  "workerToolEnricher": "MethylEnricher",
+  "workerToolProgression": "MethylDiseaseProgression",
+  "chromosomes": [
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+    "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+    "21", "22", "X", "Y"
+  ],
+  "comparisons": [
+    {
+      "label": "PCa_Low",
+      "centroid2Dir": "/work/projects/prostate-cancer/PCa3/centroids/diseases/cancer/PCa_Low",
+      "detectOutDir": "/work/projects/prostate-cancer/PCa3/detections/all/PCa_Low",
+      "group2Label": "group2"
+    },
+    {
+      "label": "PCa_High",
+      "centroid2Dir": "/work/projects/prostate-cancer/PCa3/centroids/diseases/cancer/PCa_High",
+      "detectOutDir": "/work/projects/prostate-cancer/PCa3/detections/all/PCa_High",
+      "group2Label": "group2"
+    }
+  ]
+}

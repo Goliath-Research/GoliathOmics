@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "methyl_alignment_qc"
+version = "0.1.0"
+description = "Parse Parabricks alignment QC metrics into per-sample JSON for database storage."
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+    "pydantic",
+    "methylutils",  # Monorepo: pip install -e ../methylutils first, or use from repo root
+]
+
+[project.optional-dependencies]
+dev = [
+    "pandas",
+    "numpy",
+]
+
+[project.scripts]
+methyl-alignment-qc = "methyl_alignment_qc.cli.main:main"
+methyl-qc = "methyl_alignment_qc.cli.main:main"
+methyl-qc-migrate-guardrails = "methyl_alignment_qc.utils.guardrail_migration:main"
+methyl-qc-export-schema = "methyl_alignment_qc.utils.schema_export:main"
+methyl-qc-convert-v1-to-v2 = "methyl_alignment_qc.utils.v1_to_v2_migration:main"
+methyl-sample-qc-backfill = "methyl_alignment_qc.cli.sample_qc_backfill:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["methyl_alignment_qc*"]

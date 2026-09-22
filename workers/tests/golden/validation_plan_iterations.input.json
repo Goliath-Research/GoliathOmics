@@ -1,0 +1,13 @@
+{
+  "featureIterations": 2,
+  "layout": null,
+  "orderedComparisonLabels": null,
+  "overwrite": false,
+  "projectPath": "/work/p/project.json",
+  "qualityIterations": null,
+  "seed": null,
+  "trainFraction": null,
+  "workerToolEnricher": "MethylEnricher",
+  "workerToolMapper": "MethylMapper",
+  "workerToolProgression": "MethylDiseaseProgression"
+}

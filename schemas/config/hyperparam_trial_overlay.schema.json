@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One grid point: a deep-merge delta applied to the base ``actionConfig``.",
+  "properties": {
+    "index": {
+      "description": "Zero-based trial index within the search.",
+      "minimum": 0,
+      "title": "Index",
+      "type": "integer"
+    },
+    "label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional operator label for the trial (display only).",
+      "title": "Label"
+    },
+    "overrides": {
+      "additionalProperties": true,
+      "description": "Dotted actionConfig paths -> value for this trial.",
+      "title": "Overrides",
+      "type": "object"
+    }
+  },
+  "required": [
+    "index"
+  ],
+  "title": "HyperparamTrialOverlay",
+  "type": "object"
+}

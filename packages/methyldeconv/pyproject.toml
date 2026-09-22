@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "methyl_deconv"
+version = "0.1.0"
+description = "Reference-based cell-type deconvolution (flat Houseman / FlowSorted.Blood.EPIC IDOL and hierarchical HiTIMED-style trees) for MethylPipeline"
+authors = ["MethylPipeline Team"]
+readme = "README.md"
+packages = [{include = "methyl_deconv"}]
+include = ["methyl_deconv/data/*.json"]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.15"
+numpy = ">=2.0.0,<3.0.0"
+pandas = ">=2.1.0,<3.0.0"
+pydantic = ">=2.6.0,<3.0.0"
+scipy = ">=1.11.0,<2.0.0"
+methylutils = {path = "../methylutils", develop = true}
+
+[tool.poetry.scripts]
+methyl-cell-deconv = "methyl_deconv.cli:main"
+methyl-omega-cluster = "methyl_deconv.analysis.omega_cluster_cli:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omics_features"
+version = "0.1.0"
+description = "Shared samples-x-features seam for MethylPipeline omics packs (RNA expression, proteomics abundance): per-sample HDF5 contract, cohort matrix loader, and differential-feature selection + tabular classification."
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+    "pydantic",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "h5py",
+    "methylutils",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["omics_features*"]

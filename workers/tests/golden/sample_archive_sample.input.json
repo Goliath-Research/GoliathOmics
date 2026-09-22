@@ -1,0 +1,23 @@
+{
+  "alignmentQcPath": null,
+  "executionScopeId": null,
+  "h5Destination": null,
+  "h5Files": null,
+  "mode": "full",
+  "projectPath": null,
+  "qcPath": null,
+  "rejectReason": null,
+  "sampleDestination": {
+    "basePath": "/data/archive",
+    "contentHash": null,
+    "credentialName": null,
+    "credentialVersion": null,
+    "prefix": "studies/demo/S1/",
+    "scope": null,
+    "type": "file"
+  },
+  "sampleDir": "/work/samples/S1",
+  "sampleId": "S1",
+  "sampleRoot": null,
+  "tool": "SampleArchive"
+}

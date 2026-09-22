@@ -1,0 +1,15 @@
+#!/bin/bash
+# MethylEnricher Container Wrapper
+# Usage: ./me [args...]
+
+if ! docker ps --format 'table {{.Names}}' | grep -q "^methylpipeline$"; then
+    echo "❌ Error: methylpipeline container is not running."
+    echo "Start it with: cd /home/ubuntu/MethylPipeline/docker && docker compose up -d"
+    exit 1
+fi
+
+# Execute the command inside the container
+# Working directory is /workspace which maps to /home/ubuntu/MethylPipeline
+exec docker exec -w /workspace methylpipeline \
+  python3 -m methylenricher.cli "$@"
+

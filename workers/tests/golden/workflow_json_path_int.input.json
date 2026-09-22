@@ -1,0 +1,8 @@
+{
+  "documentPath": "/work/p/readiness/readiness.json",
+  "executionScopeId": null,
+  "hyperparamSetId": null,
+  "jsonPath": "$.n_iterations",
+  "projectPath": null,
+  "tool": "WorkflowJsonPathInt"
+}

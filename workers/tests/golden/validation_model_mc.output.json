@@ -1,0 +1,18 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "capability": null,
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "manifest_path": null,
+  "modelMcRoot": "/work/p/monte_carlo_runs/model_mc",
+  "n_iterations": 3,
+  "result_code": 0,
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

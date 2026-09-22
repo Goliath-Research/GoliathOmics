@@ -1,0 +1,23 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "bamPath": "/work/samples/S1/S1.bam",
+  "capability": null,
+  "conversionReportPath": "/work/samples/S1/S1.conversion_report.txt",
+  "dedupMetricsPath": "/work/samples/S1/S1.deduplicate_metrics.txt",
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "gafPath": "/work/samples/S1/S1.alignment.gaf",
+  "manifest_path": null,
+  "metricsJson": "/work/samples/S1/S1.alignment_metrics.json",
+  "qcMetricsTar": "/work/samples/S1/S1.qc-metrics.tar",
+  "result_code": 0,
+  "sampleId": "S1",
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

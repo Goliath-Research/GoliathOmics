@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "executionScopeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Executionscopeid"
+    },
+    "project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Legacy alias of projectPath from older input templates (provenance only).",
+      "title": "Project"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Projectpath"
+    },
+    "resolvedConfig": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Merged actionConfig.rna_align baked at instance configuration.",
+      "title": "Resolvedconfig"
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    },
+    "sampleId": {
+      "title": "Sampleid",
+      "type": "string"
+    },
+    "tool": {
+      "default": "RnaRegisterExpression",
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sampleId",
+    "sampleDir"
+  ],
+  "title": "RegisterExpressionTaskInput",
+  "type": "object"
+}

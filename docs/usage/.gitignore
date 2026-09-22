@@ -1,0 +1,5 @@
+/.quarto/
+**/*.quarto_ipynb
+# Quarto HTML site is regenerated; keep published PDF(s) in git.
+_book/*
+!_book/*.pdf

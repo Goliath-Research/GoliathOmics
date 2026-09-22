@@ -1,0 +1,73 @@
+{
+  "pipelineProcedure": "cfdna_emseq_mhl_survival",
+  "catalog": {
+    "title": "cfDNA EM-Seq MHL + survival",
+    "summary": "EM-Seq capture panel → native MHB/MHL → Cox time-to-event. Parallel to gene FeatureCuts.",
+    "visibility": "operator",
+    "lifecycle": "active",
+    "family": "specialty"
+  },
+  "description": "cfDNA EM-Seq / hybrid-capture targeted procedure for haplotype-block MHL and overall-survival modeling. Requires operator-supplied target_panel_bed and a study survival sidecar. Does not replace cfdna_emseq_targeted + gene_fc.",
+  "pipelineProfile": "samd_research",
+  "researchMode": "mhl_survival",
+  "analyteExpectation": "cfdna",
+  "libraryProtocol": "emseq_targeted",
+  "alignmentMode": "linear",
+  "usePangenome": false,
+  "useEmseqTargeted": true,
+  "samplePrepProgram": "workflow_engine/domain/fixtures/sample_prep_emseq.program.json",
+  "lifecycleProgram": "workflow_engine/domain/fixtures/study_validation_mhl_survival.program.json",
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": false,
+  "stabilityFeaturecutsEnabled": false,
+  "stabilityGeneFeaturecutsEnabled": false,
+  "actionConfig": {
+    "sample_prep": {
+      "library_protocol": "emseq_targeted"
+    },
+    "parabricks": {
+      "alignment_mode": "linear",
+      "write_methylation_tags": true
+    },
+    "methyl_extract": {
+      "min_cov": 20,
+      "read_level": {
+        "enabled": false
+      },
+      "mhap": {
+        "enabled": true
+      },
+      "target_panel_bed": null
+    },
+    "cell_deconvolution": null,
+    "info_measures": null,
+    "mhb_mhl": {
+      "mode": "discovery",
+      "core_window": 3,
+      "r2_min": 0.3,
+      "p_max": 0.05,
+      "min_cpgs": 3,
+      "min_median_reads": 50,
+      "mhl_max_length": 10
+    },
+    "validation": {
+      "dmp_modeling_mode": "raw_pool",
+      "gene_modeling_mode": "featurecuts",
+      "stability_featurecuts_enabled": false,
+      "stability_gene_featurecuts_enabled": false,
+      "backend_profiles": {
+        "ecdf": {
+          "enabled": false
+        },
+        "cox": {
+          "enabled": true,
+          "params": {
+            "mhl_matrix_path": "{output_base}/mhb_mhl/mhl_matrix.csv",
+            "write_nomogram": true,
+            "nested_lrt": true
+          }
+        }
+      }
+    }
+  }
+}

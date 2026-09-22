@@ -1,0 +1,112 @@
+{
+  "project_name": "Healthy_vs_PCa1-5-CG_smoke",
+  "laboratory": "psomagen",
+  "batch": "Second batch of prostate cancer samples",
+  "output_base": "/work/projects/prostate-cancer",
+  "samples_base_path": "/work/samples",
+  "controls": {
+    "label": "healthy",
+    "groups": [
+      {
+        "label": "all",
+        "sample_paths": [
+          "/work/projects/prostate-cancer/data/PCaH.csv"
+        ]
+      }
+    ]
+  },
+  "diseases": {
+    "label": "cancer",
+    "groups": [
+      {
+        "label": "PCa",
+        "stages": [
+          {
+            "label": "PCa1",
+            "description": "Gleason Score 3+3",
+            "sample_paths": [
+              "/work/projects/prostate-cancer/data/PCa1.csv"
+            ]
+          },
+          {
+            "label": "PCa2",
+            "description": "Gleason Score 3+4",
+            "sample_paths": [
+              "/work/projects/prostate-cancer/data/PCa2.csv"
+            ]
+          },
+          {
+            "label": "PCa3",
+            "description": "Gleason Score 4+3",
+            "sample_paths": [
+              "/work/projects/prostate-cancer/data/PCa3.csv"
+            ]
+          },
+          {
+            "label": "PCa4",
+            "description": "Gleason Score 4+4",
+            "sample_paths": [
+              "/work/projects/prostate-cancer/data/PCa4.csv"
+            ]
+          },
+          {
+            "label": "PCa5",
+            "description": "Gleason Score 4+5/5+4",
+            "sample_paths": [
+              "/work/projects/prostate-cancer/data/PCa5.csv"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "comparisons": "control_vs_each_disease",
+  "path_remap": {
+    "/lambda/nfs/Work/prostate-cancer/samples": "/work/samples",
+    "/lambda/nfs/Work/prostate-cancer": "/work/projects/prostate-cancer"
+  },
+  "chromosomes": [
+    "21"
+  ],
+  "contexts": [
+    "CG"
+  ],
+  "regulatory": {
+    "stage": "expanded_development",
+    "intended_use_summary": "Research-use methylation classifier for prostate cancer stage discrimination from buffy coat-derived DNA methylation profiles.",
+    "target_population": "Adults undergoing prostate cancer diagnostic or monitoring evaluation.",
+    "sample_type": "Buffy coat-derived DNA methylation sequencing (CG context).",
+    "primary_analyte": "buffy_coat",
+    "reference_standard": "Clinical/pathology adjudication including Gleason-based stage grouping.",
+    "claim_boundary": "Development/internal-validation evidence only; not intended as pivotal clinical performance evidence.",
+    "allow_clinical_performance_claims": false
+  },
+  "validation_partitions": {
+    "development_train": [
+      "/work/projects/prostate-cancer/data/PCaH.csv",
+      "/work/projects/prostate-cancer/data/PCa1.csv",
+      "/work/projects/prostate-cancer/data/PCa2.csv",
+      "/work/projects/prostate-cancer/data/PCa3.csv",
+      "/work/projects/prostate-cancer/data/PCa4.csv",
+      "/work/projects/prostate-cancer/data/PCa5.csv"
+    ],
+    "internal_validation": [],
+    "locked_test": [],
+    "pivotal_validation": [],
+    "post_market_monitoring": [],
+    "independence_keys": [
+      "sample_id",
+      "patient_id",
+      "site_id",
+      "batch"
+    ]
+  },
+  "progression_order": "explicit",
+  "progression_labels": [
+    "PCa_PCa1",
+    "PCa_PCa2",
+    "PCa_PCa3",
+    "PCa_PCa4",
+    "PCa_PCa5"
+  ]
+}

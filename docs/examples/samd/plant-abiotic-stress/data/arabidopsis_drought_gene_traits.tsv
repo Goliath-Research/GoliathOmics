@@ -1,0 +1,9 @@
+gene	disease_term	score	evidence_level	publications	description
+AT5G52310	drought	0.95	high	12	RD29A drought-responsive gene
+AT5G05410	drought	0.92	high	18	DREB2A dehydration-responsive element binder
+AT3G14440	drought	0.88	high	9	NCED3 ABA biosynthesis under drought
+AT2G36270	drought	0.85	high	11	ABI5 ABA-responsive transcription factor
+AT1G32640	drought	0.80	medium	7	MYC2 JA/ABA stress signaling
+AT4G25480	drought	0.78	medium	6	DREB1A / CBF3 cold and drought
+AT5G25610	drought	0.70	medium	4	RD22 drought-inducible
+AT1G20440	drought	0.65	medium	5	COR47 / RD17 dehydrin

@@ -1,0 +1,582 @@
+{
+  "$defs": {
+    "AlignmentGuardrailsConfig": {
+      "description": "Alignment-layer guardrails from Picard dedup, GC bias, and optional samtools flagstat.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "flagstat_enabled": {
+          "default": true,
+          "description": "When true and BAM present, run samtools flagstat and evaluate pairing guardrails.",
+          "title": "Flagstat Enabled",
+          "type": "boolean"
+        },
+        "max_secondary_supplementary_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.05,
+          "description": "Fail when SECONDARY_OR_SUPPLEMENTARY_RDS / reads_examined exceeds this.",
+          "title": "Max Secondary Supplementary Rate"
+        },
+        "max_supplementary_rate_flagstat": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.02,
+          "description": "Fail when flagstat supplementary_rate exceeds this.",
+          "title": "Max Supplementary Rate Flagstat"
+        },
+        "min_gc_coverage_uniformity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When set, fail when min/median NORMALIZED_COVERAGE across GC bins is below this.",
+          "title": "Min Gc Coverage Uniformity"
+        },
+        "min_mapping_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.98,
+          "description": "Fail when derived mapping_rate from dedup metrics is below this.",
+          "title": "Min Mapping Rate"
+        },
+        "min_properly_paired_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.9,
+          "description": "Fail when flagstat properly_paired_rate is below this (linear / Parabricks BAMs). Not applied to methylgrapher_wgbs QC BAMs \u2014 surjected Mojo emits historically lack proper-pair bits.",
+          "title": "Min Properly Paired Rate"
+        },
+        "wgbs_min_mapped_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pangenome WGBS (methylGrapher) QC-BAM flagstat mapped-rate floor. C2T-surjected BAMs score much lower than linear Align; leave unset to skip wgbs_bam_mapped_rate (do not reuse min_mapping_rate). Operator-set in site/profile actionConfig.alignment_guardrails.",
+          "title": "Wgbs Min Mapped Rate"
+        }
+      },
+      "title": "AlignmentGuardrailsConfig",
+      "type": "object"
+    },
+    "BisulfiteConversionConfig": {
+      "description": "Quantitative bisulfite conversion QC (sidecar JSON or deamination proxy).",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "max_deamination_qscore_proxy": {
+          "default": 30,
+          "description": "Unused for voting. Deamination is evaluated only as guardrails.details.deamination_qscore (core_guardrails.max_deamination_qscore). Kept so existing site/profile keys remain valid.",
+          "minimum": 0,
+          "title": "Max Deamination Qscore Proxy",
+          "type": "integer"
+        },
+        "max_non_cpg_methylation_pct": {
+          "default": 2.0,
+          "description": "Maximum acceptable non-CpG methylation (%) when sidecar supplies it.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Max Non Cpg Methylation Pct",
+          "type": "number"
+        },
+        "min_conversion_rate_pct": {
+          "default": 99.0,
+          "description": "Minimum acceptable conversion rate (%) when sidecar supplies it.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Min Conversion Rate Pct",
+          "type": "number"
+        },
+        "sidecar_filename": {
+          "default": "bisulfite_conversion.json",
+          "description": "Per-sample file in sample dir with conversion_rate_pct and optional non_cpg_methylation_pct.",
+          "title": "Sidecar Filename",
+          "type": "string"
+        },
+        "source": {
+          "default": "auto",
+          "description": "auto: use sidecar when present, else deamination proxy.",
+          "enum": [
+            "sidecar",
+            "deamination_proxy",
+            "auto"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "title": "BisulfiteConversionConfig",
+      "type": "object"
+    },
+    "CoreGuardrailsConfig": {
+      "description": "Thresholds for the core WGBS Parabricks guardrails.\n\nOperators set these per deployment in site `actionConfig.alignment_qc.core_guardrails`\nor per procedure in a pipeline profile. Values here reproduce the published WGBS\nacceptance window so an unset config keeps the QC gate closed rather than silently\npassing every sample.",
+      "properties": {
+        "max_at_dropout": {
+          "default": 3.0,
+          "description": "Maximum Picard GC-bias AT dropout.",
+          "minimum": 0.0,
+          "title": "Max At Dropout",
+          "type": "number"
+        },
+        "max_deamination_qscore": {
+          "default": 30,
+          "description": "Maximum Parabricks pre-adapter deamination qscore (low is expected in WGBS).",
+          "minimum": 0,
+          "title": "Max Deamination Qscore",
+          "type": "integer"
+        },
+        "max_gc_dropout": {
+          "default": 5.0,
+          "description": "Maximum Picard GC-bias GC dropout. Raise per deployment for libraries with known GC-rich under-representation (e.g. 6.0) instead of editing code.",
+          "minimum": 0.0,
+          "title": "Max Gc Dropout",
+          "type": "number"
+        },
+        "median_insert_max_bp": {
+          "default": 300,
+          "description": "Maximum acceptable median insert size (bp).",
+          "minimum": 1,
+          "title": "Median Insert Max Bp",
+          "type": "integer"
+        },
+        "median_insert_min_bp": {
+          "default": 150,
+          "description": "Minimum acceptable median insert size (bp).",
+          "minimum": 1,
+          "title": "Median Insert Min Bp",
+          "type": "integer"
+        },
+        "min_mean_quality": {
+          "default": 35.0,
+          "description": "Minimum mean Phred quality averaged across cycles.",
+          "minimum": 0.0,
+          "title": "Min Mean Quality",
+          "type": "number"
+        },
+        "min_oxog_qscore": {
+          "default": 20,
+          "description": "Minimum Parabricks pre-adapter OxoG qscore; lower means more G>T damage risk.",
+          "minimum": 0,
+          "title": "Min Oxog Qscore",
+          "type": "integer"
+        },
+        "min_pf_percent": {
+          "default": 90.0,
+          "description": "Minimum percentage of reads passing Illumina PF filtering.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Min Pf Percent",
+          "type": "number"
+        },
+        "min_q30_percent": {
+          "default": 85.0,
+          "description": "Minimum percentage of PF bases at Q30 or better (85 strict, 80 relaxed).",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Min Q30 Percent",
+          "type": "number"
+        },
+        "min_quality_post20": {
+          "default": 30.0,
+          "description": "Minimum per-cycle quality after cycle 20 (late-cycle degradation).",
+          "minimum": 0.0,
+          "title": "Min Quality Post20",
+          "type": "number"
+        }
+      },
+      "title": "CoreGuardrailsConfig",
+      "type": "object"
+    },
+    "CycleScreeningConfig": {
+      "description": "Per-cycle read-end screening for remediation dispositions.",
+      "properties": {
+        "broad_bad_cycle_count": {
+          "default": 8,
+          "minimum": 1,
+          "title": "Broad Bad Cycle Count",
+          "type": "integer"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "fallback_trim_front": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Trim bases from read starts when remediate_without_cycles fires.",
+          "title": "Fallback Trim Front"
+        },
+        "fallback_trim_tail": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Trim bases from read tails when remediate_without_cycles fires.",
+          "title": "Fallback Trim Tail"
+        },
+        "localized_max_span": {
+          "default": 6,
+          "minimum": 1,
+          "title": "Localized Max Span",
+          "type": "integer"
+        },
+        "max_trim_bases": {
+          "default": 8,
+          "minimum": 1,
+          "title": "Max Trim Bases",
+          "type": "integer"
+        },
+        "multi_region_min_separate_dips": {
+          "default": 2,
+          "minimum": 2,
+          "title": "Multi Region Min Separate Dips",
+          "type": "integer"
+        },
+        "r2_quality_threshold": {
+          "default": 30.0,
+          "title": "R2 Quality Threshold",
+          "type": "number"
+        },
+        "r2_start_window_cycles": {
+          "default": 5,
+          "minimum": 1,
+          "title": "R2 Start Window Cycles",
+          "type": "integer"
+        },
+        "read_edge_window": {
+          "default": 10,
+          "minimum": 1,
+          "title": "Read Edge Window",
+          "type": "integer"
+        },
+        "read_length": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Override read length; default inferred as max_cycle // 2.",
+          "title": "Read Length"
+        },
+        "recovery_cycles": {
+          "default": 10,
+          "minimum": 1,
+          "title": "Recovery Cycles",
+          "type": "integer"
+        },
+        "remediate_without_cycles": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When true and mean_quality_by_cycle is absent, allow REALIGN_TRIM from conversion/mapped-rate failure signals (pangenome_wgbs). Operator-set per site/profile actionConfig.alignment_qc.cycle_screening.",
+          "title": "Remediate Without Cycles"
+        }
+      },
+      "title": "CycleScreeningConfig",
+      "type": "object"
+    },
+    "FragmentomicsConfig": {
+      "description": "Optional cfDNA / fragment-length QC derived from insert-size histograms.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Compute fragmentomics metrics and guardrails.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "long_fragment_min_bp": {
+          "default": 300,
+          "description": "Fragments at or above this size are 'long'.",
+          "minimum": 1,
+          "title": "Long Fragment Min Bp",
+          "type": "integer"
+        },
+        "max_short_fragment_fraction": {
+          "default": 0.35,
+          "description": "Fail cfDNA guardrail when short-fragment fraction exceeds this.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Short Fragment Fraction",
+          "type": "number"
+        },
+        "median_insert_max_bp": {
+          "default": 220,
+          "minimum": 1,
+          "title": "Median Insert Max Bp",
+          "type": "integer"
+        },
+        "median_insert_min_bp": {
+          "default": 120,
+          "minimum": 1,
+          "title": "Median Insert Min Bp",
+          "type": "integer"
+        },
+        "nucleosome_peak_bp_max": {
+          "default": 200,
+          "minimum": 1,
+          "title": "Nucleosome Peak Bp Max",
+          "type": "integer"
+        },
+        "nucleosome_peak_bp_min": {
+          "default": 140,
+          "minimum": 1,
+          "title": "Nucleosome Peak Bp Min",
+          "type": "integer"
+        },
+        "profile": {
+          "default": "off",
+          "description": "Guardrail profile: cfdna adds nucleosome/short-fragment checks; wgbs metrics only.",
+          "enum": [
+            "off",
+            "cfdna",
+            "wgbs"
+          ],
+          "title": "Profile",
+          "type": "string"
+        },
+        "short_fragment_max_bp": {
+          "default": 150,
+          "description": "Fragments at or below this size are 'short'.",
+          "minimum": 1,
+          "title": "Short Fragment Max Bp",
+          "type": "integer"
+        }
+      },
+      "title": "FragmentomicsConfig",
+      "type": "object"
+    },
+    "OptionalGuardrailsConfig": {
+      "description": "Config-gated guardrails beyond core WGBS Parabricks checks.",
+      "properties": {
+        "duplication_rate_max": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When set, fail when summary_stats.duplication_rate exceeds this.",
+          "title": "Duplication Rate Max"
+        },
+        "min_pf_reads": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When set, fail when quality_yield.pf_reads is below this.",
+          "title": "Min Pf Reads"
+        }
+      },
+      "title": "OptionalGuardrailsConfig",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Config for alignment QC step: sample paths and output directory.",
+  "properties": {
+    "alignment_guardrails": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AlignmentGuardrailsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Alignment-layer guardrails (mapping rate, GC uniformity, flagstat pairing)."
+    },
+    "auto_profile_from_analyte": {
+      "default": false,
+      "description": "When true, enable fragmentomics profile cfdna if step_config.validation.regulatory.primary_analyte is cfdna.",
+      "title": "Auto Profile From Analyte",
+      "type": "boolean"
+    },
+    "bisulfite_conversion": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BisulfiteConversionConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional bisulfite conversion rate QC from per-sample sidecar files."
+    },
+    "core_guardrails": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CoreGuardrailsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Thresholds for the core WGBS guardrails (PF, Q30, GC/AT dropout, insert size, artifact qscores). Unset uses the published acceptance window."
+    },
+    "cycle_screening": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CycleScreeningConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Read 2 start cycle screening for remediation dispositions."
+    },
+    "fragmentomics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FragmentomicsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional fragment-length / cfDNA metrics from insert-size histogram."
+    },
+    "genome_fasta": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Path to the reference genome FASTA (e.g. hg38.fa). This is the project's shared genome reference; downstream consumers such as the MethylEnricher CIS-BP promoter scan default to this value.",
+      "title": "Genome Fasta"
+    },
+    "optional_guardrails": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OptionalGuardrailsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Additional guardrails (duplication rate, min PF reads). Opt in via step_config."
+    },
+    "output_dir": {
+      "description": "Output directory; one JSON per sample as {output_dir}/{basename}.json",
+      "title": "Output Dir",
+      "type": "string"
+    },
+    "sample_paths": {
+      "description": "List of sample directory paths",
+      "items": {
+        "type": "string"
+      },
+      "title": "Sample Paths",
+      "type": "array"
+    },
+    "validate_schema": {
+      "default": true,
+      "description": "Whether to validate each sample JSON against schema",
+      "title": "Validate Schema",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "sample_paths",
+    "output_dir"
+  ],
+  "title": "AlignmentQCConfig",
+  "type": "object"
+}

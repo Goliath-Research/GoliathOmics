@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "RnaAlignmentQcRef": {
+      "description": "RNA-Seq alignment/quantification QC JSON artifact and pass/fail gate.",
+      "properties": {
+        "$type": {
+          "const": "RnaAlignmentQcRef",
+          "default": "RnaAlignmentQcRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "guardrails": {
+          "anyOf": [
+            { "additionalProperties": true, "type": "object" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Guardrails"
+        },
+        "overallPass": {
+          "title": "Overallpass",
+          "type": "boolean"
+        },
+        "qcPath": {
+          "title": "Qcpath",
+          "type": "string"
+        }
+      },
+      "required": ["qcPath", "overallPass"],
+      "title": "RnaAlignmentQcRef",
+      "type": "object"
+    },
+    "ExpressionMatrixRef": {
+      "description": "Post-quantification per-sample RNA-Seq expression matrix on disk (gene counts / TPM in HDF5).",
+      "properties": {
+        "$type": {
+          "const": "ExpressionMatrixRef",
+          "default": "ExpressionMatrixRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "quantMode": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "title": "QuantMode"
+        },
+        "expressionH5": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "title": "ExpressionH5"
+        },
+        "h5Pattern": {
+          "default": "{sample_id}.expression.h5",
+          "title": "H5Pattern",
+          "type": "string"
+        },
+        "nGenes": {
+          "anyOf": [{ "type": "integer" }, { "type": "null" }],
+          "default": null,
+          "title": "NGenes"
+        },
+        "sampleDir": {
+          "title": "Sampledir",
+          "type": "string"
+        }
+      },
+      "required": ["sampleDir"],
+      "title": "ExpressionMatrixRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "RNA-Seq sample lifecycle handle; fields accumulate through the transcriptomics sample prep pack.",
+  "properties": {
+    "$type": {
+      "const": "RnaSampleRef",
+      "default": "RnaSampleRef",
+      "title": "$Type",
+      "type": "string"
+    },
+    "bamPath": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "default": null,
+      "title": "Bampath"
+    },
+    "expression": {
+      "anyOf": [{ "$ref": "#/$defs/ExpressionMatrixRef" }, { "type": "null" }],
+      "default": null
+    },
+    "fastqFiles": {
+      "anyOf": [
+        { "items": { "type": "string" }, "type": "array" },
+        { "type": "null" }
+      ],
+      "default": null,
+      "title": "Fastqfiles"
+    },
+    "rnaQc": {
+      "anyOf": [{ "$ref": "#/$defs/RnaAlignmentQcRef" }, { "type": "null" }],
+      "default": null
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    },
+    "sampleId": {
+      "title": "Sampleid",
+      "type": "string"
+    },
+    "status": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "default": null,
+      "title": "Status"
+    }
+  },
+  "required": ["sampleId", "sampleDir"],
+  "title": "RnaSampleRef",
+  "type": "object"
+}

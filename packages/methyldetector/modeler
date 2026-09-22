@@ -1,0 +1,30 @@
+#!/bin/bash
+# MethylDetector Container Wrapper
+# Usage: ./modeler [args...]
+
+if ! docker ps --format 'table {{.Names}}' | grep -q "^methylpipeline$"; then
+    echo "❌ Error: methylpipeline container is not running."
+    echo "Start it with: cd /home/ubuntu/MethylPipeline/docker && docker compose up -d"
+    exit 1
+fi
+
+# Change to the script's directory so relative paths work
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Convert script directory to container path
+# Host: /home/ubuntu/MethylPipeline/* -> Container: /workspace/*
+HOST_DIR="$SCRIPT_DIR"
+CONTAINER_DIR="${HOST_DIR/\/home\/ubuntu\/MethylPipeline/\/workspace}"
+
+# Execute the command inside the container with the correct working directory
+# Use -i only if stdin is a terminal (for proper non-interactive support)
+# Run python directly since packages are installed globally
+if [ -t 0 ]; then
+    exec docker exec -it -w "$CONTAINER_DIR" methylpipeline \
+        python3 -m methyl_detector.cli "$@"
+else
+    exec docker exec -w "$CONTAINER_DIR" methylpipeline \
+        python3 -m methyl_detector.cli "$@"
+fi
+

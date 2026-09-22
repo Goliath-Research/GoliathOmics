@@ -1,0 +1,13 @@
+{
+  "alignmentPass": null,
+  "executionScopeId": null,
+  "forceRealign": null,
+  "project": null,
+  "projectPath": "/work/p/project.json",
+  "remediationReason": null,
+  "resolvedConfig": null,
+  "sampleDir": "/work/samples/S1",
+  "sampleId": "S1",
+  "tool": "ParabricksGiraffe",
+  "workflowNodeKey": null
+}

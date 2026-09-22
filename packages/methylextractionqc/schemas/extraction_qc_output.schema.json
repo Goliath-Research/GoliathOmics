@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "methylpipeline.extraction_qc/1.0.0",
+  "title": "Extraction QC output",
+  "description": "Per-sample extraction QC written by methyl-extraction-qc to {sampleId}.extraction_qc.json",
+  "type": "object",
+  "required": ["metadata", "guardrails"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["schema_name", "schema_version", "sample_id"],
+      "properties": {
+        "schema_name": { "const": "methylpipeline.extraction_qc" },
+        "schema_version": { "type": "string" },
+        "exported_at_utc": { "type": "string" },
+        "sample_id": { "type": "string" },
+        "sample_dir": { "type": "string" },
+        "manifest_path": { "type": "string" },
+        "manifest_schema": { "type": "string" },
+        "manifest_schema_version": { "type": "string" },
+        "contexts_extracted": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "guardrails": {
+      "type": "object",
+      "required": ["overall_pass"],
+      "properties": {
+        "overall_pass": { "type": "boolean" },
+        "cpg_weighted_mean_coverage": { "$ref": "#/$defs/guardrailMetric" },
+        "chh_methylation_level": { "$ref": "#/$defs/guardrailMetric" },
+        "chg_methylation_level": { "$ref": "#/$defs/guardrailMetric" },
+        "chromosome_completeness": { "$ref": "#/$defs/guardrailMetric" },
+        "chromosome_uniformity": { "$ref": "#/$defs/guardrailMetric" },
+        "read_discard_fraction": { "$ref": "#/$defs/guardrailMetric" }
+      },
+      "additionalProperties": { "$ref": "#/$defs/guardrailMetric" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "guardrailMetric": {
+      "type": "object",
+      "required": ["pass"],
+      "properties": {
+        "value": {},
+        "normal_range": { "type": "string" },
+        "pass": { "type": "boolean" },
+        "message": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

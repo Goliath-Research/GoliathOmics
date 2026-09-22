@@ -1,0 +1,31 @@
+{
+  "panel_id": "bmi_adiposity_v1",
+  "genome": "GRCh38",
+  "score_name": "bmi_score",
+  "score_kind": "weighted_beta",
+  "citation": "Small replicated adiposity set (HIF3A, ABCG1, CPT1A, SREBF1, PHGDH). Operators should replace weights from Wahl / Mendelson meta-analyses.",
+  "intercept": 0.0,
+  "sites": [
+    {
+      "illumina_id": "cg22891070",
+      "gene": "HIF3A",
+      "chrom": "19",
+      "position": 46301750,
+      "weight": 1.0
+    },
+    {
+      "illumina_id": "cg06500161",
+      "gene": "ABCG1",
+      "chrom": "21",
+      "position": 42219987,
+      "weight": 1.0
+    },
+    {
+      "illumina_id": "cg00574958",
+      "gene": "CPT1A",
+      "chrom": "11",
+      "position": 68810722,
+      "weight": 1.0
+    }
+  ]
+}

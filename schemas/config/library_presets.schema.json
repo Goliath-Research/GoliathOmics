@@ -1,0 +1,61 @@
+{
+  "$defs": {
+    "LibraryPreset": {
+      "additionalProperties": false,
+      "description": "One named preset: default libraries (optional) plus preset-specific libraries.",
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "include_default": {
+          "default": true,
+          "description": "Prepend the catalog default_libraries before this preset's libraries.",
+          "title": "Include Default",
+          "type": "boolean"
+        },
+        "libraries": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Libraries",
+          "type": "array"
+        }
+      },
+      "title": "LibraryPreset",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Committed catalog of enrichment library presets (source of truth).",
+  "properties": {
+    "default_libraries": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Default Libraries",
+      "type": "array"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "presets": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LibraryPreset"
+      },
+      "title": "Presets",
+      "type": "object"
+    },
+    "version": {
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "title": "LibraryPresetCatalog",
+  "type": "object"
+}

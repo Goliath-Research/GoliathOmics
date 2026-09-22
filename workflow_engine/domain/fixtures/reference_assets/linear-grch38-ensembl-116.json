@@ -1,0 +1,19 @@
+{
+  "name": "linear-grch38-ensembl-116",
+  "version": "1",
+  "assetType": "linear_genome",
+  "destRoot": "/work/genomes/linear/GRCh38/ensembl-116",
+  "storageEndpoint": "goliath-genomes",
+  "inventoryPrefix": "linear/GRCh38/ensembl-116",
+  "recipe": {
+    "steps": [
+      { "op": "mkdir" },
+      {
+        "op": "s3_sync",
+        "storageEndpoint": "goliath-genomes",
+        "key": "linear/GRCh38/ensembl-116/",
+        "dest": "/work/genomes/linear/GRCh38/ensembl-116"
+      }
+    ]
+  }
+}

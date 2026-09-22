@@ -1,0 +1,231 @@
+{
+  "$defs": {
+    "DmpSelectStepOverride": {
+      "additionalProperties": false,
+      "description": "Per-invocation overrides for methyl-dmp-select --step-override.",
+      "properties": {
+        "classifier_dmp_selection": {
+          "anyOf": [
+            {
+              "enum": [
+                "elbow",
+                "featurecuts_validation"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classifier Dmp Selection"
+        },
+        "classifier_export_margin_abs": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classifier Export Margin Abs"
+        },
+        "classifier_export_margin_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classifier Export Margin Pct"
+        },
+        "classifier_export_max_dmps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classifier Export Max Dmps"
+        },
+        "fail_if_below_target": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fail If Below Target"
+        },
+        "min_core_dmps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Core Dmps"
+        },
+        "output_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Dir"
+        },
+        "target_balanced_accuracy": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Balanced Accuracy"
+        }
+      },
+      "title": "DmpSelectStepOverride",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "chromosome": {
+      "title": "Chromosome",
+      "type": "string"
+    },
+    "comparison": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comparison"
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context"
+    },
+    "discoveryCsv": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Discoverycsv"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Group"
+    },
+    "outputDir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Outputdir"
+    },
+    "project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Project"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Projectpath"
+    },
+    "stepOverride": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DmpSelectStepOverride"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "tool": {
+      "default": "MethylDmpSelect",
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "chromosome"
+  ],
+  "title": "DmpSelectTaskInput",
+  "type": "object"
+}

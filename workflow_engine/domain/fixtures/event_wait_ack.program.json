@@ -1,0 +1,27 @@
+{
+  "programVersion": 2,
+  "name": "event_wait_ack",
+  "description": "Fixture: start on sensor.sample_ready, park until operator.ack, then const_bool.",
+  "projectPath": "/work/projects/example/configs/project.json",
+  "on": [
+    {
+      "event": "sensor.sample_ready",
+      "mode": "start_instance"
+    }
+  ],
+  "body": [
+    {
+      "wait": {
+        "event": "operator.ack",
+        "correlation": "${var.sampleId}"
+      },
+      "node_key": "wait_ack"
+    },
+    {
+      "do": "workflow.const_bool",
+      "with": { "value": true },
+      "out": { "acked": "$.value" },
+      "node_key": "ack_const"
+    }
+  ]
+}

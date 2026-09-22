@@ -1,0 +1,250 @@
+{
+  "$defs": {
+    "RemediationTrigger": {
+      "additionalProperties": false,
+      "description": "Why a QC re-evaluation was scheduled, bound by the program's realign branch.",
+      "properties": {
+        "disposition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Screening disposition that triggered remediation (e.g. REALIGN_TRIM).",
+          "title": "Disposition"
+        },
+        "priorNode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Node key of the QC attempt that produced the disposition.",
+          "title": "Priornode"
+        },
+        "trimFront1": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trimfront1"
+        },
+        "trimFront2": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trimfront2"
+        },
+        "trimTail1": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trimtail1"
+        },
+        "trimTail2": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trimtail2"
+        }
+      },
+      "title": "RemediationTrigger",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "sample.methyl_qc worker input. Picard tables are read from sampleDir;\ndo not embed ExportedSampleQCV2Payload here.",
+  "properties": {
+    "alignmentMode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Science alignment mode from instance context (linear|pangenome|pangenome_wgbs). Required when sample dirs contain ambiguous metrics families; binds from ${var.alignmentMode}.",
+      "title": "Alignmentmode"
+    },
+    "alignmentPass": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Alignmentpass"
+    },
+    "executionScopeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Executionscopeid"
+    },
+    "primaryAnalyte": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Primaryanalyte"
+    },
+    "project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Legacy alias of projectPath from older input templates (provenance only).",
+      "title": "Project"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Projectpath"
+    },
+    "qcAttempt": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Qcattempt"
+    },
+    "qcAttemptReason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Qcattemptreason"
+    },
+    "remediationTrigger": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RemediationTrigger"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Set on retry QC nodes so the attempt record keeps the trim provenance."
+    },
+    "resolvedConfig": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Merged actionConfig.alignment_qc baked at instance configuration.",
+      "title": "Resolvedconfig"
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    },
+    "sampleId": {
+      "title": "Sampleid",
+      "type": "string"
+    },
+    "tool": {
+      "default": "MethylAlignmentQc",
+      "title": "Tool",
+      "type": "string"
+    },
+    "workflowNodeKey": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Workflownodekey"
+    }
+  },
+  "required": [
+    "sampleId",
+    "sampleDir"
+  ],
+  "title": "MethylQcTaskInput",
+  "type": "object"
+}

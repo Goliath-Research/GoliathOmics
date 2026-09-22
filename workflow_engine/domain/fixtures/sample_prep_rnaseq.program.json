@@ -1,0 +1,108 @@
+{
+  "programVersion": 2,
+  "name": "SamplePrepRnaSeqPipeline",
+  "description": "Per-sample RNA-Seq preprocessing: download FASTQ, quantify (STAR rna_fq2bam or kallisto, selected by ${useKallisto}), RNA QC gate, register a canonical expression.h5, then archive. Parallel to SamplePrepPipeline (WGBS) but produces gene expression instead of methylation HDF5.",
+  "projectPath": "${var.projectPath}",
+  "variables": {
+    "useKallisto": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "When true, quantify with pbrun kallisto; otherwise pbrun rna_fq2bam (STAR). Derived from actionConfig.rna_align.quant_mode / context quantMode."
+    },
+    "qcPass": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "RNA alignment/quant QC overall_pass from sample.rna_qc (catalog binding $.guardrails.overall_pass)"
+    },
+    "deleteFastqs": {
+      "schemaRef": "schemas/vars/bool.schema.json",
+      "description": "When true (default), delete local FASTQs after archive or terminal QC."
+    }
+  },
+  "phases": [
+    {
+      "name": "sample_prep_rnaseq",
+      "foreach": {
+        "collection": "samples",
+        "item": "sample",
+        "index": "sampleIndex",
+        "parallel": true
+      },
+      "steps": [
+        {
+          "action": "sample.download_fastq",
+          "node_key": "download_fastq"
+        },
+        {
+          "if": "${useKallisto}",
+          "then": [
+            {
+              "action": "sample.kallisto",
+              "node_key": "kallisto"
+            }
+          ],
+          "else": [
+            {
+              "action": "sample.parabricks_rna_fq2bam",
+              "node_key": "parabricks_rna_fq2bam"
+            }
+          ]
+        },
+        {
+          "action": "sample.rna_qc",
+          "node_key": "rna_qc"
+        },
+        {
+          "if": "${qcPass}",
+          "then": [
+            {
+              "action": "sample.register_expression",
+              "node_key": "register_expression"
+            },
+            {
+              "action": "sample.archive_sample",
+              "node_key": "archive_sample",
+              "with": {
+                "mode": "full",
+                    "rejectReason": null
+              }
+            },
+            {
+              "if": "${deleteFastqs}",
+              "then": [
+                {
+                  "action": "sample.delete_fastqs",
+                  "node_key": "delete_fastqs"
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "action": "sample.archive_sample",
+              "node_key": "archive_sample_qc_only",
+              "with": {
+                "mode": "qc_only",
+                "rejectReason": "rna_qc_failed"
+              }
+            },
+            {
+              "if": "${deleteFastqs}",
+              "then": [
+                {
+                  "action": "sample.delete_fastqs",
+                  "node_key": "delete_fastqs_fail"
+                }
+              ]
+            },
+            {
+              "action": "sample.qc_failed",
+              "node_key": "rna_qc_failed",
+              "with": {
+                "reason": "rna_qc_failed"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

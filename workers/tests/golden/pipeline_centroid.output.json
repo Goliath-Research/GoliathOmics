@@ -1,0 +1,23 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "capability": null,
+  "centroid_h5_path": "/work/p/centroids/21-CG.h5",
+  "chromosome": "21",
+  "context": "CG",
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "group": null,
+  "manifest_path": null,
+  "n_positions": null,
+  "n_samples": 10,
+  "output_dir": "/work/p/centroids",
+  "result_code": 0,
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

@@ -1,0 +1,19 @@
+
+{
+  "model_path": "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/detection/pb-hc-1_G/classifier-2-CG.pkl",
+  "samples": [
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00026368/2401-060925-111425",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00026368/2401-060925-111426",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00026368/2401-062725-111665",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00026368/2401-071525-111841",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00026368/2401-071525-111843",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00026368/2401-081225-112009",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00026368/2401-081425-112029",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00026368/2401-081425-112031",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00026368/2401-081425-112032"
+  ],
+  "output_path": "/home/ubuntu/working_dir/MethylClassifierResults/MethylClassifier_pb_hc1/2-CG/cancer_9.csv",
+  "debug": false,
+  "no_filter": false,
+  "log_level": "INFO"
+}

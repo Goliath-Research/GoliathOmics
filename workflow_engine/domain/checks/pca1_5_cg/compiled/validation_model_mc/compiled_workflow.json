@@ -1,0 +1,110 @@
+{
+  "name": "ValidationModelMc",
+  "description": "Run model-selection Monte Carlo only, strictly reusing existing primary MC centroid and detector artifacts.",
+  "version_major": 1,
+  "version_minor": 0,
+  "is_active": true,
+  "root_node_key": "root",
+  "nodes": [
+    {
+      "node_key": "root",
+      "node_type": "SEQUENCE",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": null
+    },
+    {
+      "node_key": "seq_1",
+      "node_type": "SEQUENCE",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": null
+    },
+    {
+      "node_key": "model_mc",
+      "node_type": "ACTION",
+      "action_name": "validation.model_mc",
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": {
+        "tool": "validation.model_mc",
+        "projectPath": "${var.projectPath}",
+        "executionScopeId": "${var.executionScopeId}",
+        "project": "${var.projectPath}",
+        "resolvedConfig": "${var.resolvedConfig__validation}",
+        "monteCarloRunsRoot": "${var.monteCarloRunsRoot}",
+        "backends": "${var.backends}",
+        "productionOutputDir": "${var.productionOutputDir}",
+        "requireArtifactReuse": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "parent_node_key": "seq_1",
+      "child_node_key": "model_mc",
+      "child_order": 0,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "root",
+      "child_node_key": "seq_1",
+      "child_order": 0,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    }
+  ],
+  "input_bindings": [],
+  "output_bindings": [],
+  "scope_defaults": [
+    {
+      "node_key": "root",
+      "var_name": "projectPath",
+      "default_expr": "${var.projectPath}"
+    },
+    {
+      "node_key": "root",
+      "var_name": "centroid1Dir",
+      "default_expr": "${var.centroid1Dir}"
+    }
+  ],
+  "collection_bindings": [
+    {
+      "scope_var": "project",
+      "kind": "jsonFile",
+      "path_var": "projectPath",
+      "base_var": null,
+      "json_path": null,
+      "bind_order": 0
+    }
+  ],
+  "variable_schemas": {}
+}

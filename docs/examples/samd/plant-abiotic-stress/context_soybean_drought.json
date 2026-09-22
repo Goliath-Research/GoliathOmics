@@ -1,0 +1,20 @@
+{
+  "projectPath": "/work/projects/plant-abiotic-stress-soybean/configs/project_Control_vs_Drought_soybean.json",
+  "pipelineProcedure": "plant_wgbs_gene_fc",
+  "pipelineProfile": "samd_research",
+  "runProgressionAnalysis": false,
+  "actionConfig": {
+    "mapper": {
+      "enrich_disease": false
+    },
+    "enricher": {
+      "library_preset": "plant-stress-core",
+      "organism": "Glycine_max",
+      "string_species": 3847,
+      "disease_only": false
+    },
+    "progression": {
+      "enabled": false
+    }
+  }
+}

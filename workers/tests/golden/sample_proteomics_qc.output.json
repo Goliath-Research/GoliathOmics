@@ -1,0 +1,30 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "capability": null,
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "guardrails": {
+    "overall_pass": true,
+    "screening": {
+      "disposition": "PASS",
+      "message": null,
+      "trim_front1": 0,
+      "trim_front2": 0,
+      "trim_tail1": 0,
+      "trim_tail2": 0
+    }
+  },
+  "manifest_path": null,
+  "proteomicsQcPass": true,
+  "qcPath": "/work/samples/S1/S1.proteomics_qc.json",
+  "result_code": 0,
+  "sampleId": "S1",
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

@@ -1,0 +1,20 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "capability": null,
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "manifest_path": null,
+  "n_ids_after": 5200,
+  "n_ids_before": 4000,
+  "reportTsv": "/work/samples/S1/S1.prosit/report.rescored.tsv",
+  "result_code": 0,
+  "sampleId": "S1",
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

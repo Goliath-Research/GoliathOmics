@@ -1,0 +1,15 @@
+{
+  "programVersion": 2,
+  "name": "ValidationModelMc",
+  "description": "Run model-selection Monte Carlo only, strictly reusing existing primary MC centroid and detector artifacts.",
+  "body": [
+    {
+      "do": "validation.model_mc",
+      "with": {
+        "requireArtifactReuse": true
+      },
+      "node_key": "model_mc"
+    }
+  ],
+  "projectPath": "workflow_engine/domain/checks/pca1_5_cg/configs/project_Healthy_vs_PCa1-5-CG_smoke.json"
+}

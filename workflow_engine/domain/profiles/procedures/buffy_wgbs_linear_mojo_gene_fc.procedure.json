@@ -1,0 +1,75 @@
+{
+  "pipelineProcedure": "buffy_wgbs_linear_mojo_gene_fc",
+  "catalog": {
+    "title": "Buffy WGBS linear Mojo + gene FC",
+    "summary": "Buffy linear alignment via Mojo multi-GPU path.",
+    "visibility": "advanced",
+    "lifecycle": "active",
+    "family": "specialty"
+  },
+  "description": "Buffy-coat WGBS with linear Align via MojoFq2bamMeth (portable NVIDIA/AMD/CPU), read-level informME, Houseman deconvolution, gene FeatureCuts. Clara rollback: buffy_wgbs_linear_gene_fc (engine=parabricks).",
+  "pipelineProfile": "samd_research",
+  "researchMode": "gene_fc",
+  "analyteExpectation": "buffy_coat",
+  "libraryProtocol": "wgbs_linear",
+  "alignmentMode": "linear",
+  "usePangenome": false,
+  "samplePrepProgram": "workflow_engine/domain/fixtures/sample_prep.program.json",
+  "lifecycleProgram": "workflow_engine/domain/fixtures/study_validation_lifecycle.program.json",
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": true,
+  "stabilityFeaturecutsEnabled": false,
+  "stabilityGeneFeaturecutsEnabled": true,
+  "actionConfig": {
+    "sample_prep": {
+      "library_protocol": "wgbs_linear"
+    },
+    "parabricks": {
+      "alignment_mode": "linear",
+      "engine": "mojo",
+      "align_device": "auto",
+      "image": "goliath/methylgrapher:1.70-mojo"
+    },
+    "methyl_extract": {
+      "read_level": {
+        "enabled": true,
+        "tile_size": 4
+      }
+    },
+    "cell_deconvolution": {
+      "method": "houseman",
+      "contexts": [
+        "CG"
+      ],
+      "marker_min_coverage": 4,
+      "min_marker_fraction": 0.25,
+      "use_gpu": true
+    },
+    "info_measures": {
+      "contexts": [
+        "CG"
+      ],
+      "tile_size": 4,
+      "ising_enabled": true
+    },
+    "validation": {
+      "dmp_modeling_mode": "raw_pool",
+      "gene_modeling_mode": "featurecuts",
+      "stability_featurecuts_enabled": false,
+      "stability_gene_featurecuts_enabled": true,
+      "backend_profiles": {
+        "ecdf": {
+          "enabled": true,
+          "params": {
+            "ecdf_second_stage_enabled": true,
+            "covariates_path": [
+              "{output_base}/cell_fractions/cell_fractions.csv",
+              "{output_base}/derived_measures/derived_measures.csv",
+              "{output_base}/info_measures/readlevel_measures.csv"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GeneSelectionConfig",
+  "description": "Gene panel selection for MC stability (FeatureCuts / biomarker filter).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "target_balanced_accuracy": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "min_selected_genes": { "type": ["integer", "null"], "minimum": 1 },
+    "max_genes": { "type": ["integer", "null"], "minimum": 1 },
+    "max_dmps": { "type": ["integer", "null"], "minimum": 1 },
+    "biomarker_filter_enabled": { "type": "boolean", "default": false },
+    "biomarker_mode": { "type": "string", "enum": ["ppi_only", "full_enricher"], "default": "ppi_only" },
+    "biomarker_region_hits": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "biomarker_min_degree": { "type": ["integer", "null"], "minimum": 0 }
+  }
+}

@@ -1,0 +1,2025 @@
+{
+  "$defs": {
+    "AlignmentFlagstat": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicate_reads": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duplicate Reads"
+        },
+        "mapped_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mapped Rate"
+        },
+        "mapped_reads": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mapped Reads"
+        },
+        "properly_paired_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Properly Paired Rate"
+        },
+        "properly_paired_reads": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Properly Paired Reads"
+        },
+        "secondary_reads": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secondary Reads"
+        },
+        "supplementary_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supplementary Rate"
+        },
+        "supplementary_reads": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supplementary Reads"
+        },
+        "total_reads": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Reads"
+        }
+      },
+      "title": "AlignmentFlagstat",
+      "type": "object"
+    },
+    "AlignmentStats": {
+      "additionalProperties": false,
+      "properties": {
+        "gc_coverage_uniformity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gc Coverage Uniformity"
+        },
+        "mapping_rate": {
+          "title": "Mapping Rate",
+          "type": "number"
+        },
+        "reads_examined": {
+          "title": "Reads Examined",
+          "type": "integer"
+        },
+        "secondary_supplementary_rate": {
+          "title": "Secondary Supplementary Rate",
+          "type": "number"
+        },
+        "secondary_supplementary_reads": {
+          "title": "Secondary Supplementary Reads",
+          "type": "integer"
+        },
+        "unmapped_reads": {
+          "title": "Unmapped Reads",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "reads_examined",
+        "unmapped_reads",
+        "secondary_supplementary_reads",
+        "mapping_rate",
+        "secondary_supplementary_rate"
+      ],
+      "title": "AlignmentStats",
+      "type": "object"
+    },
+    "ArtifactSummaries": {
+      "additionalProperties": false,
+      "properties": {
+        "ARTIFACT_NAME": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Name",
+          "type": "array"
+        },
+        "TOTAL_QSCORE": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Total Qscore",
+          "type": "array"
+        },
+        "WORST_CXT": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Worst Cxt",
+          "type": "array"
+        },
+        "WORST_CXT_QSCORE": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Worst Cxt Qscore",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ARTIFACT_NAME",
+        "TOTAL_QSCORE",
+        "WORST_CXT",
+        "WORST_CXT_QSCORE"
+      ],
+      "title": "ArtifactSummaries",
+      "type": "object"
+    },
+    "BaseDistributionByCycle": {
+      "additionalProperties": false,
+      "properties": {
+        "PCT_A": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Pct A",
+          "type": "array"
+        },
+        "PCT_C": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Pct C",
+          "type": "array"
+        },
+        "PCT_G": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Pct G",
+          "type": "array"
+        },
+        "PCT_N": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Pct N",
+          "type": "array"
+        },
+        "PCT_T": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Pct T",
+          "type": "array"
+        },
+        "cycle": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Cycle",
+          "type": "array"
+        }
+      },
+      "required": [
+        "cycle",
+        "PCT_A",
+        "PCT_C",
+        "PCT_G",
+        "PCT_T",
+        "PCT_N"
+      ],
+      "title": "BaseDistributionByCycle",
+      "type": "object"
+    },
+    "BisulfiteConversionGuardrailDetails": {
+      "additionalProperties": false,
+      "description": "Sidecar conversion checks only. Deamination is not nested here.",
+      "properties": {
+        "conversion_rate_pct": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "non_cpg_methylation_pct": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "BisulfiteConversionGuardrailDetails",
+      "type": "object"
+    },
+    "BisulfiteConversionMetrics": {
+      "additionalProperties": false,
+      "description": "Provenance for conversion sidecar thresholds. Deamination lives only on\n``guardrails.details.deamination_qscore`` \u2014 do not restate it here.",
+      "properties": {
+        "conversion_rate_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conversion Rate Pct"
+        },
+        "max_non_cpg_methylation_pct": {
+          "title": "Max Non Cpg Methylation Pct",
+          "type": "number"
+        },
+        "measurement_source": {
+          "title": "Measurement Source",
+          "type": "string"
+        },
+        "min_conversion_rate_pct": {
+          "title": "Min Conversion Rate Pct",
+          "type": "number"
+        },
+        "non_cpg_methylation_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Non Cpg Methylation Pct"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "required": [
+        "measurement_source",
+        "min_conversion_rate_pct",
+        "max_non_cpg_methylation_pct"
+      ],
+      "title": "BisulfiteConversionMetrics",
+      "type": "object"
+    },
+    "ConversionLog": {
+      "additionalProperties": false,
+      "properties": {
+        "end_time": {
+          "title": "End Time",
+          "type": "string"
+        },
+        "program": {
+          "title": "Program",
+          "type": "string"
+        },
+        "start_time": {
+          "title": "Start Time",
+          "type": "string"
+        },
+        "total_time": {
+          "title": "Total Time",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "program",
+        "version",
+        "start_time",
+        "end_time",
+        "total_time"
+      ],
+      "title": "ConversionLog",
+      "type": "object"
+    },
+    "DuplicationHistogram": {
+      "additionalProperties": false,
+      "properties": {
+        "BIN": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Bin",
+          "type": "array"
+        },
+        "VALUE": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Value",
+          "type": "array"
+        },
+        "all_sets": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "All Sets",
+          "type": "array"
+        },
+        "non_optical_sets": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Non Optical Sets",
+          "type": "array"
+        },
+        "optical_sets": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Optical Sets",
+          "type": "array"
+        }
+      },
+      "required": [
+        "BIN",
+        "VALUE"
+      ],
+      "title": "DuplicationHistogram",
+      "type": "object"
+    },
+    "DuplicationMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "ESTIMATED_LIBRARY_SIZE": {
+          "title": "Estimated Library Size",
+          "type": "integer"
+        },
+        "LIBRARY": {
+          "title": "Library",
+          "type": "string"
+        },
+        "PERCENT_DUPLICATION": {
+          "title": "Percent Duplication",
+          "type": "number"
+        },
+        "READ_PAIRS_EXAMINED": {
+          "title": "Read Pairs Examined",
+          "type": "integer"
+        },
+        "READ_PAIR_DUPLICATES": {
+          "title": "Read Pair Duplicates",
+          "type": "integer"
+        },
+        "READ_PAIR_OPTICAL_DUPLICATES": {
+          "title": "Read Pair Optical Duplicates",
+          "type": "integer"
+        },
+        "SECONDARY_OR_SUPPLEMENTARY_RDS": {
+          "title": "Secondary Or Supplementary Rds",
+          "type": "integer"
+        },
+        "UNMAPPED_READS": {
+          "title": "Unmapped Reads",
+          "type": "integer"
+        },
+        "UNPAIRED_READS_EXAMINED": {
+          "title": "Unpaired Reads Examined",
+          "type": "integer"
+        },
+        "UNPAIRED_READ_DUPLICATES": {
+          "title": "Unpaired Read Duplicates",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "LIBRARY",
+        "UNPAIRED_READS_EXAMINED",
+        "READ_PAIRS_EXAMINED",
+        "SECONDARY_OR_SUPPLEMENTARY_RDS",
+        "UNMAPPED_READS",
+        "UNPAIRED_READ_DUPLICATES",
+        "READ_PAIR_DUPLICATES",
+        "READ_PAIR_OPTICAL_DUPLICATES",
+        "PERCENT_DUPLICATION",
+        "ESTIMATED_LIBRARY_SIZE"
+      ],
+      "title": "DuplicationMetric",
+      "type": "object"
+    },
+    "ErrorSummaries": {
+      "additionalProperties": false,
+      "properties": {
+        "ALT": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Alt",
+          "type": "array"
+        },
+        "COUNT": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Count",
+          "type": "array"
+        },
+        "QSCORE": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Qscore",
+          "type": "array"
+        },
+        "RATE": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Rate",
+          "type": "array"
+        },
+        "REF": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ref",
+          "type": "array"
+        }
+      },
+      "required": [
+        "REF",
+        "ALT",
+        "COUNT",
+        "RATE",
+        "QSCORE"
+      ],
+      "title": "ErrorSummaries",
+      "type": "object"
+    },
+    "FragmentomicsGuardrailDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "median_insert_bp": {
+          "$ref": "#/$defs/GuardrailMetric"
+        },
+        "nucleosome_peak_bp": {
+          "$ref": "#/$defs/GuardrailMetric"
+        },
+        "short_fragment_fraction": {
+          "$ref": "#/$defs/GuardrailMetric"
+        }
+      },
+      "required": [
+        "median_insert_bp",
+        "nucleosome_peak_bp",
+        "short_fragment_fraction"
+      ],
+      "title": "FragmentomicsGuardrailDetails",
+      "type": "object"
+    },
+    "FragmentomicsMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "long_fragment_fraction": {
+          "title": "Long Fragment Fraction",
+          "type": "number"
+        },
+        "median_insert_size": {
+          "title": "Median Insert Size",
+          "type": "integer"
+        },
+        "nucleosome_peak_bp": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nucleosome Peak Bp"
+        },
+        "nucleosome_peak_bp_max": {
+          "title": "Nucleosome Peak Bp Max",
+          "type": "integer"
+        },
+        "nucleosome_peak_bp_min": {
+          "title": "Nucleosome Peak Bp Min",
+          "type": "integer"
+        },
+        "profile": {
+          "title": "Profile",
+          "type": "string"
+        },
+        "short_fragment_fraction": {
+          "title": "Short Fragment Fraction",
+          "type": "number"
+        },
+        "short_fragment_max_bp": {
+          "title": "Short Fragment Max Bp",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "profile",
+        "median_insert_size",
+        "short_fragment_fraction",
+        "long_fragment_fraction",
+        "short_fragment_max_bp",
+        "nucleosome_peak_bp_min",
+        "nucleosome_peak_bp_max"
+      ],
+      "title": "FragmentomicsMetrics",
+      "type": "object"
+    },
+    "GCBiasDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "ERROR_BAR": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Error Bar",
+          "type": "array"
+        },
+        "GC": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Gc",
+          "type": "array"
+        },
+        "MEAN_BASE_QUALITY": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Mean Base Quality",
+          "type": "array"
+        },
+        "NORMALIZED_COVERAGE": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Normalized Coverage",
+          "type": "array"
+        },
+        "READ_STARTS": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Read Starts",
+          "type": "array"
+        },
+        "WINDOWS": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Windows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "GC",
+        "WINDOWS",
+        "READ_STARTS",
+        "MEAN_BASE_QUALITY",
+        "NORMALIZED_COVERAGE",
+        "ERROR_BAR"
+      ],
+      "title": "GCBiasDetails",
+      "type": "object"
+    },
+    "GCBiasSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "at_dropout": {
+          "title": "At Dropout",
+          "type": "number"
+        },
+        "gc_dropout": {
+          "title": "Gc Dropout",
+          "type": "number"
+        }
+      },
+      "required": [
+        "at_dropout",
+        "gc_dropout"
+      ],
+      "title": "GCBiasSummary",
+      "type": "object"
+    },
+    "GuardrailDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "at_dropout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "bisulfite_conversion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BisulfiteConversionGuardrailDetails"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "deamination_qscore": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "duplication_rate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "fragmentomics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FragmentomicsGuardrailDetails"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "gc_coverage_uniformity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "gc_dropout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mapping_rate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mean_quality": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "median_insert_bp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "min_pf_reads": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "min_quality_post20": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mojo_placeholder_fields_skipped": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "oxog_qscore": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pf_percent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "properly_paired_rate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "q30_percent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "secondary_supplementary_rate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "supplementary_rate_flagstat": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "wgbs_bam_mapped_rate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "wgbs_bam_present": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "wgbs_gaf_present": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "wgbs_provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardrailMetric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "GuardrailDetails",
+      "type": "object"
+    },
+    "GuardrailMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "normal_range": {
+          "title": "Normal Range",
+          "type": "string"
+        },
+        "pass": {
+          "title": "Pass",
+          "type": "boolean"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "normal_range",
+        "pass",
+        "message"
+      ],
+      "title": "GuardrailMetric",
+      "type": "object"
+    },
+    "GuardrailReport": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "$ref": "#/$defs/GuardrailDetails"
+        },
+        "metrics_family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metrics Family"
+        },
+        "mojo_linear_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Present when metrics_family=mojo_linear: placeholder Picard-shaped fields did not vote on overall_pass.",
+          "title": "Mojo Linear Note"
+        },
+        "next_steps": {
+          "title": "Next Steps",
+          "type": "string"
+        },
+        "overall_pass": {
+          "title": "Overall Pass",
+          "type": "boolean"
+        },
+        "picard_enrichment": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True when pangenome_wgbs Align collected Picard tables and core Parabricks guardrails were merged into details.",
+          "title": "Picard Enrichment"
+        },
+        "picard_enrichment_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Operator note for Picard enrichment / BS chemistry skew caveat.",
+          "title": "Picard Enrichment Note"
+        },
+        "recommendation": {
+          "title": "Recommendation",
+          "type": "string"
+        },
+        "sample_id": {
+          "title": "Sample Id",
+          "type": "string"
+        },
+        "screening": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QcScreeningReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "sample_id",
+        "overall_pass",
+        "details",
+        "recommendation",
+        "next_steps"
+      ],
+      "title": "GuardrailReport",
+      "type": "object"
+    },
+    "InsertSizeHistogram": {
+      "additionalProperties": false,
+      "properties": {
+        "All_Reads.fr_count": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "All Reads.Fr Count",
+          "type": "array"
+        },
+        "VALUE": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Value",
+          "type": "array"
+        },
+        "all_sets": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "All Sets",
+          "type": "array"
+        },
+        "insert_size": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Insert Size",
+          "type": "array"
+        },
+        "non_optical_sets": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Non Optical Sets",
+          "type": "array"
+        },
+        "optical_sets": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Optical Sets",
+          "type": "array"
+        },
+        "pair_orientation": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pair Orientation",
+          "type": "array"
+        }
+      },
+      "required": [
+        "insert_size",
+        "pair_orientation",
+        "All_Reads.fr_count"
+      ],
+      "title": "InsertSizeHistogram",
+      "type": "object"
+    },
+    "InsertSizeMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "mean_insert_size": {
+          "title": "Mean Insert Size",
+          "type": "number"
+        },
+        "median_insert_size": {
+          "title": "Median Insert Size",
+          "type": "integer"
+        },
+        "mode_insert_size": {
+          "title": "Mode Insert Size",
+          "type": "integer"
+        },
+        "read_pairs": {
+          "title": "Read Pairs",
+          "type": "integer"
+        },
+        "standard_deviation": {
+          "title": "Standard Deviation",
+          "type": "number"
+        },
+        "width_of_10_percent": {
+          "title": "Width Of 10 Percent",
+          "type": "integer"
+        },
+        "width_of_20_percent": {
+          "title": "Width Of 20 Percent",
+          "type": "integer"
+        },
+        "width_of_30_percent": {
+          "title": "Width Of 30 Percent",
+          "type": "integer"
+        },
+        "width_of_40_percent": {
+          "title": "Width Of 40 Percent",
+          "type": "integer"
+        },
+        "width_of_50_percent": {
+          "title": "Width Of 50 Percent",
+          "type": "integer"
+        },
+        "width_of_60_percent": {
+          "title": "Width Of 60 Percent",
+          "type": "integer"
+        },
+        "width_of_70_percent": {
+          "title": "Width Of 70 Percent",
+          "type": "integer"
+        },
+        "width_of_80_percent": {
+          "title": "Width Of 80 Percent",
+          "type": "integer"
+        },
+        "width_of_90_percent": {
+          "title": "Width Of 90 Percent",
+          "type": "integer"
+        },
+        "width_of_95_percent": {
+          "title": "Width Of 95 Percent",
+          "type": "integer"
+        },
+        "width_of_99_percent": {
+          "title": "Width Of 99 Percent",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "median_insert_size",
+        "mode_insert_size",
+        "mean_insert_size",
+        "standard_deviation",
+        "read_pairs",
+        "width_of_10_percent",
+        "width_of_20_percent",
+        "width_of_30_percent",
+        "width_of_40_percent",
+        "width_of_50_percent",
+        "width_of_60_percent",
+        "width_of_70_percent",
+        "width_of_80_percent",
+        "width_of_90_percent",
+        "width_of_95_percent",
+        "width_of_99_percent"
+      ],
+      "title": "InsertSizeMetrics",
+      "type": "object"
+    },
+    "MeanQualityByCycle": {
+      "additionalProperties": false,
+      "properties": {
+        "cycle": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Cycle",
+          "type": "array"
+        },
+        "mean_quality": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Mean Quality",
+          "type": "array"
+        }
+      },
+      "required": [
+        "cycle",
+        "mean_quality"
+      ],
+      "title": "MeanQualityByCycle",
+      "type": "object"
+    },
+    "QcAttemptRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "alignment_pass": {
+          "title": "Alignment Pass",
+          "type": "string"
+        },
+        "attempt": {
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "disposition": {
+          "title": "Disposition",
+          "type": "string"
+        },
+        "evaluated_at_utc": {
+          "title": "Evaluated At Utc",
+          "type": "string"
+        },
+        "failed_guardrails": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Failed Guardrails",
+          "type": "array"
+        },
+        "overall_pass": {
+          "title": "Overall Pass",
+          "type": "boolean"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "trigger_action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger Action"
+        },
+        "trigger_disposition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger Disposition"
+        },
+        "trim_front1": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trim Front1"
+        },
+        "trim_front2": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trim Front2"
+        },
+        "trim_tail1": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trim Tail1"
+        },
+        "trim_tail2": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trim Tail2"
+        },
+        "workflow_node_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Workflow Node Key"
+        }
+      },
+      "required": [
+        "attempt",
+        "evaluated_at_utc",
+        "alignment_pass",
+        "reason",
+        "overall_pass",
+        "disposition"
+      ],
+      "title": "QcAttemptRecord",
+      "type": "object"
+    },
+    "QcScreeningReport": {
+      "additionalProperties": false,
+      "properties": {
+        "bad_cycle_end": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bad Cycle End"
+        },
+        "bad_cycle_start": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bad Cycle Start"
+        },
+        "dip_regions": {
+          "items": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "title": "Dip Regions",
+          "type": "array"
+        },
+        "disposition": {
+          "title": "Disposition",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "n_cycles": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Cycles"
+        },
+        "quality_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quality Pattern"
+        },
+        "r2_recovery_mean_quality": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "R2 Recovery Mean Quality"
+        },
+        "r2_start_cycle": {
+          "title": "R2 Start Cycle",
+          "type": "integer"
+        },
+        "r2_start_mean_quality": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "R2 Start Mean Quality"
+        },
+        "read_length": {
+          "title": "Read Length",
+          "type": "integer"
+        },
+        "trim_front1": {
+          "default": 0,
+          "title": "Trim Front1",
+          "type": "integer"
+        },
+        "trim_front2": {
+          "default": 0,
+          "title": "Trim Front2",
+          "type": "integer"
+        },
+        "trim_spec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TrimSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "trim_tail1": {
+          "default": 0,
+          "title": "Trim Tail1",
+          "type": "integer"
+        },
+        "trim_tail2": {
+          "default": 0,
+          "title": "Trim Tail2",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "disposition",
+        "read_length",
+        "r2_start_cycle",
+        "message"
+      ],
+      "title": "QcScreeningReport",
+      "type": "object"
+    },
+    "QualityScoreDistribution": {
+      "additionalProperties": false,
+      "properties": {
+        "COUNT_OF_Q": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Count Of Q",
+          "type": "array"
+        },
+        "Q": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Q",
+          "type": "array"
+        }
+      },
+      "required": [
+        "Q",
+        "COUNT_OF_Q"
+      ],
+      "title": "QualityScoreDistribution",
+      "type": "object"
+    },
+    "QualityYield": {
+      "additionalProperties": false,
+      "properties": {
+        "pf_bases": {
+          "title": "Pf Bases",
+          "type": "integer"
+        },
+        "pf_q20_bases": {
+          "title": "Pf Q20 Bases",
+          "type": "integer"
+        },
+        "pf_q20_equivalent_yield": {
+          "title": "Pf Q20 Equivalent Yield",
+          "type": "integer"
+        },
+        "pf_q30_bases": {
+          "title": "Pf Q30 Bases",
+          "type": "integer"
+        },
+        "pf_reads": {
+          "title": "Pf Reads",
+          "type": "integer"
+        },
+        "q20_bases": {
+          "title": "Q20 Bases",
+          "type": "integer"
+        },
+        "q20_equivalent_yield": {
+          "title": "Q20 Equivalent Yield",
+          "type": "integer"
+        },
+        "q30_bases": {
+          "title": "Q30 Bases",
+          "type": "integer"
+        },
+        "total_bases": {
+          "title": "Total Bases",
+          "type": "integer"
+        },
+        "total_reads": {
+          "title": "Total Reads",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_reads",
+        "pf_reads",
+        "total_bases",
+        "pf_bases",
+        "q20_bases",
+        "pf_q20_bases",
+        "q30_bases",
+        "pf_q30_bases",
+        "q20_equivalent_yield",
+        "pf_q20_equivalent_yield"
+      ],
+      "title": "QualityYield",
+      "type": "object"
+    },
+    "SummaryStats": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicate_reads": {
+          "title": "Duplicate Reads",
+          "type": "integer"
+        },
+        "duplication_rate": {
+          "title": "Duplication Rate",
+          "type": "number"
+        },
+        "estimated_library_size": {
+          "title": "Estimated Library Size",
+          "type": "integer"
+        },
+        "optical_duplicates": {
+          "title": "Optical Duplicates",
+          "type": "integer"
+        },
+        "total_reads": {
+          "title": "Total Reads",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_reads",
+        "duplication_rate",
+        "estimated_library_size",
+        "duplicate_reads",
+        "optical_duplicates"
+      ],
+      "title": "SummaryStats",
+      "type": "object"
+    },
+    "TrimSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "bases": {
+          "title": "Bases",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "string"
+        },
+        "read": {
+          "title": "Read",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "read",
+        "end",
+        "bases"
+      ],
+      "title": "TrimSpec",
+      "type": "object"
+    },
+    "WgbsAlignMetrics": {
+      "additionalProperties": true,
+      "description": "Provenance block from methylGrapher ``{sample}.alignment_metrics.json``.",
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "asset_fingerprints": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asset Fingerprints"
+        },
+        "bam": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bam"
+        },
+        "directional": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Directional"
+        },
+        "gaf": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gaf"
+        },
+        "index_prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Index Prefix"
+        },
+        "sample_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sample Id"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool"
+      ],
+      "title": "WgbsAlignMetrics",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Internal V1-shaped assembly (includes Picard tables). Not action I/O.\n``methyl-qc`` validates this in memory, then writes slim V2.1.",
+  "properties": {
+    "alignment_flagstat": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AlignmentFlagstat"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "alignment_stats": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AlignmentStats"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "bait_bias_summaries": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ArtifactSummaries"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "base_distribution_by_cycle": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BaseDistributionByCycle"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "bisulfite_conversion_metrics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BisulfiteConversionMetrics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "conversion_log": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConversionLog"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "duplication_histogram": {
+      "$ref": "#/$defs/DuplicationHistogram"
+    },
+    "duplication_metrics": {
+      "items": {
+        "$ref": "#/$defs/DuplicationMetric"
+      },
+      "title": "Duplication Metrics",
+      "type": "array"
+    },
+    "error_summaries": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ErrorSummaries"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "fragmentomics_metrics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FragmentomicsMetrics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "gc_bias_details": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GCBiasDetails"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "gc_bias_summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GCBiasSummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "guardrails": {
+      "$ref": "#/$defs/GuardrailReport"
+    },
+    "insert_size_histogram": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InsertSizeHistogram"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "insert_size_metrics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InsertSizeMetrics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "mean_quality_by_cycle": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MeanQualityByCycle"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "pre_adapter_summaries": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ArtifactSummaries"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "qc_history": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/QcAttemptRecord"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Qc History"
+    },
+    "quality_score_distribution": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QualityScoreDistribution"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "quality_yield": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QualityYield"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "sample_id": {
+      "title": "Sample Id",
+      "type": "string"
+    },
+    "sample_prep_log_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sample Prep Log Path"
+    },
+    "summary_stats": {
+      "$ref": "#/$defs/SummaryStats"
+    },
+    "wgbs_align_metrics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WgbsAlignMetrics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "sample_id",
+    "duplication_metrics",
+    "duplication_histogram",
+    "summary_stats",
+    "guardrails"
+  ],
+  "title": "ExportedSampleQCPayload",
+  "type": "object"
+}

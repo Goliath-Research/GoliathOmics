@@ -1,0 +1,141 @@
+{
+  "$defs": {
+    "HyperparamTrialStatus": {
+      "additionalProperties": false,
+      "description": "UI-facing status for one trial (portal.sp_get_hyperparam_search row).",
+      "properties": {
+        "execution_scope_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "wf.execution_scope set_key baked for this trial.",
+          "title": "Execution Scope Key"
+        },
+        "feasible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the trial satisfied objective constraints.",
+          "title": "Feasible"
+        },
+        "index": {
+          "description": "Trial index within the search.",
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "objective": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Scored objective J (null until the trial is scored).",
+          "title": "Objective"
+        },
+        "overrides": {
+          "additionalProperties": true,
+          "description": "actionConfig overlay applied to this trial.",
+          "title": "Overrides",
+          "type": "object"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Instance/trial lifecycle status.",
+          "title": "Status"
+        },
+        "workflow_instance_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "wf.workflow_instance id started for this trial.",
+          "title": "Workflow Instance Id"
+        }
+      },
+      "required": [
+        "index"
+      ],
+      "title": "HyperparamTrialStatus",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "UI-facing search summary: trials + best winner.",
+  "properties": {
+    "best_trial_index": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Index of the highest-scoring feasible trial, if any.",
+      "title": "Best Trial Index"
+    },
+    "search_id": {
+      "description": "cfg.hyperparameter_search_run identifier.",
+      "title": "Search Id",
+      "type": "string"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Overall search status.",
+      "title": "Status"
+    },
+    "trials": {
+      "description": "Per-trial status rows.",
+      "items": {
+        "$ref": "#/$defs/HyperparamTrialStatus"
+      },
+      "title": "Trials",
+      "type": "array"
+    }
+  },
+  "required": [
+    "search_id"
+  ],
+  "title": "HyperparamSearchStatus",
+  "type": "object"
+}

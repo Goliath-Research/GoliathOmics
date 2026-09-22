@@ -1,0 +1,40 @@
+{
+  "pipelineProfile": "phase_b_gene_from_stable_dmps",
+  "catalog": {
+    "title": "Phase B \u2014 gene from stable DMPs",
+    "summary": "Gene FeatureCuts after stable_dmps_production.csv from Phase A.",
+    "visibility": "operator",
+    "lifecycle": "active",
+    "family": "staged"
+  },
+  "dmp_modeling_mode": "stable_panel",
+  "gene_modeling_mode": "from_stable_dmp_panel",
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": true,
+  "stabilityFeaturecutsEnabled": false,
+  "stabilityGeneFeaturecutsEnabled": true,
+  "actionConfig": {
+    "detection": {
+      "detection_mode": "discovery_only",
+      "export_classifier": false,
+      "dmp_export_mode": "dual"
+    },
+    "mapper": {
+      "csv_pattern": "stable_dmps*.csv",
+      "enrich_disease": true
+    },
+    "validation": {
+      "run_stability": true,
+      "dmp_modeling_mode": "stable_panel",
+      "gene_modeling_mode": "from_stable_dmp_panel",
+      "stability_featurecuts_enabled": false,
+      "stability_gene_featurecuts_enabled": true,
+      "gene_featurecuts_loci_source": "stable_panel",
+      "stability_gene_featurecuts_dmp_source": "stable",
+      "gene_featurecuts_target_ba": 0.95,
+      "stability_gene_recurrence_source": "classifier",
+      "stability_dmp_freq": 0.0,
+      "stability_gene_freq": 0.7
+    }
+  }
+}

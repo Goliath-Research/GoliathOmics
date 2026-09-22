@@ -1,0 +1,40 @@
+{
+  "pipelineProfile": "gene_enricher_stability",
+  "catalog": {
+    "title": "gene_enricher_stability (deprecated)",
+    "summary": "Deprecated alias \u2192 samd_research + researchMode dmp_raw.",
+    "visibility": "hidden",
+    "lifecycle": "deprecated",
+    "family": "legacy",
+    "replacedBy": "samd_research"
+  },
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": false,
+  "runBiomarkerFilter": false,
+  "runGeneFeatureSelect": false,
+  "stabilityFeaturecutsEnabled": false,
+  "stabilityGeneFeaturecutsEnabled": false,
+  "stabilityGeneBiomarkerFilterEnabled": false,
+  "actionConfig": {
+    "detection": {
+      "detection_mode": "discovery_only",
+      "export_classifier": false,
+      "dmp_export_mode": "dual"
+    },
+    "mapper": {
+      "csv_pattern": "dmps-*-discovery.csv",
+      "enrich_disease": true
+    },
+    "enricher": {
+      "disease_only": true,
+      "min_dmp_count": 2
+    },
+    "validation": {
+      "run_stability": true,
+      "stability_featurecuts_enabled": false,
+      "stability_gene_featurecuts_enabled": false,
+      "stability_gene_freq": 0.7,
+      "stability_dmp_freq": 0.0
+    }
+  }
+}

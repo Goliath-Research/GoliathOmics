@@ -1,0 +1,64 @@
+[project]
+name = "methyl-worker"
+version = "1.0.0"
+description = "REST workflow worker for MethylPipeline middle-tier"
+readme = "WORKER_PROTOCOL.md"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+  "pydantic>=2.6.0,<3.0.0",
+  "methyl_domain",
+  "methyl_mapper",
+  "methylcentroid",
+  "methyl-detector",
+  "methyl_enricher",
+  "methyl-disease-progression",
+  "methyl_classifier",
+  "rna_alignment_qc",
+  "rna_express",
+  "omics_features",
+  "proteomics_features",
+  "proteomics_qc",
+  "boto3>=1.34.0",
+  "azure-identity>=1.15.0",
+  "azure-storage-blob>=12.19.0",
+  "azure-keyvault-secrets>=4.8.0",
+  "cryptography>=42.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.uv.sources]
+methyl_domain = { path = "../packages/methyldomain", editable = true }
+methyl_mapper = { path = "../packages/methylmapper", editable = true }
+methylcentroid = { path = "../packages/methylcentroid", editable = true }
+methyl-detector = { path = "../packages/methyldetector", editable = true }
+methyl_enricher = { path = "../packages/methylenricher", editable = true }
+methyl-disease-progression = { path = "../packages/methyldiseaseprogression", editable = true }
+methyl_classifier = { path = "../packages/methylclassifier", editable = true }
+rna_alignment_qc = { path = "../packages/rnaalignmentqc", editable = true }
+rna_express = { path = "../packages/rnaexpress", editable = true }
+omics_features = { path = "../packages/omicsfeatures", editable = true }
+proteomics_features = { path = "../packages/proteomicsfeatures", editable = true }
+proteomics_qc = { path = "../packages/proteomicsqc", editable = true }
+
+[project.scripts]
+methyl-worker = "methyl_worker.__main__:main"
+methyl-export-task-schemas = "methyl_worker.task_schema_export:main"
+methyl-export-action-catalog = "methyl_worker.action_catalog_export:main"
+methyl-parabricks-align = "methyl_worker.parabricks_runner:main"
+methyl-rna-fq2bam = "methyl_worker.rna_fq2bam_runner:main"
+methyl-kallisto = "methyl_worker.kallisto_runner:main"
+methyl-diann = "methyl_worker.diann_runner:main"
+methyl-sage = "methyl_worker.sage_runner:main"
+methyl-prosit-rescore = "methyl_worker.prosit_runner:main"
+methyl-casanovo = "methyl_worker.casanovo_runner:main"
+methyl-extract = "methyl_worker.extract_runner:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["methyl_worker*"]

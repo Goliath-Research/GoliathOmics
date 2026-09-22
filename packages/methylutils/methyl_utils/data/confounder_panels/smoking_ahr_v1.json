@@ -1,0 +1,45 @@
+{
+  "panel_id": "smoking_ahr_v1",
+  "genome": "GRCh38",
+  "score_name": "smoking_score",
+  "score_kind": "weighted_beta",
+  "citation": "Joehanes et al. Circ Cardiovasc Genet 2016; AHRR cg05575921 and replicated smoking EWAS sites. Coordinates are GRCh38; operators may replace this file.",
+  "intercept": 0.0,
+  "sites": [
+    {
+      "illumina_id": "cg05575921",
+      "gene": "AHRR",
+      "chrom": "5",
+      "position": 373323,
+      "weight": -1.0
+    },
+    {
+      "illumina_id": "cg03636183",
+      "gene": "F2RL3",
+      "chrom": "19",
+      "position": 16889604,
+      "weight": -0.5
+    },
+    {
+      "illumina_id": "cg21566642",
+      "gene": "ALPPL2",
+      "chrom": "2",
+      "position": 232419951,
+      "weight": -0.5
+    },
+    {
+      "illumina_id": "cg06126421",
+      "gene": "IER3",
+      "chrom": "6",
+      "position": 30720108,
+      "weight": -0.3
+    },
+    {
+      "illumina_id": "cg09935388",
+      "gene": "GFI1",
+      "chrom": "1",
+      "position": 92480554,
+      "weight": -0.3
+    }
+  ]
+}

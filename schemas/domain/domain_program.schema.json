@@ -1,0 +1,239 @@
+{
+  "$defs": {
+    "CollectionInSpec": {
+      "description": "Reference to a scope collection or project-bound path.",
+      "properties": {
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        },
+        "var": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Var"
+        }
+      },
+      "title": "CollectionInSpec",
+      "type": "object"
+    },
+    "EventTriggerSpec": {
+      "description": "Program-level event subscription (start or signal).",
+      "properties": {
+        "event": {
+          "title": "Event",
+          "type": "string"
+        },
+        "filter": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filter"
+        },
+        "mode": {
+          "default": "start_instance",
+          "enum": [
+            "start_instance",
+            "signal_wait",
+            "start_or_signal"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event"
+      ],
+      "title": "EventTriggerSpec",
+      "type": "object"
+    },
+    "ForeachSpec": {
+      "properties": {
+        "as": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As"
+        },
+        "collection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collection"
+        },
+        "in": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/CollectionInSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "In"
+        },
+        "index": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Index"
+        },
+        "item": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item"
+        },
+        "parallel": {
+          "default": false,
+          "title": "Parallel",
+          "type": "boolean"
+        }
+      },
+      "title": "ForeachSpec",
+      "type": "object"
+    },
+    "ProgramPhase": {
+      "properties": {
+        "foreach": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ForeachSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "steps": {
+          "items": {},
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ProgramPhase",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Client-side program lowered to WorkflowDefinitionSpec + context_json.",
+  "properties": {
+    "body": {
+      "items": {},
+      "title": "Body",
+      "type": "array"
+    },
+    "declarations": {
+      "additionalProperties": true,
+      "title": "Declarations",
+      "type": "object"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "on": {
+      "items": {
+        "$ref": "#/$defs/EventTriggerSpec"
+      },
+      "title": "On",
+      "type": "array"
+    },
+    "phases": {
+      "items": {
+        "$ref": "#/$defs/ProgramPhase"
+      },
+      "title": "Phases",
+      "type": "array"
+    },
+    "programVersion": {
+      "default": 1,
+      "title": "Programversion",
+      "type": "integer"
+    },
+    "projectPath": {
+      "title": "Projectpath",
+      "type": "string"
+    },
+    "variables": {
+      "additionalProperties": true,
+      "title": "Variables",
+      "type": "object"
+    }
+  },
+  "required": [
+    "name",
+    "projectPath"
+  ],
+  "title": "DomainProgram",
+  "type": "object"
+}

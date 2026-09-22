@@ -1,0 +1,24 @@
+{
+  "pipelineProfile": "discovery_interpretation",
+  "catalog": {
+    "title": "Discovery interpretation",
+    "summary": "One-shot discovery mapper/enricher (no MC).",
+    "visibility": "advanced",
+    "lifecycle": "active",
+    "family": "specialty"
+  },
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": false,
+  "runBiomarkerFilter": false,
+  "runGeneFeatureSelect": false,
+  "actionConfig": {
+    "detection": {
+      "detection_mode": "discovery_only",
+      "export_classifier": false,
+      "dmp_export_mode": "dual"
+    },
+    "mapper": {
+      "csv_pattern": "dmps-*-discovery.csv"
+    }
+  }
+}

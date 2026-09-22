@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "chromosomes": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Chromosome allow-list; default from project chromosomes.",
+      "title": "Chromosomes"
+    },
+    "contexts": {
+      "anyOf": [
+        {
+          "items": {
+            "enum": [
+              "CG",
+              "CHG",
+              "CHH"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Methylation contexts to scan; default CG only.",
+      "title": "Contexts"
+    },
+    "hypo_beta_threshold": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Beta cutoff for global/chromosome hypomethylation burden. Operator-set per profile/site.",
+      "title": "Hypo Beta Threshold"
+    },
+    "intermediate_beta_hi": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Upper bound for intermediate-methylation fraction.",
+      "title": "Intermediate Beta Hi"
+    },
+    "intermediate_beta_lo": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Lower bound for intermediate-methylation fraction.",
+      "title": "Intermediate Beta Lo"
+    },
+    "min_coverage": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum read depth per CpG for inclusion in aggregates.",
+      "title": "Min Coverage"
+    },
+    "output_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Output directory; default {project_root}/derived_measures.",
+      "title": "Output Dir"
+    },
+    "pdr_disagreement_threshold": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Adjacent-CpG beta delta threshold for PDR/epipolymorphism proxy.",
+      "title": "Pdr Disagreement Threshold"
+    },
+    "pmd_beta_threshold": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Beta cutoff for PMD / hypomethylation-block load (sliding windows).",
+      "title": "Pmd Beta Threshold"
+    },
+    "pmd_step_bp": {
+      "anyOf": [
+        {
+          "minimum": 500,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Sliding-window step (bp) for PMD load estimation.",
+      "title": "Pmd Step Bp"
+    },
+    "pmd_window_bp": {
+      "anyOf": [
+        {
+          "minimum": 1000,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Sliding-window size (bp) for PMD load estimation.",
+      "title": "Pmd Window Bp"
+    },
+    "sample_id_column": {
+      "default": "sample_id",
+      "description": "Column name for sample identifier in derived_measures.csv.",
+      "title": "Sample Id Column",
+      "type": "string"
+    }
+  },
+  "title": "DerivedMeasuresStepConfig",
+  "type": "object"
+}

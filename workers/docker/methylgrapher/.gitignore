@@ -1,0 +1,4 @@
+# Host-built vg binaries (64K-safe jemalloc=off on Grace/GH200).
+vg.arm64
+vg.amd64
+vg_libs/

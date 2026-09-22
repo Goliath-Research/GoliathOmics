@@ -1,0 +1,298 @@
+{
+  "$defs": {
+    "AlignmentQcRef": {
+      "description": "Alignment QC JSON artifact and pass/fail gate.",
+      "properties": {
+        "$type": {
+          "const": "AlignmentQcRef",
+          "default": "AlignmentQcRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "guardrails": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Guardrails"
+        },
+        "overallPass": {
+          "title": "Overallpass",
+          "type": "boolean"
+        },
+        "qcPath": {
+          "title": "Qcpath",
+          "type": "string"
+        }
+      },
+      "required": [
+        "qcPath",
+        "overallPass"
+      ],
+      "title": "AlignmentQcRef",
+      "type": "object"
+    },
+    "ExtractionQcRef": {
+      "description": "Post-extraction QC JSON artifact and pass/fail gate.",
+      "properties": {
+        "$type": {
+          "const": "ExtractionQcRef",
+          "default": "ExtractionQcRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "guardrails": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Guardrails"
+        },
+        "overallPass": {
+          "title": "Overallpass",
+          "type": "boolean"
+        },
+        "qcPath": {
+          "title": "Qcpath",
+          "type": "string"
+        }
+      },
+      "required": [
+        "qcPath",
+        "overallPass"
+      ],
+      "title": "ExtractionQcRef",
+      "type": "object"
+    },
+    "FragmentomicsRef": {
+      "description": "cfDNA fragmentomics run artifacts.",
+      "properties": {
+        "$type": {
+          "const": "FragmentomicsRef",
+          "default": "FragmentomicsRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "outputDir": {
+          "title": "Outputdir",
+          "type": "string"
+        },
+        "summaryPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summarypath"
+        }
+      },
+      "required": [
+        "outputDir"
+      ],
+      "title": "FragmentomicsRef",
+      "type": "object"
+    },
+    "MethylationMatrixRef": {
+      "description": "Post-extract per-chromosome HDF5 methylation matrices on disk.",
+      "properties": {
+        "$type": {
+          "const": "MethylationMatrixRef",
+          "default": "MethylationMatrixRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "chromosomes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Chromosomes",
+          "type": "array"
+        },
+        "contexts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Contexts",
+          "type": "array"
+        },
+        "h5Files": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "H5Files"
+        },
+        "h5Pattern": {
+          "default": "{chr}-{ctx}.h5",
+          "title": "H5Pattern",
+          "type": "string"
+        },
+        "sampleDir": {
+          "title": "Sampledir",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sampleDir"
+      ],
+      "title": "MethylationMatrixRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Sample lifecycle handle; fields accumulate through sample prep.",
+  "properties": {
+    "$type": {
+      "const": "MethylSampleRef",
+      "default": "MethylSampleRef",
+      "title": "$Type",
+      "type": "string"
+    },
+    "alignmentQc": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AlignmentQcRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "bamPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bampath"
+    },
+    "extractionQc": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExtractionQcRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "fastqFiles": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fastqfiles"
+    },
+    "fragmentomics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FragmentomicsRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "h5Archive": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "H5Archive"
+    },
+    "methylation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MethylationMatrixRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "metricsJson": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Metricsjson"
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    },
+    "sampleId": {
+      "title": "Sampleid",
+      "type": "string"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Status"
+    }
+  },
+  "required": [
+    "sampleId",
+    "sampleDir"
+  ],
+  "title": "MethylSampleRef",
+  "type": "object"
+}

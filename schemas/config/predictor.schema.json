@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Configuration for running MethylPredictor on test sample sets.",
+  "properties": {
+    "blind": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional blind cohort: {\"groups\": [{label, sample_paths}]}. Mutually exclusive with controls/diseases.",
+      "title": "Blind"
+    },
+    "classifier_step_snapshot": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional copy of step_config.classifier fields merged into ClassifierConfig during run_prediction (temperature, use_isotonic_calibration, weight_method, etc.).",
+      "title": "Classifier Step Snapshot"
+    },
+    "cohort_hierarchy": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional tree metadata from project (disease families / stages); used for hierarchy summaries in reports.",
+      "title": "Cohort Hierarchy"
+    },
+    "comparison_label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When running per-comparison, the comparison folder label (written to prediction_report.json).",
+      "title": "Comparison Label"
+    },
+    "controls": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Nested control cohort: {label, groups[{label, sample_paths}]}. When test_control_paths is empty and diseases is set, run_prediction expands these.",
+      "title": "Controls"
+    },
+    "debug": {
+      "default": false,
+      "description": "Enable debug output.",
+      "title": "Debug",
+      "type": "boolean"
+    },
+    "decision_enabled": {
+      "default": true,
+      "description": "If true (binary only), derive final_decision in predictions.csv using decision_min_margin and decision_min_confidence thresholds.",
+      "title": "Decision Enabled",
+      "type": "boolean"
+    },
+    "decision_min_confidence": {
+      "default": 0.65,
+      "description": "Binary decision policy: minimum max(prob_class0, prob_class1) required to avoid indeterminate.",
+      "title": "Decision Min Confidence",
+      "type": "number"
+    },
+    "decision_min_margin": {
+      "default": 0.2,
+      "description": "Binary decision policy: minimum |prob_class1 - prob_class0| required to avoid indeterminate.",
+      "title": "Decision Min Margin",
+      "type": "number"
+    },
+    "diseases": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Nested disease cohort (same shape as project diseases).",
+      "title": "Diseases"
+    },
+    "holdout_control_paths": {
+      "description": "Holdout split: class-0 paths; when any holdout_* paths are set, metrics are split into training vs holdout.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Holdout Control Paths",
+      "type": "array"
+    },
+    "holdout_disease_paths": {
+      "description": "Holdout split: class-1 paths for dual evaluation.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Holdout Disease Paths",
+      "type": "array"
+    },
+    "holdout_group_paths": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Multiclass holdout split paths per class.",
+      "title": "Holdout Group Paths"
+    },
+    "model_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Path to directory containing classifier-{chrom}.pkl files (multi-chromosome mode).",
+      "title": "Model Dir"
+    },
+    "model_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Path to trained classifier .pkl file (single-file mode).",
+      "title": "Model Path"
+    },
+    "output_dir": {
+      "description": "Directory for validation_metrics.json and predictions CSV.",
+      "title": "Output Dir",
+      "type": "string"
+    },
+    "panel": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional hierarchical panel readout for OvR ECDF bundles (pairwise max-contrast). Set under step_config.predictor.panel in the project JSON. See methyl_classifier.core.panel_fusion.",
+      "title": "Panel"
+    },
+    "path_remap": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Prefix replacement for sample paths: {\"old_prefix\": \"new_prefix\"}. Applied when paths come from config.",
+      "title": "Path Remap"
+    },
+    "report_blind": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Blind cohort block for prediction_report.json (same shape as predictor.blind).",
+      "title": "Report Blind"
+    },
+    "report_controls": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Controls block for prediction_report.json (label + groups with sample_paths), same shape as step_config.predictor.controls.",
+      "title": "Report Controls"
+    },
+    "report_diseases": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Diseases block for prediction_report.json.",
+      "title": "Report Diseases"
+    },
+    "sample_lineage": {
+      "description": "Ordered rows parallel to classification input: absolute_path, side, group_label.",
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Sample Lineage",
+      "type": "array"
+    },
+    "samples_base_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Base directory to resolve relative sample paths (project-level).",
+      "title": "Samples Base Path"
+    },
+    "test_blind_paths": {
+      "description": "Unlabeled / blind test samples (no expected_class); mutually exclusive with labeled cohorts.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Test Blind Paths",
+      "type": "array"
+    },
+    "test_control_paths": {
+      "description": "Sample directory paths for control/class-0 test set.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Test Control Paths",
+      "type": "array"
+    },
+    "test_disease_paths": {
+      "description": "Sample directory paths for disease/class-1 test set.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Test Disease Paths",
+      "type": "array"
+    },
+    "test_group_paths": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "For multi-class: list of {label: str, paths: list} or {class_index: int, paths: list}. Order must match classifier class_names. Resolved to absolute paths.",
+      "title": "Test Group Paths"
+    },
+    "train_control_paths": {
+      "description": "Training split: class-0 paths when using train/holdout dual evaluation (with holdout_*).",
+      "items": {
+        "type": "string"
+      },
+      "title": "Train Control Paths",
+      "type": "array"
+    },
+    "train_disease_paths": {
+      "description": "Training split: class-1 paths for dual evaluation.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Train Disease Paths",
+      "type": "array"
+    },
+    "train_group_paths": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Multiclass training split paths (same shape as test_group_paths). Used with holdout_group_paths.",
+      "title": "Train Group Paths"
+    }
+  },
+  "required": [
+    "output_dir"
+  ],
+  "title": "PredictorConfig",
+  "type": "object"
+}

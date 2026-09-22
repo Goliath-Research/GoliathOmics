@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "classifier_method": {
+      "default": "logistic_regression",
+      "title": "Classifier Method",
+      "type": "string"
+    },
+    "covariates_csv": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Covariates Csv"
+    },
+    "cv_folds": {
+      "default": 5,
+      "minimum": 2,
+      "title": "Cv Folds",
+      "type": "integer"
+    },
+    "impute": {
+      "default": "min",
+      "description": "min | mean | zero | none (left-censored default)",
+      "title": "Impute",
+      "type": "string"
+    },
+    "max_proteins": {
+      "default": 200,
+      "minimum": 1,
+      "title": "Max Proteins",
+      "type": "integer"
+    },
+    "min_mean": {
+      "default": 0.0,
+      "title": "Min Mean",
+      "type": "number"
+    },
+    "missing_fill": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Value for features absent from a sample before impute. null/None means NaN (left-censored; pair with impute=min|mean). Operator-set in profile/site actionConfig.protein_de_select. Must be JSON-serializable (do not use Python NaN in schemas).",
+      "title": "Missing Fill"
+    },
+    "normalize": {
+      "default": "median",
+      "description": "median | quantile | none",
+      "title": "Normalize",
+      "type": "string"
+    },
+    "random_state": {
+      "default": 13,
+      "title": "Random State",
+      "type": "integer"
+    },
+    "ranking": {
+      "default": "abs_t",
+      "description": "abs_t or signed_fc",
+      "title": "Ranking",
+      "type": "string"
+    },
+    "transform": {
+      "default": "log2",
+      "title": "Transform",
+      "type": "string"
+    }
+  },
+  "title": "ProteinDeSelectConfig",
+  "type": "object"
+}

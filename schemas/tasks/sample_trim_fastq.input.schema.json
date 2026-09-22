@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "executionScopeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Baked execution scope id from instance finalize (provenance).",
+      "title": "Executionscopeid"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Study project path for provenance/logging only; not a config source.",
+      "title": "Projectpath"
+    },
+    "remediationReason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Remediationreason"
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    },
+    "sampleId": {
+      "title": "Sampleid",
+      "type": "string"
+    },
+    "tool": {
+      "default": "SampleTrimFastq",
+      "title": "Tool",
+      "type": "string"
+    },
+    "trimFront1": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trimfront1"
+    },
+    "trimFront2": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trimfront2"
+    },
+    "trimTail1": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trimtail1"
+    },
+    "trimTail2": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trimtail2"
+    }
+  },
+  "required": [
+    "sampleId",
+    "sampleDir"
+  ],
+  "title": "TrimFastqTaskInput",
+  "type": "object"
+}

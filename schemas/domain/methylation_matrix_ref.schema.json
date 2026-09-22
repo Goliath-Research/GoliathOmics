@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Post-extract per-chromosome HDF5 methylation matrices on disk.",
+  "properties": {
+    "$type": {
+      "const": "MethylationMatrixRef",
+      "default": "MethylationMatrixRef",
+      "title": "$Type",
+      "type": "string"
+    },
+    "chromosomes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Chromosomes",
+      "type": "array"
+    },
+    "contexts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Contexts",
+      "type": "array"
+    },
+    "h5Files": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "H5Files"
+    },
+    "h5Pattern": {
+      "default": "{chr}-{ctx}.h5",
+      "title": "H5Pattern",
+      "type": "string"
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sampleDir"
+  ],
+  "title": "MethylationMatrixRef",
+  "type": "object"
+}

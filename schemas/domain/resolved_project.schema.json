@@ -1,0 +1,642 @@
+{
+  "$defs": {
+    "AlignmentQcRef": {
+      "description": "Alignment QC JSON artifact and pass/fail gate.",
+      "properties": {
+        "$type": {
+          "const": "AlignmentQcRef",
+          "default": "AlignmentQcRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "guardrails": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Guardrails"
+        },
+        "overallPass": {
+          "title": "Overallpass",
+          "type": "boolean"
+        },
+        "qcPath": {
+          "title": "Qcpath",
+          "type": "string"
+        }
+      },
+      "required": [
+        "qcPath",
+        "overallPass"
+      ],
+      "title": "AlignmentQcRef",
+      "type": "object"
+    },
+    "CentroidSeedGroup": {
+      "description": "Shared per-cohort centroid seed built before parallel MC iterations.",
+      "properties": {
+        "$type": {
+          "const": "CentroidSeedGroup",
+          "default": "CentroidSeedGroup",
+          "title": "$Type",
+          "type": "string"
+        },
+        "addSamples": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Addsamples",
+          "type": "array"
+        },
+        "centroidDir": {
+          "title": "Centroiddir",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "removeSamples": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Removesamples",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "centroidDir"
+      ],
+      "title": "CentroidSeedGroup",
+      "type": "object"
+    },
+    "ExtractionQcRef": {
+      "description": "Post-extraction QC JSON artifact and pass/fail gate.",
+      "properties": {
+        "$type": {
+          "const": "ExtractionQcRef",
+          "default": "ExtractionQcRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "guardrails": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Guardrails"
+        },
+        "overallPass": {
+          "title": "Overallpass",
+          "type": "boolean"
+        },
+        "qcPath": {
+          "title": "Qcpath",
+          "type": "string"
+        }
+      },
+      "required": [
+        "qcPath",
+        "overallPass"
+      ],
+      "title": "ExtractionQcRef",
+      "type": "object"
+    },
+    "FragmentomicsRef": {
+      "description": "cfDNA fragmentomics run artifacts.",
+      "properties": {
+        "$type": {
+          "const": "FragmentomicsRef",
+          "default": "FragmentomicsRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "outputDir": {
+          "title": "Outputdir",
+          "type": "string"
+        },
+        "summaryPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summarypath"
+        }
+      },
+      "required": [
+        "outputDir"
+      ],
+      "title": "FragmentomicsRef",
+      "type": "object"
+    },
+    "MethylGroup": {
+      "description": "Cohort of samples (static project group or MC train/val draw).",
+      "properties": {
+        "$type": {
+          "const": "MethylGroup",
+          "default": "MethylGroup",
+          "title": "$Type",
+          "type": "string"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Count"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "projectPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Projectpath"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "control",
+                "disease",
+                "stage",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "sampleCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Samplecsv"
+        },
+        "sampleRefs": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/MethylSampleRef"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Samplerefs"
+        },
+        "testCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Testcsv"
+        },
+        "trainCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Traincsv"
+        },
+        "valCsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valcsv"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "MethylGroup",
+      "type": "object"
+    },
+    "MethylSampleRef": {
+      "description": "Sample lifecycle handle; fields accumulate through sample prep.",
+      "properties": {
+        "$type": {
+          "const": "MethylSampleRef",
+          "default": "MethylSampleRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "alignmentQc": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlignmentQcRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "bamPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bampath"
+        },
+        "extractionQc": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExtractionQcRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "fastqFiles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fastqfiles"
+        },
+        "fragmentomics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FragmentomicsRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "h5Archive": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "H5Archive"
+        },
+        "methylation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MethylationMatrixRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "metricsJson": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metricsjson"
+        },
+        "sampleDir": {
+          "title": "Sampledir",
+          "type": "string"
+        },
+        "sampleId": {
+          "title": "Sampleid",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "required": [
+        "sampleId",
+        "sampleDir"
+      ],
+      "title": "MethylSampleRef",
+      "type": "object"
+    },
+    "MethylationMatrixRef": {
+      "description": "Post-extract per-chromosome HDF5 methylation matrices on disk.",
+      "properties": {
+        "$type": {
+          "const": "MethylationMatrixRef",
+          "default": "MethylationMatrixRef",
+          "title": "$Type",
+          "type": "string"
+        },
+        "chromosomes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Chromosomes",
+          "type": "array"
+        },
+        "contexts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Contexts",
+          "type": "array"
+        },
+        "h5Files": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "H5Files"
+        },
+        "h5Pattern": {
+          "default": "{chr}-{ctx}.h5",
+          "title": "H5Pattern",
+          "type": "string"
+        },
+        "sampleDir": {
+          "title": "Sampledir",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sampleDir"
+      ],
+      "title": "MethylationMatrixRef",
+      "type": "object"
+    },
+    "ResolvedComparison": {
+      "description": "Fully materialized comparison with artifact dirs and per-side sample paths.",
+      "properties": {
+        "$type": {
+          "const": "ResolvedComparison",
+          "default": "ResolvedComparison",
+          "title": "$Type",
+          "type": "string"
+        },
+        "centroid1Dir": {
+          "description": "Control-side centroid output directory.",
+          "title": "Centroid1Dir",
+          "type": "string"
+        },
+        "centroid2Dir": {
+          "description": "Disease-side centroid output directory.",
+          "title": "Centroid2Dir",
+          "type": "string"
+        },
+        "classifierOutDir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Classifier output directory when configured for this comparison.",
+          "title": "Classifieroutdir"
+        },
+        "comparisonLabel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comparisonlabel"
+        },
+        "controlGroup": {
+          "title": "Controlgroup",
+          "type": "string"
+        },
+        "controlSamplePaths": {
+          "description": "Absolute HDF5/sample paths for the control side.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Controlsamplepaths",
+          "type": "array"
+        },
+        "detectOutDir": {
+          "description": "Detection output directory for this comparison.",
+          "title": "Detectoutdir",
+          "type": "string"
+        },
+        "diseaseGroup": {
+          "title": "Diseasegroup",
+          "type": "string"
+        },
+        "diseaseSamplePaths": {
+          "description": "Absolute HDF5/sample paths for the disease side.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Diseasesamplepaths",
+          "type": "array"
+        },
+        "enricherOutDir": {
+          "description": "Enricher output directory for this comparison.",
+          "title": "Enricheroutdir",
+          "type": "string"
+        },
+        "label": {
+          "description": "Comparison label (usually disease group name).",
+          "title": "Label",
+          "type": "string"
+        },
+        "mapperOutDir": {
+          "description": "Mapper output directory for this comparison.",
+          "title": "Mapperoutdir",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "controlGroup",
+        "diseaseGroup",
+        "centroid1Dir",
+        "centroid2Dir",
+        "detectOutDir",
+        "mapperOutDir",
+        "enricherOutDir"
+      ],
+      "title": "ResolvedComparison",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Study manifest materialized for worker actions (paths + cohorts, no re-read of /work).",
+  "properties": {
+    "$type": {
+      "const": "ResolvedProject",
+      "default": "ResolvedProject",
+      "title": "$Type",
+      "type": "string"
+    },
+    "centroid1Dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Shared control centroid dir for the primary comparison when applicable.",
+      "title": "Centroid1Dir"
+    },
+    "centroidSeedGroups": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/CentroidSeedGroup"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional MC seed centroid groups when monteCarloRunsRoot is resolved.",
+      "title": "Centroidseedgroups"
+    },
+    "chromosomes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Chromosomes",
+      "type": "array"
+    },
+    "comparisons": {
+      "items": {
+        "$ref": "#/$defs/ResolvedComparison"
+      },
+      "title": "Comparisons",
+      "type": "array"
+    },
+    "contexts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Contexts",
+      "type": "array"
+    },
+    "groups": {
+      "items": {
+        "$ref": "#/$defs/MethylGroup"
+      },
+      "title": "Groups",
+      "type": "array"
+    },
+    "projectPath": {
+      "description": "Provenance path to study manifest (logging only on worker path).",
+      "title": "Projectpath",
+      "type": "string"
+    }
+  },
+  "required": [
+    "projectPath"
+  ],
+  "title": "ResolvedProject",
+  "type": "object"
+}

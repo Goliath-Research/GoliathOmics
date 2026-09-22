@@ -1,0 +1,56 @@
+{
+  "programVersion": 2,
+  "name": "AssignMapReduce",
+  "description": "Sequential map (fs_stat) then reduce into a typed summary string (generic fixture).",
+  "projectPath": "/work/projects/example/configs/project.json",
+  "variables": {
+    "artifactPaths": ["/work/cache/a.json", "/work/cache/b.json"],
+    "pathExists": {
+      "schemaRef": "schemas/vars/bool.schema.json"
+    },
+    "summary": {
+      "schemaRef": "schemas/vars/string.schema.json"
+    }
+  },
+  "body": [
+    {
+      "for": {
+        "in": { "ref": "artifactPaths" },
+        "as": "artifactPath",
+        "parallel": false
+      },
+      "do": [
+        {
+          "assign": "pathExists",
+          "using": "workflow.fs_stat",
+          "with": { "path": { "ref": "artifactPath" } },
+          "fromPath": "$.value",
+          "node_key": "stat_path"
+        }
+      ]
+    },
+    {
+      "assign": "summary",
+      "using": "workflow.const_string",
+      "with": { "value": "map_reduce_complete" },
+      "node_key": "reduce_summary"
+    },
+    {
+      "if": "${pathExists}",
+      "then": [
+        {
+          "do": "workflow.const_string",
+          "with": { "value": "last_path_existed" },
+          "node_key": "consume_summary"
+        }
+      ],
+      "else": [
+        {
+          "do": "workflow.const_string",
+          "with": { "value": "last_path_missing" },
+          "node_key": "consume_missing"
+        }
+      ]
+    }
+  ]
+}

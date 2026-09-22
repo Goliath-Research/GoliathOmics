@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "classifier_method": {
+      "default": "logistic_regression",
+      "title": "Classifier Method",
+      "type": "string"
+    },
+    "covariates_csv": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional covariate sidecar CSV joined by sample_id and stacked into the classifier.",
+      "title": "Covariates Csv"
+    },
+    "cv_folds": {
+      "default": 5,
+      "minimum": 2,
+      "title": "Cv Folds",
+      "type": "integer"
+    },
+    "max_genes": {
+      "default": 200,
+      "minimum": 1,
+      "title": "Max Genes",
+      "type": "integer"
+    },
+    "min_mean_logcpm": {
+      "default": 0.0,
+      "description": "Drop genes whose across-cohort mean log2-CPM is below this floor before ranking.",
+      "title": "Min Mean Logcpm",
+      "type": "number"
+    },
+    "random_state": {
+      "default": 13,
+      "title": "Random State",
+      "type": "integer"
+    },
+    "ranking": {
+      "default": "abs_t",
+      "description": "Gene ranking statistic: abs_t (|Welch t|) or signed_log2fc.",
+      "title": "Ranking",
+      "type": "string"
+    },
+    "transform": {
+      "default": "logcpm",
+      "title": "Transform",
+      "type": "string"
+    }
+  },
+  "title": "RnaDeSelectConfig",
+  "type": "object"
+}

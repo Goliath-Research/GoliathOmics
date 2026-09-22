@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "methyl-gene-select"
+version = "0.1.0"
+description = "Gene panel selection (FeatureCuts / biomarker filter) for MethylPipeline MC stability"
+authors = ["MethylPipeline Team"]
+readme = "README.md"
+packages = [{include = "methyl_gene_select"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.15"
+pydantic = ">=2.6.0,<3.0.0"
+numpy = ">=2.0.0,<3.0.0"
+pandas = ">=2.1.0,<3.0.0"
+scikit-learn = ">=1.4.0,<2.0.0"
+click = ">=8.1.0,<9.0.0"
+methylutils = {path = "../methylutils", develop = true}
+methyl-predictor = {path = "../methylpredictor", develop = true}
+methyl-enricher = {path = "../methylenricher", develop = true}
+
+[tool.poetry.scripts]
+methyl-gene-select = "methyl_gene_select.cli.main:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

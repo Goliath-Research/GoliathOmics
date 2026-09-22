@@ -1,0 +1,19 @@
+{
+  "model_dir": "/work/data/david-gladys/all-prostate/detection/PCa_vs_Healthy_optimized",
+  "model_path": null,
+  "centroid1_dir": "/work/data/david-gladys/all-prostate/centroids/healthy_all",
+  "centroid2_dir": "/work/data/david-gladys/all-prostate/centroids/pcancer",
+  "centroid_path_remap": {
+    "/work/david-gladys/all-prostate": "/work/data/david-gladys/all-prostate",
+    "/home/dizada/data": "/work/data/david-gladys/all-prostate"
+  },
+  "output_path": "/work/data/david-gladys/all-prostate/classification/PCa_vs_Healthy_centroid_validation.csv",
+  "temperature": 1.5,
+  "enable_platt_calibration": false,
+  "trimmed_percentile_low": 0.10,
+  "trimmed_percentile_high": 0.01,
+  "chromosome_weights": null,
+  "debug": true,
+  "no_filter": false,
+  "log_level": "INFO"
+}

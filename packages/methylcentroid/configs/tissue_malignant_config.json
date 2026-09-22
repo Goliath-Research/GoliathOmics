@@ -1,0 +1,31 @@
+{
+    "chrom": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X",
+    "ctx": "CG,CHG,CHH",
+    "output_dir": "/home/ubuntu/Work/OEP00000860/centroids/tissue_malignant",
+    "new_samples": [],
+    "min_coverage": 4,
+    "max_iterations_percentage": 0.1,
+    "\u03b1": 0.05,
+    "min_samples": 3,
+    "distance_metrics": [
+        "jeffreys",
+        "jensen_shannon",
+        "weighted_jensen_shannon",
+        "hellinger"
+    ],
+    "min_metrics_agree": 3,
+    "add_samples": [
+        "/home/ubuntu/Work/OEP00000860/OER00070261",
+        "/home/ubuntu/Work/OEP00000860/OER00070263",
+        "/home/ubuntu/Work/OEP00000860/OER00070267",
+        "/home/ubuntu/Work/OEP00000860/OER00070289",
+        "/home/ubuntu/Work/OEP00000860/OER00070257",
+        "/home/ubuntu/Work/OEP00000860/OER00070265",
+        "/home/ubuntu/Work/OEP00000860/OER00070328",
+        "/home/ubuntu/Work/OEP00000860/OER00070259",
+        "/home/ubuntu/Work/OEP00000860/OER00070346",
+        "/home/ubuntu/Work/OEP00000860/OER00070284",
+        "/home/ubuntu/Work/OEP00000860/OER00070269",
+        "/home/ubuntu/Work/OEP00000860/OER00070280"
+    ]
+}

@@ -1,0 +1,25 @@
+{
+  "programVersion": 2,
+  "name": "MapperPerComparison",
+  "description": "Map discovery DMPs to genes per comparison (assumes detection artifacts exist).",
+  "projectPath": "/work/projects/prostate-cancer/configs/project_Buffy_healthy_vs_PCa.json",
+  "body": [
+    {
+      "for": {
+        "in": { "ref": "project.comparisons" },
+        "as": "comparison",
+        "parallel": false
+      },
+      "do": [
+        {
+          "do": "pipeline.mapper",
+          "with": {
+            "comparison": { "ref": "comparison.label" },
+            "group": { "ref": "comparison.label" }
+          },
+          "node_key": "mapper"
+        }
+      ]
+    }
+  ]
+}

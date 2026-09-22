@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "description": "Committed source of truth for MethylEnricher gene-set library presets. Authored here (config-not-code) and synced into the cfg registry (kind enrichment_library_preset) like the action catalog. Each preset resolves to an ordered, de-duplicated list of Enrichr libraries: default_libraries first (when include_default is true) then the preset-specific libraries.",
+  "default_libraries": [
+    "KEGG_2021_Human",
+    "Reactome_2022",
+    "GO_Biological_Process_2023",
+    "GO_Molecular_Function_2023",
+    "GO_Cellular_Component_2023",
+    "MSigDB_Hallmark_2020",
+    "WikiPathway_2023_Human"
+  ],
+  "presets": {
+    "cancer-core": {
+      "description": "Oncology core: pathways + TF regulators + disease-gene associations.",
+      "include_default": true,
+      "libraries": [
+        "ChEA_2022",
+        "ENCODE_and_ChEA_Consensus_TFs_from_ChIP-X",
+        "TRRUST_Transcription_Factors_2019",
+        "DisGeNET",
+        "Jensen_DISEASES",
+        "GWAS_Catalog_2019"
+      ]
+    },
+    "cancer-extended": {
+      "description": "Oncology core plus drug-target, perturbation, and miRNA target libraries.",
+      "include_default": true,
+      "libraries": [
+        "ChEA_2022",
+        "ENCODE_and_ChEA_Consensus_TFs_from_ChIP-X",
+        "TRRUST_Transcription_Factors_2019",
+        "DisGeNET",
+        "Jensen_DISEASES",
+        "GWAS_Catalog_2019",
+        "DSigDB",
+        "DGIdb_Drug_Targets_2024",
+        "LINCS_L1000_Chem_Pert_up",
+        "LINCS_L1000_Chem_Pert_down",
+        "miRTarBase_2017"
+      ]
+    },
+    "neuro-core": {
+      "description": "Neurodegeneration / CNS: pathways + TF regulators + disease-gene associations plus brain/CNS tissue and cell-type gene sets (e.g. Alzheimer detection). Removes oncology-only bias while keeping DisGeNET/GWAS disease priors.",
+      "include_default": true,
+      "libraries": [
+        "ChEA_2022",
+        "ENCODE_and_ChEA_Consensus_TFs_from_ChIP-X",
+        "TRRUST_Transcription_Factors_2019",
+        "DisGeNET",
+        "Jensen_DISEASES",
+        "GWAS_Catalog_2019",
+        "Allen_Brain_Atlas_up",
+        "Allen_Brain_Atlas_down",
+        "Descartes_Cell_Types_and_Tissue_2021",
+        "Aging_Perturbations_from_GEO_up",
+        "Aging_Perturbations_from_GEO_down"
+      ]
+    },
+    "plant-stress-core": {
+      "description": "Plant abiotic stress (e.g. Arabidopsis drought/heat/salt). Drops the human oncology/CNS pathway and disease-prior libraries (include_default is false) and keeps organism-general GO term collections that cover stress-response and hormone-signalling terms. Human-symbol Enrichr libraries do not map to plant AGI locus IDs, so for true Arabidopsis/crop enrichment supply a custom plant GMT via actionConfig.enricher.libraries or run offline ORA; this preset is the discovery default. Use with enricher.organism set to the target species and enrich_disease disabled.",
+      "include_default": false,
+      "libraries": [
+        "GO_Biological_Process_2023",
+        "GO_Molecular_Function_2023",
+        "GO_Cellular_Component_2023"
+      ]
+    }
+  }
+}

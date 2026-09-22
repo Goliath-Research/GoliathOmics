@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "executionScopeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Baked execution scope id from instance finalize (provenance).",
+      "title": "Executionscopeid"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Study project path for provenance/logging only; not a config source.",
+      "title": "Projectpath"
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    },
+    "sampleId": {
+      "title": "Sampleid",
+      "type": "string"
+    },
+    "tool": {
+      "default": "SampleDeleteBam",
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sampleId",
+    "sampleDir"
+  ],
+  "title": "DeleteBamTaskInput",
+  "type": "object"
+}

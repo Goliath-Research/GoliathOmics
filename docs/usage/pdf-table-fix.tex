@@ -1,0 +1,28 @@
+% PDF table layout for Usage Manual (LuaLaTeX + pandoc longtable)
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{ltablex}
+\usepackage{ragged2e}
+\usepackage{makecell}
+\usepackage{microtype}
+\usepackage{xurl}
+
+\keepXColumns
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+
+% Slightly smaller, full-width tables; allow line breaks in narrow cells
+\AtBeginEnvironment{longtable}{%
+  \footnotesize%
+  \setlength{\LTcapwidth}{\textwidth}%
+  \setlength{\LTleft}{0pt}%
+  \setlength{\LTright}{0pt}%
+}
+
+% Break long paths and identifiers instead of overflowing cells
+\makeatletter
+\def\UrlBreaks{%
+  \do\/\do-\do_\do.\do=\do?\do&\do:\do+\do\#\do\%\do~}
+\makeatother

@@ -1,0 +1,23 @@
+{
+  "projectPath": "/work/projects/plant-abiotic-stress/configs/project_Control_vs_Drought.json",
+  "pipelineProcedure": "plant_wgbs_gene_fc",
+  "pipelineProfile": "samd_research",
+  "runProgressionAnalysis": false,
+  "actionConfig": {
+    "mapper": {
+      "enrich_disease": true,
+      "enrich_source": "plant_traits",
+      "disease_term": "drought",
+      "plant_traits_path": "docs/examples/samd/plant-abiotic-stress/data/arabidopsis_drought_gene_traits.tsv"
+    },
+    "enricher": {
+      "library_preset": "plant-stress-core",
+      "organism": "Arabidopsis_thaliana",
+      "string_species": 3702,
+      "disease_only": false
+    },
+    "progression": {
+      "enabled": false
+    }
+  }
+}

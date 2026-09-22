@@ -1,0 +1,33 @@
+{
+    "chrom": "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X",
+    "ctx": "CG,CHG,CHH",
+    "output_dir": "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/centroids/bb-cancer",
+    "add_samples": [
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-094-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-10038-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-10051-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-196-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-370-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-12045-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-23001-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-23008-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-11020-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-811-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-15105-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-11035-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-574-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-084-Buffy-coat",
+        "/home/ubuntu/Work/samples/humans/azenta/30-1180363765/data/12614-15088-Buffy-coat"
+    ],
+    "remove_samples": [],
+    "outliers": [],
+    "min_coverage": 4,
+    "max_iterations_percentage": 0.1,
+    "\u03b1": 0.05,
+    "min_samples": 3,
+    "distance_metrics": [
+        "jensen_shannon",
+        "wasserstein"
+    ],
+    "min_metrics_agree": 0
+}

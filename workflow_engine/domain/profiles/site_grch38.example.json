@@ -1,0 +1,217 @@
+{
+  "_docs": "Richer GRCh38 site example (RNA + proteomics paths). Canonical methylation pin SoT for Phase 0: tools/methyl-config-editor/configs/site_grch38.example.json. Keep reference_selection prefixes in sync. Upload/provision: docs/deployment/reference-inventory-qnap.md.",
+  "actionConfig": {
+    "gene_selection": {
+      "max_dmps": 1000,
+      "max_genes": 200
+    },
+    "storage_transfer": {
+      "max_concurrency": 8,
+      "multipart_chunksize_mb": 16,
+      "multipart_threshold_mb": 32,
+      "max_attempts": 10
+    },
+    "methylgrapher_wgbs": {
+      "engine": "mojo",
+      "align_engine": "gpu_giraffe",
+      "align_device": "auto",
+      "giraffe_device": "auto",
+      "gpu_giraffe_fallback": "mojo",
+      "mojo_segments_cache": "/work/cache/mojo_segments",
+      "qc_bam_engine": "mojo",
+      "qc_bam_fallback": "error",
+      "dual_graph_parallel": false,
+      "image": "goliath/methylgrapher:1.70-mojo"
+    },
+    "parabricks": {
+      "engine": "parabricks",
+      "align_device": "auto",
+      "bwa_threads": 16
+    },
+    "methyl_extract": {
+      "extract_contexts": ["CG", "CHG", "CHH"],
+      "min_mapq": 20,
+      "min_phred": 20,
+      "split": true,
+      "output_format": "hdf5"
+    },
+    "alignment_qc": {
+      "core_guardrails": {
+        "min_pf_percent": 90.0,
+        "min_q30_percent": 85.0,
+        "min_mean_quality": 35.0,
+        "min_quality_post20": 30.0,
+        "max_at_dropout": 3.0,
+        "max_gc_dropout": 5.0,
+        "median_insert_min_bp": 150,
+        "median_insert_max_bp": 300,
+        "max_deamination_qscore": 30,
+        "min_oxog_qscore": 20
+      }
+    },
+    "extraction_qc": {
+      "guardrails": {
+        "min_cpg_weighted_mean_coverage": 10.0,
+        "max_chh_methylation_level": 0.02,
+        "max_chg_methylation_level": 0.02,
+        "min_autosomal_coverage_uniformity_ratio": 0.5,
+        "max_discard_fraction": 0.9
+      },
+      "expected_chromosomes": [
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+        "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+        "21", "22", "X", "Y"
+      ]
+    }
+  },
+  "reference_selection": {
+    "linear": "linear/GRCh38/ensembl-116",
+    "gene_annotation": "annotation/gencode/v50",
+    "pangenome": "pangenome/GRCh38/d9/1.70",
+    "pangenome_wgbs": "pangenome/GRCh38/d9-bs/1.70"
+  },
+  "reference_genome": {
+    "fasta": "/work/genomes/linear/GRCh38/ensembl-116/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
+  },
+  "annotation": {
+    "gtf": "/work/genomes/annotation/gencode/v50/gencode.v50.annotation.gtf"
+  },
+  "methyl_mapper_home": "/work/cache/methyl_mapper",
+  "caches": {
+    "string_edges": "/work/cache/methylenricher/string_edges"
+  },
+  "pangenome_genome": {
+    "gbz": "/work/genomes/pangenome/GRCh38/d9/1.70/hprc-v1.1-mc-grch38.d9.gbz",
+    "dist": "/work/genomes/pangenome/GRCh38/d9/1.70/hprc-v1.1-mc-grch38.d9.autoindex.1.70.dist",
+    "min": "/work/genomes/pangenome/GRCh38/d9/1.70/hprc-v1.1-mc-grch38.d9.autoindex.1.70.shortread.withzip.min",
+    "zipcodes": "/work/genomes/pangenome/GRCh38/d9/1.70/hprc-v1.1-mc-grch38.d9.autoindex.1.70.shortread.zipcodes",
+    "ref_paths": "/work/genomes/pangenome/GRCh38/d9/1.70/hprc-v1.1-mc-grch38.d9.paths.sub",
+    "linear_ref_fasta": "/work/genomes/linear/GRCh38/ensembl-116/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
+  },
+  "rna_reference": {
+    "star_index_dir": "/work/genomes/rna/GRCh38/star/ensembl-116",
+    "gtf": "/work/genomes/annotation/gencode/v50/gencode.v50.annotation.gtf",
+    "reference_fasta": "/work/genomes/linear/GRCh38/ensembl-116/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+    "kallisto_index": "/work/genomes/rna/GRCh38/kallisto/gencode.v50.transcripts.idx",
+    "transcriptome_fasta": "/work/genomes/rna/GRCh38/kallisto/gencode.v50.transcripts.fa",
+    "tx2gene": "/work/genomes/rna/GRCh38/kallisto/gencode.v50.tx2gene.tsv"
+  },
+  "proteomics_reference": {
+    "protein_fasta": "/work/genomes/proteomics/GRCh38/uniprot/UP000005640_9606.fasta",
+    "spectral_library": "/work/genomes/proteomics/GRCh38/diann/human_plasma.speclib",
+    "prosit_model": "/work/genomes/proteomics/models/prosit/intensity_transformer",
+    "casanovo_model": "/work/genomes/proteomics/models/casanovo/casanovo_massivekb.ckpt"
+  },
+  "testing": {
+    "samples": {
+      "cfdna": {
+        "sample_id": "REF_CFDNA_01",
+        "sample_dir": "/work/samples/__testref_cfdna__",
+        "analyte": "cfdna",
+        "chromosomes": [
+          "21"
+        ],
+        "contexts": [
+          "CG"
+        ],
+        "provenance": "Non-PHI public/consented WGBS; MethylExtractor <release>."
+      },
+      "buffy_coat": {
+        "sample_id": "REF_BUFFY_01",
+        "sample_dir": "/work/samples/__testref_buffy__",
+        "analyte": "buffy_coat",
+        "chromosomes": [
+          "21"
+        ],
+        "contexts": [
+          "CG"
+        ],
+        "provenance": "Non-PHI public/consented WGBS; MethylExtractor <release>."
+      }
+    },
+    "groups": {
+      "healthy": {
+        "label": "healthy",
+        "analyte": "cfdna",
+        "sample_dirs": [
+          "/work/samples/__testref_healthy_1__",
+          "/work/samples/__testref_healthy_2__"
+        ]
+      },
+      "PCa": {
+        "label": "PCa",
+        "analyte": "cfdna",
+        "sample_dirs": [
+          "/work/samples/__testref_pca_1__",
+          "/work/samples/__testref_pca_2__"
+        ]
+      }
+    },
+    "sample_prep_canary": {
+      "sample_id": "canary-SRR28293403",
+      "analyte": "buffy_coat",
+      "provenance_path": "tests/real_data/sample_prep_canary/provenance.json",
+      "source": {
+        "geo_series": "GSE261315",
+        "geo_sample": "GSM8140413",
+        "sra_run": "SRR28293403",
+        "bioproject": "PRJNA1086543",
+        "individual_id": "HG00621",
+        "title": "WGBS-HG00621-Rep1",
+        "library_strategy": "Bisulfite-Seq",
+        "library_layout": "PAIRED",
+        "platform": "ILLUMINA Illumina NovaSeq 6000",
+        "pubmed_id": "39868538",
+        "license_note": "Public SRA/GEO (PRJNA1086543). Non-PHI. Cite GSE261315 / PubMed 39868538.",
+        "source_urls": [
+          "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE261315",
+          "https://www.ncbi.nlm.nih.gov/sra/?term=SRR28293403"
+        ],
+        "notes": "Pinned methylGrapher/HPRC WGBS canary; stock Giraffe is engineering-only."
+      },
+      "fastq_storage": {
+        "type": "file",
+        "basePath": "/work/genomes/pangenome",
+        "endpointRef": "goliath-genomes"
+      },
+      "full": {
+        "prefix": "canary/gse261315/SRR28293403/full/",
+        "r1_name": "SRR28293403_1.fastq.gz",
+        "r2_name": "SRR28293403_2.fastq.gz",
+        "r1_sha256": null,
+        "r2_sha256": null,
+        "expected_read_pairs": 158106440
+      },
+      "subset": {
+        "prefix": "canary/gse261315/SRR28293403/subset/",
+        "r1_name": "SRR28293403_1.fastq.gz",
+        "r2_name": "SRR28293403_2.fastq.gz",
+        "r1_sha256": null,
+        "r2_sha256": null,
+        "expected_read_pairs": 2000000
+      },
+      "subset_read_pairs": 2000000,
+      "modes": [
+        "linear",
+        "pangenome",
+        "pangenome_wgbs"
+      ],
+      "directional": false,
+      "library_protocol": "wgbs_pangenome",
+      "asset_pins": {
+        "linear_genome_key": "grch38",
+        "pangenome_key": "pangenome-grch38-d9-1.70",
+        "pangenome_wgbs_key": "pangenome-grch38-d9-bs-1.70",
+        "methylgrapher_image_env": "METHYL_METHYLGRAPHER_IMAGE"
+      },
+      "thresholds": {
+        "mapping_rate_delta": 0.15,
+        "duplication_rate_delta": 0.2,
+        "cpg_sites_min_fraction_of_linear": 0.5,
+        "mean_coverage_delta": 20.0,
+        "require_extraction_qc_pass": true,
+        "require_read_level_patterns": false
+      }
+    }
+  }
+}

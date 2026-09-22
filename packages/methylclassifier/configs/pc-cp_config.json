@@ -1,0 +1,29 @@
+
+{
+    "model_path": "/home/ubuntu/Work/w/humans/psomagen/pc/detections/hc",
+    "samples": [
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/020520_14_C11_89",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/013243_10C21_12",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/033899_18K_10_86",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/028539_17G_18_41",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/5929-604736_V01_ACD_BC",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/018113_17V_17_6",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/015822_10_H4_89",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/005363_9E16_99",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/022046_14H_14_89",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/016830_10_J13_67",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/016955_10_J18_23",
+      "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/030955_17P_18_71"
+    ],
+    "output_path": "/home/ubuntu/Work/w/humans/psomagen/pc/classifications/results-cp.csv",
+    "chromosome_matrix_path": "/home/ubuntu/Work/w/humans/psomagen/pc/classifications/matrix-cp.csv",
+    "temperature": 1.0,
+    "enable_platt_calibration": true,
+    "trimmed_percentile_low": 0.10,
+    "trimmed_percentile_high": 0.01,
+    "chromosome_weights": null,
+    "debug": false,
+    "no_filter": false,
+    "log_level": "INFO"
+  }
+  

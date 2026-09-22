@@ -1,0 +1,93 @@
+name: BugSpot Analysis
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  bugspot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better analysis
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install poetry
+        poetry install
+    
+    - name: Run Custom BugSpot Analysis
+      run: |
+        # Run custom BugSpot analyzer on the changed files
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          # Get changed files in PR
+          git diff --name-only origin/${{ github.base_ref }}..HEAD > changed_files.txt
+          # Run analysis on changed Python files
+          python scripts/bugspot_analyzer.py . > bugspot-report.json
+        else
+          # Run on all Python files for pushes
+          python scripts/bugspot_analyzer.py . > bugspot-report.json
+        fi
+    
+    - name: Generate BugSpot Report
+      run: |
+        # Convert BugSpot output to readable format
+        python -c "
+        import json
+        import sys
+        
+        try:
+            with open('bugspot-report.json', 'r') as f:
+                report = json.load(f)
+            
+            print('## BugSpot Analysis Report')
+            print()
+            
+            if 'issues' in report and report['issues']:
+                print('### 🐛 Potential Issues Found:')
+                for issue in report['issues']:
+                    print(f'- **{issue.get(\"severity\", \"Unknown\")}**: {issue.get(\"message\", \"No message\")}')
+                    if 'file' in issue and 'line' in issue:
+                        print(f'  - File: `{issue[\"file\"]}:{issue[\"line\"]}`')
+                    print()
+            else:
+                print('✅ No potential issues found!')
+                
+        except Exception as e:
+            print(f'Error processing BugSpot report: {e}')
+            sys.exit(1)
+        " > bugspot-summary.md
+    
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('bugspot-summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+    
+    - name: Upload BugSpot Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: bugspot-report
+        path: |
+          bugspot-report.json
+          bugspot-summary.md 

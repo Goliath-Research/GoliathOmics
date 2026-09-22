@@ -1,0 +1,413 @@
+{
+  "$defs": {
+    "AzureAccountKeyCredentials": {
+      "additionalProperties": false,
+      "properties": {
+        "accountKey": {
+          "format": "password",
+          "title": "Accountkey",
+          "type": "string",
+          "writeOnly": true
+        },
+        "authMode": {
+          "const": "account_key",
+          "default": "account_key",
+          "title": "Authmode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "accountKey"
+      ],
+      "title": "AzureAccountKeyCredentials",
+      "type": "object"
+    },
+    "AzureConnectionStringCredentials": {
+      "additionalProperties": false,
+      "properties": {
+        "authMode": {
+          "const": "connection_string",
+          "default": "connection_string",
+          "title": "Authmode",
+          "type": "string"
+        },
+        "connectionString": {
+          "format": "password",
+          "title": "Connectionstring",
+          "type": "string",
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "connectionString"
+      ],
+      "title": "AzureConnectionStringCredentials",
+      "type": "object"
+    },
+    "AzureDefaultCredentialCredentials": {
+      "additionalProperties": false,
+      "properties": {
+        "authMode": {
+          "const": "default_credential",
+          "default": "default_credential",
+          "title": "Authmode",
+          "type": "string"
+        }
+      },
+      "title": "AzureDefaultCredentialCredentials",
+      "type": "object"
+    },
+    "AzureSampleDestination": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "title": "Account",
+          "type": "string"
+        },
+        "container": {
+          "title": "Container",
+          "type": "string"
+        },
+        "credentials": {
+          "discriminator": {
+            "mapping": {
+              "account_key": "#/$defs/AzureAccountKeyCredentials",
+              "connection_string": "#/$defs/AzureConnectionStringCredentials",
+              "default_credential": "#/$defs/AzureDefaultCredentialCredentials"
+            },
+            "propertyName": "authMode"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/AzureAccountKeyCredentials"
+            },
+            {
+              "$ref": "#/$defs/AzureConnectionStringCredentials"
+            },
+            {
+              "$ref": "#/$defs/AzureDefaultCredentialCredentials"
+            }
+          ],
+          "title": "Credentials"
+        },
+        "prefix": {
+          "title": "Prefix",
+          "type": "string"
+        },
+        "type": {
+          "const": "azure_blob",
+          "default": "azure_blob",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "account",
+        "container",
+        "prefix",
+        "credentials"
+      ],
+      "title": "AzureSampleDestination",
+      "type": "object"
+    },
+    "FileSampleDestination": {
+      "additionalProperties": false,
+      "properties": {
+        "basePath": {
+          "title": "Basepath",
+          "type": "string"
+        },
+        "prefix": {
+          "default": "",
+          "title": "Prefix",
+          "type": "string"
+        },
+        "type": {
+          "const": "file",
+          "default": "file",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "basePath"
+      ],
+      "title": "FileSampleDestination",
+      "type": "object"
+    },
+    "S3ExplicitKeysCredentials": {
+      "additionalProperties": false,
+      "properties": {
+        "accessKeyId": {
+          "title": "Accesskeyid",
+          "type": "string"
+        },
+        "authMode": {
+          "const": "explicit_keys",
+          "default": "explicit_keys",
+          "title": "Authmode",
+          "type": "string"
+        },
+        "secretAccessKey": {
+          "format": "password",
+          "title": "Secretaccesskey",
+          "type": "string",
+          "writeOnly": true
+        },
+        "sessionToken": {
+          "anyOf": [
+            {
+              "format": "password",
+              "type": "string",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sessiontoken",
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "accessKeyId",
+        "secretAccessKey"
+      ],
+      "title": "S3ExplicitKeysCredentials",
+      "type": "object"
+    },
+    "S3InstanceProfileCredentials": {
+      "additionalProperties": false,
+      "properties": {
+        "authMode": {
+          "const": "instance_profile",
+          "default": "instance_profile",
+          "title": "Authmode",
+          "type": "string"
+        }
+      },
+      "title": "S3InstanceProfileCredentials",
+      "type": "object"
+    },
+    "S3SampleDestination": {
+      "additionalProperties": false,
+      "properties": {
+        "bucket": {
+          "title": "Bucket",
+          "type": "string"
+        },
+        "credentials": {
+          "discriminator": {
+            "mapping": {
+              "explicit_keys": "#/$defs/S3ExplicitKeysCredentials",
+              "instance_profile": "#/$defs/S3InstanceProfileCredentials"
+            },
+            "propertyName": "authMode"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/S3ExplicitKeysCredentials"
+            },
+            {
+              "$ref": "#/$defs/S3InstanceProfileCredentials"
+            }
+          ],
+          "title": "Credentials"
+        },
+        "endpointUrl": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endpointurl"
+        },
+        "prefix": {
+          "title": "Prefix",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region"
+        },
+        "type": {
+          "const": "s3",
+          "default": "s3",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bucket",
+        "prefix",
+        "credentials"
+      ],
+      "title": "S3SampleDestination",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "alignmentQcPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Alignmentqcpath"
+    },
+    "h5Destination": {
+      "anyOf": [
+        {
+          "discriminator": {
+            "mapping": {
+              "azure_blob": "#/$defs/AzureSampleDestination",
+              "file": "#/$defs/FileSampleDestination",
+              "s3": "#/$defs/S3SampleDestination"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/FileSampleDestination"
+            },
+            {
+              "$ref": "#/$defs/S3SampleDestination"
+            },
+            {
+              "$ref": "#/$defs/AzureSampleDestination"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "H5Destination"
+    },
+    "h5Files": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "H5Files"
+    },
+    "mode": {
+      "default": "full",
+      "title": "Mode",
+      "type": "string"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Projectpath"
+    },
+    "qcPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Qcpath"
+    },
+    "rejectReason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rejectreason"
+    },
+    "sampleDestination": {
+      "anyOf": [
+        {
+          "discriminator": {
+            "mapping": {
+              "azure_blob": "#/$defs/AzureSampleDestination",
+              "file": "#/$defs/FileSampleDestination",
+              "s3": "#/$defs/S3SampleDestination"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/FileSampleDestination"
+            },
+            {
+              "$ref": "#/$defs/S3SampleDestination"
+            },
+            {
+              "$ref": "#/$defs/AzureSampleDestination"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sampledestination"
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    },
+    "sampleId": {
+      "title": "Sampleid",
+      "type": "string"
+    },
+    "tool": {
+      "default": "SampleArchive",
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sampleId",
+    "sampleDir"
+  ],
+  "title": "ArchiveSampleTaskInput",
+  "type": "object"
+}

@@ -1,0 +1,22 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "capability": null,
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "manifest_path": null,
+  "mhb_bed": "/work/p/mhb_mhl/mhb.bed",
+  "mhb_qc": null,
+  "mhl_matrix": "/work/p/mhb_mhl/mhl_matrix.csv",
+  "n_blocks": 3,
+  "n_samples": 4,
+  "output_dir": "/work/p/mhb_mhl",
+  "result_code": 0,
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

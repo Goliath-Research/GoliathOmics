@@ -1,0 +1,285 @@
+{
+  "$defs": {
+    "GeneSetMetricsStepConfig": {
+      "additionalProperties": false,
+      "description": "Nested ``gene_set_metrics`` block (plan-style progression config).",
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable per-stage gene-set overlap metrics.",
+          "title": "Enabled"
+        },
+        "gene_universe": {
+          "anyOf": [
+            {
+              "enum": [
+                "mapper_all",
+                "mapper_top_n",
+                "mapper_min_weight_quantile"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Gene universe for overlap denominators.",
+          "title": "Gene Universe"
+        },
+        "output_basename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output basename for stage_gene_set_fractions artifacts (without extension).",
+          "title": "Output Basename"
+        },
+        "top_n": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Top-N genes when gene_universe=mapper_top_n.",
+          "title": "Top N"
+        },
+        "weight_quantile": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Weight quantile when gene_universe=mapper_min_weight_quantile.",
+          "title": "Weight Quantile"
+        }
+      },
+      "title": "GeneSetMetricsStepConfig",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Settings under ``step_config.progression`` in project JSON.\n\nConsumed by ``methyl-disease-progression`` and ``methyl-validation --freeze``.",
+  "properties": {
+    "disease_context": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Bundled disease profile key (e.g. prostate_cancer) for gene_set_metrics defaults.",
+      "title": "Disease Context"
+    },
+    "disease_profile": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Legacy bundled profile key (alias for disease_context resolution).",
+      "title": "Disease Profile"
+    },
+    "enabled": {
+      "default": false,
+      "description": "Run methyl-disease-progression after methyl-enricher in freeze.",
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "gene_score_mode": {
+      "default": "effect_x_support",
+      "description": "Gene scoring mode for progression long tables.",
+      "enum": [
+        "gene_importance",
+        "effect_x_support"
+      ],
+      "title": "Gene Score Mode",
+      "type": "string"
+    },
+    "gene_set_denominator": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Legacy denominator mode: all_genes | top_n | min_weight_quantile.",
+      "title": "Gene Set Denominator"
+    },
+    "gene_set_metrics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GeneSetMetricsStepConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Nested gene-set overlap metrics configuration."
+    },
+    "gene_set_metrics_enabled": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Legacy flat flag to enable gene-set metrics.",
+      "title": "Gene Set Metrics Enabled"
+    },
+    "gene_set_profile": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "External or inline gene-set profile JSON (path string or object).",
+      "title": "Gene Set Profile"
+    },
+    "gene_set_top_n": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gene Set Top N"
+    },
+    "gene_set_weight_quantile": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gene Set Weight Quantile"
+    },
+    "gene_sets_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Legacy path to gene-set profile JSON.",
+      "title": "Gene Sets Path"
+    },
+    "ordered_comparison_labels": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Explicit stage order (comparison_label tokens).",
+      "title": "Ordered Comparison Labels"
+    },
+    "ordered_disease_groups": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Deprecated alias for ordered_comparison_labels (disease_group tokens).",
+      "title": "Ordered Disease Groups"
+    },
+    "ordering_mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When set to auto_gleason, order stages by Gleason-like tokens in comparison labels.",
+      "title": "Ordering Mode"
+    },
+    "report_md": {
+      "default": false,
+      "description": "Write progression/report.md in addition to CSV/JSON outputs.",
+      "title": "Report Md",
+      "type": "boolean"
+    },
+    "strict_missing": {
+      "default": false,
+      "description": "Fail when required mapper/enricher stage inputs are missing.",
+      "title": "Strict Missing",
+      "type": "boolean"
+    }
+  },
+  "title": "ProgressionStepConfig",
+  "type": "object"
+}

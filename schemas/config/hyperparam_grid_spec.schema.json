@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A discrete grid: each named axis maps to the values it should sweep.\n\nGrid is the only supported strategy in this slice (Random / Hyperband /\nBayesian are intentionally out of scope). Axis names are dotted ``actionConfig``\npaths (e.g. ``validation.stability_dmp_freq``) applied as per-trial overlays.",
+  "properties": {
+    "axes": {
+      "additionalProperties": {
+        "items": {},
+        "type": "array"
+      },
+      "description": "Map of actionConfig overlay path to the discrete values to sweep. Operator-set per search from the portal; the Cartesian product defines the trials.",
+      "title": "Axes",
+      "type": "object"
+    }
+  },
+  "title": "HyperparamGridSpec",
+  "type": "object"
+}

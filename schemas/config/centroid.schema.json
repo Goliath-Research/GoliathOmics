@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Pydantic configuration model for MethylCentroid parameters.\n\nWorkflows:\n- Initial centroid creation: provide add_samples, output_dir for saving\n- Centroid updates: provide add_samples/remove_samples; current cohort is derived from\n  existing centroid HDF5 metadata (samples_used) when applicable (see MethylCentroid).",
+  "properties": {
+    "add_samples": {
+      "default": [],
+      "description": "Optional list of new sample paths to add incrementally",
+      "items": {
+        "type": "string"
+      },
+      "title": "Add Samples",
+      "type": "array"
+    },
+    "batch": {
+      "description": "Batch identifier for sample processing",
+      "title": "Batch",
+      "type": "string"
+    },
+    "binned_stats_bins": {
+      "default": 20,
+      "description": "Number of bins for the required per-position ECDF histogram. Must be >= 1. Default 20.",
+      "minimum": 1,
+      "title": "Binned Stats Bins",
+      "type": "integer"
+    },
+    "cap_coverage": {
+      "default": false,
+      "description": "If True, cap per-CpG coverage on each sample with binomial thinning before adding to centroid",
+      "title": "Cap Coverage",
+      "type": "boolean"
+    },
+    "cap_coverage_auto_n_cap": {
+      "default": false,
+      "description": "If True and cap_coverage_n_cap is None, estimate n_cap from first sample using Q3+1.5*IQR on sampled positions (outlier limit)",
+      "title": "Cap Coverage Auto N Cap",
+      "type": "boolean"
+    },
+    "cap_coverage_n_cap": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Max coverage per position; positions with coverage > this are thinned (requires cap_coverage=True)",
+      "title": "Cap Coverage N Cap"
+    },
+    "cap_coverage_n_cap_iqr_multiplier": {
+      "default": 1.5,
+      "description": "IQR multiplier for auto n_cap when method=iqr (standard boxplot fence=1.5)",
+      "minimum": 0.0,
+      "title": "Cap Coverage N Cap Iqr Multiplier",
+      "type": "number"
+    },
+    "cap_coverage_n_cap_max_positions": {
+      "default": 100000,
+      "description": "Max positions to sample when auto-estimating n_cap (keeps estimation fast)",
+      "minimum": 1000,
+      "title": "Cap Coverage N Cap Max Positions",
+      "type": "integer"
+    },
+    "cap_coverage_n_cap_method": {
+      "default": "iqr",
+      "description": "Method for auto n_cap: 'iqr' (Q3+iqr_multiplier*IQR, default).",
+      "title": "Cap Coverage N Cap Method",
+      "type": "string"
+    },
+    "cap_coverage_seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "RNG seed for reproducible capping (optional)",
+      "title": "Cap Coverage Seed"
+    },
+    "chrom": {
+      "description": "Chromosome identifier (e.g., '1', 'X')",
+      "title": "Chrom",
+      "type": "string"
+    },
+    "ctx": {
+      "description": "Context type (e.g., 'CG', 'CHG', 'CHH')",
+      "title": "Ctx",
+      "type": "string"
+    },
+    "disease": {
+      "description": "Disease or condition being studied",
+      "title": "Disease",
+      "type": "string"
+    },
+    "gpu_backend": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Numeric array backend: numpy, cupy (NVIDIA CUDA), or mojo (mojo-align numeric DeviceContext). Unset keeps CuPy-or-NumPy auto. Operator-set per profile/site; do not encode a package default.",
+      "title": "Gpu Backend"
+    },
+    "group": {
+      "description": "Sample group identifier (e.g., 'cancer', 'control')",
+      "title": "Group",
+      "type": "string"
+    },
+    "laboratory": {
+      "description": "Laboratory or institution name",
+      "title": "Laboratory",
+      "type": "string"
+    },
+    "max_sample_workers": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Maximum parallel workers for sample loading",
+      "title": "Max Sample Workers"
+    },
+    "min_coverage": {
+      "default": 4,
+      "description": "Minimum sum of mC and uC for a position",
+      "minimum": 1,
+      "title": "Min Coverage",
+      "type": "integer"
+    },
+    "output_dir": {
+      "description": "Directory to save centroid files",
+      "title": "Output Dir",
+      "type": "string"
+    },
+    "remove_samples": {
+      "default": [],
+      "description": "Optional list of sample paths to remove",
+      "items": {
+        "type": "string"
+      },
+      "title": "Remove Samples",
+      "type": "array"
+    },
+    "residualize_coef_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional coefficient directory from pipeline.residualize_fit. When unset, centroid uses raw betas (shipped-pack path).",
+      "title": "Residualize Coef Dir"
+    },
+    "use_gpu": {
+      "default": true,
+      "description": "Prefer an accelerator when the selected gpu_backend can use one. Operator-set per profile/site.",
+      "title": "Use Gpu",
+      "type": "boolean"
+    },
+    "verbose": {
+      "default": true,
+      "description": "Enable verbose output",
+      "title": "Verbose",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "laboratory",
+    "disease",
+    "group",
+    "batch",
+    "chrom",
+    "ctx",
+    "output_dir"
+  ],
+  "title": "MethylCentroidConfig",
+  "type": "object"
+}

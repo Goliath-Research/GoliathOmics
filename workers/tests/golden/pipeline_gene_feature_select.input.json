@@ -1,0 +1,5 @@
+{
+  "mapperDir": "/work/p/mapper",
+  "outputDir": "/work/p/gene_features",
+  "tool": "MethylGeneFeatureSelect"
+}

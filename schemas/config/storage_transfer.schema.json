@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Operator-set multipart / concurrency knobs for S3 and Azure Blob transfers.\n\nSet under site or profile ``actionConfig.storage_transfer``. All fields default\nto ``None`` (config-not-code); missing values leave SDK defaults in place.",
+  "properties": {
+    "max_attempts": {
+      "anyOf": [
+        {
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Max transfer attempts (botocore / Azure retry budget). Operator-set via actionConfig.storage_transfer.",
+      "title": "Max Attempts"
+    },
+    "max_concurrency": {
+      "anyOf": [
+        {
+          "maximum": 64,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Max parallel part/blob streams per object and max parallel files within one sample transfer. Operator-set via site/profile actionConfig.storage_transfer.",
+      "title": "Max Concurrency"
+    },
+    "mtime_tolerance_s": {
+      "anyOf": [
+        {
+          "maximum": 60.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Seconds of mtime skew allowed when skipping unchanged downloads. Operator-set via actionConfig.storage_transfer.",
+      "title": "Mtime Tolerance S"
+    },
+    "multipart_chunksize_mb": {
+      "anyOf": [
+        {
+          "maximum": 512,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "S3 multipart part size in MiB. Operator-set via actionConfig.storage_transfer.",
+      "title": "Multipart Chunksize Mb"
+    },
+    "multipart_threshold_mb": {
+      "anyOf": [
+        {
+          "maximum": 1024,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "S3 multipart threshold in MiB. Operator-set via actionConfig.storage_transfer.",
+      "title": "Multipart Threshold Mb"
+    }
+  },
+  "title": "StorageTransferStepConfig",
+  "type": "object"
+}

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Explicit product-lifecycle framing and claim boundary metadata.",
+  "properties": {
+    "allow_clinical_performance_claims": {
+      "default": false,
+      "description": "Whether FDA-facing clinical performance claims are allowed at this stage.",
+      "title": "Allow Clinical Performance Claims",
+      "type": "boolean"
+    },
+    "auto_apply_analyte_profile": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When true (default when primary_analyte is set), merge analyte-specific step_config defaults (fragmentomics, CIS-BP, bisulfite QC, etc.). Set false to opt out.",
+      "title": "Auto Apply Analyte Profile"
+    },
+    "claim_boundary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Explicit statement of allowed claims at this stage (e.g. feasibility-only, no final clinical claims).",
+      "title": "Claim Boundary"
+    },
+    "intended_use_summary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Short intended-use statement for reports.",
+      "title": "Intended Use Summary"
+    },
+    "model_training_analyte": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Analyte matrix used for stability/freeze/classifier training on this project. Defaults to primary_analyte when omitted. Set to cfdna for plasma/cfDNA retrain paths.",
+      "title": "Model Training Analyte"
+    },
+    "primary_analyte": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Primary biological analyte for interpretation framing (e.g., buffy_coat, cfdna, combined).",
+      "title": "Primary Analyte"
+    },
+    "reference_standard": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reference Standard"
+    },
+    "sample_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sample Type"
+    },
+    "stage": {
+      "default": "feasibility",
+      "description": "Current product lifecycle stage for evidence framing.",
+      "title": "Stage",
+      "type": "string"
+    },
+    "target_population": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Population"
+    }
+  },
+  "title": "RegulatoryLifecycleConfig",
+  "type": "object"
+}

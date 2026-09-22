@@ -1,0 +1,18 @@
+{
+  "executionScopeId": null,
+  "fastqSource": {
+    "basePath": "/data/fastq",
+    "contentHash": null,
+    "credentialName": null,
+    "credentialVersion": null,
+    "prefix": "S1/",
+    "scope": null,
+    "type": "file"
+  },
+  "projectPath": null,
+  "resolvedConfig": null,
+  "sampleDir": "/work/samples/S1",
+  "sampleId": "S1",
+  "sampleRoot": null,
+  "tool": "SampleDownloadMsdata"
+}

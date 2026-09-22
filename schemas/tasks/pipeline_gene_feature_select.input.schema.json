@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "mapperDir": {
+      "title": "Mapperdir",
+      "type": "string"
+    },
+    "outputDir": {
+      "title": "Outputdir",
+      "type": "string"
+    },
+    "tool": {
+      "default": "MethylGeneFeatureSelect",
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "mapperDir",
+    "outputDir"
+  ],
+  "title": "GeneFeatureSelectTaskInput",
+  "type": "object"
+}

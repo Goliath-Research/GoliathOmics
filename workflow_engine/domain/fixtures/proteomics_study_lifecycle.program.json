@@ -1,0 +1,31 @@
+{
+  "programVersion": 2,
+  "name": "ProteomicsStudyLifecycle",
+  "description": "Proteomics study modeling: per-comparison differential-abundance protein panel selection + tabular classification (pipeline.protein_de_select). Reuses the shared samples-x-features seam, scheduler, and CAAS. outputDir is bound per instance via ${var.proteinDeOutputDir}.",
+  "projectPath": "${var.projectPath}",
+  "variables": {
+    "proteinDeOutputDir": {
+      "schemaRef": "schemas/vars/path.schema.json",
+      "description": "Output directory root for protein DE panels and classification results (instance context)."
+    }
+  },
+  "body": [
+    {
+      "for": {
+        "in": { "ref": "project.comparisons" },
+        "as": "comparison",
+        "parallel": true
+      },
+      "do": [
+        {
+          "do": "pipeline.protein_de_select",
+          "with": {
+            "comparison": { "ref": "comparison.label" },
+            "outputDir": "${var.proteinDeOutputDir}"
+          },
+          "node_key": "protein_de_select"
+        }
+      ]
+    }
+  ]
+}

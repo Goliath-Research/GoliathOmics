@@ -1,0 +1,17 @@
+{
+  "panel_id": "horvath2013_stub_v1",
+  "genome": "GRCh38",
+  "score_name": "age_score",
+  "score_kind": "clock",
+  "citation": "One-site test fixture only. The residual procedure default is hannum2013_v1.json. Do not use this file as a biological age clock.",
+  "intercept": 0.0,
+  "sites": [
+    {
+      "illumina_id": "cg00000292",
+      "gene": "STPG1",
+      "chrom": "1",
+      "position": 1000000,
+      "weight": 0.0
+    }
+  ]
+}

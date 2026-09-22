@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PipelineProfile",
+  "description": "Versioned pipeline parameter pack for DomainProgram workflows.",
+  "type": "object",
+  "required": ["catalog"],
+  "properties": {
+    "pipelineProfile": { "type": "string" },
+    "pipelineProcedure": {
+      "type": "string",
+      "description": "Optional assay procedure pack id (profiles/procedures/<id>.procedure.json)."
+    },
+    "researchMode": {
+      "type": "string",
+      "description": "samd_research statistical axis overlay (gene_fc, dual_fc, …)."
+    },
+    "catalog": {
+      "$ref": "#/$defs/processPackCatalog"
+    },
+    "runDmpSelection": { "type": "boolean" },
+    "runGeneFeaturecuts": { "type": "boolean" },
+    "runBiomarkerFilter": { "type": "boolean" },
+    "runGeneFeatureSelect": { "type": "boolean" },
+    "runProgressionAnalysis": { "type": "boolean" },
+    "stabilityFeaturecutsEnabled": { "type": "boolean" },
+    "stabilityGeneFeaturecutsEnabled": { "type": "boolean" },
+    "stabilityGeneBiomarkerFilterEnabled": { "type": "boolean" },
+    "actionConfig": {
+      "type": "object",
+      "description": "Per-action parameter overlays (detection, mapper, validation, …). QC slices are sparse overlays of the site window.",
+      "properties": {
+        "alignment_qc": {
+          "$ref": "sample_prep_guardrails_overlay.schema.json#/properties/alignment_qc"
+        },
+        "extraction_qc": {
+          "$ref": "sample_prep_guardrails_overlay.schema.json#/properties/extraction_qc"
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "processPackCatalog": {
+      "type": "object",
+      "description": "Portal/operator catalog metadata (not science knobs).",
+      "required": ["title", "summary", "visibility", "lifecycle", "family"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "visibility": {
+          "type": "string",
+          "enum": ["operator", "advanced", "hidden"]
+        },
+        "lifecycle": {
+          "type": "string",
+          "enum": ["active", "deprecated", "internal"]
+        },
+        "family": {
+          "type": "string",
+          "enum": ["samd", "staged", "specialty", "legacy"]
+        },
+        "replacedBy": {
+          "type": "string",
+          "description": "Canonical profile or procedure id when lifecycle is deprecated."
+        },
+        "researchModes": {
+          "type": "array",
+          "description": "Allowed researchMode values when this profile is samd_research.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "dmp_raw",
+              "dmp_fc",
+              "gene_enricher",
+              "gene_fc",
+              "dual_fc",
+              "mhl_survival"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

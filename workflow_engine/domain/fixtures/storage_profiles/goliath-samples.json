@@ -1,0 +1,6 @@
+{
+  "name": "goliath-samples",
+  "version": "1",
+  "fastqStorageEndpoint": "goliath-fastq",
+  "sampleStorageEndpoint": "goliath-archive"
+}

@@ -1,0 +1,30 @@
+{
+  "dmp_modeling_mode": "raw_pool",
+  "gene_modeling_mode": "featurecuts",
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": false,
+  "stabilityFeaturecutsEnabled": false,
+  "stabilityGeneFeaturecutsEnabled": false,
+  "actionConfig": {
+    "detection": {
+      "detection_mode": "discovery_only",
+      "export_classifier": false
+    },
+    "validation": {
+      "run_stability": false,
+      "dmp_modeling_mode": "raw_pool",
+      "gene_modeling_mode": "featurecuts",
+      "stability_featurecuts_enabled": false,
+      "stability_gene_featurecuts_enabled": false,
+      "backend_profiles": {
+        "ecdf": {
+          "enabled": false
+        },
+        "cox": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "researchMode": "mhl_survival"
+}

@@ -1,0 +1,695 @@
+{
+  "$defs": {
+    "BiologyWeightConfig": {
+      "description": "Per (feature \u00d7 hyper/hypo) weights for biology-aware DMP aggregation in MethylMapper.",
+      "properties": {
+        "exon_hyper": {
+          "default": 1.5,
+          "exclusiveMinimum": 0.0,
+          "title": "Exon Hyper",
+          "type": "number"
+        },
+        "exon_hypo": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Exon Hypo",
+          "type": "number"
+        },
+        "gene_body_hyper": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Gene Body Hyper",
+          "type": "number"
+        },
+        "gene_body_hypo": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Gene Body Hypo",
+          "type": "number"
+        },
+        "intron_hyper": {
+          "default": 0.5,
+          "exclusiveMinimum": 0.0,
+          "title": "Intron Hyper",
+          "type": "number"
+        },
+        "intron_hypo": {
+          "default": 0.7,
+          "exclusiveMinimum": 0.0,
+          "title": "Intron Hypo",
+          "type": "number"
+        },
+        "promoter_hyper": {
+          "default": 2.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Promoter Hyper",
+          "type": "number"
+        },
+        "promoter_hypo": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Promoter Hypo",
+          "type": "number"
+        },
+        "terminator_hyper": {
+          "default": 0.5,
+          "exclusiveMinimum": 0.0,
+          "title": "Terminator Hyper",
+          "type": "number"
+        },
+        "terminator_hypo": {
+          "default": 0.5,
+          "exclusiveMinimum": 0.0,
+          "title": "Terminator Hypo",
+          "type": "number"
+        }
+      },
+      "title": "BiologyWeightConfig",
+      "type": "object"
+    },
+    "MapperStepOverride": {
+      "additionalProperties": false,
+      "description": "Flat mapper overrides from program stepOverride or resolvedConfig.",
+      "properties": {
+        "auxiliary_bed_paths": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Auxiliary Bed Paths"
+        },
+        "azure_key_vault_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Azure Key Vault Url"
+        },
+        "biology_weights": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BiologyWeightConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cache_backend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Backend"
+        },
+        "cache_db_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Db Path"
+        },
+        "cache_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Dir"
+        },
+        "cache_ttl_days": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Ttl Days"
+        },
+        "closest_gene_bed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Closest Gene Bed"
+        },
+        "csv_filename_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Csv Filename Pattern"
+        },
+        "csv_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Csv Pattern"
+        },
+        "disease_term": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disease Term"
+        },
+        "disgenet_api_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disgenet Api Key"
+        },
+        "downstream_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Downstream Size"
+        },
+        "encrypted_file_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Encrypted File Path"
+        },
+        "enrich_disease": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enrich Disease"
+        },
+        "enrich_profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enrich Profile"
+        },
+        "enrich_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enrich Source"
+        },
+        "extend_after_stable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extend After Stable"
+        },
+        "feature_types": {
+          "anyOf": [
+            {
+              "items": {},
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Feature Types"
+        },
+        "grok_429_cooldown": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grok 429 Cooldown"
+        },
+        "grok_api_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grok Api Key"
+        },
+        "grok_batch_api": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grok Batch Api"
+        },
+        "grok_batch_poll_interval": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grok Batch Poll Interval"
+        },
+        "grok_batch_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grok Batch Size"
+        },
+        "grok_batch_submit_chunk_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grok Batch Submit Chunk Size"
+        },
+        "grok_cache_ttl_days": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grok Cache Ttl Days"
+        },
+        "grok_max_retries": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grok Max Retries"
+        },
+        "grok_max_workers": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grok Max Workers"
+        },
+        "grok_rate_limit_delay": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grok Rate Limit Delay"
+        },
+        "gtf": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gtf"
+        },
+        "methyl_mapper_home": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Methyl Mapper Home"
+        },
+        "min_intron_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Intron Size"
+        },
+        "optimize_dmps": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Optimize Dmps"
+        },
+        "output_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Dir"
+        },
+        "persist_secrets": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Persist Secrets"
+        },
+        "plant_traits_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to offline gene\u2194trait TSV/CSV for enrich_source=plant_traits (columns: gene, disease_term/trait_term, optional score/evidence). Operator-set per profile/site/instance; required when plant_traits is selected. Do not use Open Targets for plant packs.",
+          "title": "Plant Traits Path"
+        },
+        "run_bedtools_closest": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Bedtools Closest"
+        },
+        "storey_lambda": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Storey Lambda"
+        },
+        "upstream_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstream Size"
+        },
+        "use_sp_regions": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Use Sp Regions"
+        },
+        "w_exon": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "W Exon"
+        },
+        "w_gene_body": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "W Gene Body"
+        },
+        "w_intron": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "W Intron"
+        },
+        "w_promoter": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "W Promoter"
+        },
+        "w_terminator": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "W Terminator"
+        },
+        "w_unknown": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "W Unknown"
+        }
+      },
+      "title": "MapperStepOverride",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "group": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Group"
+    },
+    "project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Project"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Projectpath"
+    },
+    "stepOverride": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MapperStepOverride"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "tool": {
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tool"
+  ],
+  "title": "MapperTaskInput",
+  "type": "object"
+}

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Scope-facing detector run summary (paths, not full DMP table).",
+  "properties": {
+    "$type": {
+      "const": "MethylDetectionRef",
+      "default": "MethylDetectionRef",
+      "title": "$Type",
+      "type": "string"
+    },
+    "chromosome": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Chromosome"
+    },
+    "comparisonLabel": {
+      "title": "Comparisonlabel",
+      "type": "string"
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Context"
+    },
+    "controlGroup": {
+      "title": "Controlgroup",
+      "type": "string"
+    },
+    "diseaseGroup": {
+      "title": "Diseasegroup",
+      "type": "string"
+    },
+    "dmpCsvPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dmpcsvpath"
+    },
+    "nDmps": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ndmps"
+    },
+    "outputDir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Outputdir"
+    }
+  },
+  "required": [
+    "comparisonLabel",
+    "controlGroup",
+    "diseaseGroup"
+  ],
+  "title": "MethylDetectionRef",
+  "type": "object"
+}

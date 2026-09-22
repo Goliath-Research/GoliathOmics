@@ -1,0 +1,26 @@
+
+{
+  "model_path": "/home/ubuntu/Work/samples/humans/psomagen/AN00026418/detection/pb-hc-1_G/classifier-2-CG.pkl",
+  "samples": [
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-042525-95676",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-042825-39553",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-042925-105788",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-051325-25543",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-051425-74294",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-052125-32336",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-052125-87293",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-052225-74758",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-060425-107956",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-060625-104673",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-060925-66247",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-061125-42608",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-061825-52197",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-063025-77476",
+        "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HBCST-071625-48267"
+
+  ],
+  "output_path": "/home/ubuntu/working_dir/MethylClassifierResults/MethylClassifier_pb_hc1/2-CG/healthy-pre-pilot.csv",
+  "debug": false,
+  "no_filter": false,
+  "log_level": "INFO"
+}

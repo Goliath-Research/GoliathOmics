@@ -1,0 +1,45 @@
+[tool.poetry]
+name = "methyl-validation"
+version = "0.1.0"
+description = "Monte Carlo validation runner for MethylPipeline: stratified train/val splits, pipeline runs, and empirical metric distributions"
+authors = ["MethylPipeline Development Team"]
+readme = "README.md"
+packages = [{include = "methyl_validation"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.15"
+pydantic = ">=2.6.0,<3.0.0"
+numpy = ">=2.0.0,<3.0.0"
+pandas = ">=2.1.0,<3.0.0"
+pyarrow = ">=14.0.0,<26.0.0"
+rich = ">=13.0.0"
+scipy = ">=1.11.0,<2.0.0"
+xgboost = ">=2.0.0,<3.0.0"
+methylutils = {path = "../methylutils", develop = true}
+methyl-predictor = {path = "../methylpredictor", develop = true}
+methyl-detector = {path = "../methyldetector", develop = true}
+methyl_mapper = {path = "../methylmapper", develop = true}
+methyl_enricher = {path = "../methylenricher", develop = true}
+methyl_classifier = {path = "../methylclassifier", develop = true}
+methylcentroid = {path = "../methylcentroid", develop = true}
+methyl_cluster = {path = "../methylcluster", develop = true}
+methyl_alignment_qc = {path = "../methylalignmentqc", develop = true}
+methyl_domain = {path = "../methyldomain", develop = true}
+methyl-gene-select = {path = "../methylgeneselect", develop = true}
+methyl-dmp-select = {path = "../methyldmpselect", develop = true}
+
+[tool.poetry.scripts]
+methyl-validation = "methyl_validation.cli:main"
+methyl-hyperparam-search = "methyl_validation.hyperparam_search:main"
+methyl-stability-freeze-readiness = "methyl_validation.stability_freeze_readiness:main"
+methyl-validation-migrate-backend-config = "methyl_validation.utils.migrate_backend_config:main"
+methyl-export-config-schemas = "methyl_validation.schema_export:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+black = "^23.0.0"
+flake8 = "^6.0.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

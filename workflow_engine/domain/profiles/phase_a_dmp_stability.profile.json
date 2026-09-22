@@ -1,0 +1,42 @@
+{
+  "pipelineProfile": "phase_a_dmp_stability",
+  "catalog": {
+    "title": "Phase A \u2014 DMP panel lock",
+    "summary": "Two-phase workflow: lock DMP panel before gene modeling.",
+    "visibility": "operator",
+    "lifecycle": "active",
+    "family": "staged"
+  },
+  "dmp_modeling_mode": "featurecuts",
+  "gene_modeling_mode": "none",
+  "runDmpSelection": true,
+  "runGeneFeaturecuts": false,
+  "stabilityFeaturecutsEnabled": true,
+  "stabilityGeneFeaturecutsEnabled": false,
+  "actionConfig": {
+    "detection": {
+      "detection_mode": "discovery_only",
+      "export_classifier": false,
+      "dmp_export_mode": "dual"
+    },
+    "dmp_selection": {
+      "enabled": true,
+      "classifier_dmp_selection": "featurecuts_validation",
+      "target_balanced_accuracy": 0.95
+    },
+    "mapper": {
+      "csv_pattern": "dmps-*-selected.csv",
+      "enrich_disease": false
+    },
+    "validation": {
+      "run_stability": true,
+      "dmp_modeling_mode": "featurecuts",
+      "gene_modeling_mode": "none",
+      "stability_featurecuts_enabled": true,
+      "stability_gene_featurecuts_enabled": false,
+      "dmp_featurecuts_target_ba": 0.95,
+      "dmp_featurecuts_fail_if_below_target": true,
+      "stability_dmp_freq": 0.85
+    }
+  }
+}

@@ -1,0 +1,666 @@
+{
+  "$defs": {
+    "ClassifierStepOverride": {
+      "additionalProperties": false,
+      "example": {
+        "debug": false,
+        "input_path": "samples/",
+        "log_level": "INFO",
+        "model_path": "models/classifier-chr1-CG.pkl",
+        "no_filter": false,
+        "output_path": "results/classification_results.csv"
+      },
+      "properties": {
+        "calibration_seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seed for stratified calibration/stacking mask (e.g. align with MC validation seed).",
+          "title": "Calibration Seed"
+        },
+        "calibration_train_fraction": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Stratified per-class fraction for fitting isotonic calibrators and fitted chromosome weights; None or omitted uses the full labeled set.",
+          "title": "Calibration Train Fraction"
+        },
+        "centroid1_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to centroid1 output directory (H5 files). Sample list is read from each file's 'samples_used' metadata (union across files). Use with centroid2_dir.",
+          "title": "Centroid1 Dir"
+        },
+        "centroid1_sample_paths": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit list of sample directories for centroid1 (class 0). Overrides centroid1_dir if set. Use with centroid2_sample_paths.",
+          "title": "Centroid1 Sample Paths"
+        },
+        "centroid2_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to centroid2 output directory (H5 files). Sample list is read from each file's 'samples_used' metadata (union across files). Use with centroid1_dir.",
+          "title": "Centroid2 Dir"
+        },
+        "centroid2_sample_paths": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit list of sample directories for centroid2 (class 1). Overrides centroid2_dir if set. Use with centroid1_sample_paths.",
+          "title": "Centroid2 Sample Paths"
+        },
+        "centroid_dirs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "List of centroid directories for N-class (one per class). When len > 2, use with multiclass_class_names and a DMP CSV to build a multiclass model.",
+          "title": "Centroid Dirs"
+        },
+        "centroid_path_remap": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Prefix replacement for paths from centroid metadata: {\"old_prefix\": \"new_prefix\", ...}. Longest matching key is replaced so relative paths are preserved. Use when samples live under a different base (e.g. NAS). Overrides centroid_sample_root.",
+          "title": "Centroid Path Remap"
+        },
+        "centroid_sample_root": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When reading samples_used from centroid H5 metadata, remap each path to <centroid_sample_root>/<basename(path)>. Use when data moved to NAS so metadata still has old paths. Ignored if centroid_path_remap is set.",
+          "title": "Centroid Sample Root"
+        },
+        "chromosome_matrix_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional output CSV file for chromosome probability matrix (samples \u00d7 chromosomes)",
+          "title": "Chromosome Matrix Path"
+        },
+        "chromosome_weights": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Predefined chromosome weights (bypasses trimmed-mean calculation). Dict format: {'1': 0.5, '2': 0.3, ...}",
+          "title": "Chromosome Weights"
+        },
+        "class_priors": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional binary class priors [p(class0), p(class1)] for ECDF posterior.",
+          "title": "Class Priors"
+        },
+        "debug": {
+          "default": false,
+          "description": "Enable debug output",
+          "title": "Debug",
+          "type": "boolean"
+        },
+        "dependence_block_shrinkage": {
+          "default": 0.0,
+          "description": "Optional shrinkage for dependence-aware block aggregation.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Dependence Block Shrinkage",
+          "type": "number"
+        },
+        "dependence_block_size": {
+          "default": 1,
+          "description": "Optional dependence-aware aggregation block size (1 = independent-loci).",
+          "minimum": 1,
+          "title": "Dependence Block Size",
+          "type": "integer"
+        },
+        "enable_platt_calibration": {
+          "default": false,
+          "description": "Enable Platt scaling calibration on validation data",
+          "title": "Enable Platt Calibration",
+          "type": "boolean"
+        },
+        "expected_classes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional list of expected class index per sample (for validation report). Set when samples are built from centroid_dirs.",
+          "title": "Expected Classes"
+        },
+        "input_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to input .h5 file or directory containing .h5 files (alternative to samples list)",
+          "title": "Input Path"
+        },
+        "log_level": {
+          "default": "INFO",
+          "description": "Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+          "title": "Log Level",
+          "type": "string"
+        },
+        "min_observed_dmp_fraction": {
+          "default": 0.0,
+          "description": "Minimum fraction of classifier DMP positions that must be observed in a sample; if coverage is below this after masking missing values, the sample is abstained (uniform class probabilities, prediction -1, predicted_class=abstain in CSV). 0 disables abstention.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Observed Dmp Fraction",
+          "type": "number"
+        },
+        "model_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to directory containing classifier-{chrom}.pkl files (alternative to model_path)",
+          "title": "Model Dir"
+        },
+        "model_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to trained classifier model (.pkl file) or directory containing classifier-{chrom}.pkl files",
+          "title": "Model Path"
+        },
+        "multiclass_class_names": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Class names for multiclass (same order as centroid_dirs). Used when centroid_dirs has more than 2 entries.",
+          "title": "Multiclass Class Names"
+        },
+        "no_filter": {
+          "default": false,
+          "description": "Process all .h5 files without chromosome/context filtering",
+          "title": "No Filter",
+          "type": "boolean"
+        },
+        "output_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional output CSV file for classification results",
+          "title": "Output Path"
+        },
+        "ovr_binary_model_paths": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "K>=2 MethylDetector PKL paths (OvR order). Assembles ecdf_one_vs_rest at runtime; omit model_dir when set.",
+          "title": "Ovr Binary Model Paths"
+        },
+        "ovr_bipartite_aggregate": {
+          "default": false,
+          "description": "True when ovr_detection_dirs lists M\u00d7N bipartite pairwises (multi-control \u00d7 multi-disease).",
+          "title": "Ovr Bipartite Aggregate",
+          "type": "boolean"
+        },
+        "ovr_class_names": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for OvR class names; defaults to multiclass_class_names when multiclass.",
+          "title": "Ovr Class Names"
+        },
+        "ovr_detection_dirs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "K>=2 MethylDetector output dirs (OvR order). One pickle per dir = single-chrom head; multiple classifier-*.pkl = multi-chrom expert per class. Alternative to ovr_binary_model_paths.",
+          "title": "Ovr Detection Dirs"
+        },
+        "ovr_fuse_mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional OvR fusion mode override: flat | pairwise_max_contrast.",
+          "title": "Ovr Fuse Mode"
+        },
+        "ovr_n_control_classes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "M for ovr_bipartite_aggregate; N = len(ovr_class_names) - M.",
+          "title": "Ovr N Control Classes"
+        },
+        "ovr_pairwise_aggregate_control": {
+          "default": false,
+          "description": "True when ovr_detection_dirs lists K-1 pairwise folders and first OvR class is control (geometric-mean aggregate head).",
+          "title": "Ovr Pairwise Aggregate Control",
+          "type": "boolean"
+        },
+        "panel": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "OvR pairwise max-contrast only: panel spec (primary_family, families, optional indeterminate_delta). Adds panel columns and panel_report.json when classifying with samples_list / centroid validation.",
+          "title": "Panel"
+        },
+        "project_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Project name for saving classifier as <project_name>-classifier.pkl and sample list. Used when save_classifier_path or samples_list_export_path are not set.",
+          "title": "Project Name"
+        },
+        "residualize_coef_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional residualize_fit coefficient directory. When unset, sample features are raw betas (shipped-pack path).",
+          "title": "Residualize Coef Dir"
+        },
+        "samples": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "List of sample directory paths. Each directory should contain {chrom}-CG.h5, {chrom}-CHG.h5, {chrom}-CHH.h5 files. Contexts will be merged. (alternative to input_path)",
+          "title": "Samples"
+        },
+        "samples_list_export_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to export the list of sample folders (.txt or .csv). If null and project_name set, uses <output_dir>/<project_name>-samples.txt.",
+          "title": "Samples List Export Path"
+        },
+        "save_classifier_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to save the final classifier .pkl after classification. If null and project_name set, uses <output_dir>/<project_name>-classifier.pkl.",
+          "title": "Save Classifier Path"
+        },
+        "temperature": {
+          "default": 1.0,
+          "description": "Temperature for softmax in prediction",
+          "maximum": 10.0,
+          "minimum": 0.1,
+          "title": "Temperature",
+          "type": "number"
+        },
+        "trimmed_percentile_high": {
+          "default": 0.01,
+          "description": "Upper percentile for trimmed mean effect_size calculation - removes top X% (default: 0.01 = remove top 1%). High effect_size DMPs are important for classification, so only remove outliers.",
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Trimmed Percentile High",
+          "type": "number"
+        },
+        "trimmed_percentile_low": {
+          "default": 0.1,
+          "description": "Lower percentile for trimmed mean effect_size calculation - removes bottom X% (default: 0.10 = remove bottom 10%)",
+          "maximum": 0.5,
+          "minimum": 0.0,
+          "title": "Trimmed Percentile Low",
+          "type": "number"
+        },
+        "use_elasticnet_stacking": {
+          "default": false,
+          "description": "Enable ElasticNet chromosome stacking when fitting weights from labeled data.",
+          "title": "Use Elasticnet Stacking",
+          "type": "boolean"
+        },
+        "use_isotonic_calibration": {
+          "default": false,
+          "description": "Enable isotonic calibration when labels are available (centroid validation / training export).",
+          "title": "Use Isotonic Calibration",
+          "type": "boolean"
+        },
+        "weight_fit_alpha": {
+          "default": 1.0,
+          "description": "Regularization strength for fitted weights (inverse of C for logistic).",
+          "minimum": 0.0,
+          "title": "Weight Fit Alpha",
+          "type": "number"
+        },
+        "weight_fit_l1_ratio": {
+          "default": 0.5,
+          "description": "For weight_method='elasticnet_fitted': balance L1/L2 (0=ridge-like, 1=lasso-like).",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Weight Fit L1 Ratio",
+          "type": "number"
+        },
+        "weight_fit_regularization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "none",
+          "description": "For weight_method='linear_fitted': 'none', 'ridge', or 'lasso'.",
+          "title": "Weight Fit Regularization"
+        },
+        "weight_method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How to obtain chromosome weights: 'config', 'effect_size', or 'linear_fitted'. If None, inferred from chromosome_weights.",
+          "title": "Weight Method"
+        }
+      },
+      "title": "ClassifierStepOverride",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "fixedDmpPanel": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fixeddmppanel"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Group"
+    },
+    "outputDir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Outputdir"
+    },
+    "project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Project"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Projectpath"
+    },
+    "residualizeCoefDir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional residualize_fit coefficient directory. Null/absent = raw betas (shipped path). Bind when scoring residualized centroids.",
+      "title": "Residualizecoefdir"
+    },
+    "stepOverride": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ClassifierStepOverride"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "tool": {
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tool"
+  ],
+  "title": "ClassifierTaskInput",
+  "type": "object"
+}

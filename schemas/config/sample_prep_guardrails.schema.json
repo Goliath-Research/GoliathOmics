@@ -1,0 +1,644 @@
+{
+  "$defs": {
+    "AlignmentGuardrailsFull": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "flagstat_enabled": {
+          "default": true,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Flagstat Enabled",
+          "type": "boolean"
+        },
+        "max_secondary_supplementary_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.05,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Max Secondary Supplementary Rate"
+        },
+        "max_supplementary_rate_flagstat": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.02,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Max Supplementary Rate Flagstat"
+        },
+        "min_gc_coverage_uniformity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Min Gc Coverage Uniformity"
+        },
+        "min_mapping_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.98,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Min Mapping Rate"
+        },
+        "min_properly_paired_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0.9,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Min Properly Paired Rate"
+        },
+        "wgbs_min_mapped_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Wgbs Min Mapped Rate"
+        }
+      },
+      "title": "AlignmentGuardrailsFull",
+      "type": "object"
+    },
+    "AlignmentQcFull": {
+      "additionalProperties": false,
+      "description": "Site ``alignment_qc`` slice. No sample paths or output dir.",
+      "properties": {
+        "alignment_guardrails": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlignmentGuardrailsFull"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback."
+        },
+        "auto_profile_from_analyte": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Auto Profile From Analyte"
+        },
+        "bisulfite_conversion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BisulfiteConversionFull"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback."
+        },
+        "core_guardrails": {
+          "$ref": "#/$defs/CoreGuardrailsFull",
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback."
+        },
+        "cycle_screening": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CycleScreeningFull"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback."
+        },
+        "fragmentomics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FragmentomicsFull"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback."
+        },
+        "optional_guardrails": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OptionalGuardrailsFull"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback."
+        }
+      },
+      "title": "AlignmentQcFull",
+      "type": "object"
+    },
+    "BisulfiteConversionFull": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "max_deamination_qscore_proxy": {
+          "default": 30,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 0,
+          "title": "Max Deamination Qscore Proxy",
+          "type": "integer"
+        },
+        "max_non_cpg_methylation_pct": {
+          "default": 2.0,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Max Non Cpg Methylation Pct",
+          "type": "number"
+        },
+        "min_conversion_rate_pct": {
+          "default": 99.0,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Min Conversion Rate Pct",
+          "type": "number"
+        },
+        "sidecar_filename": {
+          "default": "bisulfite_conversion.json",
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Sidecar Filename",
+          "type": "string"
+        },
+        "source": {
+          "default": "auto",
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "enum": [
+            "sidecar",
+            "deamination_proxy",
+            "auto"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "title": "BisulfiteConversionFull",
+      "type": "object"
+    },
+    "CoreGuardrailsFull": {
+      "additionalProperties": false,
+      "description": "Published WGBS core thresholds. Site stores every key.",
+      "properties": {
+        "max_at_dropout": {
+          "default": 3.0,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 0.0,
+          "title": "Max At Dropout",
+          "type": "number"
+        },
+        "max_deamination_qscore": {
+          "default": 30,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 0,
+          "title": "Max Deamination Qscore",
+          "type": "integer"
+        },
+        "max_gc_dropout": {
+          "default": 5.0,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 0.0,
+          "title": "Max Gc Dropout",
+          "type": "number"
+        },
+        "median_insert_max_bp": {
+          "default": 300,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Median Insert Max Bp",
+          "type": "integer"
+        },
+        "median_insert_min_bp": {
+          "default": 150,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Median Insert Min Bp",
+          "type": "integer"
+        },
+        "min_mean_quality": {
+          "default": 35.0,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 0.0,
+          "title": "Min Mean Quality",
+          "type": "number"
+        },
+        "min_oxog_qscore": {
+          "default": 20,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 0,
+          "title": "Min Oxog Qscore",
+          "type": "integer"
+        },
+        "min_pf_percent": {
+          "default": 90.0,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Min Pf Percent",
+          "type": "number"
+        },
+        "min_q30_percent": {
+          "default": 85.0,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "maximum": 100.0,
+          "minimum": 0.0,
+          "title": "Min Q30 Percent",
+          "type": "number"
+        },
+        "min_quality_post20": {
+          "default": 30.0,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 0.0,
+          "title": "Min Quality Post20",
+          "type": "number"
+        }
+      },
+      "title": "CoreGuardrailsFull",
+      "type": "object"
+    },
+    "CycleScreeningFull": {
+      "additionalProperties": false,
+      "properties": {
+        "broad_bad_cycle_count": {
+          "default": 8,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Broad Bad Cycle Count",
+          "type": "integer"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "fallback_trim_front": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Fallback Trim Front"
+        },
+        "fallback_trim_tail": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Fallback Trim Tail"
+        },
+        "localized_max_span": {
+          "default": 6,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Localized Max Span",
+          "type": "integer"
+        },
+        "max_trim_bases": {
+          "default": 8,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Max Trim Bases",
+          "type": "integer"
+        },
+        "multi_region_min_separate_dips": {
+          "default": 2,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 2,
+          "title": "Multi Region Min Separate Dips",
+          "type": "integer"
+        },
+        "r2_quality_threshold": {
+          "default": 30.0,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "R2 Quality Threshold",
+          "type": "number"
+        },
+        "r2_start_window_cycles": {
+          "default": 5,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "R2 Start Window Cycles",
+          "type": "integer"
+        },
+        "read_edge_window": {
+          "default": 10,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Read Edge Window",
+          "type": "integer"
+        },
+        "read_length": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Read Length"
+        },
+        "recovery_cycles": {
+          "default": 10,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Recovery Cycles",
+          "type": "integer"
+        },
+        "remediate_without_cycles": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Remediate Without Cycles"
+        }
+      },
+      "title": "CycleScreeningFull",
+      "type": "object"
+    },
+    "ExtractionQcFull": {
+      "additionalProperties": false,
+      "description": "Site ``extraction_qc`` slice. No sample paths.",
+      "properties": {
+        "expected_chromosomes": {
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Expected Chromosomes",
+          "type": "array"
+        },
+        "guardrails": {
+          "$ref": "#/$defs/ExtractionQcGuardrailFull",
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback."
+        }
+      },
+      "title": "ExtractionQcFull",
+      "type": "object"
+    },
+    "ExtractionQcGuardrailFull": {
+      "additionalProperties": false,
+      "properties": {
+        "max_chg_methylation_level": {
+          "default": 0.02,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Chg Methylation Level",
+          "type": "number"
+        },
+        "max_chh_methylation_level": {
+          "default": 0.02,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Chh Methylation Level",
+          "type": "number"
+        },
+        "max_discard_fraction": {
+          "default": 0.9,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Discard Fraction",
+          "type": "number"
+        },
+        "min_autosomal_coverage_uniformity_ratio": {
+          "default": 0.5,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Autosomal Coverage Uniformity Ratio",
+          "type": "number"
+        },
+        "min_cpg_weighted_mean_coverage": {
+          "default": 10.0,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 0.0,
+          "title": "Min Cpg Weighted Mean Coverage",
+          "type": "number"
+        }
+      },
+      "title": "ExtractionQcGuardrailFull",
+      "type": "object"
+    },
+    "FragmentomicsFull": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "long_fragment_min_bp": {
+          "default": 300,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Long Fragment Min Bp",
+          "type": "integer"
+        },
+        "max_short_fragment_fraction": {
+          "default": 0.35,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Short Fragment Fraction",
+          "type": "number"
+        },
+        "median_insert_max_bp": {
+          "default": 220,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Median Insert Max Bp",
+          "type": "integer"
+        },
+        "median_insert_min_bp": {
+          "default": 120,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Median Insert Min Bp",
+          "type": "integer"
+        },
+        "nucleosome_peak_bp_max": {
+          "default": 200,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Nucleosome Peak Bp Max",
+          "type": "integer"
+        },
+        "nucleosome_peak_bp_min": {
+          "default": 140,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Nucleosome Peak Bp Min",
+          "type": "integer"
+        },
+        "profile": {
+          "default": "off",
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "enum": [
+            "off",
+            "cfdna",
+            "wgbs"
+          ],
+          "title": "Profile",
+          "type": "string"
+        },
+        "short_fragment_max_bp": {
+          "default": 150,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "minimum": 1,
+          "title": "Short Fragment Max Bp",
+          "type": "integer"
+        }
+      },
+      "title": "FragmentomicsFull",
+      "type": "object"
+    },
+    "OptionalGuardrailsFull": {
+      "additionalProperties": false,
+      "properties": {
+        "duplication_rate_max": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Duplication Rate Max"
+        },
+        "min_pf_reads": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback.",
+          "title": "Min Pf Reads"
+        }
+      },
+      "title": "OptionalGuardrailsFull",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "JSON Schema bind target for Platform \u2192 Site \u2192 Guardrails.\n\nPersist the full working document (published window). Nested optional groups\n(fragmentomics, alignment_guardrails) may be omitted so analyte fill-missing\nstill applies at instance bake.",
+  "properties": {
+    "alignment_qc": {
+      "$ref": "#/$defs/AlignmentQcFull",
+      "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback."
+    },
+    "extraction_qc": {
+      "$ref": "#/$defs/ExtractionQcFull",
+      "description": "Published WGBS window. Operator-set on Platform \u2192 Site \u2192 Guardrails; this is the canonical deployment value, not a Python fallback."
+    }
+  },
+  "title": "SamplePrepGuardrails",
+  "type": "object"
+}

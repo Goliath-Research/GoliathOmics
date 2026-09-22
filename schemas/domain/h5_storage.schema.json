@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "H5Storage",
+  "description": "Deprecated alias schema — see sample_storage.schema.json",
+  "$defs": {
+    "AzureH5Destination": { "$ref": "sample_storage.schema.json#/$defs/AzureSampleDestination" },
+    "AzureH5StorageDefaults": { "$ref": "sample_storage.schema.json#/$defs/AzureSampleStorageDefaults" },
+    "FileH5Destination": { "$ref": "sample_storage.schema.json#/$defs/FileSampleDestination" },
+    "FileH5StorageDefaults": { "$ref": "sample_storage.schema.json#/$defs/FileSampleStorageDefaults" },
+    "S3H5Destination": { "$ref": "sample_storage.schema.json#/$defs/S3SampleDestination" },
+    "S3H5StorageDefaults": { "$ref": "sample_storage.schema.json#/$defs/S3SampleStorageDefaults" }
+  },
+  "H5DestinationLocation": { "$ref": "sample_storage.schema.json#/SampleDestinationLocation" },
+  "H5StorageDefaults": { "$ref": "sample_storage.schema.json#/SampleStorageDefaults" }
+}

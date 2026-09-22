@@ -1,0 +1,35 @@
+{
+  "catalog": {
+    "title": "EpiGBS",
+    "summary": "EpiGBS library / reduced-representation specialty pack.",
+    "visibility": "advanced",
+    "lifecycle": "active",
+    "family": "specialty"
+  },
+  "profileId": "epi_gbs",
+  "description": "epi-GBS / reduced-representation methylation SamplePrep overlay. Use with sample_prep_epigbs.program.json and libraryProtocol=epi_gbs. Sparse coverage floors are operator-tunable; values live here (not in Python).",
+  "actionConfig": {
+    "sample_prep": {
+      "library_protocol": "epi_gbs"
+    },
+    "demultiplex": {
+      "skip": false
+    },
+    "docker_align": {
+      "image": null,
+      "argv": [],
+      "note": "Operators must set image + argv template (placeholders: {r1},{r2},{bam},{reference},{sample_dir})."
+    },
+    "alignment_qc": {
+      "guardrails": {
+        "min_mapped_reads": 500000,
+        "min_mean_coverage": 0.5
+      }
+    },
+    "extraction_qc": {
+      "guardrails": {
+        "min_sites_covered": 10000
+      }
+    }
+  }
+}

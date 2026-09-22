@@ -1,0 +1,55 @@
+{
+  "project_name": "Buffy_healthy_vs_PCa",
+  "laboratory": "psomagen",
+  "batch": "Buffy-coat healthy vs PCa (paired cohort, CG)",
+  "output_base": "/work/projects/prostate-cancer",
+  "samples_base_path": "/work/samples",
+  "controls": {
+    "label": "healthy",
+    "groups": [
+      {
+        "label": "all",
+        "sample_paths": [
+          "/work/projects/prostate-cancer/data/healthy_b.csv"
+        ]
+      }
+    ]
+  },
+  "diseases": {
+    "label": "cancer",
+    "groups": [
+      {
+        "label": "PCa",
+        "sample_paths": [
+          "/work/projects/prostate-cancer/data/pca_b.csv"
+        ]
+      }
+    ]
+  },
+  "comparisons": [
+    {
+      "control_group": "all",
+      "disease_group": "PCa",
+      "label": "PCa"
+    }
+  ],
+  "path_remap": {
+    "/lambda/nfs/Work/prostate-cancer/samples": "/work/samples",
+    "/lambda/nfs/Work/prostate-cancer": "/work/projects/prostate-cancer"
+  },
+  "chromosomes": [
+    "21"
+  ],
+  "contexts": [
+    "CG"
+  ],
+  "regulatory": {
+    "stage": "feasibility",
+    "primary_analyte": "buffy_coat",
+    "model_training_analyte": "buffy_coat",
+    "sample_type": "Buffy-coat WGBS (CG)",
+    "intended_use_summary": "Single-run discovery for mapper/enricher; paired plasma vs buffy-coat comparison.",
+    "claim_boundary": "Feasibility evidence only; not for clinical claims.",
+    "auto_apply_analyte_profile": true
+  }
+}

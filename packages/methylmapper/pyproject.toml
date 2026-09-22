@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "methyl_mapper"
+version = "0.1.0"
+description = "Project-aware DMP-to-gene mapping for MethylPipeline with bedtools as the primary workflow"
+authors = ["MethylPipeline Team"]
+readme = "README.md"
+packages = [{include = "methyl_mapper"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.15"
+sqlalchemy = ">=1.4.0,<3.0.0"
+pandas = ">=2.1.0,<3.0.0"
+numpy = ">=2.0.0,<3.0.0"
+pydantic = ">=2.6.0,<3.0.0"
+sqlmodel = "*"
+pyodbc = ">=4.0.0"
+requests = ">=2.25.0"
+cryptography = ">=3.4.0"
+methylutils = {path = "../methylutils", develop = true}
+methyl-domain = {path = "../methyldomain", develop = true}
+
+[tool.poetry.scripts]
+methyl-mapper = "methyl_mapper.cli:main"
+methyl_mapper = "methyl_mapper.cli:main"
+methyl_mapper_bedtools = "methyl_mapper.cli:main_bedtools"
+methyl_mapper_credentials = "methyl_mapper.cli:main_credentials"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+pytest-cov = "^4.0.0"
+black = "^23.0.0"
+flake8 = "^6.0.0"
+mypy = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+

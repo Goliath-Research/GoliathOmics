@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "chromosomes": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Chromosome allow-list; default from project chromosomes.",
+      "title": "Chromosomes"
+    },
+    "context": {
+      "anyOf": [
+        {
+          "const": "CG",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Haplotype context. Only CG is supported.",
+      "title": "Context"
+    },
+    "control_bed": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional BED of panel positive/negative controls to drop from discovery.",
+      "title": "Control Bed"
+    },
+    "core_window": {
+      "anyOf": [
+        {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Seed window size in CpGs (Guo/mHap uses 3). Operator-set.",
+      "title": "Core Window"
+    },
+    "mhb_bed": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Frozen MHB BED (chrom start end [name]). Required for locked mode.",
+      "title": "Mhb Bed"
+    },
+    "mhl_max_length": {
+      "anyOf": [
+        {
+          "maximum": 32,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Maximum consecutive-haplotype length for MHL (Wong uses 10). Operator-set.",
+      "title": "Mhl Max Length"
+    },
+    "min_cpgs": {
+      "anyOf": [
+        {
+          "minimum": 2,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum CpGs per retained block. Operator-set.",
+      "title": "Min Cpgs"
+    },
+    "min_median_reads": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum median overlapping reads per block. Operator-set.",
+      "title": "Min Median Reads"
+    },
+    "mode": {
+      "anyOf": [
+        {
+          "enum": [
+            "discovery",
+            "locked"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "discovery: Guo/mHap-style LD blocks. locked: operator mhb_bed, skip LD. Operator-set per procedure/profile.",
+      "title": "Mode"
+    },
+    "output_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Output directory; default {project_root}/mhb_mhl.",
+      "title": "Output Dir"
+    },
+    "p_max": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Maximum p-value for adjacent-CpG correlation. Operator-set.",
+      "title": "P Max"
+    },
+    "r2_min": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum adjacent-CpG Pearson r\u00b2 for block extension. Operator-set.",
+      "title": "R2 Min"
+    },
+    "sample_id_column": {
+      "default": "sample_id",
+      "description": "Column name for sample identifier in mhl_matrix.csv.",
+      "title": "Sample Id Column",
+      "type": "string"
+    }
+  },
+  "title": "MhbMhlStepConfig",
+  "type": "object"
+}

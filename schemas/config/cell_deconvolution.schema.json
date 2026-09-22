@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Schema-facing actionConfig (tunable knobs default to None until site/profile set them).",
+  "properties": {
+    "analyte": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Analyte selecting the hierarchical tree (buffy_coat | cfdna | tissue) for the 'hitimed' method. Defaults to the project regulatory primary_analyte.",
+      "title": "Analyte"
+    },
+    "contexts": {
+      "anyOf": [
+        {
+          "items": {
+            "enum": [
+              "CG",
+              "CHG",
+              "CHH"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Methylation contexts to read from sample H5. Required in site/profile actionConfig.cell_deconvolution (no code default).",
+      "title": "Contexts"
+    },
+    "hierarchy_basis_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Path to hierarchical (v2) basis JSON for the 'hitimed' method. Operator-set per site/profile; defaults to the packaged hierarchy basis. The tree used is selected by analyte via the basis' analyte_trees map.",
+      "title": "Hierarchy Basis Path"
+    },
+    "marker_min_coverage": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum coverage at a marker CpG for inclusion in Y. Required in site/profile actionConfig.cell_deconvolution (no code default).",
+      "title": "Marker Min Coverage"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "enum": [
+            "houseman",
+            "hitimed"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Deconvolution method. 'houseman' (default) runs one flat FlowSorted/IDOL projection; 'hitimed' runs the analyte-driven hierarchical tree. Operator-set per profile/site.",
+      "title": "Method"
+    },
+    "min_marker_fraction": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum fraction of seed markers observed (with coverage) required to emit \u03a9; below this, proportions are NaN. Required in site/profile actionConfig.cell_deconvolution (no code default).",
+      "title": "Min Marker Fraction"
+    },
+    "output_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Output directory; default {project_root}/cell_fractions.",
+      "title": "Output Dir"
+    },
+    "sample_id_column": {
+      "default": "sample_id",
+      "description": "Column name for sample identifier in cell_fractions.csv.",
+      "title": "Sample Id Column",
+      "type": "string"
+    },
+    "seed_basis_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Path to FlowSorted/IDOL seed basis JSON (markers \u00d7 cell-type betas) for the 'houseman' method. Operator-set per site/profile; defaults to packaged flowsorted_blood_epic_idol_v1.json.",
+      "title": "Seed Basis Path"
+    },
+    "use_gpu": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Prefer MethylUtils CuPy/GPU backend when available (honors METHYL_DISABLE_GPU). Operator-set per profile/site; same pattern as centroid use_gpu.",
+      "title": "Use Gpu"
+    }
+  },
+  "title": "CellDeconvStepConfig",
+  "type": "object"
+}

@@ -1,0 +1,502 @@
+{
+  "panel_id": "hannum2013_v1",
+  "genome": "GRCh38",
+  "score_name": "age_score",
+  "score_kind": "weighted_beta",
+  "citation": "Hannum et al. Mol Cell 2013 doi:10.1016/j.molcel.2012.10.016; 71 methylation markers from Table S3 (CoefficientTraining). Coordinates are GRCh38 via Zhou lab HM450.hg38.manifest (1-based). Residualization covariate, not a product DNAmAge.",
+  "intercept": 0.0,
+  "coordinate_source": "Zhou lab HM450.hg38.manifest (zhouserver InfiniumAnnotation)",
+  "coordinate_convention": "1-based",
+  "sites": [
+    {
+      "illumina_id": "cg20822990",
+      "chrom": "1",
+      "position": 17012271,
+      "weight": -15.7,
+      "gene": "ATP13A2"
+    },
+    {
+      "illumina_id": "cg22512670",
+      "chrom": "1",
+      "position": 26529274,
+      "weight": 1.05,
+      "gene": "RPS6KA1"
+    },
+    {
+      "illumina_id": "cg25410668",
+      "chrom": "1",
+      "position": 27915066,
+      "weight": 3.87,
+      "gene": "RPA2"
+    },
+    {
+      "illumina_id": "cg04400972",
+      "chrom": "1",
+      "position": 117122431,
+      "weight": 9.62,
+      "gene": "TRIM45"
+    },
+    {
+      "illumina_id": "cg16054275",
+      "chrom": "1",
+      "position": 169586784,
+      "weight": -11.1,
+      "gene": "F5"
+    },
+    {
+      "illumina_id": "cg10501210",
+      "chrom": "1",
+      "position": 207823675,
+      "weight": -6.46,
+      "gene": "C1orf132"
+    },
+    {
+      "illumina_id": "cg09809672",
+      "chrom": "1",
+      "position": 236394382,
+      "weight": -0.74,
+      "gene": "EDARADD"
+    },
+    {
+      "illumina_id": "ch.2.30415474F",
+      "chrom": "2",
+      "position": 30339104,
+      "weight": 5.79
+    },
+    {
+      "illumina_id": "cg22158769",
+      "chrom": "2",
+      "position": 38960398,
+      "weight": -2.06,
+      "gene": "ARHGEF33"
+    },
+    {
+      "illumina_id": "cg02085953",
+      "chrom": "2",
+      "position": 96536523,
+      "weight": 1.02,
+      "gene": "ARID5A"
+    },
+    {
+      "illumina_id": "cg06639320",
+      "chrom": "2",
+      "position": 105399282,
+      "weight": 8.95,
+      "gene": "FHL2"
+    },
+    {
+      "illumina_id": "cg22454769",
+      "chrom": "2",
+      "position": 105399310,
+      "weight": 4.85,
+      "gene": "FHL2"
+    },
+    {
+      "illumina_id": "cg24079702",
+      "chrom": "2",
+      "position": 105399314,
+      "weight": 2.48,
+      "gene": "FHL2"
+    },
+    {
+      "illumina_id": "cg23606718",
+      "chrom": "2",
+      "position": 130756354,
+      "weight": 8.35,
+      "gene": "AC140481.8"
+    },
+    {
+      "illumina_id": "cg22016779",
+      "chrom": "2",
+      "position": 229587595,
+      "weight": 1.79,
+      "gene": "DNER"
+    },
+    {
+      "illumina_id": "cg04474832",
+      "chrom": "3",
+      "position": 51974471,
+      "weight": -7.1,
+      "gene": "ABHD14A"
+    },
+    {
+      "illumina_id": "cg03607117",
+      "chrom": "3",
+      "position": 53046424,
+      "weight": 10.7,
+      "gene": "RP11-5O17.1"
+    },
+    {
+      "illumina_id": "cg07553761",
+      "chrom": "3",
+      "position": 160450189,
+      "weight": 3.72,
+      "gene": "RP11-432B6.3"
+    },
+    {
+      "illumina_id": "cg00481951",
+      "chrom": "3",
+      "position": 187669862,
+      "weight": -2.72,
+      "gene": "SST"
+    },
+    {
+      "illumina_id": "cg25478614",
+      "chrom": "3",
+      "position": 187670078,
+      "weight": 4.01,
+      "gene": "SST"
+    },
+    {
+      "illumina_id": "cg25428494",
+      "chrom": "4",
+      "position": 83334258,
+      "weight": -1.81,
+      "gene": "HPSE"
+    },
+    {
+      "illumina_id": "cg02650266",
+      "chrom": "4",
+      "position": 146637087,
+      "weight": 10.2
+    },
+    {
+      "illumina_id": "cg08234504",
+      "chrom": "5",
+      "position": 139633732,
+      "weight": -3.16
+    },
+    {
+      "illumina_id": "cg23500537",
+      "chrom": "5",
+      "position": 141040234,
+      "weight": 5.67
+    },
+    {
+      "illumina_id": "cg20052760",
+      "chrom": "6",
+      "position": 10510556,
+      "weight": -12.6,
+      "gene": "GCNT2"
+    },
+    {
+      "illumina_id": "cg16867657",
+      "chrom": "6",
+      "position": 11044644,
+      "weight": 10.8,
+      "gene": "ELOVL2"
+    },
+    {
+      "illumina_id": "cg22736354",
+      "chrom": "6",
+      "position": 18122488,
+      "weight": 4.42,
+      "gene": "NHLRC1"
+    },
+    {
+      "illumina_id": "cg06493994",
+      "chrom": "6",
+      "position": 25652374,
+      "weight": 9.42,
+      "gene": "SCGN"
+    },
+    {
+      "illumina_id": "cg06685111",
+      "chrom": "6",
+      "position": 30327689,
+      "weight": -13.1,
+      "gene": "HCG18"
+    },
+    {
+      "illumina_id": "cg00486113",
+      "chrom": "6",
+      "position": 31137934,
+      "weight": -10.7,
+      "gene": "PSORS1C1"
+    },
+    {
+      "illumina_id": "cg13001142",
+      "chrom": "6",
+      "position": 147207385,
+      "weight": -5.8,
+      "gene": "STXBP5"
+    },
+    {
+      "illumina_id": "cg20426994",
+      "chrom": "7",
+      "position": 130733497,
+      "weight": 19.1,
+      "gene": "KLF14"
+    },
+    {
+      "illumina_id": "cg14361627",
+      "chrom": "7",
+      "position": 130734355,
+      "weight": 10.7,
+      "gene": "KLF14"
+    },
+    {
+      "illumina_id": "cg08097417",
+      "chrom": "7",
+      "position": 130734372,
+      "weight": 27.3,
+      "gene": "KLF14"
+    },
+    {
+      "illumina_id": "cg07955995",
+      "chrom": "7",
+      "position": 130734398,
+      "weight": 13.7,
+      "gene": "KLF14"
+    },
+    {
+      "illumina_id": "cg22285878",
+      "chrom": "7",
+      "position": 130734412,
+      "weight": -20.7,
+      "gene": "KLF14"
+    },
+    {
+      "illumina_id": "cg03473532",
+      "chrom": "7",
+      "position": 131323984,
+      "weight": -3.31,
+      "gene": "MKLN1"
+    },
+    {
+      "illumina_id": "cg08540945",
+      "chrom": "7",
+      "position": 152894613,
+      "weight": 9.41
+    },
+    {
+      "illumina_id": "cg07927379",
+      "chrom": "7",
+      "position": 156640414,
+      "weight": -1.42,
+      "gene": "LINC01006"
+    },
+    {
+      "illumina_id": "cg16419235",
+      "chrom": "8",
+      "position": 56448054,
+      "weight": -1.6,
+      "gene": "PENK"
+    },
+    {
+      "illumina_id": "cg07583137",
+      "chrom": "8",
+      "position": 81731777,
+      "weight": 3.03,
+      "gene": "CHMP4C"
+    },
+    {
+      "illumina_id": "cg22796704",
+      "chrom": "10",
+      "position": 48465491,
+      "weight": -10.6,
+      "gene": "ARHGAP22"
+    },
+    {
+      "illumina_id": "cg19935065",
+      "chrom": "10",
+      "position": 96302930,
+      "weight": 13.4,
+      "gene": "DNTT"
+    },
+    {
+      "illumina_id": "cg23091758",
+      "chrom": "11",
+      "position": 9004220,
+      "weight": -0.392,
+      "gene": "NRIP3"
+    },
+    {
+      "illumina_id": "cg23744638",
+      "chrom": "11",
+      "position": 10302355,
+      "weight": 0.0859
+    },
+    {
+      "illumina_id": "cg04940570",
+      "chrom": "11",
+      "position": 12675211,
+      "weight": 11.6,
+      "gene": "TEAD1"
+    },
+    {
+      "illumina_id": "cg11067179",
+      "chrom": "11",
+      "position": 66316070,
+      "weight": 14.7,
+      "gene": "CD248"
+    },
+    {
+      "illumina_id": "cg22213242",
+      "chrom": "11",
+      "position": 66316102,
+      "weight": 23.7,
+      "gene": "CD248"
+    },
+    {
+      "illumina_id": "cg06419846",
+      "chrom": "11",
+      "position": 66316226,
+      "weight": 13.4,
+      "gene": "CD248"
+    },
+    {
+      "illumina_id": "cg02046143",
+      "chrom": "11",
+      "position": 133928016,
+      "weight": -10.2,
+      "gene": "IGSF9B"
+    },
+    {
+      "illumina_id": "cg00748589",
+      "chrom": "12",
+      "position": 11500552,
+      "weight": 8.21,
+      "gene": "PRB2"
+    },
+    {
+      "illumina_id": "cg19722847",
+      "chrom": "12",
+      "position": 30696180,
+      "weight": -5.66,
+      "gene": "IPO8"
+    },
+    {
+      "illumina_id": "cg18473521",
+      "chrom": "12",
+      "position": 54054481,
+      "weight": 8.85,
+      "gene": "HOXC4"
+    },
+    {
+      "illumina_id": "cg01528542",
+      "chrom": "12",
+      "position": 81074453,
+      "weight": -2.98,
+      "gene": "ACSS3"
+    },
+    {
+      "illumina_id": "ch.13.39564907R",
+      "chrom": "13",
+      "position": 40092770,
+      "weight": -20.6,
+      "gene": "RP11-427J23.1"
+    },
+    {
+      "illumina_id": "cg03032497",
+      "chrom": "14",
+      "position": 60641509,
+      "weight": 8.4,
+      "gene": "SALRNA1"
+    },
+    {
+      "illumina_id": "cg04875128",
+      "chrom": "15",
+      "position": 31483692,
+      "weight": -4.37,
+      "gene": "OTUD7A"
+    },
+    {
+      "illumina_id": "cg21296230",
+      "chrom": "15",
+      "position": 32718335,
+      "weight": 8.39,
+      "gene": "GREM1"
+    },
+    {
+      "illumina_id": "cg09651136",
+      "chrom": "15",
+      "position": 72232671,
+      "weight": -15.8,
+      "gene": "PKM"
+    },
+    {
+      "illumina_id": "cg03399905",
+      "chrom": "15",
+      "position": 79283718,
+      "weight": 28.0,
+      "gene": "ANKRD34C-AS1"
+    },
+    {
+      "illumina_id": "cg04416734",
+      "chrom": "16",
+      "position": 30063871,
+      "weight": 11.9,
+      "gene": "ALDOA"
+    },
+    {
+      "illumina_id": "cg07082267",
+      "chrom": "16",
+      "position": 85395429,
+      "weight": 2.87
+    },
+    {
+      "illumina_id": "cg14692377",
+      "chrom": "17",
+      "position": 30235667,
+      "weight": 19.1,
+      "gene": "SLC6A4"
+    },
+    {
+      "illumina_id": "cg06874016",
+      "chrom": "17",
+      "position": 42025397,
+      "weight": -4.37,
+      "gene": "NKIRAS2"
+    },
+    {
+      "illumina_id": "cg21139312",
+      "chrom": "17",
+      "position": 57585864,
+      "weight": 17.1,
+      "gene": "MSI2"
+    },
+    {
+      "illumina_id": "cg02867102",
+      "chrom": "17",
+      "position": 64321333,
+      "weight": -12.5,
+      "gene": "PECAM1"
+    },
+    {
+      "illumina_id": "cg19283806",
+      "chrom": "18",
+      "position": 68722183,
+      "weight": -4.29,
+      "gene": "CCDC102B"
+    },
+    {
+      "illumina_id": "cg14556683",
+      "chrom": "19",
+      "position": 15232171,
+      "weight": -4.04,
+      "gene": "EPHX3"
+    },
+    {
+      "illumina_id": "cg07547549",
+      "chrom": "20",
+      "position": 46029586,
+      "weight": 3.11,
+      "gene": "SLC12A5"
+    },
+    {
+      "illumina_id": "cg05442902",
+      "chrom": "22",
+      "position": 21014721,
+      "weight": -22.7,
+      "gene": "P2RX6"
+    },
+    {
+      "illumina_id": "cg08415592",
+      "chrom": "22",
+      "position": 36252927,
+      "weight": -6.92,
+      "gene": "APOL1"
+    }
+  ]
+}

@@ -1,0 +1,698 @@
+{
+  "$defs": {
+    "FilterFunnelExplore": {
+      "description": "Optional exploration: sweep effect_size_coverage over a range and write filter_funnel-{chromosome}.csv.",
+      "properties": {
+        "effect_size_coverage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FilterFunnelRangeSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Range/step for effect_size_coverage (values in [0,1], e.g. min=0.80, max=0.99, step=0.05)"
+        }
+      },
+      "title": "FilterFunnelExplore",
+      "type": "object"
+    },
+    "FilterFunnelRangeSpec": {
+      "description": "Range and step for sweeping one biological filter (min, min+step, ... up to max).",
+      "properties": {
+        "max": {
+          "description": "Maximum value (inclusive)",
+          "title": "Max",
+          "type": "number"
+        },
+        "min": {
+          "description": "Minimum value (inclusive)",
+          "title": "Min",
+          "type": "number"
+        },
+        "step": {
+          "description": "Step between values",
+          "exclusiveMinimum": 0,
+          "title": "Step",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min",
+        "max",
+        "step"
+      ],
+      "title": "FilterFunnelRangeSpec",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Simplified configuration for MethylDetector analysis.",
+  "properties": {
+    "alpha": {
+      "default": 0.05,
+      "description": "Significance level for statistical tests (q-value threshold)",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Alpha",
+      "type": "number"
+    },
+    "biological_only_effect_size_coverage": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional rescue track for biologically strong but underpowered loci (q > alpha). When set, apply the same per-context effect-mass selection to non-significant positions and flag them as biological-only.",
+      "title": "Biological Only Effect Size Coverage"
+    },
+    "biological_only_max_candidates": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 5000,
+      "description": "Maximum number of non-significant candidates per context to consider for biological-only rescue before ECDF rescoring.",
+      "title": "Biological Only Max Candidates"
+    },
+    "centroid1_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "format": "path",
+          "type": "string"
+        }
+      ],
+      "description": "Directory containing centroid1 .h5 files (format: {chrom}-{context}.h5)",
+      "title": "Centroid1 Dir"
+    },
+    "centroid1_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "format": "path",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "[Deprecated] Path to single centroid .h5 file (for single-context mode)",
+      "title": "Centroid1 Path"
+    },
+    "centroid1_validation_samples": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Validation cohort paths for centroid1, or the string 'use_metadata' to read from centroid H5 (default when omitted: use_metadata).",
+      "title": "Centroid1 Validation Samples"
+    },
+    "centroid2_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "format": "path",
+          "type": "string"
+        }
+      ],
+      "description": "Directory containing centroid2 .h5 files (format: {chrom}-{context}.h5)",
+      "title": "Centroid2 Dir"
+    },
+    "centroid2_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "format": "path",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "[Deprecated] Path to single centroid .h5 file (for single-context mode)",
+      "title": "Centroid2 Path"
+    },
+    "centroid2_validation_samples": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Validation cohort paths for centroid2, or 'use_metadata'.",
+      "title": "Centroid2 Validation Samples"
+    },
+    "centroid_self_check_top_k": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "If set, centroid self-check uses only the top K DMPs by effect_size (most biologically important). Reduces noise from low-effect loci that can make both centroids classify as class0. E.g. 5000.",
+      "title": "Centroid Self Check Top K"
+    },
+    "chromosome": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "Chromosome(s) to process. Can be a single chromosome (e.g., '1', 'X', '22') or a list (e.g., ['1', '2', 'X'])",
+      "title": "Chromosome"
+    },
+    "classifier_dmp_selection": {
+      "default": "elbow",
+      "description": "How to build the prediction DMP panel: elbow = effect_size distribution trim only; featurecuts_validation = choose top-k by balanced accuracy on configured validation samples (requires real validation data).",
+      "enum": [
+        "elbow",
+        "featurecuts_validation"
+      ],
+      "title": "Classifier Dmp Selection",
+      "type": "string"
+    },
+    "classifier_export_margin_abs": {
+      "default": 10,
+      "description": "Dual export: add this many top-ranked DMPs beyond k_core for the extended classifier CSV.",
+      "minimum": 0,
+      "title": "Classifier Export Margin Abs",
+      "type": "integer"
+    },
+    "classifier_export_margin_pct": {
+      "default": 0.1,
+      "description": "Dual export: extend dmps-{chrom}-classifier-extended.csv to at least ceil(k_core * (1 + margin_pct)) for mapper/gene annotation.",
+      "minimum": 0.0,
+      "title": "Classifier Export Margin Pct",
+      "type": "number"
+    },
+    "classifier_export_max_dmps": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 200,
+      "description": "Dual export: cap k_extended per chromosome (annotation panel only; core pickle unchanged).",
+      "title": "Classifier Export Max Dmps"
+    },
+    "context_weight_direction": {
+      "default": "inverse",
+      "description": "How to derive context weight from trimmed mean effect_size: 'inverse' = weight \u221d 1/mean_effect_size (down-weight contexts with inflated effect_size, e.g. CHH); 'proportional' = weight \u221d mean_effect_size (legacy).",
+      "title": "Context Weight Direction",
+      "type": "string"
+    },
+    "contexts": {
+      "default": [
+        "CG"
+      ],
+      "description": "List of methylation contexts to process (e.g., ['CG'], ['CG', 'CHG'], or ['CG', 'CHG', 'CHH']). Default is ['CG'] as it typically provides the strongest signal for most analyses.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Contexts",
+      "type": "array"
+    },
+    "debug": {
+      "default": false,
+      "description": "Enable debug output (e.g. classifier predict_proba in centroid self-check, extra validation logs).",
+      "title": "Debug",
+      "type": "boolean"
+    },
+    "delta_mean_reduction": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Coarse pre-statistical gate: before running the statistical test, discard positions where |delta_mean| < delta_mean_reduction. Reduces the test set for expensive contexts (CHH). If null, no coarse gate is applied.",
+      "title": "Delta Mean Reduction"
+    },
+    "detection_mode": {
+      "default": "legacy",
+      "description": "legacy: run discovery plus inline classifier panel selection and optional pickle export. discovery_only: export dmps-{chr}-discovery.csv only; run methyl-dmp-select and pipeline.classifier separately.",
+      "enum": [
+        "legacy",
+        "discovery_only"
+      ],
+      "title": "Detection Mode",
+      "type": "string"
+    },
+    "discovery_dynamic_dmp_cutoff_enabled": {
+      "default": false,
+      "description": "If True, apply the same effect_size elbow trim to the discovery export in dual mode. Default False: discovery keeps all biologically filtered DMPs sorted by importance.",
+      "title": "Discovery Dynamic Dmp Cutoff Enabled",
+      "type": "boolean"
+    },
+    "dmp_export_mode": {
+      "default": "dual",
+      "description": "unified: single dmps-{chrom}.csv (classifier subset; may expand rows to min_dmps_for_export for mapper). dual: dmps-{chrom}-discovery.csv (broad, mapper/enricher) + dmps-{chrom}-classifier.csv (prediction panel) + metadata JSON.",
+      "enum": [
+        "unified",
+        "dual"
+      ],
+      "title": "Dmp Export Mode",
+      "type": "string"
+    },
+    "dynamic_dmp_cutoff_enabled": {
+      "default": true,
+      "description": "If True, dynamically analyze the effect_size distribution (elbow detection) to identify and drop the long tail of low-importance DMPs. Maximizes retained DMPs while removing weak signal.",
+      "title": "Dynamic Dmp Cutoff Enabled",
+      "type": "boolean"
+    },
+    "dynamic_dmp_cutoff_relaxation": {
+      "default": 1.0,
+      "description": "Multiplier for the dynamically calculated elbow threshold. 1.0 = exact elbow. <1.0 = relaxed (keeps more DMPs), >1.0 = stricter.",
+      "exclusiveMinimum": 0.0,
+      "title": "Dynamic Dmp Cutoff Relaxation",
+      "type": "number"
+    },
+    "ecdf_grid_size": {
+      "default": 256,
+      "description": "Number of grid points for ECDF/KS and overlap integration (single grid; default 256).",
+      "maximum": 4096,
+      "minimum": 16,
+      "title": "Ecdf Grid Size",
+      "type": "integer"
+    },
+    "effect_size_coverage": {
+      "default": 0.95,
+      "description": "Biological filter: select the minimum set of statistical DMPs (per context) whose effect sizes sum to this fraction of total effect mass. 1.0 = keep all statistical DMPs (no biological filter); 0.95 = keep the minimum set covering 95%% of total effect mass. Applied per-context so CG/CHG/CHH are selected independently.",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Effect Size Coverage",
+      "type": "number"
+    },
+    "effect_size_mean_level_k": {
+      "default": 0.05,
+      "description": "For saturating: k in \u03bc/(\u03bc+k). For boundary: \u03c4 (tau), e.g. 0.1; effect_size \u00d7 min(1, max(\u03bc1,\u03bc2)/\u03c4) so signals below \u03c4 are down-weighted.",
+      "maximum": 0.5,
+      "minimum": 0.01,
+      "title": "Effect Size Mean Level K",
+      "type": "number"
+    },
+    "effect_size_mean_level_k_by_context": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional per-context k for mean-level weight (e.g. {\"CHH\": 0.20, \"CHG\": 0.10}). Use a larger k for CHH so effect_size is naturally lower there; CG uses effect_size_mean_level_k. None = same k for all contexts.",
+      "title": "Effect Size Mean Level K By Context"
+    },
+    "effect_size_mean_level_use_max": {
+      "default": true,
+      "description": "If True, use max(mean1,mean2) for the mean-level factor; if False, use (mean1+mean2)/2. Formula uses max.",
+      "title": "Effect Size Mean Level Use Max",
+      "type": "boolean"
+    },
+    "effect_size_mean_level_weight": {
+      "default": "saturating",
+      "description": "Mean-level weight: 'sqrt', 'linear', 'saturating' (\u03bc/(\u03bc+k)), or 'boundary' (min(1, \u03bc/\u03c4)); use max(\u03bc1,\u03bc2) so one group \u2265 \u03c4 removes penalty.",
+      "title": "Effect Size Mean Level Weight",
+      "type": "string"
+    },
+    "effect_size_use_mean_level": {
+      "default": true,
+      "description": "Multiply effect_size by max(\u03bc\u2081,\u03bc\u2082)/(max(\u03bc\u2081,\u03bc\u2082)+k) to reduce inflated scores at low methylation (e.g. CHH).",
+      "title": "Effect Size Use Mean Level",
+      "type": "boolean"
+    },
+    "effect_size_weight_power": {
+      "default": 1.0,
+      "description": "Power applied to normalized effect_size when building classifier weights: weight_i = (effect_size_i / max)^power. Default 1.0 (no change). Use > 1 (e.g. 2.0\u20133.0) for large DMP sets so weak positions contribute less; higher values concentrate weight more on top positions and can improve centroid separation and class probability margins.",
+      "maximum": 5.0,
+      "minimum": 0.1,
+      "title": "Effect Size Weight Power",
+      "type": "number"
+    },
+    "enable_platt_calibration": {
+      "default": false,
+      "description": "Enable Platt scaling calibration on validation data during classification",
+      "title": "Enable Platt Calibration",
+      "type": "boolean"
+    },
+    "export_classifier": {
+      "default": true,
+      "description": "When True in legacy mode, write classifier pickle after panel selection. Set False when pipeline.classifier trains the model.",
+      "title": "Export Classifier",
+      "type": "boolean"
+    },
+    "export_sample_size_estimate": {
+      "default": false,
+      "description": "If True, add n_estimated_per_group column to DMP CSV: sample size per group needed for target_power (two-sample t-test, Cohen's d from delta_mean and combined variance).",
+      "title": "Export Sample Size Estimate",
+      "type": "boolean"
+    },
+    "fail_if_below_target": {
+      "default": false,
+      "description": "Strict FeatureCuts: fail when target BA is unmet or selected k is below min_core_dmps instead of expanding the panel into worse held-out performance.",
+      "title": "Fail If Below Target",
+      "type": "boolean"
+    },
+    "featurecuts_exhaustive_search": {
+      "default": false,
+      "description": "When classifier_dmp_selection=featurecuts_validation: search more k candidates (slower, more thorough).",
+      "title": "Featurecuts Exhaustive Search",
+      "type": "boolean"
+    },
+    "featurecuts_max_candidates": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 50,
+      "description": "Cap on candidate k values evaluated in featurecuts mode (None = auto).",
+      "title": "Featurecuts Max Candidates"
+    },
+    "featurecuts_max_k_cap": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional upper bound on k when running featurecuts (speed). None = use all rows after elbow prefilter.",
+      "title": "Featurecuts Max K Cap"
+    },
+    "filter_funnel_explore": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FilterFunnelExplore"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Sweep effect_size_coverage over a range and write filter_funnel-{chromosome}.csv per chromosome, then aggregate to filter_funnel.csv with a leading chromosome column. Set to null to disable."
+    },
+    "fixed_dmp_panel": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "format": "path",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Path to a fixed DMP panel CSV (chromosome,position,context,...). If provided, bypasses statistical/biological discovery and uses only these positions (for production freeze).",
+      "title": "Fixed Dmp Panel"
+    },
+    "lambda_var": {
+      "default": 2.0,
+      "description": "Variance penalty strength in effect_size = |delta_mean| * (1 - overlap) * exp(-lambda_var * (sqrt(variance1) + sqrt(variance2))).",
+      "maximum": 20.0,
+      "minimum": 0.0,
+      "title": "Lambda Var",
+      "type": "number"
+    },
+    "max_tau2_for_dmp": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional heterogeneity filter. If set, drop positions where both groups exceed this between-sample variance estimate (tau2), because they are likely heterogeneous subpopulations rather than clean DMPs.",
+      "title": "Max Tau2 For Dmp"
+    },
+    "min_core_dmps": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional small guardrail on the core classifier panel (k_core) after FeatureCuts. Use only to avoid trivially tiny panels; does not apply a large fixed export floor.",
+      "title": "Min Core Dmps"
+    },
+    "min_coverage": {
+      "default": 4,
+      "description": "Minimum total coverage (Sm+uC) per position in each centroid for a position to be a DMP candidate. Same default as MethylCentroid; use higher for stricter precision when comparing centroids.",
+      "minimum": 1,
+      "title": "Min Coverage",
+      "type": "integer"
+    },
+    "min_dmps_for_export": {
+      "default": 1000,
+      "description": "Unified mode: if the classifier/elbow subset is smaller than this but more biological DMPs exist, the exported dmps-{chrom}.csv is widened to this many top-importance rows while the saved classifier still uses the elbow subset. Dual mode: warn when the discovery table has fewer than this many rows.",
+      "minimum": 1,
+      "title": "Min Dmps For Export",
+      "type": "integer"
+    },
+    "min_samples_abs": {
+      "default": 1,
+      "description": "Absolute minimum number of samples (N) per position in each centroid.",
+      "minimum": 1,
+      "title": "Min Samples Abs",
+      "type": "integer"
+    },
+    "min_samples_pct": {
+      "default": 0.05,
+      "description": "Minimum fraction of that centroid's cohort (samples) per position. Effective min N per centroid = max(min_samples_abs, ceil(min_samples_pct * cohort_size)). Cohort size is resolved from validation sample lists when set, else centroid metadata (n_samples or sample_paths/samples_used length), else max(N) across positions as a fallback.",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Min Samples Pct",
+      "type": "number"
+    },
+    "min_selected_dmps": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Deprecated alias for min_core_dmps when min_core_dmps is unset. Does not widen mapper exports; use classifier_export_margin_* for annotation panels.",
+      "title": "Min Selected Dmps"
+    },
+    "output_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "format": "path",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Output directory for results",
+      "title": "Output Dir"
+    },
+    "random_state": {
+      "default": 42,
+      "description": "Random seed for reproducibility",
+      "minimum": 0,
+      "title": "Random State",
+      "type": "integer"
+    },
+    "significance_test": {
+      "default": "ks_ecdf",
+      "description": "Statistical test for DMP significance: 'ks_ecdf' (Kolmogorov-Smirnov on precise ECDF; recommended and default) or 'mann_whitney' (Mann-Whitney from bin counts; alternative).",
+      "enum": [
+        "ks_ecdf",
+        "mann_whitney"
+      ],
+      "title": "Significance Test",
+      "type": "string"
+    },
+    "target_balanced_accuracy": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional target BA for FeatureCuts. When set with classifier_dmp_selection=featurecuts_validation, the selector chooses the minimum top-k (by effect_size rank) that reaches this BA.",
+      "title": "Target Balanced Accuracy"
+    },
+    "target_power": {
+      "default": 0.8,
+      "description": "Target power (1 - type II error) for sample size estimation when export_sample_size_estimate is True (e.g. 0.8 = 80%% power).",
+      "maximum": 0.999,
+      "minimum": 0.5,
+      "title": "Target Power",
+      "type": "number"
+    },
+    "temperature": {
+      "default": 1.0,
+      "description": "Temperature for softmax in trained classifier (1.0 = original, higher softens probabilities)",
+      "maximum": 10.0,
+      "minimum": 0.1,
+      "title": "Temperature",
+      "type": "number"
+    },
+    "trimmed_percentile_high": {
+      "default": 0.01,
+      "description": "Upper percentile for trimmed mean - removes top X% (default: 0.01 = remove top 1%). High effect_size DMPs are critical for classification, so only extreme outliers are removed.",
+      "maximum": 0.5,
+      "minimum": 0.0,
+      "title": "Trimmed Percentile High",
+      "type": "number"
+    },
+    "trimmed_percentile_low": {
+      "default": 0.1,
+      "description": "Lower percentile for trimmed mean - removes bottom X% (default: 0.10 = remove bottom 10%). Low effect_size DMPs are less informative.",
+      "maximum": 0.5,
+      "minimum": 0.0,
+      "title": "Trimmed Percentile Low",
+      "type": "number"
+    },
+    "use_context_weights": {
+      "default": true,
+      "description": "Enable trimmed-mean context weighting for multi-context analysis",
+      "title": "Use Context Weights",
+      "type": "boolean"
+    },
+    "validation_min_coverage": {
+      "default": 4,
+      "description": "Min coverage when extracting methylation from validation/centroid samples. Use a value lower than the centroid's min_coverage (e.g. 4 if centroid used 10) so validation samples contribute values at more positions and better match lower-coverage patient data.",
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Validation Min Coverage",
+      "type": "integer"
+    },
+    "validation_n_repeats": {
+      "default": 1,
+      "description": "Number of repeated stratified holdout splits when validation_split_ratio > 0.",
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Validation N Repeats",
+      "type": "integer"
+    },
+    "validation_samples_base_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When centroid H5 stores sample directory basenames without samples_base_path, prepend this directory (typically project samples_base_path).",
+      "title": "Validation Samples Base Path"
+    },
+    "validation_split_ratio": {
+      "default": 0.0,
+      "description": "Fraction of validation samples per class held out as a test row split for BA (repeated stratified). 0 = no row holdout (calibration and evaluation indices are the same \u2014 optimistic). Use e.g. 0.2 for generalization-style BA within the validation matrix.",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Validation Split Ratio",
+      "type": "number"
+    }
+  },
+  "required": [
+    "chromosome",
+    "centroid1_dir",
+    "centroid2_dir"
+  ],
+  "title": "MethylDetectorConfig",
+  "type": "object"
+}

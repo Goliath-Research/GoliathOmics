@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AssayProcedurePack",
+  "description": "Named assay procedure overlay: library protocol + SamplePrep/lifecycle pointers + science defaults for a methylation matrix recipe. Merges under instance context and over profile/mode (instance → procedure → profile → analyte → site).",
+  "type": "object",
+  "required": ["pipelineProcedure", "catalog"],
+  "properties": {
+    "pipelineProcedure": {
+      "type": "string",
+      "description": "Stable procedure id (filename stem), e.g. buffy_wgbs_pangenome_gene_fc."
+    },
+    "description": { "type": "string" },
+    "catalog": {
+      "$ref": "#/$defs/processPackCatalog"
+    },
+    "pipelineProfile": {
+      "type": "string",
+      "description": "Default SaMD/research profile when instance omits pipelineProfile (usually samd_research)."
+    },
+    "researchMode": {
+      "type": "string",
+      "description": "samd_research statistical axis (gene_fc, dual_fc, …)."
+    },
+    "analyteExpectation": {
+      "description": "Required study regulatory.primary_analyte (string or list of allowed tokens).",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      ]
+    },
+    "libraryProtocol": {
+      "type": "string",
+      "enum": ["wgbs_linear", "wgbs_pangenome", "epi_gbs", "emseq_targeted"]
+    },
+    "samplePrepProgram": {
+      "type": "string",
+      "description": "DomainProgram path or fixture name for SamplePrep (operator / portal hint)."
+    },
+    "lifecycleProgram": {
+      "type": "string",
+      "description": "DomainProgram path or fixture name for post-MC lifecycle (operator / portal hint)."
+    },
+    "alignmentMode": { "type": "string" },
+    "usePangenome": { "type": "boolean" },
+    "useEpiGbs": { "type": "boolean" },
+    "useEmseqTargeted": { "type": "boolean" },
+    "runDmpSelection": { "type": "boolean" },
+    "runGeneFeaturecuts": { "type": "boolean" },
+    "stabilityFeaturecutsEnabled": { "type": "boolean" },
+    "stabilityGeneFeaturecutsEnabled": { "type": "boolean" },
+    "actionConfig": {
+      "type": "object",
+      "description": "Per-action parameter overlays. QC slices are sparse overlays of the site window.",
+      "properties": {
+        "alignment_qc": {
+          "$ref": "sample_prep_guardrails_overlay.schema.json#/properties/alignment_qc"
+        },
+        "extraction_qc": {
+          "$ref": "sample_prep_guardrails_overlay.schema.json#/properties/extraction_qc"
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "processPackCatalog": {
+      "type": "object",
+      "description": "Portal/operator catalog metadata (not science knobs).",
+      "required": ["title", "summary", "visibility", "lifecycle", "family"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "visibility": {
+          "type": "string",
+          "enum": ["operator", "advanced", "hidden"]
+        },
+        "lifecycle": {
+          "type": "string",
+          "enum": ["active", "deprecated", "internal"]
+        },
+        "family": {
+          "type": "string",
+          "enum": ["samd", "staged", "specialty", "legacy"]
+        },
+        "replacedBy": {
+          "type": "string",
+          "description": "Canonical profile or procedure id when lifecycle is deprecated."
+        },
+        "researchModes": {
+          "type": "array",
+          "description": "Allowed researchMode values when this profile is samd_research.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "dmp_raw",
+              "dmp_fc",
+              "gene_enricher",
+              "gene_fc",
+              "dual_fc",
+              "mhl_survival"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

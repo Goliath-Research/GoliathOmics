@@ -1,0 +1,19 @@
+{
+  "name": "rna-grch38-star-ensembl-116",
+  "version": "1",
+  "assetType": "rna_star_index",
+  "destRoot": "/work/genomes/rna/GRCh38/star/ensembl-116",
+  "storageEndpoint": "goliath-genomes",
+  "inventoryPrefix": "rna/GRCh38/star/ensembl-116",
+  "recipe": {
+    "steps": [
+      { "op": "mkdir" },
+      {
+        "op": "s3_sync",
+        "storageEndpoint": "goliath-genomes",
+        "key": "rna/GRCh38/star/ensembl-116/",
+        "dest": "/work/genomes/rna/GRCh38/star/ensembl-116"
+      }
+    ]
+  }
+}

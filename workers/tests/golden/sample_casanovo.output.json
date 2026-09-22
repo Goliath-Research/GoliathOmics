@@ -1,0 +1,19 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "capability": null,
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "manifest_path": null,
+  "n_peptides": 1200,
+  "peptidesCsv": "/work/samples/S1/S1.casanovo.mztab",
+  "result_code": 0,
+  "sampleId": "S1",
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

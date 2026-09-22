@@ -1,0 +1,45 @@
+{
+  "pipelineProcedure": "plant_wgbs_gene_fc",
+  "catalog": {
+    "title": "Plant WGBS + gene FC",
+    "summary": "Plant tissue abiotic-stress methylation procedure.",
+    "visibility": "operator",
+    "lifecycle": "active",
+    "family": "specialty"
+  },
+  "description": "Plant WGBS trait procedure: linear alignment, gene FeatureCuts, lifecycle without blood cell deconvolution. Pair with plant_tissue analyte and a plant site genome.",
+  "pipelineProfile": "samd_research",
+  "researchMode": "gene_fc",
+  "analyteExpectation": [
+    "plant_tissue",
+    "plant",
+    "leaf",
+    "root",
+    "meristem",
+    "seed"
+  ],
+  "libraryProtocol": "wgbs_linear",
+  "alignmentMode": "linear",
+  "usePangenome": false,
+  "samplePrepProgram": "workflow_engine/domain/fixtures/sample_prep.program.json",
+  "lifecycleProgram": "workflow_engine/domain/fixtures/plant_stress_study_lifecycle.program.json",
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": true,
+  "stabilityFeaturecutsEnabled": false,
+  "stabilityGeneFeaturecutsEnabled": true,
+  "actionConfig": {
+    "sample_prep": {
+      "library_protocol": "wgbs_linear"
+    },
+    "parabricks": {
+      "alignment_mode": "linear"
+    },
+    "cell_deconvolution": null,
+    "validation": {
+      "dmp_modeling_mode": "raw_pool",
+      "gene_modeling_mode": "featurecuts",
+      "stability_featurecuts_enabled": false,
+      "stability_gene_featurecuts_enabled": true
+    }
+  }
+}

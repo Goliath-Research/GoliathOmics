@@ -1,0 +1,182 @@
+{
+  "pipelineProfile": "staged_progression_interpretation",
+  "catalog": {
+    "title": "Staged progression interpretation",
+    "summary": "Mapper/enricher + progression without Monte Carlo.",
+    "visibility": "operator",
+    "lifecycle": "active",
+    "family": "staged"
+  },
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": false,
+  "runBiomarkerFilter": false,
+  "runGeneFeatureSelect": false,
+  "runProgressionAnalysis": true,
+  "stabilityFeaturecutsEnabled": false,
+  "stabilityGeneFeaturecutsEnabled": false,
+  "stabilityGeneBiomarkerFilterEnabled": false,
+  "actionConfig": {
+    "alignment_qc": {},
+    "methyl_extract": {
+      "extract_contexts": [
+        "CG",
+        "CHG",
+        "CHH"
+      ],
+      "threads": 10,
+      "chrom_parallel": 2,
+      "max_rss_gb": 32,
+      "min_mapq": 20,
+      "min_phred": 20,
+      "split": true,
+      "output_format": "hdf5"
+    },
+    "centroid": {
+      "base_config": {
+        "min_coverage": 4,
+        "use_gpu": true,
+        "cap_coverage": true,
+        "cap_coverage_auto_n_cap": true,
+        "cap_coverage_n_cap_method": "iqr",
+        "cap_coverage_n_cap_iqr_multiplier": 3.0,
+        "cap_coverage_n_cap": null,
+        "cap_coverage_seed": 0,
+        "max_sample_workers": 1,
+        "verbose": true,
+        "binned_stats_bins": 20
+      },
+      "min_samples": 3,
+      "continue_on_error": true,
+      "save_batch_summary": true
+    },
+    "detection": {
+      "alpha": 0.05,
+      "min_coverage": 4,
+      "min_samples_pct": 0.1,
+      "delta_mean_reduction": 0.15,
+      "lambda_var": 2.0,
+      "ecdf_grid_size": 512,
+      "effect_size_coverage": 0.95,
+      "effect_size_use_mean_level": true,
+      "effect_size_mean_level_use_max": true,
+      "effect_size_mean_level_weight": "boundary",
+      "effect_size_mean_level_k": 0.1,
+      "random_state": 42,
+      "context_weight_direction": "inverse",
+      "effect_size_mean_level_k_by_context": {
+        "CG": 0.05,
+        "CHG": 0.1,
+        "CHH": 0.2
+      },
+      "enable_platt_calibration": true,
+      "effect_size_weight_power": 3.0,
+      "dynamic_dmp_cutoff_enabled": true,
+      "dynamic_dmp_cutoff_relaxation": 1.0,
+      "validation_split_ratio": 0.2,
+      "validation_n_repeats": 5,
+      "target_balanced_accuracy": 0.95,
+      "min_selected_dmps": 1000,
+      "filter_funnel_explore": {
+        "effect_size_coverage": {
+          "min": 0.8,
+          "max": 0.99,
+          "step": 0.05
+        }
+      },
+      "centroid_self_check_top_k": 5000,
+      "multiclass_train_learned_head": true,
+      "multiclass_learned_class_weight": "balanced",
+      "debug": true,
+      "detection_mode": "discovery_only",
+      "export_classifier": false
+    },
+    "mapper": {
+      "csv_pattern": "dmps-*-discovery.csv",
+      "mapper_gene_columns": [
+        "gene_score",
+        "mean_effect_size",
+        "gene_importance",
+        "gene_feature_effect_compound"
+      ],
+      "use_sp_regions": true,
+      "storey_lambda": 0.4,
+      "upstream_size": 5000,
+      "downstream_size": 2000,
+      "min_intron_size": 0,
+      "w_promoter": 2.0,
+      "w_terminator": 0.5,
+      "w_gene_body": 1.0,
+      "w_exon": 1.5,
+      "w_intron": 0.7,
+      "w_unknown": 1.0,
+      "disease_term": "Prostate Cancer",
+      "enrich_disease": true,
+      "enrich_source": "grok+opentargets",
+      "enrich_profile": "permissive",
+      "optimize_dmps": false,
+      "cache_ttl_days": 60,
+      "grok_cache_ttl_days": 60,
+      "grok_max_workers": 1,
+      "grok_batch_size": 16,
+      "rate_limit_delay": 5.0
+    },
+    "enricher": {
+      "gene_column": "gene_name",
+      "disease_only": true,
+      "disease_association_type": [
+        "direct",
+        "indirect",
+        "database"
+      ],
+      "min_disease_evidence_level": "low",
+      "min_disease_score": 0.0,
+      "min_dmp_count": 2,
+      "max_gene_q_value": 0.05,
+      "sort_by": "total_weight",
+      "top": 150,
+      "cutoff": 0.05,
+      "organism": "Human",
+      "library_preset": "cancer-extended",
+      "modules": true,
+      "module_cluster_max_q": 0.05,
+      "module_cluster_top_terms_per_library": 200,
+      "similarity_threshold": 0.15,
+      "cluster_resolution": 0.8,
+      "network_plot": "plotly",
+      "dash_host": "127.0.0.1",
+      "dash_port": 8050,
+      "dash_open_browser": true,
+      "network_refinement": {
+        "enabled": true,
+        "source": "string_api",
+        "local_edges_file": null,
+        "cache_path": "/work/cache/methylenricher/string_edges",
+        "score_threshold": 400.0,
+        "community_method": "louvain",
+        "min_component_size": 2,
+        "weight_in_final_score": 0.3
+      },
+      "cisbp": {
+        "enabled": true,
+        "mode": "gene_sets",
+        "species": "Homo_sapiens",
+        "motif_evidence": [
+          "Direct",
+          "Inferred"
+        ],
+        "gene_set_source": "promoter_scan",
+        "promoter_upstream": 5000,
+        "promoter_downstream": 200,
+        "motif_score_threshold": 0.85,
+        "min_targets_per_tf": 5,
+        "max_targets_per_tf": 3000
+      }
+    },
+    "progression": {
+      "enabled": true,
+      "strict_missing": false,
+      "report_md": true,
+      "gene_score_mode": "effect_x_support"
+    }
+  }
+}

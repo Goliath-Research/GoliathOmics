@@ -1,0 +1,55 @@
+{
+  "pipelineProfile": "mc_gene_fc",
+  "catalog": {
+    "title": "mc_gene_fc (deprecated)",
+    "summary": "Deprecated alias \u2192 samd_research + researchMode gene_fc.",
+    "visibility": "hidden",
+    "lifecycle": "deprecated",
+    "family": "legacy",
+    "replacedBy": "samd_research"
+  },
+  "dmp_modeling_mode": "raw_pool",
+  "gene_modeling_mode": "featurecuts",
+  "runDmpSelection": false,
+  "runGeneFeaturecuts": true,
+  "stabilityFeaturecutsEnabled": false,
+  "stabilityGeneFeaturecutsEnabled": true,
+  "actionConfig": {
+    "detection": {
+      "detection_mode": "discovery_only",
+      "export_classifier": false,
+      "dmp_export_mode": "dual"
+    },
+    "mapper": {
+      "csv_pattern": "dmps-*-discovery.csv",
+      "enrich_disease": true
+    },
+    "enricher": {
+      "ppi_only": true,
+      "network_refinement": {
+        "enabled": true,
+        "source": "string_api",
+        "cache_path": "/work/cache/methylenricher/string_edges",
+        "score_threshold": 400.0,
+        "community_method": "louvain",
+        "min_component_size": 2,
+        "weight_in_final_score": 0.3
+      }
+    },
+    "validation": {
+      "run_stability": true,
+      "dmp_modeling_mode": "raw_pool",
+      "gene_modeling_mode": "featurecuts",
+      "stability_featurecuts_enabled": false,
+      "stability_gene_featurecuts_enabled": true,
+      "gene_featurecuts_target_ba": 0.95,
+      "gene_featurecuts_loci_source": "raw_pool",
+      "stability_gene_featurecuts_dmp_source": "discovery",
+      "stability_gene_recurrence_source": "classifier",
+      "stability_dmp_freq": 0.0,
+      "stability_gene_freq": 0.7
+    }
+  },
+  "researchMode": "gene_fc",
+  "deprecatedAliasOf": "samd_research+gene_fc"
+}

@@ -1,0 +1,191 @@
+{
+  "$defs": {
+    "ObjectiveWeights": {
+      "description": "Maximize scalar J = (weighted sum of performance terms) + (optional stability rewards).\n\nFor loss-like metrics (NLL, Brier, ECE), a **positive** weight *subtracts* ``w * value``.\nIf a weighted metric is absent (e.g. no NLL in detector-only summaries), that term is skipped;\nif **required** (non-zero w for BA or macro_f1) and missing, the run is infeasible.",
+      "properties": {
+        "infeasible_value": {
+          "default": -1000000000.0,
+          "title": "Infeasible Value",
+          "type": "number"
+        },
+        "min_stable_dmps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Stable Dmps"
+        },
+        "min_stable_genes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Stable Genes"
+        },
+        "relax_min_stable": {
+          "default": false,
+          "title": "Relax Min Stable",
+          "type": "boolean"
+        },
+        "stability_gene_cap": {
+          "default": 500.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Stability Gene Cap",
+          "type": "number"
+        },
+        "stability_panel_cap": {
+          "default": 2000.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Stability Panel Cap",
+          "type": "number"
+        },
+        "stat": {
+          "default": "median",
+          "enum": [
+            "mean",
+            "median"
+          ],
+          "title": "Stat",
+          "type": "string"
+        },
+        "w_balanced_accuracy": {
+          "default": 1.0,
+          "title": "W Balanced Accuracy",
+          "type": "number"
+        },
+        "w_brier": {
+          "default": 0.0,
+          "title": "W Brier",
+          "type": "number"
+        },
+        "w_ece": {
+          "default": 0.0,
+          "title": "W Ece",
+          "type": "number"
+        },
+        "w_macro_f1": {
+          "default": 1.0,
+          "title": "W Macro F1",
+          "type": "number"
+        },
+        "w_nll": {
+          "default": 0.0,
+          "title": "W Nll",
+          "type": "number"
+        },
+        "w_stability_panel": {
+          "default": 0.0,
+          "title": "W Stability Panel",
+          "type": "number"
+        },
+        "w_stable_genes": {
+          "default": 0.0,
+          "title": "W Stable Genes",
+          "type": "number"
+        }
+      },
+      "title": "ObjectiveWeights",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Start one validation instance from a trial overlay (no Cartesian grid).\n\nUse for assumption checks and stability-target scenarios without opening a\nfull hyperparameter search. Optionally ledgered as a single cfg trial.",
+  "properties": {
+    "display_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Operator-facing scenario name (also used as executionScopeName).",
+      "title": "Display Name"
+    },
+    "execution_scope_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional executionScopeName; defaults to display_name or 'scenario-0'.",
+      "title": "Execution Scope Name"
+    },
+    "objective": {
+      "$ref": "#/$defs/ObjectiveWeights",
+      "description": "Optional objective weights when ledgering/scoring this scenario later."
+    },
+    "overrides": {
+      "additionalProperties": true,
+      "description": "Dotted actionConfig paths \u2192 value (e.g. validation.stability_target_balanced_accuracy). JSON null clears a site/profile knob.",
+      "title": "Overrides",
+      "type": "object"
+    },
+    "pipeline_profile": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Pipeline profile name resolved under METHYL_PROFILE_DIR / cfg.",
+      "title": "Pipeline Profile"
+    },
+    "profile_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Explicit profile path override (dev/CI); prefer pipeline_profile in production.",
+      "title": "Profile Path"
+    },
+    "program": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "DomainProgram name/path to instantiate.",
+      "title": "Program"
+    },
+    "project_path": {
+      "description": "Study manifest path (/work/projects/<study>/configs/project_*.json).",
+      "title": "Project Path",
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_path"
+  ],
+  "title": "HyperparamScenarioRequest",
+  "type": "object"
+}

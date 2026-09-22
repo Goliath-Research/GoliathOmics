@@ -1,0 +1,63 @@
+{
+  "project_name": "Control_vs_Drought",
+  "output_base": "/work/projects/plant-abiotic-stress",
+  "samples_base_path": "/work/samples",
+  "controls": {
+    "label": "control",
+    "groups": [
+      {
+        "label": "all",
+        "sample_paths": [
+          "data/control.csv"
+        ]
+      }
+    ]
+  },
+  "diseases": {
+    "label": "stress",
+    "groups": [
+      {
+        "label": "drought",
+        "sample_paths": [
+          "data/drought.csv"
+        ]
+      }
+    ]
+  },
+  "comparisons": "control_vs_each_disease",
+  "chromosomes": [
+    "1", "2", "3", "4", "5"
+  ],
+  "contexts": [
+    "CG", "CHG", "CHH"
+  ],
+  "regulatory": {
+    "stage": "expanded_development",
+    "intended_use_summary": "Research-use Arabidopsis thaliana leaf WGBS methylation study contrasting well-watered controls against drought-stressed plants (DMPs / genes / gene features across CG, CHG and CHH contexts). Placeholder sample IDs only; not a clinical or regulated diagnostic.",
+    "primary_modality": "methylation",
+    "primary_analyte": "plant_tissue",
+    "allow_clinical_performance_claims": false,
+    "claim_boundary": "Agricultural research evidence only; SaMD clinical-performance claims do not apply to this pack."
+  },
+  "validation_partitions": {
+    "development_train": [
+      "CTRL-TRAIN-001",
+      "CTRL-TRAIN-002",
+      "DROUGHT-TRAIN-001",
+      "DROUGHT-TRAIN-002"
+    ],
+    "internal_validation": [],
+    "locked_test": [
+      "CTRL-LOCK-001",
+      "DROUGHT-LOCK-001"
+    ],
+    "pivotal_validation": [],
+    "post_market_monitoring": [],
+    "independence_keys": [
+      "sample_id",
+      "plant_id",
+      "accession",
+      "batch"
+    ]
+  }
+}

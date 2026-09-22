@@ -1,0 +1,68 @@
+{
+  "pipelineProfile": "cell_deconv_hitimed",
+  "catalog": {
+    "title": "Cell deconvolution (HiTIMED)",
+    "summary": "HiTIMED hierarchy cell deconvolution specialty pack.",
+    "visibility": "advanced",
+    "lifecycle": "active",
+    "family": "specialty"
+  },
+  "actionConfig": {
+    "cell_deconvolution": {
+      "method": "hitimed",
+      "contexts": [
+        "CG"
+      ],
+      "marker_min_coverage": 4,
+      "min_marker_fraction": 0.25,
+      "use_gpu": true
+    },
+    "validation": {
+      "backend_profiles": {
+        "ecdf": {
+          "enabled": true,
+          "params": {
+            "feature_mode": "raw_gene",
+            "feature_family_set": "gene_scored",
+            "covariates_path": [
+              "{output_base}/cell_fractions/cell_fractions.csv",
+              "{output_base}/clinical_covariates.csv"
+            ],
+            "covariate_numeric_columns": [
+              "age",
+              "bmi"
+            ],
+            "covariate_composition_groups": [
+              {
+                "name": "cell_fractions",
+                "columns": [
+                  "CD8T",
+                  "CD4T",
+                  "NK",
+                  "Bcell",
+                  "Mono",
+                  "Neu"
+                ],
+                "reference": "Neu",
+                "pseudocount": 1e-06
+              }
+            ],
+            "covariate_id_column": "sample_id",
+            "ecdf_second_stage_probability_epsilon": 1e-06
+          }
+        },
+        "tabular_sklearn": {
+          "enabled": false
+        },
+        "generative_hybrid": {
+          "enabled": false
+        }
+      }
+    }
+  },
+  "_notes": {
+    "hierarchy": "hitimed method selects its tree from the project regulatory primary_analyte (buffy_coat | cfdna | tissue) via the packaged hierarchy basis analyte_trees map.",
+    "cfdna": "For primary_analyte=cfdna, add 'tumor_fraction' to covariate_composition_columns and point actionConfig.cell_deconvolution.hierarchy_basis_path at the cfDNA plasma-atlas basis (cfdna_plasma_atlas_v1.json). tumor_fraction is the lumped ctDNA burden covariate; keep a stable non-tumor leaf (e.g. Neu) as the ALR reference.",
+    "composition": "Leaves are a composition (sum to 1); ALR is required so the second-stage stacker treats them as compositional covariates."
+  }
+}

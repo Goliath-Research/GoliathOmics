@@ -1,0 +1,71 @@
+{
+  "projectPath": "/work/projects/prostate-cancer/Plasma_healthy_vs_PCa",
+  "workerToolMapper": "MethylMapper",
+  "workerToolEnricher": "MethylEnricher",
+  "workerToolProgression": "MethylDiseaseProgression",
+  "orderedComparisonLabels": ["healthy_vs_PCa"],
+  "centroidSeedGroups": [
+    {
+      "$type": "CentroidSeedGroup",
+      "label": "__control__",
+      "addSamples": ["/work/samples/ctrl1", "/work/samples/ctrl2"],
+      "removeSamples": [],
+      "centroidDir": "/work/projects/prostate-cancer/Plasma_healthy_vs_PCa/monte_carlo_runs/_centroid_seed/__control__"
+    },
+    {
+      "$type": "CentroidSeedGroup",
+      "label": "__disease__",
+      "addSamples": ["/work/samples/dis1", "/work/samples/dis2"],
+      "removeSamples": [],
+      "centroidDir": "/work/projects/prostate-cancer/Plasma_healthy_vs_PCa/monte_carlo_runs/_centroid_seed/__disease__"
+    }
+  ],
+  "iterations": [
+    {
+      "$type": "StratifiedCohortDraw",
+      "runId": "feature_run_0001",
+      "phase": "feature",
+      "projectPath": "/work/projects/prostate-cancer/Plasma_healthy_vs_PCa/monte_carlo_runs/run_0001",
+      "centroidGroups": [
+        {
+          "label": "__control__",
+          "addSamples": [],
+          "removeSamples": ["/work/samples/ctrl2"],
+          "centroidDir": "/work/projects/prostate-cancer/Plasma_healthy_vs_PCa/monte_carlo_runs/run_0001/centroids/__control__",
+          "centroidSeedDir": "/work/projects/prostate-cancer/Plasma_healthy_vs_PCa/monte_carlo_runs/_centroid_seed/__control__"
+        }
+      ],
+      "taskConfig": {
+        "runId": "feature_run_0001",
+        "phase": "feature",
+        "iteration": 1,
+        "layout": "binary",
+        "trainFraction": 0.8,
+        "seed": 42
+      }
+    },
+    {
+      "$type": "StratifiedCohortDraw",
+      "runId": "feature_run_0002",
+      "phase": "feature",
+      "projectPath": "/work/projects/prostate-cancer/Plasma_healthy_vs_PCa/monte_carlo_runs/run_0002",
+      "centroidGroups": [
+        {
+          "label": "__control__",
+          "addSamples": [],
+          "removeSamples": ["/work/samples/ctrl1"],
+          "centroidDir": "/work/projects/prostate-cancer/Plasma_healthy_vs_PCa/monte_carlo_runs/run_0002/centroids/__control__",
+          "centroidSeedDir": "/work/projects/prostate-cancer/Plasma_healthy_vs_PCa/monte_carlo_runs/_centroid_seed/__control__"
+        }
+      ],
+      "taskConfig": {
+        "runId": "feature_run_0002",
+        "phase": "feature",
+        "iteration": 2,
+        "layout": "binary",
+        "trainFraction": 0.8,
+        "seed": 42
+      }
+    }
+  ]
+}

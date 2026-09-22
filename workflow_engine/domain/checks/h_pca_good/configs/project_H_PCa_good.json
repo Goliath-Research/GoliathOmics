@@ -1,0 +1,76 @@
+{
+  "project_name": "H_PCa_good",
+  "laboratory": "psomagen",
+  "batch": "Prostate cancer samples (good cohort)",
+  "output_base": "/work/projects/prostate-cancer",
+  "samples_base_path": "/work/samples",
+  "controls": {
+    "label": "healthy",
+    "groups": [
+      {
+        "label": "all",
+        "sample_paths": [
+          "/work/projects/prostate-cancer/data/healthy_good.csv"
+        ]
+      }
+    ]
+  },
+  "diseases": {
+    "label": "cancer",
+    "groups": [
+      {
+        "label": "PCa",
+        "sample_paths": [
+          "/work/projects/prostate-cancer/data/pca_good.csv"
+        ]
+      }
+    ]
+  },
+  "comparisons": [
+    {
+      "control_group": "all",
+      "disease_group": "PCa",
+      "label": "PCa"
+    }
+  ],
+  "path_remap": {
+    "/lambda/nfs/Work/prostate-cancer/samples": "/work/samples",
+    "/lambda/nfs/Work/prostate-cancer": "/work/projects/prostate-cancer"
+  },
+  "chromosomes": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "22",
+    "X",
+    "Y"
+  ],
+  "contexts": [
+    "CG"
+  ],
+  "regulatory": {
+    "stage": "feasibility",
+    "primary_analyte": "buffy_coat",
+    "model_training_analyte": "buffy_coat",
+    "sample_type": "Buffy-coat WGBS (CG)",
+    "auto_apply_analyte_profile": true
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "documentPath": {
+      "description": "Absolute path to a JSON document on shared storage.",
+      "title": "Documentpath",
+      "type": "string"
+    },
+    "executionScopeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Execution scope id (compiler-injected; unused by compute).",
+      "title": "Executionscopeid"
+    },
+    "hyperparamSetId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Deprecated alias for executionScopeId (compiler-injected; unused by compute).",
+      "title": "Hyperparamsetid"
+    },
+    "jsonPath": {
+      "description": "JSONPath-like dotted path starting with $ (e.g. $.hasMore or $.meta.count).",
+      "title": "Jsonpath",
+      "type": "string"
+    },
+    "projectPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Study manifest path (compiler-injected; provenance only).",
+      "title": "Projectpath"
+    },
+    "tool": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Catalog tool label (compiler-injected).",
+      "title": "Tool"
+    }
+  },
+  "required": [
+    "documentPath",
+    "jsonPath"
+  ],
+  "title": "JsonPathIntTaskInput",
+  "type": "object"
+}

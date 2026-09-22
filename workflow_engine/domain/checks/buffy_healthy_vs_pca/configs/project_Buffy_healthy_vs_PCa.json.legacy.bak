@@ -1,0 +1,258 @@
+{
+  "project_name": "Buffy_healthy_vs_PCa",
+  "laboratory": "psomagen",
+  "batch": "Buffy-coat healthy vs PCa (paired cohort, CG)",
+  "output_base": "/work/prostate-cancer",
+  "samples_base_path": "/work/samples",
+  "controls": {
+    "label": "healthy",
+    "groups": [
+      {
+        "label": "all",
+        "sample_paths": [
+          "/work/prostate-cancer/data/healthy_b.csv"
+        ]
+      }
+    ]
+  },
+  "diseases": {
+    "label": "cancer",
+    "groups": [
+      {
+        "label": "PCa",
+        "sample_paths": [
+          "/work/prostate-cancer/data/pca_b.csv"
+        ]
+      }
+    ]
+  },
+  "comparisons": [
+    {
+      "control_group": "all",
+      "disease_group": "PCa",
+      "label": "PCa"
+    }
+  ],
+  "path_remap": {
+    "/lambda/nfs/Work/prostate-cancer/samples": "/work/samples",
+    "/lambda/nfs/Work/prostate-cancer": "/work/prostate-cancer"
+  },
+  "chromosomes": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "22",
+    "X",
+    "Y"
+  ],
+  "contexts": [
+    "CG"
+  ],
+  "step_config": {
+    "alignment_qc": {
+      "genome_fasta": "/work/genomes/human_genome/release-114/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
+    },
+    "methyl_extract": {
+      "extract_contexts": [
+        "CG",
+        "CHG",
+        "CHH"
+      ],
+      "threads": 10,
+      "min_mapq": 20,
+      "min_phred": 20,
+      "split": true,
+      "output_format": "hdf5"
+    },
+    "centroid": {
+      "base_config": {
+        "min_coverage": 4,
+        "use_gpu": true,
+        "cap_coverage": true,
+        "cap_coverage_auto_n_cap": true,
+        "cap_coverage_n_cap_method": "iqr",
+        "cap_coverage_n_cap_iqr_multiplier": 3.0,
+        "cap_coverage_n_cap": null,
+        "cap_coverage_seed": 0,
+        "max_sample_workers": 1,
+        "verbose": true,
+        "binned_stats_bins": 20
+      },
+      "min_samples": 3,
+      "continue_on_error": true,
+      "save_batch_summary": true
+    },
+    "detection": {
+      "alpha": 0.05,
+      "min_coverage": 4,
+      "min_samples_pct": 0.0,
+      "min_samples_abs": 4,
+      "delta_mean_reduction": 0.15,
+      "lambda_var": 2.0,
+      "ecdf_grid_size": 512,
+      "effect_size_coverage": 0.95,
+      "effect_size_use_mean_level": true,
+      "effect_size_mean_level_use_max": true,
+      "effect_size_mean_level_weight": "boundary",
+      "effect_size_mean_level_k": 0.1,
+      "random_state": 42,
+      "context_weight_direction": "inverse",
+      "effect_size_weight_power": 3.0,
+      "dmp_export_mode": "dual",
+      "validation_split_ratio": 0.2,
+      "validation_n_repeats": 5,
+      "filter_funnel_explore": {
+        "effect_size_coverage": {
+          "min": 0.8,
+          "max": 0.99,
+          "step": 0.05
+        }
+      },
+      "centroid_self_check_top_k": 5000,
+      "debug": true
+    },
+    "dmp_selection": {
+      "dynamic_dmp_cutoff_enabled": true,
+      "dynamic_dmp_cutoff_relaxation": 1.0,
+      "classifier_dmp_selection": "featurecuts_validation",
+      "target_balanced_accuracy": 0.9,
+      "min_core_dmps": 50,
+      "classifier_export_margin_pct": 0.1,
+      "classifier_export_margin_abs": 10,
+      "classifier_export_max_dmps": 200
+    },
+    "mapper": {
+      "csv_pattern": "dmps-*-discovery.csv",
+      "gtf": "/work/genomes/human_genome/gencode.v49.annotation.gtf",
+      "use_sp_regions": true,
+      "storey_lambda": 0.4,
+      "upstream_size": 5000,
+      "downstream_size": 2000,
+      "min_intron_size": 0,
+      "w_promoter": 2.0,
+      "w_terminator": 0.5,
+      "w_gene_body": 1.0,
+      "w_exon": 1.5,
+      "w_intron": 0.7,
+      "w_unknown": 1.0,
+      "disease_term": "Prostate Cancer",
+      "enrich_disease": true,
+      "enrich_source": "grok+opentargets",
+      "enrich_profile": "permissive",
+      "optimize_dmps": false,
+      "methyl_mapper_home": "/work/cache/methyl_mapper",
+      "cache_ttl_days": 60,
+      "grok_cache_ttl_days": 60,
+      "grok_max_workers": 1,
+      "grok_batch_size": 16,
+      "grok_rate_limit_delay": 5.0
+    },
+    "enricher": {
+      "gene_column": "gene_name",
+      "disease_only": true,
+      "disease_association_type": [
+        "direct",
+        "indirect",
+        "database"
+      ],
+      "min_disease_evidence_level": "low",
+      "min_disease_score": 0.0,
+      "min_dmp_count": 2,
+      "max_gene_q_value": 0.05,
+      "sort_by": "gene_importance",
+      "top": 150,
+      "cutoff": 0.05,
+      "organism": "Human",
+      "library_preset": "cancer-extended",
+      "cisbp": {
+        "enabled": false,
+        "cisbp_modes": [
+          "gene_sets"
+        ],
+        "species": "Homo_sapiens"
+      },
+      "modules": true,
+      "module_cluster_max_q": 0.05,
+      "module_cluster_top_terms_per_library": 200,
+      "similarity_threshold": 0.15,
+      "cluster_resolution": 0.8,
+      "network_plot": "none",
+      "dash_host": "127.0.0.1",
+      "dash_port": 8050,
+      "dash_open_browser": false,
+      "network_refinement": {
+        "enabled": true,
+        "source": "string_api",
+        "local_edges_file": null,
+        "cache_path": "/work/cache/methylenricher/string_edges",
+        "score_threshold": 400.0,
+        "community_method": "louvain",
+        "min_component_size": 2,
+        "weight_in_final_score": 0.3
+      }
+    },
+    "progression": {
+      "enabled": false
+    },
+    "classifier": {
+      "enable_platt_calibration": true
+    },
+    "validation": {
+      "train_fraction": 0.8,
+      "n_iterations": 10,
+      "seed": 42,
+      "run_stability": true,
+      "stability_featurecuts_enabled": true,
+      "stability_gene_featurecuts_enabled": true,
+      "stability_dmp_freq": 0.8,
+      "stability_gene_freq": 0.7,
+      "stability_min_balanced_accuracy": 0.9,
+      "stability_target_balanced_accuracy": 0.9,
+      "stability_min_core_dmps": 50,
+      "stability_classifier_export_margin_pct": 0.1,
+      "stability_classifier_export_margin_abs": 10,
+      "stability_classifier_export_max_dmps": 200,
+      "stability_gene_featurecuts_max_dmps": 500,
+      "stability_gene_featurecuts_max_genes": 500,
+      "stability_min_selected_genes": 50,
+      "stability_mapper_enrich_disease": false,
+      "abort_on_step_failure": true,
+      "backend_profiles": {
+        "ecdf": {
+          "enabled": true,
+          "params": {
+            "feature_mode": "raw_gene",
+            "feature_family_set": "gene"
+          }
+        }
+      },
+      "regulatory": {
+        "stage": "feasibility",
+        "primary_analyte": "buffy_coat",
+        "model_training_analyte": "buffy_coat",
+        "sample_type": "Buffy-coat WGBS (CG)",
+        "intended_use_summary": "MC stability: DMP and gene FeatureCuts balanced-accuracy tuning (buffy-coat healthy vs PCa).",
+        "claim_boundary": "Feasibility evidence only; not for clinical claims.",
+        "auto_apply_analyte_profile": true
+      }
+    }
+  }
+}

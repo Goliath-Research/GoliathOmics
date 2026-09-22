@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Input for validation.plan-iterations (worker or REST).",
+  "properties": {
+    "featureIterations": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Featureiterations"
+    },
+    "layout": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "binary | multiclass | hierarchical_multiclass",
+      "title": "Layout"
+    },
+    "orderedComparisonLabels": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Orderedcomparisonlabels"
+    },
+    "overwrite": {
+      "default": false,
+      "title": "Overwrite",
+      "type": "boolean"
+    },
+    "projectPath": {
+      "description": "Path to base project.json or project directory",
+      "title": "Projectpath",
+      "type": "string"
+    },
+    "qualityIterations": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Qualityiterations"
+    },
+    "seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seed"
+    },
+    "trainFraction": {
+      "anyOf": [
+        {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trainfraction"
+    },
+    "workerToolEnricher": {
+      "default": "MethylEnricher",
+      "title": "Workertoolenricher",
+      "type": "string"
+    },
+    "workerToolMapper": {
+      "default": "MethylMapper",
+      "title": "Workertoolmapper",
+      "type": "string"
+    },
+    "workerToolProgression": {
+      "default": "MethylDiseaseProgression",
+      "title": "Workertoolprogression",
+      "type": "string"
+    }
+  },
+  "required": [
+    "projectPath"
+  ],
+  "title": "ValidationPlanRequest",
+  "type": "object"
+}

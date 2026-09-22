@@ -1,0 +1,6 @@
+{
+  "projectPath": "/work/projects/prostate-cancer/configs/project_Healthy_vs_PCa1-5-CG_smoke.json",
+  "featureIterations": 2,
+  "primaryAnalyte": "buffy_coat",
+  "isCfdna": false
+}

@@ -1,0 +1,13 @@
+{
+  "name": "combined",
+  "version": "1",
+  "description": "Mixed / combined analyte framing (no cfDNA fragmentomics auto-enable).",
+  "aliases": ["mixed"],
+  "catalog": {
+    "title": "Combined / mixed",
+    "summary": "Combined analyte framing; bisulfite defaults only.",
+    "visibility": "advanced",
+    "lifecycle": "active",
+    "family": "analyte"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "projectPath": "/work/projects/alzheimer-cfdna/configs/project_Healthy_vs_AD_Stages.json",
+  "pipelineProcedure": "cfdna_wgbs_plasma",
+  "pipelineProfile": "samd_research",
+  "runProgressionAnalysis": true,
+  "actionConfig": {
+    "mapper": {
+      "disease_term": "Alzheimer's disease",
+      "enrich_disease": true
+    },
+    "enricher": {
+      "library_preset": "neuro-core",
+      "disease_only": false
+    },
+    "progression": {
+      "enabled": true
+    },
+    "validation": {
+      "holdout_partition": "locked_test",
+      "holdout_exclude_from_training": true
+    }
+  }
+}

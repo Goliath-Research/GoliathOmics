@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rna_express"
+version = "0.1.0"
+description = "RNA-Seq per-sample expression contract, cohort matrix loader, and DE-based gene panel selection."
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+    "pydantic",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "h5py",
+    "methylutils",
+    "omics_features",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[project.scripts]
+methyl-rna-de-select = "rna_express.cli.de_select:main"
+methyl-rna-register-expression = "rna_express.cli.register:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rna_express*"]

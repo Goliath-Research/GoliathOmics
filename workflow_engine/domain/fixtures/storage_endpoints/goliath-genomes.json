@@ -1,0 +1,11 @@
+{
+  "name": "goliath-genomes",
+  "version": "1",
+  "type": "s3",
+  "bucket": "goliath",
+  "region": "us-east-1",
+  "endpointUrl": "https://s3.us-east-1.myqnapcloud.io",
+  "prefixBase": "genomes/",
+  "scope": "shared",
+  "credentialName": "goliath-archive-keys"
+}

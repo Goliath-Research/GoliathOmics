@@ -1,0 +1,33 @@
+{
+  "pipelineProfile": "dmp_panel_stability",
+  "catalog": {
+    "title": "dmp_panel_stability (deprecated)",
+    "summary": "Deprecated alias \u2192 samd_research + researchMode dmp_fc.",
+    "visibility": "hidden",
+    "lifecycle": "deprecated",
+    "family": "legacy",
+    "replacedBy": "samd_research"
+  },
+  "runDmpSelection": true,
+  "runGeneFeaturecuts": false,
+  "runBiomarkerFilter": false,
+  "stabilityFeaturecutsEnabled": true,
+  "stabilityGeneFeaturecutsEnabled": false,
+  "actionConfig": {
+    "detection": {
+      "detection_mode": "discovery_only",
+      "export_classifier": false
+    },
+    "dmp_selection": {
+      "enabled": true,
+      "classifier_dmp_selection": "featurecuts_validation"
+    },
+    "mapper": {
+      "csv_pattern": "dmps-*-classifier-extended.csv"
+    },
+    "validation": {
+      "stability_featurecuts_enabled": true,
+      "stability_gene_featurecuts_enabled": false
+    }
+  }
+}

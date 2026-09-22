@@ -1,0 +1,641 @@
+{
+  "$defs": {
+    "MethylGrapherGraphIndexFiles": {
+      "additionalProperties": false,
+      "description": "One converted-graph Giraffe index set (C2T or G2A).",
+      "properties": {
+        "dist": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to Giraffe .dist index",
+          "title": "Dist"
+        },
+        "gbz": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to .gbz graph index",
+          "title": "Gbz"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to Giraffe minimizer (.min / .withzip.min)",
+          "title": "Min"
+        },
+        "zipcodes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to Giraffe zipcodes index",
+          "title": "Zipcodes"
+        }
+      },
+      "title": "MethylGrapherGraphIndexFiles",
+      "type": "object"
+    },
+    "MethylGrapherReadLevelConfig": {
+      "additionalProperties": false,
+      "description": "Read-level pattern extraction knobs under actionConfig.methylgrapher_wgbs.read_level.",
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable read-level / pattern extraction. Operator-set per site/profile.",
+          "title": "Enabled"
+        },
+        "gaf_patterns": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Scan alignment.gaf for read-level patterns. Mojo GAFs are multi-GB; set false to use marginal_surrogate tiles after CG H5 write. Operator-set under actionConfig.methylgrapher_wgbs.read_level / methyl_extract.read_level (site/profile).",
+          "title": "Gaf Patterns"
+        },
+        "tile_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pattern tile size (bp). Operator-set per site/profile.",
+          "title": "Tile Size"
+        }
+      },
+      "title": "MethylGrapherReadLevelConfig",
+      "type": "object"
+    },
+    "MethylGrapherWgbsStepConfig": {
+      "additionalProperties": false,
+      "description": "Operator-tunable methylGrapher WGBS pangenome knobs (actionConfig.methylgrapher_wgbs).\n\nAsset paths are site-pinned under ``/work/genomes/pangenome/.../d9-bs/...`` and\nbaked into task ``resolvedConfig`` at instance configuration. Workers must not\nre-read site/profile manifests for these values when ``resolvedConfig`` is present.",
+      "properties": {
+        "align_device": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Portable Align device (dual-Align contract): auto|cpu|nvidia|amd. Used when giraffe_device unset. Operator-set per site/profile.",
+          "title": "Align Device"
+        },
+        "align_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Align map backend for dual-graph GAF: 'cpu_vg' (stock vg giraffe GAF), 'mojo_giraffe' (Mojo GBZ/GFA\u2192GAF), or 'gpu_giraffe' (prefers Mojo GBZ when packs/READY allow; else vg_autoscale). Operator-set per site/profile via actionConfig.methylgrapher_wgbs (baked into resolvedConfig).",
+          "title": "Align Engine"
+        },
+        "alignment_mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Must be pangenome_wgbs when this section is used. Set at site/profile/procedure.",
+          "title": "Alignment Mode"
+        },
+        "batch_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "MethylCall -batch_size. Operator-set per site/profile.",
+          "title": "Batch Size"
+        },
+        "c2t": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MethylGrapherGraphIndexFiles"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "C-to-T converted graph Giraffe indexes."
+        },
+        "cg_only": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "MethylCall -cg_only. Operator-set per site/profile.",
+          "title": "Cg Only"
+        },
+        "contexts": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Methylation contexts to emit as {chrom}-{ctx}.h5 (e.g. CG).",
+          "title": "Contexts"
+        },
+        "conversion_rate_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Run Mojo ConversionRate after MethylCall when lambda spike-in assets exist; write bisulfite_conversion.json for methyl_qc. Operator-set per site/profile.",
+          "title": "Conversion Rate Enabled"
+        },
+        "conversion_rate_sidecar": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Basename for bisulfite conversion sidecar under sampleDir (default bisulfite_conversion.json).",
+          "title": "Conversion Rate Sidecar"
+        },
+        "cpg_tsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "methylGrapher {prefix}cpg.tsv (graph CpG registry).",
+          "title": "Cpg Tsv"
+        },
+        "directional": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directional WGBS library (methylGrapher -directional). Operator-set per site/profile.",
+          "title": "Directional"
+        },
+        "dual_graph_parallel": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When true, run C2T\u2225G2A Align maps concurrently. When false/unset on nvidia|amd DeviceContext engines, serialize haplotypes (avoids dual CUDA context crashes). Operator-set per site/profile.",
+          "title": "Dual Graph Parallel"
+        },
+        "engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "methylGrapher implementation: 'python' (stock 0.2.0 image) or 'mojo' (mojo-align image, tag :1.70-mojo). Operator-set per site/profile. Default when unset: python.",
+          "title": "Engine"
+        },
+        "g2a": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MethylGrapherGraphIndexFiles"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "G-to-A converted graph Giraffe indexes."
+        },
+        "giraffe_device": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mojo Giraffe device selector: auto|cpu|nvidia|amd. Operator-set per site/profile. Alias of align_device.",
+          "title": "Giraffe Device"
+        },
+        "gpu_giraffe_fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When align_engine=gpu_giraffe: 'mojo' (prefer Mojo GBZ) or 'vg' (force vg_autoscale). Operator-set per site/profile.",
+          "title": "Gpu Giraffe Fallback"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned methylGrapher(+vg) Docker image ref/digest. Or METHYL_METHYLGRAPHER_IMAGE.",
+          "title": "Image"
+        },
+        "image_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional immutable digest recorded in CAAS fingerprints / provenance.",
+          "title": "Image Digest"
+        },
+        "index_prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "PrepareGenome-style index prefix under the BS bundle (e.g. .../hprc-d9-bs).",
+          "title": "Index Prefix"
+        },
+        "linear_cpg_tsv": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional pre-projected GRCh38 chrom/pos/mC/uC TSV. When unset, extract projects MergeCpG graph.cpg.tsv onto GRCh38#0 paths from {index_prefix}.wl.gfa.",
+          "title": "Linear Cpg Tsv"
+        },
+        "linear_ref_fasta": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Linear GRCh38 FASTA matching ref_paths (QC BAM / extraction contracts).",
+          "title": "Linear Ref Fasta"
+        },
+        "methylgrapher_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned methylGrapher version string for provenance / CAAS.",
+          "title": "Methylgrapher Version"
+        },
+        "modular_cache_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Writable Mojo/MODULAR cache inside the container (e.g. /tmp/modular_cache).",
+          "title": "Modular Cache Dir"
+        },
+        "mojo_giraffe_ready": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When false, force vg_autoscale under gpu_giraffe. When true/omit, image default-on Mojo GBZ path. Operator-set per site/profile.",
+          "title": "Mojo Giraffe Ready"
+        },
+        "mojo_segments_cache": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directory of dense Mojo segment packs (* .mojo_segments). Operator-set per site (e.g. /work/cache/mojo_segments).",
+          "title": "Mojo Segments Cache"
+        },
+        "node_replacement_json": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional node-replacement JSON from PrepareGenome.",
+          "title": "Node Replacement Json"
+        },
+        "original_gbz": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unconverted graph GBZ used for MethylCall / coordinate provenance.",
+          "title": "Original Gbz"
+        },
+        "qc_bam_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "QC BAM remap engine: 'mojo' (MojoGiraffe\u2192linear BAM packaging) or 'vg' (vg giraffe -o BAM --ref-paths). When unset and engine=mojo, treat as mojo; else vg. Operator-set per site/profile.",
+          "title": "Qc Bam Engine"
+        },
+        "qc_bam_fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When qc_bam_engine=mojo and Mojo QC fails: 'error' (fail closed, no vg) or 'vg' (legacy multi-hour vg giraffe BAM). When unset and engine is mojo, treat as 'error'. Operator-set per site/profile.",
+          "title": "Qc Bam Fallback"
+        },
+        "read_level": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MethylGrapherReadLevelConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Read-level pattern extraction knobs. Operator-set per site/profile."
+        },
+        "ref_paths": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "GRCh38 ref-paths file for surjection / linear coordinates.",
+          "title": "Ref Paths"
+        },
+        "threads": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Worker threads for methylGrapher/vg. Operator-set per site/profile. Stock python MethylCall: keep <=16 to avoid dual in-memory GFA. engine=mojo forces a single GFA worker so higher -t is safe for RAM.",
+          "title": "Threads"
+        },
+        "vg_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned vg version string for provenance / CAAS (must match index builder).",
+          "title": "Vg Version"
+        },
+        "wl_gfa": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional override for PrepareGenome {index_prefix}.wl.gfa (MethylCall + GRCh38 path projection). Defaults to {index_prefix}.wl.gfa beside the bundle.",
+          "title": "Wl Gfa"
+        }
+      },
+      "title": "MethylGrapherWgbsStepConfig",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "executionScopeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Executionscopeid"
+    },
+    "forceRealign": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Forcerealign"
+    },
+    "project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Legacy alias of projectPath from older input templates (provenance only).",
+      "title": "Project"
+    },
+    "projectPath": {
+      "title": "Projectpath",
+      "type": "string"
+    },
+    "resolvedConfig": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MethylGrapherWgbsStepConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Merged actionConfig.methylgrapher_wgbs (+ extract overlays)."
+    },
+    "sampleDir": {
+      "title": "Sampledir",
+      "type": "string"
+    },
+    "sampleId": {
+      "title": "Sampleid",
+      "type": "string"
+    },
+    "tool": {
+      "default": "MethylGrapherWgbsExtract",
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sampleId",
+    "sampleDir",
+    "projectPath"
+  ],
+  "title": "MethylGrapherWgbsExtractTaskInput",
+  "type": "object"
+}

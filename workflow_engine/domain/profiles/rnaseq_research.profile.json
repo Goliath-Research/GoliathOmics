@@ -1,0 +1,33 @@
+{
+  "pipelineProfile": "rnaseq_research",
+  "catalog": {
+    "title": "RNA-Seq research",
+    "summary": "RNA-Seq process-pack research profile.",
+    "visibility": "advanced",
+    "lifecycle": "active",
+    "family": "specialty"
+  },
+  "description": "Research profile for the RNA-Seq transcriptomics process pack. Selects a quantifier (star | kallisto), RNA QC thresholds, and DE gene panel / tabular classification knobs. Does not use methylation centroid/DMP/cell-deconvolution config.",
+  "deleteFastqs": true,
+  "actionConfig": {
+    "rna_align": {
+      "quant_mode": "star"
+    },
+    "rna_qc": {
+      "guardrails": {
+        "min_mapping_rate": 0.6,
+        "min_uniquely_mapped_rate": 0.5,
+        "min_pseudoalignment_rate": 0.5,
+        "min_genes_detected": 8000,
+        "min_input_reads": 5000000
+      }
+    },
+    "rna_de_select": {
+      "max_genes": 200,
+      "ranking": "abs_t",
+      "transform": "logcpm",
+      "classifier_method": "logistic_regression",
+      "cv_folds": 5
+    }
+  }
+}

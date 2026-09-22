@@ -1,0 +1,67 @@
+{
+    "chromosomes": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "X"
+    ],
+    "contexts": [
+        "CG",
+        "CHG",
+        "CHH"
+    ],
+    "base_config": {
+        "chrom": "1",
+        "ctx": "CG",
+        "output_dir": "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/centroids/pp-healthy",
+        "add_samples": [
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-042525-95676",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-042825-39553",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-042925-105788",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-051325-25543",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-051425-74294",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-052125-32336",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-052125-87293",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-052225-74758",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-060425-107956",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-060625-104673",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-060925-66247",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-061125-42608",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-061825-52197",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-063025-77476",
+            "/home/ubuntu/Work/samples/humans/psomagen/AN00025834/data/HPLST-071625-48267"
+        ],
+        "remove_samples": [],
+        "outliers": [],
+        "min_coverage": 4,
+        "max_iterations_percentage": 0.1,
+        "\u03b1": 0.05,
+        "min_samples": 3,
+        "distance_metrics": [
+            "jensen_shannon",
+            "wasserstein"
+        ],
+        "min_metrics_agree": 0
+    },
+    "continue_on_error": true,
+    "save_batch_summary": true
+}

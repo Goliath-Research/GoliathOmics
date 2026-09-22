@@ -1,0 +1,149 @@
+{
+    "reference": "/home/ubuntu/Work/genomes/human_genome/hg38-2014/hg38.fa",
+    "chromosomes": [
+        {
+            "fasta": "chr1",
+            "bam": "chr1",
+            "extract": true,
+            "name": "chr1"
+        },
+        {
+            "fasta": "chr2",
+            "bam": "chr2",
+            "extract": true,
+            "name": "chr2"
+        },
+        {
+            "fasta": "chr3",
+            "bam": "chr3",
+            "extract": true,
+            "name": "chr3"
+        },
+        {
+            "fasta": "chr4",
+            "bam": "chr4",
+            "extract": true,
+            "name": "chr4"
+        },
+        {
+            "fasta": "chr5",
+            "bam": "chr5",
+            "extract": true,
+            "name": "chr5"
+        },
+        {
+            "fasta": "chr6",
+            "bam": "chr6",
+            "extract": true,
+            "name": "chr6"
+        },
+        {
+            "fasta": "chr7",
+            "bam": "chr7",
+            "extract": true,
+            "name": "chr7"
+        },
+        {
+            "fasta": "chr8",
+            "bam": "chr8",
+            "extract": true,
+            "name": "chr8"
+        },
+        {
+            "fasta": "chr9",
+            "bam": "chr9",
+            "extract": true,
+            "name": "chr9"
+        },
+        {
+            "fasta": "chr10",
+            "bam": "chr10",
+            "extract": true,
+            "name": "chr10"
+        },
+        {
+            "fasta": "chr11",
+            "bam": "chr11",
+            "extract": true,
+            "name": "chr11"
+        },
+        {
+            "fasta": "chr12",
+            "bam": "chr12",
+            "extract": true,
+            "name": "chr12"
+        },
+        {
+            "fasta": "chr13",
+            "bam": "chr13",
+            "extract": true,
+            "name": "chr13"
+        },
+        {
+            "fasta": "chr14",
+            "bam": "chr14",
+            "extract": true,
+            "name": "chr14"
+        },
+        {
+            "fasta": "chr15",
+            "bam": "chr15",
+            "extract": true,
+            "name": "chr15"
+        },
+        {
+            "fasta": "chr16",
+            "bam": "chr16",
+            "extract": true,
+            "name": "chr16"
+        },
+        {
+            "fasta": "chr17",
+            "bam": "chr17",
+            "extract": true,
+            "name": "chr17"
+        },
+        {
+            "fasta": "chr18",
+            "bam": "chr18",
+            "extract": true,
+            "name": "chr18"
+        },
+        {
+            "fasta": "chr19",
+            "bam": "chr19",
+            "extract": true,
+            "name": "chr19"
+        },
+        {
+            "fasta": "chr20",
+            "bam": "chr20",
+            "extract": true,
+            "name": "chr20"
+        },
+        {
+            "fasta": "chr21",
+            "bam": "chr21",
+            "extract": true,
+            "name": "chr21"
+        },
+        {
+            "fasta": "chr22",
+            "bam": "chr22",
+            "extract": true,
+            "name": "chr22"
+        },
+        {
+            "fasta": "chrX",
+            "bam": "chrX",
+            "extract": true,
+            "name": "chrX"
+        },
+        {
+            "fasta": "chrY",
+            "bam": "chrY",
+            "extract": true,
+            "name": "chrY"
+        }
+    ]
+}

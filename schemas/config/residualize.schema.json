@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "actionConfig.residualize \u2014 tunable knobs default to None (config-not-code).",
+  "properties": {
+    "chromosomes": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Chromosome allow-list; default from the study project chromosomes.",
+      "title": "Chromosomes"
+    },
+    "composition_columns": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Leukocyte \u03a9 columns to encode as Neu-referenced ALR. Omit to skip \u03a9 residualization.",
+      "title": "Composition Columns"
+    },
+    "composition_pseudocount": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ALR zero-replacement pseudocount. Operator-set per procedure/profile.",
+      "title": "Composition Pseudocount"
+    },
+    "composition_reference": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ALR reference leaf (typically Neu). Operator-set per procedure.",
+      "title": "Composition Reference"
+    },
+    "contexts": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Methylation contexts to residualize. Operator-set; typically [CG].",
+      "title": "Contexts"
+    },
+    "covariates_path": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "CSV paths joined on sample_id (cell_fractions plus confounder_scores). Operator-set per procedure/profile.",
+      "title": "Covariates Path"
+    },
+    "m_value_eps": {
+      "anyOf": [
+        {
+          "exclusiveMaximum": 0.5,
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Clip beta to [eps, 1-eps] before logit / after inverse logit.",
+      "title": "M Value Eps"
+    },
+    "min_coverage": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Minimum mC+uC for a CpG to enter the M-value matrix.",
+      "title": "Min Coverage"
+    },
+    "numeric_columns": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Non-composition covariate columns (smoking_score, age_score, bmi_score, crp_score, \u2026).",
+      "title": "Numeric Columns"
+    },
+    "output_dir": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Coefficient directory. Operator-set; freeze typically {output_base}/production/residualize.",
+      "title": "Output Dir"
+    },
+    "sample_id_column": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Covariate CSV sample-id column name. Operator-set; typically sample_id.",
+      "title": "Sample Id Column"
+    },
+    "variance_threshold": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Drop covariates with sample std below this (constant never-smokers, etc.).",
+      "title": "Variance Threshold"
+    }
+  },
+  "title": "ResidualizeStepConfig",
+  "type": "object"
+}

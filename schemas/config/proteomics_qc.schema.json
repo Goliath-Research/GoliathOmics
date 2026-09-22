@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "expected_proteins": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Proteins"
+    },
+    "max_missing_fraction": {
+      "default": 0.9,
+      "title": "Max Missing Fraction",
+      "type": "number"
+    },
+    "min_proteins_identified": {
+      "default": 300,
+      "title": "Min Proteins Identified",
+      "type": "integer"
+    }
+  },
+  "title": "ProteomicsQcGuardrailConfig",
+  "type": "object"
+}

@@ -1,0 +1,12 @@
+{
+  "executionScopeId": null,
+  "projectPath": null,
+  "remediationReason": null,
+  "sampleDir": "/work/samples/S1",
+  "sampleId": "S1",
+  "tool": "SampleTrimFastq",
+  "trimFront1": null,
+  "trimFront2": null,
+  "trimTail1": null,
+  "trimTail2": null
+}

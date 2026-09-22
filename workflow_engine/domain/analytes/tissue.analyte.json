@@ -1,0 +1,13 @@
+{
+  "name": "tissue",
+  "version": "1",
+  "description": "Solid tissue / tumor DNA matrix (e.g. HiTIMED tissue tree).",
+  "aliases": [],
+  "catalog": {
+    "title": "Tissue / tumor",
+    "summary": "Solid tissue or tumor DNA matrix for hierarchical deconvolution paths.",
+    "visibility": "advanced",
+    "lifecycle": "active",
+    "family": "analyte"
+  }
+}

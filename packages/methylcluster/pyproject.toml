@@ -1,0 +1,61 @@
+[tool.poetry]
+name = "methyl_cluster"
+version = "1.0.0"
+description = "Project-aware methylation sample clustering for MethylPipeline"
+authors = ["MethylPipeline Team"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Goliath-Research/GoliathWorkflow"
+documentation = "https://github.com/Goliath-Research/GoliathWorkflow/tree/main/packages/methylcluster"
+keywords = ["bioinformatics", "methylation", "clustering", "centroid", "hdbscan", "gpu"]
+packages = [{include = "methyl_cluster"}]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.15"
+numpy = ">=2.0.0,<3.0.0"
+scipy = ">=1.11.0,<2.0.0"
+h5py = ">=3.10.0,<4.0.0"
+hdf5plugin = ">=5.0.0,<7.0.0"
+hdbscan = ">=0.8.33"
+scikit-learn = ">=1.4.0,<2.0.0"
+plotly = ">=5.18.0,<7.0.0"
+matplotlib = ">=3.8.0,<4.0.0"
+pydantic = ">=2.6.0,<3.0.0"
+methylutils = {path = "../methylutils", develop = true}
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.0.0"
+pytest-cov = ">=3.0.0"
+black = ">=22.0.0"
+flake8 = ">=4.0.0"
+mypy = ">=0.950"
+
+[tool.poetry.scripts]
+methyl-cluster = "methyl_cluster.cli:main"
+methyl_cluster = "methyl_cluster.cli:main"
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312', 'py313', 'py314']
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+

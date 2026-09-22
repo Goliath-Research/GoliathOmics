@@ -1,0 +1,22 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "capability": null,
+  "confirmation_report": null,
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "manifest_path": null,
+  "n_columns": 20,
+  "n_jsd_windows": 5,
+  "n_samples": 10,
+  "output_csv": "/work/p/info_measures/info_measures.csv",
+  "output_dir": "/work/p/info_measures",
+  "result_code": 0,
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "tool": null
+}

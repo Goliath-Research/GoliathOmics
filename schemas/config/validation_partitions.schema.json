@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Named dataset partitions for lifecycle-stage evidence contracts.",
+  "properties": {
+    "development_train": {
+      "description": "Sample paths for model development/training partition.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Development Train",
+      "type": "array"
+    },
+    "independence_keys": {
+      "description": "Metadata keys that must remain independent across partitions when available (e.g., sample_id, patient_id, site_id, batch).",
+      "items": {
+        "type": "string"
+      },
+      "title": "Independence Keys",
+      "type": "array"
+    },
+    "internal_validation": {
+      "description": "Sample paths for internal model selection/validation partition.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Internal Validation",
+      "type": "array"
+    },
+    "locked_test": {
+      "description": "Sample paths reserved as locked test (never used for tuning).",
+      "items": {
+        "type": "string"
+      },
+      "title": "Locked Test",
+      "type": "array"
+    },
+    "pivotal_validation": {
+      "description": "Sample paths reserved for pivotal/clinical validation.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Pivotal Validation",
+      "type": "array"
+    },
+    "post_market_monitoring": {
+      "description": "Optional sample paths used for post-market monitoring analyses.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Post Market Monitoring",
+      "type": "array"
+    }
+  },
+  "title": "ValidationPartitionContract",
+  "type": "object"
+}

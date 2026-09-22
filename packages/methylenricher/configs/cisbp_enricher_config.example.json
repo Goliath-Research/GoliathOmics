@@ -1,0 +1,36 @@
+{
+  "project_name": "example_cisbp",
+  "output_base": "/work/data/example",
+  "step_config": {
+    "alignment_qc": {
+      "genome_fasta": "/work/genomes/linear/GRCh38/ensembl-116/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
+    },
+    "mapper": {
+      "gtf": "/path/to/annotation.gtf"
+    },
+    "enricher": {
+      "gene_column": "gene_name",
+      "disease_only": true,
+      "min_disease_score": 0.2,
+      "max_gene_q_value": 0.05,
+      "sort_by": "gene_importance",
+      "top": 150,
+      "cutoff": 0.05,
+      "organism": "Human",
+      "library_preset": "cancer-extended",
+      "cisbp": {
+        "enabled": true,
+        "mode": "gene_sets",
+        "species": "Homo_sapiens",
+        "motif_evidence": ["Direct", "Inferred"],
+        "auto_download": true,
+        "gene_set_source": "promoter_scan",
+        "promoter_upstream": 5000,
+        "promoter_downstream": 200,
+        "motif_score_threshold": 0.85,
+        "min_targets_per_tf": 5,
+        "max_targets_per_tf": 3000
+      }
+    }
+  }
+}

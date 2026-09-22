@@ -1,0 +1,25 @@
+{
+  "action_name": null,
+  "artifacts": [],
+  "capability": null,
+  "domainSample": null,
+  "duration_ms": null,
+  "exit_code": 0,
+  "finished_at_utc": null,
+  "manifest_path": null,
+  "outputDir": "/work/p/monte_carlo_runs/stability",
+  "result_code": 0,
+  "schema_version": "1.0",
+  "started_at_utc": null,
+  "status": "ok",
+  "stdout_tail": null,
+  "summary": {
+    "dmp_min_frequency": null,
+    "gene_min_frequency": null,
+    "n_iterations": 5,
+    "n_stable_dmps": 100,
+    "n_stable_genes": null,
+    "summary_json_path": null
+  },
+  "tool": null
+}

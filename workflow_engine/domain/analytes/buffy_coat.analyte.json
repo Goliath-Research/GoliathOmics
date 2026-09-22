@@ -1,0 +1,13 @@
+{
+  "name": "buffy_coat",
+  "version": "1",
+  "description": "Buffy coat / leukocyte DNA methylation matrix.",
+  "aliases": ["buffy", "buffy_coat_dna", "wbmc"],
+  "catalog": {
+    "title": "Buffy coat",
+    "summary": "Buffy coat leukocyte DNA; no cfDNA fragmentomics auto-enable.",
+    "visibility": "operator",
+    "lifecycle": "active",
+    "family": "analyte"
+  }
+}

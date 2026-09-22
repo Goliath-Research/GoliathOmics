@@ -1,0 +1,13 @@
+{
+  "name": "cfdna",
+  "version": "1",
+  "description": "Plasma / cell-free DNA methylation matrix.",
+  "aliases": ["cf_dna", "cell_free_dna", "plasma", "plasma_cfdna"],
+  "catalog": {
+    "title": "cfDNA (plasma)",
+    "summary": "Cell-free DNA from plasma; enables fragmentomics and cfDNA QC defaults.",
+    "visibility": "operator",
+    "lifecycle": "active",
+    "family": "analyte"
+  }
+}

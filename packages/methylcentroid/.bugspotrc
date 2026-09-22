@@ -1,0 +1,57 @@
+{
+  "project": "MethylCentroid",
+  "language": "python",
+  "analysis": {
+    "patterns": [
+      "*.py"
+    ],
+    "exclude": [
+      "**/__pycache__/**",
+      "**/.pytest_cache/**",
+      "**/tests/**",
+      "**/venv/**",
+      "**/.venv/**",
+      "**/build/**",
+      "**/dist/**"
+    ]
+  },
+  "rules": {
+    "enabled": [
+      "potential-bug",
+      "code-smell",
+      "performance-issue",
+      "security-vulnerability",
+      "maintainability-issue"
+    ],
+    "severity": {
+      "potential-bug": "medium",
+      "code-smell": "low",
+      "performance-issue": "medium",
+      "security-vulnerability": "high",
+      "maintainability-issue": "low"
+    }
+  },
+  "python": {
+    "specific_rules": [
+      "unused-import",
+      "unused-variable",
+      "potential-division-by-zero",
+      "array-index-out-of-bounds",
+      "memory-leak",
+      "gpu-memory-management"
+    ],
+    "ignore_patterns": [
+      "import hdf5plugin",  // Required for HDF5 compression
+      "import pynvml",      // Required for GPU detection
+      "cupy",               // GPU library imports
+      "cudf",               // GPU DataFrame library
+      "cuml"                // GPU ML library
+    ]
+  },
+  "reporting": {
+    "format": "json",
+    "output_file": "bugspot-report.json",
+    "include_code_snippets": true,
+    "include_suggestions": true
+  }
+} 

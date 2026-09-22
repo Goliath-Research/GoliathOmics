@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AnalyteCatalogDocument",
+  "description": "Versioned specimen/matrix analyte catalog entry (cfdna, buffy_coat, …). Identity + portal catalog metadata; step_config patches remain in Python analyte_profiles keyed by name.",
+  "type": "object",
+  "required": ["name", "version", "catalog"],
+  "additionalProperties": true,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonical analyte id (cfg.analyte.name), e.g. cfdna, buffy_coat."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Document version (cfg.analyte.version)."
+    },
+    "description": { "type": "string" },
+    "aliases": {
+      "type": "array",
+      "description": "Alternate tokens normalized to this analyte (see normalize_primary_analyte).",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "catalog": {
+      "$ref": "#/$defs/analyteCatalog"
+    }
+  },
+  "$defs": {
+    "analyteCatalog": {
+      "type": "object",
+      "description": "Portal/operator catalog metadata (not science knobs).",
+      "required": ["title", "summary", "visibility", "lifecycle", "family"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "visibility": {
+          "type": "string",
+          "enum": ["operator", "advanced", "hidden"]
+        },
+        "lifecycle": {
+          "type": "string",
+          "enum": ["active", "deprecated", "internal"]
+        },
+        "family": {
+          "type": "string",
+          "enum": ["analyte", "specialty", "legacy"]
+        },
+        "replacedBy": {
+          "type": "string",
+          "description": "Canonical analyte name when lifecycle is deprecated."
+        }
+      }
+    }
+  }
+}

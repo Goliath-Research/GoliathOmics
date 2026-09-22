@@ -1,0 +1,144 @@
+{
+  "name": "PCa1_5_Model",
+  "description": "Model selection and post-model validation for Healthy_vs_PCa1-5-CG.",
+  "version_major": 1,
+  "version_minor": 0,
+  "is_active": true,
+  "root_node_key": "root",
+  "nodes": [
+    {
+      "node_key": "root",
+      "node_type": "SEQUENCE",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": null
+    },
+    {
+      "node_key": "seq_1",
+      "node_type": "SEQUENCE",
+      "action_name": null,
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": null
+    },
+    {
+      "node_key": "select_best_model",
+      "node_type": "ACTION",
+      "action_name": "validation.select_best_model",
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": {
+        "tool": "validation.select_best_model",
+        "projectPath": "${var.projectPath}",
+        "project": "${var.projectPath}",
+        "modelMcRoot": "${var.modelMcRoot}",
+        "backends": "${var.backends}",
+        "selectionMetric": "${var.selectionMetric}",
+        "selectionStat": "${var.selectionStat}"
+      }
+    },
+    {
+      "node_key": "post_model_validation",
+      "node_type": "ACTION",
+      "action_name": "validation.post_model_validation",
+      "repeat_count": null,
+      "condition_ref_node_key": null,
+      "switch_ref_node_key": null,
+      "condition_var": null,
+      "switch_var": null,
+      "foreach_collection_var": null,
+      "foreach_item_var": null,
+      "foreach_index_var": null,
+      "foreach_parallel": null,
+      "input_template": {
+        "tool": "validation.post_model_validation",
+        "projectPath": "${var.projectPath}",
+        "project": "${var.projectPath}",
+        "productionOutputDir": "${var.productionOutputDir}",
+        "outputDir": "${var.outputDir}"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "parent_node_key": "seq_1",
+      "child_node_key": "select_best_model",
+      "child_order": 0,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "seq_1",
+      "child_node_key": "post_model_validation",
+      "child_order": 1,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    },
+    {
+      "parent_node_key": "root",
+      "child_node_key": "seq_1",
+      "child_order": 0,
+      "branch_kind": "SEQUENCE",
+      "condition_expr": null,
+      "switch_case_value": null,
+      "is_default": false
+    }
+  ],
+  "input_bindings": [],
+  "output_bindings": [
+    {
+      "node_key": "select_best_model",
+      "var_name": "selectedBackend",
+      "source_kind": "output_path",
+      "source_json_path": "$.selectedBackend"
+    }
+  ],
+  "scope_defaults": [
+    {
+      "node_key": "root",
+      "var_name": "projectPath",
+      "default_expr": "${var.projectPath}"
+    },
+    {
+      "node_key": "root",
+      "var_name": "centroid1Dir",
+      "default_expr": "${var.centroid1Dir}"
+    }
+  ],
+  "collection_bindings": [
+    {
+      "scope_var": "project",
+      "kind": "jsonFile",
+      "path_var": "projectPath",
+      "base_var": null,
+      "json_path": null,
+      "bind_order": 0
+    }
+  ]
+}
