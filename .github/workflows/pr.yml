@@ -1,0 +1,31 @@
+name: PR
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install host CLIs
+        run: sudo apt-get update && sudo apt-get install -y samtools
+
+      - name: Install science packages and the methyl worker
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install -U pip pytest
+          bash scripts/install_packages.sh --with-deps
+
+      - name: Worker unit tests
+        run: |
+          . .venv/bin/activate
+          python -m pytest workers/tests -q

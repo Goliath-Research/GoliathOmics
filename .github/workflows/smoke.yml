@@ -1,0 +1,34 @@
+name: Distributed smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      apiBase:
+        description: Gateway API base
+        required: false
+        type: string
+        default: http://localhost:8080/v1
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, production-work-agents]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build test venv
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install -U pip
+          bash scripts/install_packages.sh --with-deps
+
+      - name: Run sample prep and study lifecycle smoke
+        run: |
+          set -euo pipefail
+          . .venv/bin/activate
+          export WORKER_STUB_EXTERNAL=1
+          export WORKER_API_BASE="${{ github.event.inputs.apiBase || 'http://localhost:8080/v1' }}"
+          bash scripts/smoke_sample_prep.sh --api-base "$WORKER_API_BASE"
+          bash scripts/smoke_study_lifecycle.sh --api-base "$WORKER_API_BASE"

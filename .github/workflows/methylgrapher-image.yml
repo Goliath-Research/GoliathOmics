@@ -1,0 +1,75 @@
+name: methylGrapher image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - workers/docker/methylgrapher/**
+      - scripts/build_methylgrapher_image.sh
+      - .github/workflows/methylgrapher-image.yml
+  workflow_dispatch:
+    inputs:
+      vgVersion:
+        description: vg source/release version pin (compile)
+        required: false
+        type: string
+        default: "1.70.0"
+      imageTag:
+        description: Published image tag (must match platform_matrix METHYLGRAPHER_IMAGE_*)
+        required: false
+        type: string
+        default: "1.70"
+      methylgrapherVersion:
+        description: methylGrapher PyPI version pin
+        required: false
+        type: string
+        default: "0.2.0"
+      imageRepository:
+        description: Image repository (no tag)
+        required: false
+        type: string
+        default: "goliath/methylgrapher"
+      pushToRegistry:
+        description: docker push after build
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build vg (jemalloc=off) + methylGrapher image
+        env:
+          VG_VERSION: ${{ inputs.vgVersion || '1.70.0' }}
+          METHYLGRAPHER_IMAGE_TAG: ${{ inputs.imageTag || '1.70' }}
+          METHYLGRAPHER_VERSION: ${{ inputs.methylgrapherVersion || '0.2.0' }}
+          METHYL_METHYLGRAPHER_IMAGE: ${{ inputs.imageRepository || 'goliath/methylgrapher' }}:${{ inputs.imageTag || '1.70' }}
+          METHYLGRAPHER_IMAGE_TAR: ${{ runner.temp }}/methylgrapher-${{ inputs.imageTag || '1.70' }}-arm64.tar.gz
+          SKIP_SMOKE: "1"
+          INSTALL_DEPS: "1"
+          VG_SRC_DIR: ${{ runner.temp }}/vg-src/vg
+        run: |
+          set -euo pipefail
+          chmod +x scripts/build_methylgrapher_image.sh
+          ./scripts/build_methylgrapher_image.sh
+          docker image inspect "$METHYL_METHYLGRAPHER_IMAGE" >/dev/null
+
+      - name: Upload docker-save tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: methylgrapher-image-arm64
+          path: ${{ runner.temp }}/methylgrapher-*-arm64.tar.gz
+
+      - name: Push image
+        if: ${{ inputs.pushToRegistry }}
+        env:
+          IMAGE_REF: ${{ inputs.imageRepository || 'goliath/methylgrapher' }}:${{ inputs.imageTag || '1.70' }}
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag "$IMAGE_REF" "ghcr.io/${{ github.repository_owner }}/methylgrapher:${{ inputs.imageTag || '1.70' }}"
+          docker push "ghcr.io/${{ github.repository_owner }}/methylgrapher:${{ inputs.imageTag || '1.70' }}"

@@ -1,0 +1,84 @@
+name: MethylPipeline release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.12"
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install build tools
+        run: python -m pip install -U pip build wheel pip-tools twine
+
+      - name: Build release (wheels + runtime-bundle + manifest)
+        id: build
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          bash scripts/build_release.sh \
+            --version "$VERSION" \
+            --output "${{ runner.temp }}/release" \
+            --with-gpu-reqs
+          tar -C "${{ runner.temp }}/release" -czf \
+            "${{ runner.temp }}/methyl-pipeline-release-${VERSION}.tar.gz" .
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: methyl-pipeline-release-${{ steps.build.outputs.version }}
+          path: ${{ runner.temp }}/release
+
+      - name: Publish GitHub Release tarball
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.build.outputs.version }}"
+          TARBALL="${{ runner.temp }}/methyl-pipeline-release-${VERSION}.tar.gz"
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            gh release upload "v${VERSION}" "$TARBALL" --clobber
+          else
+            gh release create "v${VERSION}" \
+              --title "MethylPipeline ${VERSION}" \
+              --generate-notes \
+              "$TARBALL"
+          fi
+
+      - name: Upload wheels to GitHub Packages (pypi-goliath)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYPIRC: ${{ runner.temp }}/.pypirc
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          Path(os.environ["PYPIRC"]).write_text(
+              "[distutils]\n"
+              "index-servers = pypi-goliath\n\n"
+              "[pypi-goliath]\n"
+              "repository = https://pypi.pkg.github.com/Goliath-Research\n"
+              "username = __token__\n"
+              f"password = {os.environ['GH_TOKEN']}\n",
+              encoding="utf-8",
+          )
+          PY
+          twine upload --non-interactive \
+            --config-file "$PYPIRC" \
+            --repository pypi-goliath \
+            "${{ runner.temp }}/release/wheels/"*.whl

@@ -1,0 +1,50 @@
+name: Real data
+
+on:
+  workflow_dispatch:
+    inputs:
+      testDataConfig:
+        description: Optional path to a test-data registry JSON (overrides site testing block)
+        required: false
+        type: string
+        default: ""
+      siteConfig:
+        description: Site manifest path (METHYL_SITE_CONFIG)
+        required: false
+        type: string
+        default: /work/site/methyl_site.json
+  schedule:
+    - cron: "0 7 * * 1"
+
+jobs:
+  real-data:
+    runs-on: [self-hosted, production-work-agents]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build test venv (editable packages + deps)
+        run: |
+          set -euo pipefail
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install -U pip pytest pytest-cov
+          bash scripts/install_packages.sh --with-deps
+
+      - name: Real reference-sample tests (-m real_data)
+        run: |
+          set -euo pipefail
+          . .venv/bin/activate
+          export METHYL_SITE_CONFIG="${{ github.event.inputs.siteConfig || '/work/site/methyl_site.json' }}"
+          if [[ -n "${{ github.event.inputs.testDataConfig }}" ]]; then
+            export METHYL_TEST_DATA_CONFIG="${{ github.event.inputs.testDataConfig }}"
+          fi
+          python -m pytest -m real_data \
+            --junitxml=test-results/real-data-junit.xml \
+            -rs -v
+
+      - name: Upload real-data test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-data-junit
+          path: test-results/real-data-junit.xml

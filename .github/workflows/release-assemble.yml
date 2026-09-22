@@ -1,0 +1,77 @@
+name: GoliathOmics release assemble
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseVersion:
+        description: Deploy bundle version (SemVer)
+        required: true
+        type: string
+      methylPipelineVersion:
+        description: MethylPipeline GitHub Release version
+        required: true
+        type: string
+      methylExtractorVersion:
+        description: MethylExtractor GitHub Release version
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download MethylPipeline release tarball
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          MP="${{ inputs.methylPipelineVersion }}"
+          mkdir -p "${{ runner.temp }}/mp-dl" "${{ runner.temp }}/mp-release"
+          gh release download "v${MP}" \
+            --repo "${{ github.repository }}" \
+            --pattern "methyl-pipeline-release-*.tar.gz" \
+            --dir "${{ runner.temp }}/mp-dl"
+          tar -xzf "${{ runner.temp }}/mp-dl"/methyl-pipeline-release-*.tar.gz \
+            -C "${{ runner.temp }}/mp-release"
+
+      - name: Assemble GoliathOmics bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_ORG: https://github.com/${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          bash scripts/assemble_release.sh \
+            --release-version "${{ inputs.releaseVersion }}" \
+            --methyl-pipeline-version "${{ inputs.methylPipelineVersion }}" \
+            --methyl-extractor-version "${{ inputs.methylExtractorVersion }}" \
+            --methyl-pipeline-dir "${{ runner.temp }}/mp-release" \
+            --output "${{ runner.temp }}/goliathomics-release"
+          tar -C "${{ runner.temp }}/goliathomics-release" -czf \
+            "${{ runner.temp }}/goliathomics-release-${{ inputs.releaseVersion }}.tar.gz" .
+
+      - name: Upload assembled bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: goliathomics-release-${{ inputs.releaseVersion }}
+          path: ${{ runner.temp }}/goliathomics-release
+
+      - name: Publish goliathomics GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="goliathomics-${{ inputs.releaseVersion }}"
+          TARBALL="${{ runner.temp }}/goliathomics-release-${{ inputs.releaseVersion }}.tar.gz"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$TARBALL" --clobber
+          else
+            gh release create "$TAG" \
+              --title "GoliathOmics ${{ inputs.releaseVersion }}" \
+              --notes "Assembled MethylPipeline ${{ inputs.methylPipelineVersion }} + MethylExtractor ${{ inputs.methylExtractorVersion }}." \
+              "$TARBALL"
+          fi

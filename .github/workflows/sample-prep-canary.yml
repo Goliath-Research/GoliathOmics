@@ -1,0 +1,101 @@
+name: SamplePrep canary
+
+on:
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: Data tier
+        required: false
+        type: choice
+        default: subset
+        options:
+          - subset
+          - full
+      modes:
+        description: Alignment modes (space-separated)
+        required: false
+        type: string
+        default: "linear pangenome pangenome_wgbs"
+      siteConfig:
+        description: Site manifest path (METHYL_SITE_CONFIG)
+        required: false
+        type: string
+        default: /work/site/methyl_site.json
+      canaryConfig:
+        description: Optional METHYL_SAMPLE_PREP_CANARY_CONFIG path
+        required: false
+        type: string
+        default: ""
+      timeoutSeconds:
+        description: Per-mode timeout seconds
+        required: false
+        type: string
+        default: "14400"
+      allowMissingChecksums:
+        description: Allow missing SHA-256 pins (debug only)
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 6 1 * *"
+
+jobs:
+  canary:
+    runs-on: [self-hosted, production-work-agents]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Ensure test venv
+        run: |
+          set -euo pipefail
+          if [[ ! -d .venv ]]; then
+            python -m venv .venv
+          fi
+          . .venv/bin/activate
+          python -m pip install -U pip
+          bash scripts/install_packages.sh --with-deps
+
+      - name: SamplePrep real canary
+        env:
+          BACKEND_DB: ${{ secrets.BACKEND_DB }}
+          AZURE_SQL_SERVER: ${{ secrets.AZURE_SQL_SERVER }}
+          AZURE_SQL_DB: ${{ secrets.AZURE_SQL_DB }}
+          AZURE_SQL_USER: ${{ secrets.AZURE_SQL_USER }}
+          AZURE_SQL_PASSWORD: ${{ secrets.AZURE_SQL_PASSWORD }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          METHYL_METHYLGRAPHER_IMAGE: ${{ secrets.METHYL_METHYLGRAPHER_IMAGE }}
+        run: |
+          set -euo pipefail
+          . .venv/bin/activate
+          unset WORKER_STUB_EXTERNAL || true
+          export METHYL_SITE_CONFIG="${{ github.event.inputs.siteConfig || '/work/site/methyl_site.json' }}"
+          if [[ -n "${{ github.event.inputs.canaryConfig }}" ]]; then
+            export METHYL_SAMPLE_PREP_CANARY_CONFIG="${{ github.event.inputs.canaryConfig }}"
+          fi
+          REPORT_DIR="$(pwd)/test-results/sample-prep-canary"
+          mkdir -p "$REPORT_DIR"
+          EXTRA=()
+          if [[ "${{ github.event.inputs.allowMissingChecksums }}" == "true" ]]; then
+            EXTRA+=(--allow-missing-checksums)
+          fi
+          TIER="${{ github.event.inputs.tier || 'subset' }}"
+          MODES="${{ github.event.inputs.modes || 'linear pangenome pangenome_wgbs' }}"
+          TIMEOUT="${{ github.event.inputs.timeoutSeconds || '14400' }}"
+          # shellcheck disable=SC2086
+          bash scripts/smoke_sample_prep_real.sh \
+            --tier "$TIER" \
+            --modes $MODES \
+            --timeout "$TIMEOUT" \
+            --report-dir "$REPORT_DIR" \
+            --run-root "$(pwd)/.smoke/sample_prep_canary" \
+            "${EXTRA[@]}"
+
+      - name: Upload canary reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-prep-canary-${{ github.event.inputs.tier || 'subset' }}
+          path: test-results/sample-prep-canary

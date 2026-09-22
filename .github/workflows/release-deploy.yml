@@ -1,0 +1,79 @@
+name: GoliathOmics release deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseVersion:
+        description: Deploy bundle version (must match assemble GitHub Release)
+        required: true
+        type: string
+      pullParabricks:
+        description: docker pull Parabricks during promote (first arch only)
+        required: false
+        type: boolean
+        default: false
+      runE2eVerify:
+        description: Run verify_e2e_node.sh on the deploy runner
+        required: false
+        type: boolean
+        default: false
+      goliathRoot:
+        description: Shared storage root on the runner
+        required: false
+        type: string
+        default: /work/goliath
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: [self-hosted, production-work-agents]
+    environment: production-work
+    steps:
+      - name: Download assembled bundle from GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.releaseVersion }}"
+          mkdir -p "${{ runner.temp }}/bundle-dl" "${{ runner.temp }}/bundle"
+          gh release download "goliathomics-${VERSION}" \
+            --repo "${{ github.repository }}" \
+            --pattern "goliathomics-release-*.tar.gz" \
+            --dir "${{ runner.temp }}/bundle-dl"
+          tar -xzf "${{ runner.temp }}/bundle-dl"/goliathomics-release-*.tar.gz \
+            -C "${{ runner.temp }}/bundle"
+
+      - name: Rsync bundle and promote_release
+        run: |
+          set -euo pipefail
+          ROOT="${{ inputs.goliathRoot }}"
+          VERSION="${{ inputs.releaseVersion }}"
+          RELEASE="$ROOT/releases/$VERSION"
+          mkdir -p "$RELEASE"
+          rsync -rl --delete --no-perms --no-owner --no-group \
+            "${{ runner.temp }}/bundle/" "$RELEASE/"
+          PROMOTE="$RELEASE/runtime-bundle/scripts/promote_release.sh"
+          [[ -x "$PROMOTE" ]] || { echo "Missing promote script: $PROMOTE"; exit 1; }
+          PB_FLAG=(--skip-docker-pull)
+          if [[ "${{ inputs.pullParabricks }}" == "true" ]]; then
+            PB_FLAG=(--pull-parabricks)
+          fi
+          bash "$PROMOTE" --root "$ROOT" --release "$RELEASE" --arch aarch64 "${PB_FLAG[@]}"
+          bash "$PROMOTE" --root "$ROOT" --release "$RELEASE" --arch amd64 --skip-docker-pull
+          echo "Promoted $VERSION -> $ROOT/current"
+
+      - name: Post-promote verification
+        run: |
+          set -euo pipefail
+          RUNTIME="${{ inputs.goliathRoot }}/current/runtime-bundle"
+          if [[ ! -x "$RUNTIME/scripts/verify_setup.sh" ]]; then
+            echo "Missing verify_setup.sh under $RUNTIME"
+            exit 1
+          fi
+          bash "$RUNTIME/scripts/verify_setup.sh"
+          if [[ -x "$RUNTIME/scripts/verify_e2e_node.sh" && "${{ inputs.runE2eVerify }}" == "true" ]]; then
+            bash "$RUNTIME/scripts/verify_e2e_node.sh"
+          fi
+          echo "Deploy verification passed for ${{ inputs.releaseVersion }}"
