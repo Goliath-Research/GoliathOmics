@@ -27,7 +27,22 @@ CREATE OR ALTER FUNCTION wf.wf_json_fragment_from_string(@s NVARCHAR(MAX))
 RETURNS NVARCHAR(MAX)
 AS
 BEGIN
-    RETURN N'"' + REPLACE(REPLACE(REPLACE(@s, N'\', N'\\'), N'"', N'\"'), CHAR(10), N'\n') + N'"';
+    DECLARE @i INT = 0;
+    IF @s IS NULL
+        RETURN NULL;
+    SET @s = REPLACE(REPLACE(@s, N'\', N'\\'), N'"', N'\"');
+    SET @s = REPLACE(@s, NCHAR(8), N'\b');
+    SET @s = REPLACE(@s, NCHAR(9), N'\t');
+    SET @s = REPLACE(@s, NCHAR(10), N'\n');
+    SET @s = REPLACE(@s, NCHAR(12), N'\f');
+    SET @s = REPLACE(@s, NCHAR(13), N'\r');
+    WHILE @i < 32
+    BEGIN
+        IF @i NOT IN (8, 9, 10, 12, 13)
+            SET @s = REPLACE(@s, NCHAR(@i), N'\u' + RIGHT(N'000' + CONVERT(NVARCHAR(2), CONVERT(VARBINARY(1), @i), 2), 4));
+        SET @i += 1;
+    END
+    RETURN N'"' + @s + N'"';
 END;
 GO
 
