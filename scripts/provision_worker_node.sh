@@ -39,7 +39,9 @@ Options:
   --dry-run
   -h, --help
 
-Env: WORKER_API_BASE (required for enroll). Portal must already preregister this VM's public IP.
+Env: WORKER_API_BASE (required for enroll).
+The portal must preregister this VM (cluster, worker key, public IP) before enroll.
+Enroll is refused until that row exists; this script does not insert it.
 EOF
 }
 
@@ -163,6 +165,8 @@ do_enroll() {
   venv_py="$(resolve_venv_python)" || die "Worker venv python not found under $ROOT/venv-$ARCH (seed /work first)"
   local worker_key
   worker_key="$(hostname -s)"
+  echo "Enroll requires a portal preregistration for cluster ${CLUSTER}, key ${worker_key}, and this VM's public IP."
+  echo "Create that row in the portal first (portal.sp_upsert_worker_enrollment). This script will not insert it."
   [[ "$REQUIRE_ARC" -eq 1 ]] && run bash "$SCRIPTS/verify_arc_prereqs.sh"
   set -a
   # shellcheck disable=SC1091
