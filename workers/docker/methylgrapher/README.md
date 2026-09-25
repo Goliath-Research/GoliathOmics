@@ -58,6 +58,8 @@ MOJO_ALIGN_GPU_VARIANT=cuda ./scripts/build_mojo_align_image.sh
 bash workers/docker/methylgrapher/smoke_64k.sh   # on a real 64K host
 ```
 
+When `apptainer` is on PATH, that build also writes a `.sif` of the same image (under `/work/goliath/images/` when that directory exists). `MOJO_ALIGN_BUILD_SIF=skip` leaves Docker only. Run the file with `scripts/run_mojo_align_sif.sh`, which passes `--nv` or `--rocm` and bind-mounts a writable Mojo cache. The worker still launches Docker.
+
 ## Deploy on a worker
 
 ```bash
