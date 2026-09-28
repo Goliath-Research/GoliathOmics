@@ -1,5 +1,7 @@
 # Config registry (`methyl-cfg`)
 
+The registry engine and `goliath-cfg` live in GoliathApp. This chapter is the genomics operator path: science seeds, profiles, and handlers stay in GoliathOmics. `methyl-cfg` is the one-cycle alias of `goliath-cfg`.
+
 ## What this chapter is
 
 Operator path for the **configuration registry**: database (or file-backed store) owns sites, profiles, DomainPrograms, studies, storage endpoints/credentials, and reference assets; `methyl-cfg materialize` writes non-secret files onto `/work` for cluster workers. **Production storage/credential authoring** is EpiPortal → `portal.sp_*` (lab/infra admins); `methyl-cfg upsert` is for **dev/CI/bootstrap** only.

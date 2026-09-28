@@ -17,7 +17,11 @@
 #   METHYL_CLEAR_SISTER_READY=1   # default 1 — drop sister .ready so reload runs
 set -euo pipefail
 
-IMAGE="${METHYL_MOJO_ALIGN_IMAGE:-}"
+IMAGE="${GOLIATH_ALIGN_IMAGE:-}"
+if [[ -z "${IMAGE}" && -n "${METHYL_MOJO_ALIGN_IMAGE:-}" ]]; then
+  echo "warning: METHYL_MOJO_ALIGN_IMAGE is deprecated; use GOLIATH_ALIGN_IMAGE" >&2
+  IMAGE="${METHYL_MOJO_ALIGN_IMAGE}"
+fi
 if [[ -z "${IMAGE}" && -n "${METHYL_METHYLGRAPHER_MOJO_IMAGE:-}" ]]; then
   echo "warning: METHYL_METHYLGRAPHER_MOJO_IMAGE is deprecated; use METHYL_MOJO_ALIGN_IMAGE" >&2
   IMAGE="${METHYL_METHYLGRAPHER_MOJO_IMAGE}"

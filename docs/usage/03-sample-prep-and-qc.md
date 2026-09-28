@@ -9,7 +9,7 @@
 
 Without these gates, bad alignments would waste GPU cycles, and under-covered or poorly converted extractions would pollute centroids, DMP discovery, and classifiers.
 
-Each sample is aligned using **linear** or **stock pangenome** (NVIDIA Clara Parabricks — **explicit** config) or **WGBS pangenome** (native-Mojo methylGrapher on NVIDIA CUDA or AMD HIP), then passes through mode-aware QC gates below. **Alignment is GPU** (Clara or mojo-align). **Extraction is CPU:** MethylExtractor (C/HTSlib/HDF5) for linear/stock pangenome, or native-Mojo methylGrapher extract for WGBS pangenome.
+Each sample is aligned using **linear** or **stock pangenome** (NVIDIA Clara Parabricks — **explicit** config) or **WGBS pangenome** (native-Mojo methylGrapher on NVIDIA CUDA or AMD HIP), then passes through mode-aware QC gates below. **Alignment is GPU** (Clara or GoliathAlign). **Extraction is CPU:** MethylExtractor (C/HTSlib/HDF5) for linear/stock pangenome, or native-Mojo methylGrapher extract for WGBS pangenome.
 
 **Workflow source of truth:** [`workflow_engine/domain/fixtures/sample_prep.program.json`](../../workflow_engine/domain/fixtures/sample_prep.program.json)
 

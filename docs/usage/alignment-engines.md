@@ -1,13 +1,13 @@
 # Alignment engines
 
-MethylPipeline SamplePrep supports three `alignmentMode` values. This page is the operator matrix for choosing an engine; science contracts for the Mojo cutover live in the sibling [mojo-align](https://github.com/Goliath-Research/mojo-align) repository (`fq2bam-meth/`, `giraffe/`, `methylgrapher/`).
+GoliathOmics SamplePrep supports three `alignmentMode` values. This page is the operator matrix for choosing an engine. Science contracts for the Mojo aligner live in the sibling [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) repository (`fq2bam-meth/`, `giraffe/`, `methylgrapher/`). That repository was named mojo-align. `GOLIATH_ALIGN_*` is canonical; `MOJO_ALIGN_*` remains a one-cycle alias.
 
 ## Mode matrix
 
 | `alignmentMode` | Primary action(s) | Default engine | Explicit alternative | Notes |
 |-----------------|-------------------|----------------|----------------------|-------|
 | `linear` | `sample.parabricks_fq2bam` | Clara Parabricks `fq2bam_meth` (NVIDIA) | **MojoFq2bamMeth** when `actionConfig.parabricks.engine=mojo` | Portable NVIDIA / AMD / CPU; Clara remains an explicit config choice. Linear `engine=mojo` defaults to FM-index (`METHYLGRAPHER_LINEAR_ENGINE=fm` on `${REF}.bwameth.c2t`), not the frozen k-mer parity engine. |
-| `pangenome` | `sample.parabricks_giraffe` | Clara Parabricks giraffe → BAM | — | Stock (non-bisulfite) HPRC-style path; **not** replaced by mojo-align Giraffe |
+| `pangenome` | `sample.parabricks_giraffe` | Clara Parabricks giraffe → BAM | — | Stock (non-bisulfite) HPRC-style path; **not** replaced by GoliathAlign Giraffe |
 | `pangenome_wgbs` | `sample.methylgrapher_wgbs_align` → extract | Native Mojo Giraffe (`align_engine=gpu_giraffe` / `mojo_giraffe`) on NVIDIA CUDA or AMD HIP | `cpu_vg` (`vg giraffe`) only when GPU vendor is unknown or for parity/rollback | Graph-aware GAF → MethylCall; Parabricks giraffe is **not** a GAF substitute |
 
 ## Configuration surface
@@ -36,7 +36,7 @@ Alignment QC shares guardrails across modes and adds tool-family checks:
 
 See [Sample prep and QC](03-sample-prep-and-qc.md), [Sample preparation flow](../implementation/sample-preparation-flow.md), and [methylalignmentqc USAGE](../../packages/methylalignmentqc/docs/USAGE.md).
 
-## Sibling science contracts (mojo-align)
+## Sibling science contracts (GoliathAlign)
 
 | Document | Role |
 |----------|------|
@@ -48,7 +48,7 @@ See [Sample prep and QC](03-sample-prep-and-qc.md), [Sample preparation flow](..
 | `fq2bam-meth/docs/BENCHMARK_FQ2BAM_METH.md` | Clara vs Mojo linear bakeoff gates |
 | `giraffe/docs/ROCM_GIRAFFE_GATES.md` | AMD ROCm image and host gates |
 
-Clone path on developer hosts is typically alongside this repo (`../mojo-align`). Set `MOJO_ALIGN_ROOT` to that checkout (or leave unset to auto-detect). Docker images are built via `scripts/build_mojo_align_image.sh` and documented under [`workers/docker/methylgrapher/README.md`](../../workers/docker/methylgrapher/README.md). The in-container install prefix is `/opt/mojo-align`. Env knobs use the `MOJO_ALIGN_*` family (one-release dual-read of deprecated `METHYLGRAPHER_MOJO_*`).
+Clone path on developer hosts is typically alongside this repo (`../GoliathAlign`). Set `GOLIATH_ALIGN_ROOT` to that checkout (`MOJO_ALIGN_ROOT` and `../mojo-align` still work for one cycle). Docker images are built via `scripts/build_goliath_align_image.sh` and documented under [`workers/docker/methylgrapher/README.md`](../../workers/docker/methylgrapher/README.md). The in-container install prefix is `/opt/goliath-align` (symlink `/opt/mojo-align`). Env knobs use the `GOLIATH_ALIGN_*` family (one-release dual-read of deprecated `MOJO_ALIGN_*`, which itself still reads `METHYLGRAPHER_MOJO_*`).
 
 ## Related
 

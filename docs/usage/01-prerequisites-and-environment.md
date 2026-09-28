@@ -51,7 +51,7 @@ methyl-predictor --help
 
 - CPU host development supports Python 3.10-3.14; Python 3.14 is preferred.
 - RAPIDS GPU conda/Docker environments remain on Python 3.12, and the bundled
-  `mojo-align` runtime remains on Python 3.13.
+  GoliathAlign runtime remains on Python 3.13.
 - Activate `.venv` before every run.
 - Use absolute paths in project configs where possible.
 - Keep `samples_base_path` consistent across stages.

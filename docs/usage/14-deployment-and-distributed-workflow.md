@@ -1,5 +1,7 @@
 # Deployment and Distributed Workflow
 
+The gateway, engine DDL, and `goliath-cfg` live in GoliathApp. This repository supplies science seeds and `methyl_worker` handlers. `methyl-cfg` remains the genomics CLI alias for one release cycle.
+
 ## Purpose
 
 Deploy the **control plane** (database, REST gateway) and **GPU workers** that execute SamplePrep and validation workflows. This chapter consolidates the dual-backend story (Azure SQL and PostgreSQL) and links to detailed runbooks.

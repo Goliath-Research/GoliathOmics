@@ -11,7 +11,7 @@ Canonical SamplePrep contract: [`docs/implementation/sample-preparation-flow.md`
 | `mojo` (**canonical**) | `goliath/methylgrapher:1.70-mojo-cuda` or `:1.70-mojo-rocm` | native-Mojo Align / MethylCall / MergeCpG; same userspace binary; host runtime + tag select NVIDIA vs AMD |
 | `python` (dev/parity rollback) | `goliath/methylgrapher:1.70` | Stock methylGrapher 0.2.0 + GAF-header patch |
 
-Build Mojo image: `scripts/build_mojo_align_image.sh` (requires `MOJO_ALIGN_ROOT` pointing at **mojo-align**, or auto-detect of sibling `../mojo-align`, and a prior vg bake from `build_methylgrapher_image.sh`). Set `MOJO_ALIGN_GPU_VARIANT=cuda|rocm` for the twin tags. Plan: [`docs/plans/archive-methylgrapher-mojo.plan.md`](../../../docs/plans/archive-methylgrapher-mojo.plan.md).
+Build the Mojo image with `scripts/build_goliath_align_image.sh` (requires `GOLIATH_ALIGN_ROOT` pointing at **GoliathAlign**, or auto-detect of sibling `../GoliathAlign`, and a prior vg bake from `build_methylgrapher_image.sh`). `MOJO_ALIGN_ROOT` and `../mojo-align` remain one-cycle aliases. Set `GOLIATH_ALIGN_GPU_VARIANT=cuda|rocm` for the twin tags. Plan: [`docs/plans/archive-methylgrapher-mojo.plan.md`](../../../docs/plans/archive-methylgrapher-mojo.plan.md).
 
 ## Compute model (native-Mojo GPU)
 
@@ -32,16 +32,16 @@ Pin `actionConfig.methylgrapher_wgbs.align_engine=gpu_giraffe|mojo_giraffe` and 
 
 On 64 KB-page ARM64 (Grace / GH200) any vg-assisted QC BAM path needs `jemalloc=off` vg baked into the image.
 
-**Code default flag:** the sibling `mojo-align` launcher may still default `align_engine=cpu_vg` for dual-ship rollback until Buffy ≤2 h + DS20M gates pass. Production site/profile config should pin Mojo GPU as above.
+**Code default flag:** the sibling GoliathAlign launcher may still default `align_engine=cpu_vg` for dual-ship rollback until Buffy ≤2 h + DS20M gates pass. Production site/profile config should pin Mojo GPU as above.
 
 ## Production model (do not compile on deploy)
 
 | When | What |
 |------|------|
-| **CI / image refresh** | `scripts/build_methylgrapher_image.sh` (vg bake) then `scripts/build_mojo_align_image.sh` (Mojo stage + CUDA/ROCm twin). |
+| **CI / image refresh** | `scripts/build_methylgrapher_image.sh` (vg bake) then `scripts/build_goliath_align_image.sh` (Mojo stage + CUDA/ROCm twin). |
 | **Cluster deploy** | Set `METHYL_METHYLGRAPHER_IMAGE` (or site `actionConfig.methylgrapher_wgbs.image`), then `scripts/ensure_methylgrapher_image.sh` → **pull or load only**. |
 
-Rebuild the image only when **vg**, **mojo-align**, or this Dockerfile changes — not on every study or release promote.
+Rebuild the image only when **vg**, **GoliathAlign**, or this Dockerfile changes — not on every study or release promote.
 
 ## Why arm64 builds vg from source
 
@@ -53,12 +53,12 @@ Amd64 uses the stock vg release binary.
 
 ```bash
 ./scripts/build_methylgrapher_image.sh
-MOJO_ALIGN_GPU_VARIANT=cuda ./scripts/build_mojo_align_image.sh
+GOLIATH_ALIGN_GPU_VARIANT=cuda ./scripts/build_goliath_align_image.sh
 # optional: METHYLGRAPHER_IMAGE_TAR=/tmp/mg.tar.gz
 bash workers/docker/methylgrapher/smoke_64k.sh   # on a real 64K host
 ```
 
-When `apptainer` is on PATH, that build also writes a `.sif` of the same image (under `/work/goliath/images/` when that directory exists). `MOJO_ALIGN_BUILD_SIF=skip` leaves Docker only. Run the file with `scripts/run_mojo_align_sif.sh`, which passes `--nv` or `--rocm` and bind-mounts a writable Mojo cache. The worker still launches Docker.
+When `apptainer` is on PATH, that build also writes a `.sif` of the same image (under `/work/goliath/images/` when that directory exists). `GOLIATH_ALIGN_BUILD_SIF=skip` leaves Docker only. Run the file with `scripts/run_goliath_align_sif.sh`, which passes `--nv` or `--rocm` and bind-mounts a writable Mojo cache. The worker still launches Docker. `MOJO_ALIGN_*` and `scripts/build_mojo_align_image.sh` remain one-cycle aliases.
 
 ## Deploy on a worker
 

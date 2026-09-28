@@ -1,14 +1,16 @@
 # Tool features required by GoliathOmics
 
-GoliathOmics consumes **mojo-align** and **MethylExtractor** only through the features below. A change in either tool that removes or renames a listed feature breaks GoliathOmics, even when the platform (`goliath-gateway`, database `goliath`, `GOLIATH_WORK_ROOT`) is unchanged.
+GoliathOmics consumes **GoliathAlign** (formerly mojo-align) and **MethylExtractor** only through the features below. A change in either tool that removes or renames a listed feature breaks GoliathOmics, even when the platform (`goliath-gateway`, database `goliath`, `GOLIATH_WORK_ROOT`) is unchanged.
 
 Inherited platform pieces use the `goliath` prefix. These tools stay separate repositories. They are not part of GoliathApp.
 
-## mojo-align
+## GoliathAlign
 
 Toolchain pin: Mojo 1.1 / Modular 26.6. Not Mojo 1.0.0b2.
 
-Image: `goliath/methylgrapher`. In-image tree: `/opt/mojo-align`.
+Image: `goliath/methylgrapher` (tags stay `*-mojo-*`). In-image tree: `/opt/goliath-align`, with `/opt/mojo-align` as a symlink for one cycle.
+
+Checkout: `GOLIATH_ALIGN_ROOT`, or the sibling `../GoliathAlign`. `MOJO_ALIGN_ROOT` and `../mojo-align` remain one-cycle aliases.
 
 Consumer: `workers/methyl_worker/methylgrapher_wgbs_runner.py` (`sample.methylgrapher_wgbs_align`, `sample.methylgrapher_wgbs_extract`).
 
@@ -23,7 +25,7 @@ Consumer: `workers/methyl_worker/methylgrapher_wgbs_runner.py` (`sample.methylgr
 
 ## MethylExtractor
 
-Not used on the WGBS pangenome path. That path uses mojo-align MethylCall / MergeCpG.
+Not used on the WGBS pangenome path. That path uses GoliathAlign MethylCall / MergeCpG.
 
 Binary layout: `/work/goliath/methyl-extractor-<arch>/`. `HDF5_PLUGIN_PATH` points at the zstd plugin shipped beside the binary. `GOLIATH_WORK_ROOT` (alias `METHYL_WORK_ROOT`) is the mount that holds that tree. Workflows that never extract do not need the mount.
 

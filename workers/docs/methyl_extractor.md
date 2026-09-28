@@ -1,17 +1,17 @@
 # MethylExtractor on sample-prep workers
 
-Sample prep extraction (`sample.methyl_extract`) runs the **native MethylExtractor binary** on the **linear / stock pangenome** path. For `pangenome_wgbs`, SamplePrep uses `sample.methylgrapher_wgbs_extract` (native-Mojo MethylCall/MergeCpG) instead — see [`workers/docker/methylgrapher/README.md`](../docker/methylgrapher/README.md). Implementation: [`methyl_worker/extract_runner.py`](../methyl_worker/extract_runner.py).
+Sample prep extraction (`sample.methyl_extract`) runs the **native MethylExtractor binary** on the **linear / stock pangenome** path. MethylExtractor is the focused MethylDackel fork in the sibling repository. For `pangenome_wgbs`, SamplePrep uses `sample.methylgrapher_wgbs_extract` (GoliathAlign MethylCall/MergeCpG) instead — see [`workers/docker/methylgrapher/README.md`](../docker/methylgrapher/README.md). Implementation: [`methyl_worker/extract_runner.py`](../methyl_worker/extract_runner.py).
 
 ## Source and deploy
 
-MethylExtractor is maintained separately at `/home/ubuntu/MethylExtractor`. On each worker machine:
+MethylExtractor is maintained in the sibling [MethylExtractor](https://github.com/Goliath-Research/MethylExtractor) repository, not in GoliathApp. On each worker machine, build that checkout and install the binary (the production layout is `/work/goliath/methyl-extractor-<arch>/`):
 
 ```bash
-cd /home/ubuntu/MethylExtractor
+# From a MethylExtractor checkout (sibling of GoliathOmics)
 make deps && make && make install
 ```
 
-This installs `MethylExtractor` to `/usr/local/bin/` (machine image provisioning, not per-task JSON).
+Production workers use the binary under `/work/goliath/methyl-extractor-<arch>/`. `make install` also copies `MethylExtractor` to `/usr/local/bin/` for a machine image. That install is provisioning, not per-task JSON.
 
 ## Production worker contract
 

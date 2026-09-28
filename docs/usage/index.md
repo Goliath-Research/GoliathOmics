@@ -1,4 +1,6 @@
-# MethylPipeline Usage Manual
+# GoliathOmics Usage Manual
+
+Older chapters in this manual say MethylPipeline. That name means this genomics product. `methyl-workflow-run` is the current genomics CLI alias. The platform gateway and engine live in GoliathApp. See [docs/README.md](../README.md).
 
 ## What this manual is
 

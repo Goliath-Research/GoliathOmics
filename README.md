@@ -1,8 +1,10 @@
 # GoliathOmics
 
-Specialization of [GoliathApp](https://github.com/Goliath-Research/GoliathApp) for genomics.
+**GoliathApp** is the platform. **GoliathOmics** is the genomics product. **GoliathAlign** (formerly mojo-align) aligns reads. **MethylExtractor** calls methylation from linear BAM files. **GoliathWeb** is the public hub.
 
-This repository holds the product layer copied from [GoliathWorkflow](https://github.com/Goliath-Research/GoliathWorkflow). GoliathWorkflow stays the working monorepo until this tree depends on GoliathApp and replaces it. Day-to-day production runs still use GoliathWorkflow.
+Index: [../GoliathApp/docs/workspace-index.md](../GoliathApp/docs/workspace-index.md).
+
+Specialization of [GoliathApp](https://github.com/Goliath-Research/GoliathApp) for genomics. GoliathWorkflow is not a documented run path.
 
 ## What lives here
 
@@ -11,6 +13,8 @@ This repository holds the product layer copied from [GoliathWorkflow](https://gi
 - Action handlers in `workers/methyl_worker/` and the methylgrapher image wiring
 - Database content GoliathApp does not own: `cfg.analyte` (`cfg_analyte_catalog.sql`), action-catalog and data-type seeds, reference-asset seeds, and study pipelines
 - Product docs under `docs/usage`, `docs/theory`, `docs/regulatory`, and `docs/research`
+
+Manual front door: [docs/README.md](docs/README.md).
 
 ## What stays in GoliathApp
 
@@ -23,4 +27,6 @@ Inherited platform names use the `goliath` prefix (`goliath-gateway`, `goliath-c
 
 ## Tools
 
-Changes to mojo-align or MethylExtractor can break this product. The required features are listed in [docs/contracts/omics-tool-requirements.md](docs/contracts/omics-tool-requirements.md).
+GoliathOmics calls [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) and [MethylExtractor](https://github.com/Goliath-Research/MethylExtractor) through a pinned image and binary. A change in either tool can break this product. The required features are listed in [docs/contracts/omics-tool-requirements.md](docs/contracts/omics-tool-requirements.md).
+
+`GOLIATH_ALIGN_ROOT` points at the GoliathAlign checkout (sibling `../GoliathAlign`). `MOJO_ALIGN_ROOT` and sibling `../mojo-align` remain one-cycle aliases.
