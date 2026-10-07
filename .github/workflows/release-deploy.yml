@@ -31,6 +31,9 @@ jobs:
     runs-on: [self-hosted, production-work-agents]
     environment: production-work
     steps:
+      - uses: actions/checkout@v6
+        continue-on-error: true
+
       - name: Download assembled bundle from GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,6 +47,34 @@ jobs:
             --dir "${{ runner.temp }}/bundle-dl"
           tar -xzf "${{ runner.temp }}/bundle-dl"/goliathomics-release-*.tar.gz \
             -C "${{ runner.temp }}/bundle"
+
+      - name: Report deployment start
+        continue-on-error: true
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CHANGE_MONITOR_ENV: production-work
+          CHANGE_MONITOR_SERVICE: goliathomics
+          DEPLOY_SOURCE_URI: https://github.com/Goliath-Research/GoliathOmics
+          RELEASE_VERSION: ${{ inputs.releaseVersion }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PY=python3
+          command -v python3 >/dev/null 2>&1 || PY=python
+          ref_json=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/goliathomics-${RELEASE_VERSION}")
+          read -r sha typ < <("$PY" -c 'import json,sys; o=json.load(sys.stdin)["object"]; print(o["sha"], o["type"])' <<<"$ref_json")
+          if [[ "$typ" == "tag" ]]; then
+            tag_json=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${sha}")
+            sha=$("$PY" -c 'import json,sys; print(json.load(sys.stdin)["object"]["sha"])' <<<"$tag_json")
+          fi
+          if [[ ! "$sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "resolved deploy version is not a commit SHA: ${sha}" >&2
+            exit 1
+          fi
+          export DEPLOY_VERSION="$sha"
+          export DEPLOY_ACTOR="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          "$PY" scripts/report_rollouts_deploy.py bootstrap
+          "$PY" scripts/report_rollouts_deploy.py start
 
       - name: Rsync bundle and promote_release
         run: |
@@ -77,3 +108,20 @@ jobs:
             bash "$RUNTIME/scripts/verify_e2e_node.sh"
           fi
           echo "Deploy verification passed for ${{ inputs.releaseVersion }}"
+
+      - name: Report deployment finish
+        if: always()
+        continue-on-error: true
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CHANGE_MONITOR_ENV: production-work
+          CHANGE_MONITOR_SERVICE: goliathomics
+          DEPLOY_SOURCE_URI: https://github.com/Goliath-Research/GoliathOmics
+          DEPLOY_ACTOR: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOY_OUTCOME: ${{ job.status }}
+          DEPLOY_FAILURE_MESSAGE: ${{ github.workflow }} job ${{ github.job }} ${{ job.status }}
+        run: |
+          set -euo pipefail
+          PY=python3
+          command -v python3 >/dev/null 2>&1 || PY=python
+          "$PY" scripts/report_rollouts_deploy.py finish
