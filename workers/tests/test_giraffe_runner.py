@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import tarfile
 from pathlib import Path
 from unittest.mock import patch
@@ -124,6 +125,7 @@ def test_build_collect_metrics_docker_command(tmp_path: Path) -> None:
     assert "--out-qc-metrics-dir=/outputdir/S2.qc-metrics" in cmd
 
 
+@pytest.mark.skipif(shutil.which("docker") is None, reason="docker not on PATH")
 def test_run_giraffe_align_invokes_giraffe_then_metrics(tmp_path: Path) -> None:
     sample_dir = tmp_path / "S3"
     sample_dir.mkdir()
