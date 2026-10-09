@@ -18,7 +18,7 @@ test-cov: ## Run tests with coverage
 
 lint: ## Run linting checks
 	poetry run flake8 methyl_detector/
-	poetry run mypy methyl_detector/
+	cd ../.. && poetry -C packages/methyldetector run pyrefly check
 
 format: ## Format code with black and isort
 	poetry run black methyl_detector/ tests/
@@ -29,7 +29,7 @@ clean: ## Clean up generated files
 	rm -rf dist/
 	rm -rf *.egg-info/
 	rm -rf .pytest_cache/
-	rm -rf .mypy_cache/
+	rm -rf .pyrefly/
 	rm -rf htmlcov/
 	find . -type d -name __pycache__ -delete
 	find . -type f -name "*.pyc" -delete

@@ -1,7 +1,7 @@
 # methyl_utils/core/methyl_frame.py
 from __future__ import annotations
 
-from typing import Optional, Dict, Any, Union, List, Literal
+from typing import Any, Dict, List, Literal, Optional, Union, cast
 from pathlib import Path
 
 import numpy as np
@@ -452,12 +452,32 @@ class MethylFrame:
         Returns:
             New instance with filtered data
         """
-        if isinstance(mask_or_indices, (list, np.ndarray)) and len(mask_or_indices) > 0:
-            # Resolve to (new_instance, indices_for_binned)
-            if isinstance(mask_or_indices, np.ndarray) and mask_or_indices.dtype == bool:
-                new_self = type(self)(self._df.loc[mask_or_indices], self._metadata.copy())
-                binned_idx = mask_or_indices
-            elif isinstance(mask_or_indices[0], bool):
+        # A bare bool is not a mask. Check it before list/ndarray: Pyrefly's
+        # bundled numpy stubs do not narrow isinstance(..., (list, np.ndarray))
+        # away from bool, so len(), .dtype, and [0] then fail to type-check.
+        if isinstance(mask_or_indices, bool):
+            return self
+        if isinstance(mask_or_indices, np.ndarray):
+            # Bundled numpy stubs type ndarray as Unknown, so isinstance does not
+            # narrow the list | ndarray union. cast keeps .dtype and indexing on an array.
+            array_mask = cast(np.ndarray, mask_or_indices)
+            if len(array_mask) == 0:
+                return self
+            if array_mask.dtype == bool:
+                new_self = type(self)(self._df.loc[array_mask], self._metadata.copy())
+                binned_idx = array_mask
+            elif isinstance(array_mask[0], bool):
+                mask_array = np.asarray(array_mask, dtype=bool)
+                new_self = type(self)(self._df.loc[mask_array], self._metadata.copy())
+                binned_idx = mask_array
+            else:
+                indices_array = np.asarray(array_mask, dtype=np.int32)
+                new_self = type(self)(self._df.iloc[indices_array], self._metadata.copy())
+                binned_idx = indices_array
+        elif isinstance(mask_or_indices, list):
+            if len(mask_or_indices) == 0:
+                return self
+            if isinstance(mask_or_indices[0], bool):
                 mask_array = np.asarray(mask_or_indices, dtype=bool)
                 new_self = type(self)(self._df.loc[mask_array], self._metadata.copy())
                 binned_idx = mask_array
@@ -465,14 +485,15 @@ class MethylFrame:
                 indices_array = np.asarray(mask_or_indices, dtype=np.int32)
                 new_self = type(self)(self._df.iloc[indices_array], self._metadata.copy())
                 binned_idx = indices_array
-            # Preserve binned_stats so ECDF/KS work after load_and_align
-            if getattr(self, "_binned_stats", None) and "bin_edges" in self._binned_stats and "bin_counts" in self._binned_stats:
-                bin_edges = self._binned_stats["bin_edges"]
-                bin_counts = np.asarray(self._binned_stats["bin_counts"])
-                if bin_counts.ndim == 2 and bin_counts.shape[0] == len(self._df):
-                    new_self.set_binned_stats(bin_edges, bin_counts[binned_idx, :])
-            return new_self
-        return self
+        else:
+            return self
+        # Preserve binned_stats so ECDF/KS work after load_and_align
+        if getattr(self, "_binned_stats", None) and "bin_edges" in self._binned_stats and "bin_counts" in self._binned_stats:
+            bin_edges = self._binned_stats["bin_edges"]
+            bin_counts = np.asarray(self._binned_stats["bin_counts"])
+            if bin_counts.ndim == 2 and bin_counts.shape[0] == len(self._df):
+                new_self.set_binned_stats(bin_edges, bin_counts[binned_idx, :])
+        return new_self
 
     def align_to_positions(self, positions: np.ndarray) -> "MethylFrame":
         """

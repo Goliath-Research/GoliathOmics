@@ -59,13 +59,8 @@ htmlcov/
 .tox/
 .nox/
 
-# MyPy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Type checking
-.pytype/
+# Pyrefly
+.pyrefly/
 
 # Documentation
 docs/_build/

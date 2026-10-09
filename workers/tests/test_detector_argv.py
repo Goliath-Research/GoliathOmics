@@ -18,7 +18,6 @@ for _p in (_WORKERS, _DOMAIN):
 
 from methyl_worker.action_catalog import find_catalog_entry
 from methyl_worker.actions.detector import DETECTOR_ARGV_MAP, DetectorCliAction, merge_detector_step_override
-from workflow_context import resolve_input_json_from_template
 
 _COMPILED_DETECT_TEMPLATE = {
     "tool": "MethylDetector",
@@ -83,7 +82,18 @@ def test_merge_detector_step_override_strips_null_workflow_keys() -> None:
     }
 
 
+def _load_resolve_input_json_from_template():
+    # GoliathApp owns workflow_engine/domain/workflow_context.py. This repo
+    # only inserts that directory on sys.path; the module is absent here and on main.
+    workflow_context = pytest.importorskip(
+        "workflow_context",
+        reason="workflow_context is provided by GoliathApp, not this repository",
+    )
+    return workflow_context.resolve_input_json_from_template
+
+
 def test_detector_build_argv_from_lifecycle_scope() -> None:
+    resolve_input_json_from_template = _load_resolve_input_json_from_template()
     scope = {
         "projectPath": "/work/projects/prostate-cancer/configs/project_Healthy_vs_PCa1-5-CG.json",
         "chromosome": "21",
@@ -130,6 +140,7 @@ def test_detector_argv_accepted_by_methyl_detector_help() -> None:
     for unsupported in ("--chromosome", "--comparison", "--fixed-dmp-panel"):
         assert unsupported not in help_text
 
+    resolve_input_json_from_template = _load_resolve_input_json_from_template()
     scope = {
         "projectPath": "/work/project.json",
         "chromosome": "21",

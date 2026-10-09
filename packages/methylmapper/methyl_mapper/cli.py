@@ -954,6 +954,7 @@ def _apply_mapper_step_override_to_args(args, step_override_path: Optional[Path]
 
 def _grok_api_key_available(args: argparse.Namespace) -> bool:
     """True if Grok will resolve a key (CLI/config arg, env, encrypted file, or Key Vault)."""
+    logger = logging.getLogger(__name__)
     if (getattr(args, "grok_api_key", None) or "").strip():
         return True
     if os.environ.get("GROK_API_KEY"):

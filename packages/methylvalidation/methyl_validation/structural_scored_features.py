@@ -8,7 +8,7 @@ effect sizes with sample methylation at panel loci, pooled by feature_type (prom
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd

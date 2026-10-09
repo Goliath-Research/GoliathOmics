@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import tarfile
 from pathlib import Path
 from unittest.mock import patch
@@ -493,6 +494,7 @@ def test_package_qc_metrics_dir_to_tar(tmp_path: Path) -> None:
     assert any(name.endswith("metrics.txt") for name in names)
 
 
+@pytest.mark.skipif(shutil.which("docker") is None, reason="docker not on PATH")
 def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
     sample_dir = tmp_path / "S7"
     sample_dir.mkdir()

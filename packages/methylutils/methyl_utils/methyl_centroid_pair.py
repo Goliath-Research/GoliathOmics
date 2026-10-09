@@ -14,6 +14,7 @@ import pandas as pd
 
 from .core.methyl_frame import MethylSample, MethylCentroid
 from .array_backend import get_array_module, to_cpu, prefer_gpu_default
+from .gpu_detection import cleanup_gpu_memory
 from .memory_manager import get_memory_manager, force_gpu_cleanup
 from .metric_validations import validate_methylation_data
 from .performance_profiler import (
