@@ -1,0 +1,20 @@
+{
+  "reference_selection": {
+    "linear": "linear/GRCh38/ensembl-116",
+    "gene_annotation": "annotation/gencode/v50",
+    "pangenome": "pangenome/GRCh38/d9/1.70"
+  },
+  "reference_genome": {
+    "fasta": "__WORK__/genomes/linear/GRCh38/ensembl-116/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
+  },
+  "annotation": {
+    "gtf": "__WORK__/genomes/annotation/gencode/v50/gencode.v50.annotation.gtf"
+  },
+  "pangenome_wgbs_genome": {
+    "index_prefix": "__WORK__/genomes/pangenome/GRCh38/d9-bs/1.70/hprc-d9-bs"
+  },
+  "methyl_mapper_home": "__WORK__/cache/methyl_mapper",
+  "caches": {
+    "mojo_segments": "__WORK__/cache/mojo_segments"
+  }
+}

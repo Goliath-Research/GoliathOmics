@@ -1,0 +1,17 @@
+[Unit]
+Description=MethylPipeline workflow REST gateway (Python)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Gateway is local to this VM — not the worker /work share.
+WorkingDirectory=__GOLIATH_ROOT__
+EnvironmentFile=-__GOLIATH_ROOT__/env/gateway.env
+Environment=PATH=__GOLIATH_VENV__/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=__GOLIATH_VENV__/bin/methyl-gateway --host 127.0.0.1 --port 8080
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

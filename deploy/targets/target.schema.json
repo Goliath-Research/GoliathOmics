@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Goliath-Research/GoliathOmics/deploy/targets/target.schema.json",
+  "title": "GoliathOmics deploy target",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "rollouts_environment", "database"],
+  "properties": {
+    "name": {"type": "string", "minLength": 1},
+    "rollouts_environment": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Cursor Rollouts environment id for this customer target. One environment per customer setup."
+    },
+    "gateway": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "install_root": {"type": "string"},
+        "env_file": {"type": "string"},
+        "user": {"type": "string"},
+        "bind_host": {"type": "string"},
+        "port": {"type": "integer"},
+        "public_base_url": {"type": "string"},
+        "hosts": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/sshHost"}
+        }
+      }
+    },
+    "workers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "ssh", "arch"],
+        "properties": {
+          "name": {"type": "string"},
+          "ssh": {"type": "string"},
+          "port": {"type": "integer"},
+          "identity_file": {"type": "string"},
+          "arch": {"type": "string", "enum": ["aarch64", "amd64"]},
+          "capability": {"type": "string"},
+          "gpu": {"type": "boolean"},
+          "install_root": {"type": "string"}
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {"type": "string"},
+        "release_dir": {"type": "string"},
+        "pull_parabricks": {"type": "boolean"},
+        "hosts": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/sshHost"}
+        }
+      }
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "dbname", "user"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["postgres", "neon", "mssql"]},
+        "project": {"type": "string", "description": "Neon project id or name. Not a secret."},
+        "branch": {"type": "string"},
+        "host": {"type": "string"},
+        "port": {"type": "integer"},
+        "dbname": {"type": "string"},
+        "user": {"type": "string"},
+        "password": {"$ref": "#/definitions/secretRef"},
+        "sslmode": {"type": "string"}
+      }
+    },
+    "shared_storage": {"$ref": "#/definitions/objectStore"},
+    "long_term_storage": {"$ref": "#/definitions/objectStore"},
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "apply": {"type": "string", "enum": ["test-bed", "none"]}
+      }
+    }
+  },
+  "definitions": {
+    "secretRef": {
+      "type": "string",
+      "pattern": "^secret:[A-Za-z_][A-Za-z0-9_]*$",
+      "description": "Name of an environment variable or /etc/goliath/<target>.env entry. Never a secret value."
+    },
+    "sshHost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "ssh"],
+      "properties": {
+        "name": {"type": "string"},
+        "ssh": {"type": "string", "description": "user@host passed to ssh. Not a secret."},
+        "port": {"type": "integer"},
+        "identity_file": {"type": "string", "description": "Path to a private key on the operator machine. The key is not stored in this file."}
+      }
+    },
+    "objectStore": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["b2", "s3", "runpod", "qnap", "myqnapcloud", "none"]
+        },
+        "bucket": {"type": "string"},
+        "endpoint": {"type": "string"},
+        "region": {"type": "string"},
+        "host": {"type": "string"},
+        "share": {"type": "string"},
+        "access_key_id": {"$ref": "#/definitions/secretRef"},
+        "secret_access_key": {"$ref": "#/definitions/secretRef"}
+      }
+    }
+  }
+}

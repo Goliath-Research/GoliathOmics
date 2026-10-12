@@ -1,0 +1,13 @@
+[Unit]
+Description=Run MethylPipeline lease reclaim every 2 minutes
+Requires=methyl-reclaim-leases.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=30s
+Persistent=true
+Unit=methyl-reclaim-leases.service
+
+[Install]
+WantedBy=timers.target

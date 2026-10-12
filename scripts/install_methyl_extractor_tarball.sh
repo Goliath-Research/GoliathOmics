@@ -26,6 +26,8 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
+# shellcheck source=rollouts_hook.sh
+source "$SCRIPT_DIR/rollouts_hook.sh"
 
 TARBALL=""
 DEST=""
@@ -51,6 +53,8 @@ die() { echo "[ERROR] $*" >&2; exit 1; }
 
 [[ -n "$TARBALL" ]] || die "--tarball is required"
 [[ -f "$TARBALL" ]] || die "Tarball not found: $TARBALL"
+
+rollouts_begin methyl-extractor "methyl-extractor $(hostname -s 2>/dev/null || hostname)"
 
 basename_tar="$(basename "$TARBALL")"
 if [[ -z "$ARCH" ]]; then
@@ -114,3 +118,4 @@ info "MethylExtractor: $DEST/bin/MethylExtractor"
 info "HDF5_PLUGIN_PATH=$DEST/lib/hdf5_zstd_plugin"
 "$DEST/bin/MethylExtractor" --help >/dev/null
 info "Install OK. Run: source \"$ENV_FILE\""
+rollouts_set_message "methyl-extractor arch=${ARCH} dest=${DEST}"
