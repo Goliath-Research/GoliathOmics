@@ -80,7 +80,7 @@ sed -e "s|__GOLIATH_ROOT__|$ROOT|g" \
 systemctl daemon-reload
 systemctl enable methyl-gateway.service
 [[ "$NO_START" -eq 0 ]] && systemctl restart methyl-gateway.service
-systemctl status methyl-gateway.service --no-pager -l | head -15
+systemctl status methyl-gateway.service --no-pager -l -n 15
 
 # Lease reclaim timer (expired RUNNING → READY); same gateway.env credentials.
 RECLAIM_INSTALL="$SCRIPT_DIR/install_reclaim_leases_timer.sh"

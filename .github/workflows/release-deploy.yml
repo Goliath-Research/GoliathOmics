@@ -71,23 +71,7 @@ jobs:
             --message "release ${RELEASE_VERSION}"
           exit 0
 
-      - name: Deploy target profile
-        if: inputs.target != ''
-        env:
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GOLIATH_ROLLOUTS_SKIP_SERVICES: goliathomics-runtime
-          NEON_TEST_PASSWORD: ${{ secrets.NEON_TEST_PASSWORD }}
-          B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
-          B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
-          LONGTERM_ACCESS_KEY_ID: ${{ secrets.LONGTERM_ACCESS_KEY_ID }}
-          LONGTERM_SECRET_ACCESS_KEY: ${{ secrets.LONGTERM_SECRET_ACCESS_KEY }}
-        run: |
-          set -euo pipefail
-          [[ -f scripts/deploy_target.sh ]] || { echo "Missing scripts/deploy_target.sh"; exit 1; }
-          bash scripts/deploy_target.sh --target "${{ inputs.target }}" --component all
-
       - name: Download assembled bundle from GitHub Release
-        if: inputs.target == ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -100,6 +84,23 @@ jobs:
             --dir "${{ runner.temp }}/bundle-dl"
           tar -xzf "${{ runner.temp }}/bundle-dl"/goliathomics-release-*.tar.gz \
             -C "${{ runner.temp }}/bundle"
+
+      - name: Deploy target profile
+        if: inputs.target != ''
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GOLIATH_ROLLOUTS_SKIP_SERVICES: goliathomics-runtime
+          GOLIATH_RELEASE_SRC: ${{ runner.temp }}/bundle
+          NEON_TEST_PASSWORD: ${{ secrets.NEON_TEST_PASSWORD }}
+          B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
+          B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
+          LONGTERM_ACCESS_KEY_ID: ${{ secrets.LONGTERM_ACCESS_KEY_ID }}
+          LONGTERM_SECRET_ACCESS_KEY: ${{ secrets.LONGTERM_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          [[ -f scripts/deploy_target.sh ]] || { echo "Missing scripts/deploy_target.sh"; exit 1; }
+          [[ -f "${GOLIATH_RELEASE_SRC}/manifest.json" ]] || { echo "Release bundle was not staged"; exit 1; }
+          bash scripts/deploy_target.sh --target "${{ inputs.target }}" --component all
 
       - name: Rsync bundle and promote_release
         if: inputs.target == ''

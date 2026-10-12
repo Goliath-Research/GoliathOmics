@@ -87,6 +87,6 @@ cp -f "$TIMER_SRC" "/etc/systemd/system/methyl-reclaim-leases.timer"
 systemctl daemon-reload
 systemctl enable methyl-reclaim-leases.timer
 [[ "$NO_START" -eq 0 ]] && systemctl restart methyl-reclaim-leases.timer
-systemctl status methyl-reclaim-leases.timer --no-pager -l | head -20
+systemctl status methyl-reclaim-leases.timer --no-pager -l -n 20
 rollouts_set_message "goliath-reclaim-leases.timer active"
 echo "Manual run: systemctl start methyl-reclaim-leases.service"
