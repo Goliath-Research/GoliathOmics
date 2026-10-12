@@ -424,6 +424,11 @@ start_supervisor() {
     return 1
   }
   mkdir -p "$LOG_DIR"
+  # worker.env sets TMPDIR=/var/tmp/methyl-samtools. The systemd unit creates
+  # that directory in ExecStartPre; RunPod has no unit, so tempfile calls fail
+  # on the first job unless the supervisor creates it too.
+  mkdir -p /var/tmp/methyl-samtools
+  chmod 1777 /var/tmp/methyl-samtools 2>/dev/null || true
   pidfile="$LOG_DIR/methyl-worker.supervisor.pid"
   if [[ -f "$pidfile" ]]; then
     local old
