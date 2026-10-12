@@ -206,16 +206,20 @@ merge_env_overlay() {
 }
 
 # Print the remote env file. Status 42 means it is not there yet.
+# The probe is test(1) under sudo, not [[. A dash login shell treats [[ as a
+# missing command, the if fails, and exit 42 would replace a real worker.env
+# with only the API overlay.
 fetch_remote_env() {
   local dest="$1"
   local remote="$2"
   local out="$3"
-  local status
+  local status probe
   umask 077
   : >"$out"
   chmod 600 "$out"
+  probe="if sudo test -f '$remote'; then sudo cat '$remote'; else status=\$?; if [ \"\$status\" -eq 1 ]; then exit 42; fi; exit \"\$status\"; fi"
   set +e
-  ssh_cmd "$dest" "if [[ -f '$remote' ]]; then sudo cat '$remote'; else exit 42; fi" >"$out"
+  ssh_cmd "$dest" "$probe" >"$out"
   status=$?
   set -e
   if [[ "$status" -eq 0 ]]; then
