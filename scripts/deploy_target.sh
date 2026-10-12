@@ -586,9 +586,14 @@ run_runtime() {
     info "runtime $dest arch=$arch_label release=$release"
     report_component start goliathomics-runtime "promote ${arch_label} ${dest}"
     install_remote_tree "$dest"
-    if ! stage_release_dir "$dest" "$release"; then
-      report_component failed goliathomics-runtime "stage ${arch_label} ${dest} failed"
-      return 1
+    # release_dir is one shared /work tree. Extract it on the first host
+    # only, before promote points current at it. A later host must not
+    # empty that live directory.
+    if [[ "$i" -eq 0 ]]; then
+      if ! stage_release_dir "$dest" "$release"; then
+        report_component failed goliathomics-runtime "stage ${arch_label} ${dest} failed"
+        return 1
+      fi
     fi
     if ssh_cmd "$dest" "sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/promote_release.sh --root '$root' --release '$release' $arch_flag $pull_flag"; then
       report_component succeeded goliathomics-runtime "promoted ${arch_label} ${dest}"
