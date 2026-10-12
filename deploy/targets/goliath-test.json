@@ -1,0 +1,73 @@
+{
+  "name": "goliath-test",
+  "rollouts_environment": "goliath-test",
+  "gateway": {
+    "install_root": "/opt/methyl-gateway",
+    "env_file": "/opt/methyl-gateway/env/gateway.env",
+    "user": "linuxuser",
+    "bind_host": "127.0.0.1",
+    "port": 8080,
+    "public_base_url": "https://45.76.21.8/v1",
+    "hosts": [
+      {
+        "name": "goliath-gateway",
+        "ssh": "linuxuser@45.76.21.8",
+        "identity_file": "secret:GOLIATH_DEPLOY_SSH_KEY"
+      }
+    ]
+  },
+  "workers": [
+    {
+      "name": "goliath-worker-1",
+      "self_provision": true,
+      "provider": "runpod",
+      "arch": "amd64",
+      "gpu": {
+        "model": "RTX 6000 Ada",
+        "count": 1,
+        "memory_gb": 48
+      },
+      "vcpu": 16,
+      "memory_gb": 62,
+      "volume_mount": "/work",
+      "template": "runpod-torch-v280",
+      "image": "runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404",
+      "install_root": "/work/goliath"
+    }
+  ],
+  "runtime": {
+    "root": "/work/goliath",
+    "pull_parabricks": false
+  },
+  "database": {
+    "kind": "neon",
+    "host": "ep-wandering-pine-a5l8s690-pooler.us-east-2.aws.neon.tech",
+    "schema_host": "ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech",
+    "port": 5432,
+    "dbname": "GoliathOmics",
+    "user": "neondb_owner",
+    "password": "secret:NEON_TEST_PASSWORD",
+    "sslmode": "require",
+    "channel_binding": "require"
+  },
+  "shared_storage": {
+    "provider": "b2",
+    "bucket": "TODO-set-b2-bucket",
+    "endpoint": "TODO-set-b2-s3-endpoint",
+    "region": "TODO-set-b2-region",
+    "access_key_id": "secret:B2_ACCESS_KEY_ID",
+    "secret_access_key": "secret:B2_SECRET_ACCESS_KEY"
+  },
+  "long_term_storage": {
+    "provider": "myqnapcloud",
+    "endpoint": "TODO-set-myqnapcloud-endpoint",
+    "host": "TODO-set-myqnapcloud-host",
+    "share": "TODO-set-myqnapcloud-share",
+    "roles": ["hot", "cold"],
+    "access_key_id": "secret:LONGTERM_ACCESS_KEY_ID",
+    "secret_access_key": "secret:LONGTERM_SECRET_ACCESS_KEY"
+  },
+  "schema": {
+    "apply": "test-bed"
+  }
+}

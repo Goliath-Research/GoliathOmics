@@ -36,8 +36,13 @@ Options:
   --capability NAME
   --detect-capabilities
   --skip-preflight
+  --skip-host-setup        Join mode only: do not run setup_host.sh / bootstrap
+  --skip-verify            Do not run verify_e2e_node.sh
   --dry-run
   -h, --help
+
+RunPod pods pass --skip-host-setup and --skip-verify. The base image already
+has the CUDA stack, and systemd may be absent. See deploy/runpod/README.md.
 
 Env: WORKER_API_BASE (required for enroll).
 The portal must preregister this VM (cluster, worker key, public IP) before enroll.
@@ -67,6 +72,8 @@ FINISH_ENROLL=0
 CAPABILITY=""
 DETECT_CAPABILITIES=0
 SKIP_PREFLIGHT=0
+SKIP_HOST_SETUP=0
+SKIP_VERIFY=0
 DRY_RUN=0
 
 while [[ $# -gt 0 ]]; do
@@ -95,6 +102,8 @@ while [[ $# -gt 0 ]]; do
     --capability) CAPABILITY="${2:-}"; shift 2 ;;
     --detect-capabilities) DETECT_CAPABILITIES=1; shift ;;
     --skip-preflight) SKIP_PREFLIGHT=1; shift ;;
+    --skip-host-setup) SKIP_HOST_SETUP=1; shift ;;
+    --skip-verify) SKIP_VERIFY=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
@@ -306,7 +315,12 @@ fi
 if [[ "$JOIN_MODE" == "join" ]]; then
   # Host tools (samtools/bedtools/docker) must exist before enroll probes
   # resolve_worker_capabilities; the gateway persists that set.
-  do_host_and_docker 1
+  # RunPod images already provide the GPU stack and have no VM apt path.
+  if [[ "$SKIP_HOST_SETUP" -eq 0 ]]; then
+    do_host_and_docker 1
+  else
+    echo "Skipping host and Docker setup (--skip-host-setup)"
+  fi
   if [[ "$PREPARE_ONLY" -eq 0 ]]; then
     REGISTER=1
     do_enroll
@@ -319,14 +333,18 @@ else
   fi
 fi
 
-echo "=== Verify ==="
-set -a
-# shellcheck disable=SC1091
-source "$ROOT/env/worker.env" 2>/dev/null || true
-# shellcheck disable=SC1091
-source "$ROOT/env/parabricks.env" 2>/dev/null || true
-set +a
-run bash "$SCRIPTS/verify_e2e_node.sh"
+if [[ "$SKIP_VERIFY" -eq 0 ]]; then
+  echo "=== Verify ==="
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/env/worker.env" 2>/dev/null || true
+  # shellcheck disable=SC1091
+  source "$ROOT/env/parabricks.env" 2>/dev/null || true
+  set +a
+  run bash "$SCRIPTS/verify_e2e_node.sh"
+else
+  echo "Skipping verify_e2e_node.sh (--skip-verify)"
+fi
 
 if [[ "$PREPARE_ONLY" -eq 1 ]]; then
   echo "Prepare-only complete."
