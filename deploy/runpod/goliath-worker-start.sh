@@ -217,7 +217,7 @@ append_kv() {
 
 write_worker_env() {
   local dest="$ROOT/env/worker.env"
-  local old_umask
+  local old_umask tmp owned
   local b2_key="${B2_ACCESS_KEY_ID:-${AWS_ACCESS_KEY_ID:-}}"
   local b2_secret="${B2_SECRET_ACCESS_KEY:-${AWS_SECRET_ACCESS_KEY:-}}"
   local b2_endpoint="${B2_ENDPOINT:-${AWS_ENDPOINT_URL:-}}"
@@ -225,37 +225,47 @@ write_worker_env() {
   local long_key="${LONGTERM_ACCESS_KEY_ID:-${GOLIATH_LONGTERM_ACCESS_KEY_ID:-}}"
   local long_secret="${LONGTERM_SECRET_ACCESS_KEY:-${GOLIATH_LONGTERM_SECRET_ACCESS_KEY:-}}"
   local long_endpoint="${LONGTERM_ENDPOINT:-${GOLIATH_LONGTERM_ENDPOINT:-}}"
+  # promote_release.sh already wrote extractor, Parabricks, PATH, CAAS, and
+  # HBM settings. Refresh only the storage and API keys this script owns.
+  owned='WORKER_API_BASE|GOLIATH_ENV|GOLIATH_SHARED_PROVIDER|GOLIATH_SHARED_BUCKET|AWS_ENDPOINT_URL|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GOLIATH_LONGTERM_PROVIDER|GOLIATH_LONGTERM_BUCKET|GOLIATH_LONGTERM_ENDPOINT|GOLIATH_LONGTERM_HOST|GOLIATH_LONGTERM_SHARE|GOLIATH_LONGTERM_ACCESS_KEY_ID|GOLIATH_LONGTERM_SECRET_ACCESS_KEY|WORKER_CAPABILITY|POSTGRES_HOST|POSTGRES_DB|POSTGRES_USER|POSTGRES_SSLMODE|POSTGRES_CHANNEL_BINDING|POSTGRES_PASSWORD'
   mkdir -p "$ROOT/env"
   old_umask="$(umask)"
   umask 077
-  : >"$dest"
-  append_kv "$dest" WORKER_API_BASE "${WORKER_API_BASE:-}"
-  append_kv "$dest" GOLIATH_ENV "$GOLIATH_ENV"
-  append_kv "$dest" GOLIATH_SHARED_PROVIDER "b2"
-  append_kv "$dest" GOLIATH_SHARED_BUCKET "$b2_bucket"
-  append_kv "$dest" AWS_ENDPOINT_URL "$b2_endpoint"
-  append_kv "$dest" AWS_ACCESS_KEY_ID "$b2_key"
-  append_kv "$dest" AWS_SECRET_ACCESS_KEY "$b2_secret"
-  append_kv "$dest" GOLIATH_LONGTERM_PROVIDER "myqnapcloud"
-  append_kv "$dest" GOLIATH_LONGTERM_BUCKET "${LONGTERM_BUCKET:-${GOLIATH_LONGTERM_BUCKET:-}}"
-  append_kv "$dest" GOLIATH_LONGTERM_ENDPOINT "$long_endpoint"
-  append_kv "$dest" GOLIATH_LONGTERM_HOST "${LONGTERM_HOST:-${GOLIATH_LONGTERM_HOST:-}}"
-  append_kv "$dest" GOLIATH_LONGTERM_SHARE "${LONGTERM_SHARE:-${GOLIATH_LONGTERM_SHARE:-}}"
-  append_kv "$dest" GOLIATH_LONGTERM_ACCESS_KEY_ID "$long_key"
-  append_kv "$dest" GOLIATH_LONGTERM_SECRET_ACCESS_KEY "$long_secret"
+  tmp="$(mktemp "${dest}.XXXXXX")"
+  if [[ -f "$dest" ]]; then
+    grep -v -E "^(${owned})=" "$dest" >"$tmp" || true
+  fi
+  if [[ -s "$tmp" && "$(tail -c 1 "$tmp" || true)" != $'\n' ]]; then
+    printf '\n' >>"$tmp"
+  fi
+  append_kv "$tmp" WORKER_API_BASE "${WORKER_API_BASE:-}"
+  append_kv "$tmp" GOLIATH_ENV "$GOLIATH_ENV"
+  append_kv "$tmp" GOLIATH_SHARED_PROVIDER "b2"
+  append_kv "$tmp" GOLIATH_SHARED_BUCKET "$b2_bucket"
+  append_kv "$tmp" AWS_ENDPOINT_URL "$b2_endpoint"
+  append_kv "$tmp" AWS_ACCESS_KEY_ID "$b2_key"
+  append_kv "$tmp" AWS_SECRET_ACCESS_KEY "$b2_secret"
+  append_kv "$tmp" GOLIATH_LONGTERM_PROVIDER "myqnapcloud"
+  append_kv "$tmp" GOLIATH_LONGTERM_BUCKET "${LONGTERM_BUCKET:-${GOLIATH_LONGTERM_BUCKET:-}}"
+  append_kv "$tmp" GOLIATH_LONGTERM_ENDPOINT "$long_endpoint"
+  append_kv "$tmp" GOLIATH_LONGTERM_HOST "${LONGTERM_HOST:-${GOLIATH_LONGTERM_HOST:-}}"
+  append_kv "$tmp" GOLIATH_LONGTERM_SHARE "${LONGTERM_SHARE:-${GOLIATH_LONGTERM_SHARE:-}}"
+  append_kv "$tmp" GOLIATH_LONGTERM_ACCESS_KEY_ID "$long_key"
+  append_kv "$tmp" GOLIATH_LONGTERM_SECRET_ACCESS_KEY "$long_secret"
   if [[ -n "${GOLIATH_WORKER_CAPABILITY:-}" ]]; then
-    append_kv "$dest" WORKER_CAPABILITY "$GOLIATH_WORKER_CAPABILITY"
+    append_kv "$tmp" WORKER_CAPABILITY "$GOLIATH_WORKER_CAPABILITY"
   fi
   # The worker talks to the gateway. The Neon password stays off the pod
   # unless an operator sets GOLIATH_WORKER_NEEDS_DATABASE=1.
   if [[ "${GOLIATH_WORKER_NEEDS_DATABASE:-}" == "1" ]]; then
-    append_kv "$dest" POSTGRES_HOST "${POSTGRES_HOST:-}"
-    append_kv "$dest" POSTGRES_DB "${POSTGRES_DB:-}"
-    append_kv "$dest" POSTGRES_USER "${POSTGRES_USER:-}"
-    append_kv "$dest" POSTGRES_SSLMODE "${POSTGRES_SSLMODE:-require}"
-    append_kv "$dest" POSTGRES_CHANNEL_BINDING "${POSTGRES_CHANNEL_BINDING:-require}"
-    append_kv "$dest" POSTGRES_PASSWORD "${NEON_TEST_PASSWORD:-${POSTGRES_PASSWORD:-}}"
+    append_kv "$tmp" POSTGRES_HOST "${POSTGRES_HOST:-}"
+    append_kv "$tmp" POSTGRES_DB "${POSTGRES_DB:-}"
+    append_kv "$tmp" POSTGRES_USER "${POSTGRES_USER:-}"
+    append_kv "$tmp" POSTGRES_SSLMODE "${POSTGRES_SSLMODE:-require}"
+    append_kv "$tmp" POSTGRES_CHANNEL_BINDING "${POSTGRES_CHANNEL_BINDING:-require}"
+    append_kv "$tmp" POSTGRES_PASSWORD "${NEON_TEST_PASSWORD:-${POSTGRES_PASSWORD:-}}"
   fi
+  mv -f "$tmp" "$dest"
   umask "$old_umask"
   chmod 600 "$dest"
   log "wrote $dest"
@@ -428,6 +438,14 @@ start_supervisor() {
   # later stop (kill -- -pid) also stops methyl-worker.
   set -m
   (
+    # RunPod has no systemd. Load the same worker.env EnvironmentFile the
+    # unit would, then the token so WORKER_ID / WORKER_TOKEN win.
+    if [[ -f "$ROOT/env/worker.env" ]]; then
+      set -a
+      # shellcheck disable=SC1091
+      source "$ROOT/env/worker.env"
+      set +a
+    fi
     load_token_env "$token_file"
     while true; do
       "$bin" --api-base "$WORKER_API_BASE" >>"$LOG_DIR/methyl-worker.log" 2>&1 || true
