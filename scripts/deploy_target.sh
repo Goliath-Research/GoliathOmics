@@ -321,8 +321,8 @@ run_schema() {
   load_db_password
   report_component start goliath-db-schema "schema ${TARGET}"
   # schema_host is the non-pooled Neon endpoint. The gateway keeps using host.
-  # PGDATABASE is a libpq parameter, so a hyphenated name such as goliath-omics
-  # is passed as-is. Inside SQL that identifier must be quoted: "goliath-omics".
+  # PGDATABASE is a libpq parameter, so the mixed-case name GoliathOmics is
+  # passed as-is. Inside SQL that identifier must be double-quoted: "GoliathOmics".
   info "schema apply host=${db_schema_host} (gateway host=${db_host})"
   export PGHOST="$db_schema_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user"
   export PGSSLMODE="$db_ssl" PGPASSWORD="$DB_PASSWORD"

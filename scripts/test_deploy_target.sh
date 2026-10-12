@@ -152,8 +152,8 @@ jq -e '
 ' "$real" >/dev/null || fail "goliath-test secret fields must be secret:NAME references"
 jq -e '.workers[0].self_provision == true and .workers[0].ssh == null' "$real" >/dev/null \
   || fail "goliath-test worker must be self-provision and have no ssh host"
-jq -e '.database.dbname == "goliath-omics"' "$real" >/dev/null \
-  || fail "goliath-test database must be goliath-omics"
+jq -e '.database.dbname == "GoliathOmics"' "$real" >/dev/null \
+  || fail "goliath-test database must be GoliathOmics"
 
 env -u NEON_TEST_PASSWORD -u B2_ACCESS_KEY_ID -u B2_SECRET_ACCESS_KEY \
   -u LONGTERM_ACCESS_KEY_ID -u LONGTERM_SECRET_ACCESS_KEY -u GOLIATH_DEPLOY_SSH_KEY \
