@@ -102,7 +102,7 @@ if [[ "$DETECT_CAPABILITIES" -eq 1 && -z "$CAPABILITY" ]]; then
       UNIT="methyl-worker@${cap}.service"
       systemctl enable "$UNIT"
       [[ "$NO_START" -eq 0 ]] && systemctl restart "$UNIT"
-      systemctl status "$UNIT" --no-pager -l | head -8
+      systemctl status "$UNIT" --no-pager -l -n 8
     done
     exit 0
   fi
@@ -117,7 +117,7 @@ if [[ -n "$CAPABILITY" ]]; then
   systemctl daemon-reload
   systemctl enable "$UNIT"
   [[ "$NO_START" -eq 0 ]] && systemctl restart "$UNIT"
-  systemctl status "$UNIT" --no-pager -l | head -15
+  systemctl status "$UNIT" --no-pager -l -n 15
   exit 0
 fi
 
@@ -134,4 +134,4 @@ fi
 systemctl daemon-reload
 systemctl enable methyl-worker.service
 [[ "$NO_START" -eq 0 ]] && systemctl restart methyl-worker.service
-systemctl status methyl-worker.service --no-pager -l | head -15
+systemctl status methyl-worker.service --no-pager -l -n 15

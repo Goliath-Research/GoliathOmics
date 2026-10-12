@@ -98,7 +98,12 @@
         "port": {"type": "integer"},
         "identity_file": {
           "type": "string",
-          "description": "Path to a private key on the operator machine, or secret:NAME whose value is that key. The key is not stored in this file."
+          "description": "Path to a private key, or secret:NAME whose value is that key. The key is not stored in this file."
+        },
+        "arch": {
+          "type": "string",
+          "enum": ["aarch64", "amd64"],
+          "description": "CPU arch for this host. Runtime promote uses it when set on runtime.hosts; otherwise a matching worker ssh is used, then the host is detected."
         }
       }
     },

@@ -134,8 +134,12 @@ flip_current() {
 }
 
 write_env() {
-  local env_script="$RELEASE_DIR/runtime-bundle/scripts/write_worker_env.sh"
-  [[ -x "$env_script" ]] || env_script="$SCRIPT_DIR/write_worker_env.sh"
+  # Prefer the script next to this promote. Target deploys run the checkout
+  # copy, which merges existing worker.env keys; the release bundle may not.
+  local env_script="$SCRIPT_DIR/write_worker_env.sh"
+  if [[ ! -x "$env_script" ]]; then
+    env_script="$RELEASE_DIR/runtime-bundle/scripts/write_worker_env.sh"
+  fi
   local args=(--root "$ROOT" --manifest "$MANIFEST" --arch "$ARCH")
   [[ -n "$WORKER_API_BASE" ]] && args+=(--worker-api-base "$WORKER_API_BASE")
   bash "$env_script" "${args[@]}"

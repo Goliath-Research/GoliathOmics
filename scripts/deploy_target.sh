@@ -221,7 +221,97 @@ scp_to() {
   local dest="$1"
   local src="$2"
   local remote="$3"
-  ssh_cmd "$dest" "cat > '$remote'" <"$src"
+  # The remote redirect inherits the SSH user's umask (often 022). Create the
+  # file mode 600 so gateway and worker secrets are not world-readable.
+  ssh_cmd "$dest" "umask 077 && rm -f '$remote' && cat > '$remote' && chmod 600 '$remote'" <"$src"
+}
+
+# Upsert KEY=value lines from overlay onto base. Other keys in base are kept.
+merge_env_overlay() {
+  local base="$1"
+  local overlay="$2"
+  local out="$3"
+  local line key next
+  umask 077
+  if [[ -f "$base" ]]; then
+    cp "$base" "$out" || return 1
+  else
+    : >"$out" || return 1
+  fi
+  chmod 600 "$out" || return 1
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      ''|\#*) continue ;;
+    esac
+    key="${line%%=*}"
+    key="${key#"${key%%[![:space:]]*}"}"
+    key="${key%"${key##*[![:space:]]}"}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    next="$(mktemp)"
+    grep -vE "^[[:space:]]*${key}=" "$out" >"$next" || true
+    mv "$next" "$out" || return 1
+    chmod 600 "$out" || return 1
+    printf '%s\n' "$line" >>"$out" || return 1
+  done <"$overlay"
+}
+
+# Print the remote env file. Status 42 means it is not there yet.
+# The probe is test(1) under sudo, not [[. A dash login shell treats [[ as a
+# missing command, the if fails, and exit 42 would replace a real worker.env
+# with only the API overlay.
+fetch_remote_env() {
+  local dest="$1"
+  local remote="$2"
+  local out="$3"
+  local status probe
+  umask 077
+  : >"$out"
+  chmod 600 "$out"
+  probe="if sudo test -f '$remote'; then sudo cat '$remote'; else status=\$?; if [ \"\$status\" -eq 1 ]; then exit 42; fi; exit \"\$status\"; fi"
+  set +e
+  ssh_cmd "$dest" "$probe" >"$out"
+  status=$?
+  set -e
+  if [[ "$status" -eq 0 ]]; then
+    chmod 600 "$out"
+    return 0
+  fi
+  rm -f "$out"
+  if [[ "$status" -eq 42 ]]; then
+    return 42
+  fi
+  echo "[ERROR] failed to read ${dest}:${remote}" >&2
+  return "$status"
+}
+
+# Merge overlay into one remote env file and remove the temp copy even if install fails.
+install_merged_env() {
+  local dest="$1"
+  local remote_path="$2"
+  local overlay="$3"
+  local remote_tmp="$4"
+  local existing="$stage_dir/existing.env"
+  local merged="$stage_dir/merged.env"
+  local status=0
+  local remote_dir="${remote_path%/*}"
+  rm -f "$existing" "$merged"
+  fetch_remote_env "$dest" "$remote_path" "$existing" || status=$?
+  if [[ "$status" -eq 42 ]]; then
+    cp "$overlay" "$merged" || return 1
+    chmod 600 "$merged" || return 1
+  elif [[ "$status" -ne 0 ]]; then
+    return "$status"
+  else
+    merge_env_overlay "$existing" "$overlay" "$merged" || return 1
+  fi
+  if ! scp_to "$dest" "$merged" "$remote_tmp"; then
+    ssh_cmd "$dest" "rm -f '$remote_tmp'" || true
+    return 1
+  fi
+  if ! ssh_cmd "$dest" "trap 'rm -f $remote_tmp' EXIT; sudo mkdir -p '$remote_dir' && sudo install -m 600 '$remote_tmp' '$remote_path'"; then
+    ssh_cmd "$dest" "rm -f '$remote_tmp'" || true
+    return 1
+  fi
 }
 
 write_kv_file() {
@@ -313,9 +403,15 @@ report_component() {
 
 run_schema() {
   local apply
-  apply="$(jq_get '.schema.apply // "test-bed"')"
-  if [[ "$apply" == "none" ]]; then
-    info "schema.apply=none; skipping SQL"
+  apply="$(jq_get '.schema.apply // empty')"
+  if [[ -z "$apply" || "$apply" == "null" || "$apply" == "none" ]]; then
+    info "schema.apply=${apply:-unset}; skipping SQL"
+    return 0
+  fi
+  # deploy_test_bed.sh is a PostgreSQL psql script. Pointing it at Azure SQL
+  # fails the token guard or the client, and --component all stops there.
+  if [[ "$db_kind" == "mssql" ]]; then
+    info "database.kind=mssql; skipping PostgreSQL test-bed"
     return 0
   fi
   load_db_password
@@ -428,7 +524,8 @@ run_gateway() {
     rm -f "$envfile"
     # methyl-gateway.service reads <root>/env/gateway.env. The unit has no
     # --env-file or User= flag. An extra profile env_file is copied beside it.
-    local gw_env_cmd="sudo mkdir -p '$root/env' && sudo install -m 600 -o root /tmp/goliath-gateway.env '$root/env/gateway.env'"
+    # trap removes the secret copy when mkdir/install fails before the explicit rm.
+    local gw_env_cmd="trap 'rm -f /tmp/goliath-gateway.env' EXIT; sudo mkdir -p '$root/env' && sudo install -m 600 -o root /tmp/goliath-gateway.env '$root/env/gateway.env'"
     if [[ -n "$remote_env" && "$remote_env" != "null" && "$remote_env" != "$root/env/gateway.env" ]]; then
       gw_env_cmd+=" && sudo install -m 600 -o root /tmp/goliath-gateway.env '$remote_env'"
     fi
@@ -437,6 +534,7 @@ run_gateway() {
       report_component succeeded goliath-gateway "gateway ${dest}"
       report_component succeeded goliath-reclaim-leases "reclaim-leases ${dest}"
     else
+      ssh_cmd "$dest" "rm -f /tmp/goliath-gateway.env" || true
       report_component failed goliath-gateway "gateway ${dest} failed"
       report_component failed goliath-reclaim-leases "reclaim-leases ${dest} failed"
       return 1
@@ -528,15 +626,23 @@ run_workers() {
     local envfile="$stage_dir/worker.env"
     worker_env_file "$envfile" "$cap"
     install_remote_tree "$dest"
-    scp_to "$dest" "$envfile" /tmp/goliath-worker.env
-    rm -f "$envfile"
-    # methyl-worker.service hardcodes /work/goliath/env/worker.env. Also write
-    # <root>/env/worker.env when the profile root differs.
+    # methyl-worker.service loads /work/goliath/env/worker.env. Merge API and
+    # storage keys into that file (and <root>/env/worker.env when it differs)
+    # so promote's extractor, profile, and TMPDIR settings stay in place.
     local cap_flag=""
     if [[ -n "$cap" && "$cap" != "null" ]]; then
       cap_flag="--capability '$cap'"
     fi
-    if ssh_cmd "$dest" "sudo mkdir -p '$root/env' /work/goliath/env && sudo install -m 600 /tmp/goliath-worker.env '$root/env/worker.env' && sudo install -m 600 /tmp/goliath-worker.env /work/goliath/env/worker.env && rm -f /tmp/goliath-worker.env && sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_worker_systemd.sh --root '$root' --arch '$arch' $cap_flag"; then
+    local shared_env="/work/goliath/env/worker.env"
+    local root_env="$root/env/worker.env"
+    local worker_ok=0
+    if install_merged_env "$dest" "$root_env" "$envfile" /tmp/goliath-worker.env \
+      && { [[ "$root_env" == "$shared_env" ]] || install_merged_env "$dest" "$shared_env" "$envfile" /tmp/goliath-worker.env; } \
+      && ssh_cmd "$dest" "sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_worker_systemd.sh --root '$root' --arch '$arch' $cap_flag"; then
+      worker_ok=1
+    fi
+    rm -f "$envfile"
+    if [[ "$worker_ok" -eq 1 ]]; then
       report_component succeeded goliath-worker "$msg"
     else
       report_component failed goliath-worker "$msg failed"
@@ -548,14 +654,39 @@ run_workers() {
   fi
 }
 
+stage_release_dir() {
+  local dest="$1"
+  local remote_dir="$2"
+  local src="${GOLIATH_RELEASE_SRC:-}"
+  local bundle="$stage_dir/release-bundle.tgz"
+  [[ -n "$src" ]] || return 0
+  [[ -d "$src" ]] || die "GOLIATH_RELEASE_SRC is not a directory: $src"
+  [[ -f "$src/manifest.json" ]] || die "GOLIATH_RELEASE_SRC has no manifest.json: $src"
+  info "staging release $src -> ${dest}:${remote_dir}"
+  tar -C "$src" -czf "$bundle" . || return 1
+  if ! scp_to "$dest" "$bundle" /tmp/goliath-release.tgz; then
+    ssh_cmd "$dest" "rm -f /tmp/goliath-release.tgz" || true
+    return 1
+  fi
+  # Replace the tree so a previous release at this path cannot be promoted.
+  if ! ssh_cmd "$dest" "trap 'rm -f /tmp/goliath-release.tgz' EXIT; sudo mkdir -p '$remote_dir' && sudo find '$remote_dir' -mindepth 1 -maxdepth 1 -exec rm -rf {} + && sudo tar -xzf /tmp/goliath-release.tgz -C '$remote_dir'"; then
+    ssh_cmd "$dest" "rm -f /tmp/goliath-release.tgz" || true
+    return 1
+  fi
+}
+
 run_runtime() {
-  local root release pull_flag count i dest arch self
+  local root release pull_flag count i dest arch arch_flag arch_label self
   local -a ssh_dest=() ssh_arch=()
   local self_count=0
   root="$(jq_get '.runtime.root // "/work/goliath"')"
   release="$(jq_get '.runtime.release_dir // empty')"
   if [[ "$release" == "null" ]]; then
     release=""
+  fi
+  if [[ -n "${GOLIATH_RELEASE_SRC:-}" ]]; then
+    [[ -d "$GOLIATH_RELEASE_SRC" ]] || die "GOLIATH_RELEASE_SRC is not a directory: $GOLIATH_RELEASE_SRC"
+    [[ -f "$GOLIATH_RELEASE_SRC/manifest.json" ]] || die "GOLIATH_RELEASE_SRC has no manifest.json: $GOLIATH_RELEASE_SRC"
   fi
   if [[ "$(jq_get '.runtime.pull_parabricks // false')" == "true" ]]; then
     pull_flag="--pull-parabricks"
@@ -565,8 +696,18 @@ run_runtime() {
   if jq -e '.runtime.hosts | type == "array" and length > 0' "$PROFILE" >/dev/null; then
     count="$(jq_get '.runtime.hosts | length')"
     for ((i = 0; i < count; i++)); do
-      ssh_dest+=("$(jq_get ".runtime.hosts[$i].ssh")")
-      ssh_arch+=("$(jq -r --argjson i "$i" '.workers[$i].arch // "amd64"' "$PROFILE")")
+      dest="$(jq_get ".runtime.hosts[$i].ssh")"
+      # Arch belongs to this host. Do not borrow workers[$i] — the lists can
+      # differ in length and order. Detect on the host when it is unset.
+      arch="$(jq_get ".runtime.hosts[$i].arch // empty")"
+      if [[ -z "$arch" || "$arch" == "null" ]]; then
+        arch="$(jq -r --arg ssh "$dest" '[.workers[]? | select(.ssh == $ssh) | .arch] | first // empty' "$PROFILE")"
+      fi
+      if [[ -z "$arch" || "$arch" == "null" ]]; then
+        arch=""
+      fi
+      ssh_dest+=("$dest")
+      ssh_arch+=("$arch")
     done
   else
     count="$(jq_get '.workers | length')"
@@ -580,8 +721,13 @@ run_runtime() {
         self_count=$((self_count + 1))
         continue
       fi
-      ssh_dest+=("$(jq_get ".workers[$i].ssh")")
-      ssh_arch+=("$(jq_get ".workers[$i].arch")")
+      dest="$(jq_get ".workers[$i].ssh")"
+      arch="$(jq_get ".workers[$i].arch")"
+      if [[ -z "$arch" || "$arch" == "null" ]]; then
+        arch=""
+      fi
+      ssh_dest+=("$dest")
+      ssh_arch+=("$arch")
     done
   fi
   if [[ "${#ssh_dest[@]}" -eq 0 ]]; then
@@ -595,18 +741,34 @@ run_runtime() {
   for ((i = 0; i < ${#ssh_dest[@]}; i++)); do
     dest="${ssh_dest[$i]}"
     arch="${ssh_arch[$i]}"
+    arch_flag=""
     assert_remote_literal "runtime ssh" "$dest"
     assert_remote_literal "runtime arch" "$arch"
     assert_remote_literal "runtime root" "$root"
     assert_remote_literal "release dir" "$release"
     assert_remote_literal "rollouts environment" "$GOLIATH_ENV"
-    info "runtime $dest arch=$arch release=$release"
-    report_component start goliathomics-runtime "promote ${arch} ${dest}"
-    install_remote_tree "$dest"
-    if ssh_cmd "$dest" "sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/promote_release.sh --root '$root' --release '$release' --arch '$arch' $pull_flag"; then
-      report_component succeeded goliathomics-runtime "promoted ${arch} ${dest}"
+    if [[ -n "$arch" ]]; then
+      arch_flag="--arch '$arch'"
+      arch_label="$arch"
     else
-      report_component failed goliathomics-runtime "promote ${arch} ${dest} failed"
+      arch_label="detect"
+    fi
+    info "runtime $dest arch=$arch_label release=$release"
+    report_component start goliathomics-runtime "promote ${arch_label} ${dest}"
+    install_remote_tree "$dest"
+    # release_dir is one shared /work tree. Extract it on the first host
+    # only, before promote points current at it. A later host must not
+    # empty that live directory.
+    if [[ "$i" -eq 0 ]]; then
+      if ! stage_release_dir "$dest" "$release"; then
+        report_component failed goliathomics-runtime "stage ${arch_label} ${dest} failed"
+        return 1
+      fi
+    fi
+    if ssh_cmd "$dest" "sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/promote_release.sh --root '$root' --release '$release' $arch_flag $pull_flag"; then
+      report_component succeeded goliathomics-runtime "promoted ${arch_label} ${dest}"
+    else
+      report_component failed goliathomics-runtime "promote ${arch_label} ${dest} failed"
       return 1
     fi
   done
