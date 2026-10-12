@@ -22,6 +22,11 @@ on:
         required: false
         type: string
         default: /work/goliath
+      target:
+        description: Optional deploy target (deploy/targets/<name>.json). Empty uses the runner-local promote.
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -31,7 +36,58 @@ jobs:
     runs-on: [self-hosted, production-work-agents]
     environment: production-work
     steps:
+      - uses: actions/checkout@v6
+        continue-on-error: true
+
+      - name: Report deployment start
+        continue-on-error: true
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          RELEASE_VERSION: ${{ inputs.releaseVersion }}
+          GH_TOKEN: ${{ github.token }}
+          GOLIATH_ENV: production-work
+        run: |
+          set +e
+          if [[ ! -f scripts/report_deploy.sh ]]; then
+            echo "report_deploy.sh is not in this checkout; skipping Rollouts start"
+            exit 0
+          fi
+          PY=python3
+          command -v python3 >/dev/null 2>&1 || PY=python
+          ref_json=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/goliathomics-${RELEASE_VERSION}") || exit 0
+          read -r sha typ < <("$PY" -c 'import json,sys; o=json.load(sys.stdin)["object"]; print(o["sha"], o["type"])' <<<"$ref_json") || exit 0
+          if [[ "$typ" == "tag" ]]; then
+            tag_json=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${sha}") || exit 0
+            sha=$("$PY" -c 'import json,sys; print(json.load(sys.stdin)["object"]["sha"])' <<<"$tag_json") || exit 0
+          fi
+          if [[ ! "$sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "resolved deploy version is not a commit SHA" >&2
+            exit 0
+          fi
+          bash scripts/report_deploy.sh start \
+            --service goliathomics-runtime \
+            --env production-work \
+            --version "$sha" \
+            --message "release ${RELEASE_VERSION}"
+          exit 0
+
+      - name: Deploy target profile
+        if: inputs.target != ''
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GOLIATH_ROLLOUTS_SKIP_SERVICES: goliathomics-runtime
+          NEON_TEST_PASSWORD: ${{ secrets.NEON_TEST_PASSWORD }}
+          B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
+          B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
+          LONGTERM_ACCESS_KEY_ID: ${{ secrets.LONGTERM_ACCESS_KEY_ID }}
+          LONGTERM_SECRET_ACCESS_KEY: ${{ secrets.LONGTERM_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          [[ -f scripts/deploy_target.sh ]] || { echo "Missing scripts/deploy_target.sh"; exit 1; }
+          bash scripts/deploy_target.sh --target "${{ inputs.target }}" --component all
+
       - name: Download assembled bundle from GitHub Release
+        if: inputs.target == ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -46,6 +102,9 @@ jobs:
             -C "${{ runner.temp }}/bundle"
 
       - name: Rsync bundle and promote_release
+        if: inputs.target == ''
+        env:
+          GOLIATH_ROLLOUTS_SKIP_SERVICES: goliathomics-runtime
         run: |
           set -euo pipefail
           ROOT="${{ inputs.goliathRoot }}"
@@ -65,6 +124,7 @@ jobs:
           echo "Promoted $VERSION -> $ROOT/current"
 
       - name: Post-promote verification
+        if: inputs.target == ''
         run: |
           set -euo pipefail
           RUNTIME="${{ inputs.goliathRoot }}/current/runtime-bundle"
@@ -77,3 +137,44 @@ jobs:
             bash "$RUNTIME/scripts/verify_e2e_node.sh"
           fi
           echo "Deploy verification passed for ${{ inputs.releaseVersion }}"
+
+      - name: Report deployment finish
+        if: always()
+        continue-on-error: true
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GOLIATH_ENV: production-work
+          DEPLOY_OUTCOME: ${{ job.status }}
+        run: |
+          set +e
+          if [[ ! -f scripts/report_deploy.sh ]]; then
+            echo "report_deploy.sh is not in this checkout; skipping Rollouts finish"
+            exit 0
+          fi
+          case "$DEPLOY_OUTCOME" in
+            success)
+              bash scripts/report_deploy.sh succeeded \
+                --service goliathomics-runtime \
+                --env production-work \
+                --message "release deploy succeeded"
+              ;;
+            failure)
+              bash scripts/report_deploy.sh failed \
+                --service goliathomics-runtime \
+                --env production-work \
+                --message "release deploy failed"
+              ;;
+            cancelled)
+              bash scripts/report_deploy.sh aborted \
+                --service goliathomics-runtime \
+                --env production-work \
+                --message "release deploy aborted"
+              ;;
+            *)
+              bash scripts/report_deploy.sh failed \
+                --service goliathomics-runtime \
+                --env production-work \
+                --message "release deploy ${DEPLOY_OUTCOME}"
+              ;;
+          esac
+          exit 0

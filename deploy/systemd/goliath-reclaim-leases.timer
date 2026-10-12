@@ -1,0 +1,14 @@
+[Unit]
+Description=Periodic reclaim of expired Goliath workflow task leases
+Documentation=https://github.com/Goliath-Research/GoliathOmics
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+Unit=goliath-reclaim-leases.service
+
+[Install]
+WantedBy=timers.target
+Alias=methyl-reclaim-leases.timer

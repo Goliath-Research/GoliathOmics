@@ -6,6 +6,45 @@ on:
       - main
 
 jobs:
+  deploy-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Shellcheck deploy scripts
+        run: |
+          shellcheck -S warning -e SC1091 \
+            scripts/report_deploy.sh \
+            scripts/rollouts_hook.sh \
+            scripts/deploy_target.sh \
+            scripts/deploy_workflow_definitions.sh \
+            scripts/deploy_mc_workflow_definitions.sh \
+            scripts/deploy_process_pack_catalog.sh \
+            scripts/promote_release.sh \
+            scripts/install_release.sh \
+            scripts/install_gateway_systemd.sh \
+            scripts/install_worker_systemd.sh \
+            scripts/install_reclaim_leases_timer.sh \
+            scripts/bootstrap_goliath.sh \
+            scripts/write_worker_env.sh \
+            scripts/setup_gpu_node.sh \
+            scripts/verify_setup.sh \
+            scripts/verify_e2e_node.sh \
+            scripts/init_work_layout.sh \
+            scripts/install_methyl_extractor_tarball.sh \
+            scripts/provision_worker_node.sh \
+            scripts/test_report_deploy.sh \
+            scripts/test_deploy_target.sh \
+            workflow_engine/sql_pg/deploy_test_bed.sh
+
+      - name: Rollouts reporter and target profile tests
+        run: |
+          bash scripts/test_report_deploy.sh
+          bash scripts/test_deploy_target.sh
+
   pr:
     runs-on: ubuntu-latest
     steps:

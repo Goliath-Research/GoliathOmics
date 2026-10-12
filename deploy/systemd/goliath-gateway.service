@@ -1,0 +1,20 @@
+[Unit]
+Description=Goliath workflow REST gateway
+Documentation=https://github.com/Goliath-Research/GoliathOmics
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=__ROOT__
+EnvironmentFile=-__ENV_FILE__
+ExecStart=__ROOT__/venv/bin/goliath-gateway --host ${WF_GATEWAY_HOST} --port ${WF_GATEWAY_PORT}
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+Alias=methyl-gateway.service

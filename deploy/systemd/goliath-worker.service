@@ -1,0 +1,22 @@
+[Unit]
+Description=GoliathOmics workflow worker
+Documentation=https://github.com/Goliath-Research/GoliathOmics
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=__ROOT__
+EnvironmentFile=-__ENV_FILE__
+EnvironmentFile=-__ROOT__/env/worker.env
+EnvironmentFile=-__ROOT__/env/parabricks.env
+ExecStart=__ROOT__/venv-__ARCH__/bin/methyl-worker
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+Alias=methyl-worker.service

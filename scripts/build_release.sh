@@ -151,8 +151,14 @@ build_runtime_bundle() {
            download_methyl_extractor_artifacts.sh assemble_release.sh bootstrap_goliath.sh \
            install_gateway_systemd.sh install_worker_systemd.sh \
            install_reclaim_leases_timer.sh provision_gateway_node.sh \
-           provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh; do
-    [[ -f "$REPO_ROOT/scripts/$s" ]] && cp -f "$REPO_ROOT/scripts/$s" "$RUNTIME_DIR/scripts/"
+           provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh \
+           install_methyl_extractor_tarball.sh \
+           deploy_workflow_definitions.sh deploy_mc_workflow_definitions.sh \
+           deploy_process_pack_catalog.sh deploy_target.sh \
+           report_deploy.sh rollouts_hook.sh default_methyl_site.json; do
+    if [[ -f "$REPO_ROOT/scripts/$s" ]]; then
+      cp -f "$REPO_ROOT/scripts/$s" "$RUNTIME_DIR/scripts/"
+    fi
   done
   chmod +x "$RUNTIME_DIR/scripts/"*.sh 2>/dev/null || true
 }

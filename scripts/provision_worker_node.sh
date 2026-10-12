@@ -49,6 +49,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
+# shellcheck source=rollouts_hook.sh
+source "$SCRIPT_DIR/rollouts_hook.sh"
 
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 RELEASE_DIR=""
@@ -187,12 +189,29 @@ do_enroll() {
 do_systemd() {
   echo "=== systemd ==="
   local sd_args=(--root "$ROOT" --arch "$ARCH" --runtime "$RUNTIME")
+  local host msg rc
+  host="$(hostname -s 2>/dev/null || hostname)"
+  msg="host=${host} arch=${ARCH} capability=${CAPABILITY:-unspecified}"
   if [[ -n "$CAPABILITY" ]]; then
     sd_args+=(--capability "$CAPABILITY")
   elif [[ "$DETECT_CAPABILITIES" -eq 1 ]]; then
     sd_args+=(--detect-capabilities)
   fi
-  run sudo bash "$SCRIPTS/install_worker_systemd.sh" "${sd_args[@]}"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    rollouts_report start --service goliath-worker --message "$msg"
+  fi
+  set +e
+  run sudo env ROLLOUTS_MESSAGE="$msg" bash "$SCRIPTS/install_worker_systemd.sh" "${sd_args[@]}"
+  rc=$?
+  set -e
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    if [[ "$rc" -eq 0 ]]; then
+      rollouts_report succeeded --service goliath-worker --message "$msg"
+    else
+      rollouts_report failed --service goliath-worker --message "$msg (exit ${rc})"
+    fi
+  fi
+  return "$rc"
 }
 
 do_host_and_docker() {
