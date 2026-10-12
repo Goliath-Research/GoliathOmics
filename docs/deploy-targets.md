@@ -34,10 +34,10 @@ scripts/deploy_target.sh --target goliath-test --component all
 
 | Component | What it does |
 | --- | --- |
-| `schema` | Applies `workflow_engine/sql_pg/deploy_test_bed.sh` when `schema.apply` is `test-bed`. Engine DDL from GoliathApp must already be loaded. `schema.apply` `none` skips SQL. |
-| `gateway` | Writes `gateway.env` (database password only) to the gateway host over SSH and runs `install_gateway_systemd.sh`. |
-| `runtime` | Runs `promote_release.sh` on each worker (or `runtime.hosts`) for `runtime.release_dir`. |
-| `workers` | Writes `worker.env` with the gateway URL and storage credentials, not the database password, and runs `install_worker_systemd.sh`. |
+| `schema` | Applies `workflow_engine/sql_pg/deploy_test_bed.sh` when `schema.apply` is `test-bed`. Engine DDL from GoliathApp must already be loaded. `schema.apply` `none` skips SQL. The test-bed token fixture is applied only when the target name, `rollouts_environment`, database name, or host looks like a test bed. Set `GOLIATH_ALLOW_TEST_BED_TOKEN=1` to apply it to any other database. |
+| `gateway` | Writes `<install_root>/env/gateway.env` (database password only; default root `/opt/methyl-gateway`) and runs `install_gateway_systemd.sh --root`. That script installs `methyl-gateway.service` and the reclaim timer. It does not take `--env-file` or `--user`. |
+| `runtime` | Runs `promote_release.sh --root --release --arch` plus `--pull-parabricks` or `--skip-docker-pull`. |
+| `workers` | Writes `/work/goliath/env/worker.env` (the path `methyl-worker.service` loads) and `<install_root>/env/worker.env`, then runs `install_worker_systemd.sh --root --arch` and `--capability` when the profile sets one. |
 
 `rollouts_environment` from the profile is exported as `GOLIATH_ENV` for every report.
 

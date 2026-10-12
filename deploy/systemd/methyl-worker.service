@@ -1,0 +1,26 @@
+[Unit]
+Description=MethylPipeline workflow worker (omnibus — all capabilities)
+After=network-online.target
+Wants=network-online.target
+# Optional: Azure Arc agent (when installed via install_arc_agent.sh)
+After=azure-arc-agent.service
+Wants=azure-arc-agent.service
+
+[Service]
+Type=simple
+# Shared non-secret env first; per-VM /etc/methyl/worker-token LAST so WORKER_ID /
+# WORKER_TOKEN from enroll win (never put credentials in shared worker.env).
+EnvironmentFile=-/work/goliath/env/worker.env
+EnvironmentFile=-/work/goliath/env/parabricks.env
+EnvironmentFile=-/etc/methyl/worker-token
+# EnvironmentFile does not expand $PATH; set a literal PATH after env files.
+Environment=PATH=__GOLIATH_VENV__/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# worker.env sets TMPDIR=/var/tmp/methyl-samtools (VM-local; not on the NFS share).
+ExecStartPre=/bin/mkdir -p /var/tmp/methyl-samtools
+ExecStartPre=/bin/chmod 1777 /var/tmp/methyl-samtools
+ExecStart=__GOLIATH_VENV__/bin/methyl-worker --api-base ${WORKER_API_BASE}
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

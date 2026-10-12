@@ -1,0 +1,22 @@
+[Unit]
+Description=MethylPipeline workflow worker (%i capability)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Shared non-secret env first; per-VM credentials last.
+EnvironmentFile=-/work/goliath/env/worker.env
+EnvironmentFile=-/work/goliath/env/parabricks.env
+EnvironmentFile=-/work/goliath/env/proteomics.env
+EnvironmentFile=-/etc/methyl/worker-token
+Environment=WORKER_CAPABILITY=%i
+Environment=PATH=__GOLIATH_VENV__/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStartPre=/bin/mkdir -p /var/tmp/methyl-samtools
+ExecStartPre=/bin/chmod 1777 /var/tmp/methyl-samtools
+ExecStart=__GOLIATH_VENV__/bin/methyl-worker --api-base ${WORKER_API_BASE}
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

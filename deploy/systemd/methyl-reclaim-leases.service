@@ -1,0 +1,15 @@
+[Unit]
+Description=MethylPipeline reclaim expired workflow task leases
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__GOLIATH_ROOT__
+EnvironmentFile=-__GOLIATH_ROOT__/env/gateway.env
+Environment=PATH=__GOLIATH_VENV__/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Grace matches wf.sp_reclaim_expired_leases default; healthy heartbeats keep leases fresh.
+ExecStart=__GOLIATH_VENV__/bin/methyl-reclaim-leases --grace-seconds 60
+
+[Install]
+WantedBy=multi-user.target

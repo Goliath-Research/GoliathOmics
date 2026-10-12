@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-# Create the per-arch worker virtualenv from a release tree (wheels + lockfile).
+#!/bin/bash
+# Install production release wheels into a shared venv (non-editable).
 
 set -euo pipefail
 
@@ -8,11 +8,16 @@ usage() {
 Usage: scripts/install_release.sh [options]
 
 Options:
-  --root PATH       Goliath root (default: /work/goliath)
-  --release PATH    Release directory (manifest, wheels/, requirements-worker.lock)
-  --arch KEY        aarch64 or amd64 (default: detect)
-  --python BIN      Python used to create the venv (default: python3)
-  -h, --help
+  --release-dir PATH   Release directory with wheels/ and requirements-worker.lock
+  --venv PATH          Target virtualenv (default: /work/goliath/venv-<arch>)
+  --python BIN         Python interpreter for venv creation (default: python3.12)
+  --index-url URL      Optional PyPI index (GitHub Packages pypi-goliath)
+  --recreate-venv      Remove existing venv before install
+  -h, --help           Show this help
+
+Examples:
+  scripts/install_release.sh --release-dir /work/goliath/releases/2026.6.1 --venv /work/goliath/venv-aarch64
+  scripts/install_release.sh --release-dir /work/goliath/current --index-url "https://pypi.pkg.github.com/Goliath-Research/simple/"
 EOF
 }
 
@@ -20,17 +25,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
 
-ROOT="${GOLIATH_ROOT:-/work/goliath}"
-RELEASE=""
-ARCH=""
-PYTHON_BIN="${PYTHON_BIN:-python3}"
+RELEASE_DIR=""
+VENV_DIR=""
+PYTHON_BIN="${PYTHON_BIN:-python3.12}"
+INDEX_URL=""
+RECREATE=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --root) ROOT="${2:-}"; shift 2 ;;
-    --release) RELEASE="${2:-}"; shift 2 ;;
-    --arch) ARCH="${2:-}"; shift 2 ;;
+    --release-dir) RELEASE_DIR="${2:-}"; shift 2 ;;
+    --venv) VENV_DIR="${2:-}"; shift 2 ;;
     --python) PYTHON_BIN="${2:-}"; shift 2 ;;
+    --index-url) INDEX_URL="${2:-}"; shift 2 ;;
+    --recreate-venv) RECREATE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
@@ -39,40 +46,50 @@ done
 info() { echo "[INFO] $*"; }
 die() { echo "[ERROR] $*" >&2; exit 1; }
 
-[[ -n "$RELEASE" ]] || die "--release is required"
-[[ -d "$RELEASE" ]] || die "Release directory not found: $RELEASE"
-ARCH="${ARCH:-$(platform_arch_key "$(detect_uname_arch)")}"
-[[ "$ARCH" == "aarch64" || "$ARCH" == "amd64" ]] || die "Unknown arch: $ARCH"
+ARCH_KEY="$(platform_arch_key "$(detect_uname_arch)")"
+RELEASE_DIR="${RELEASE_DIR:-/work/goliath/current}"
+VENV_DIR="${VENV_DIR:-/work/goliath/venv-${ARCH_KEY}}"
 
-VENV="$ROOT/venv-$ARCH"
-LOCK=""
-for cand in "$RELEASE/requirements-worker.lock" "$RELEASE/runtime-bundle/requirements-worker.lock"; do
-  if [[ -f "$cand" ]]; then
-    LOCK="$cand"
-    break
-  fi
-done
-WHEELS=""
-for cand in "$RELEASE/wheels" "$RELEASE/runtime-bundle/wheels"; do
-  if [[ -d "$cand" ]]; then
-    WHEELS="$cand"
-    break
-  fi
-done
+[[ -d "$RELEASE_DIR" ]] || die "Release directory not found: $RELEASE_DIR"
 
-info "Installing release venv $VENV"
-mkdir -p "$ROOT"
-if [[ ! -x "$VENV/bin/python" ]]; then
-  "$PYTHON_BIN" -m venv "$VENV"
+LOCK_FILE="$RELEASE_DIR/requirements-worker.lock"
+if [[ ! -f "$LOCK_FILE" ]]; then
+  LOCK_FILE="$RELEASE_DIR/requirements-worker.txt"
 fi
-if [[ -n "$LOCK" ]]; then
-  find_links=()
-  if [[ -n "$WHEELS" ]]; then
-    find_links=(--find-links "$WHEELS")
-  fi
-  "$VENV/bin/python" -m pip install -U pip
-  "$VENV/bin/python" -m pip install -r "$LOCK" "${find_links[@]}"
+[[ -f "$LOCK_FILE" ]] || die "Missing requirements lock: $RELEASE_DIR/requirements-worker.lock"
+
+WHEELS_DIR="$RELEASE_DIR/wheels"
+if [[ -z "$INDEX_URL" && ! -d "$WHEELS_DIR" ]]; then
+  die "Missing wheels directory: $WHEELS_DIR (or pass --index-url)"
+fi
+
+if [[ "$RECREATE" -eq 1 && -d "$VENV_DIR" ]]; then
+  info "Removing existing venv: $VENV_DIR"
+  rm -rf "$VENV_DIR"
+fi
+
+if [[ ! -x "$VENV_DIR/bin/python" ]]; then
+  info "Creating venv: $VENV_DIR"
+  "$PYTHON_BIN" -m venv "$VENV_DIR"
+fi
+
+# shellcheck disable=SC1091
+source "$VENV_DIR/bin/activate"
+pip install -U pip wheel setuptools
+
+PIP_ARGS=(-r "$LOCK_FILE")
+if [[ -n "$INDEX_URL" ]]; then
+  PIP_ARGS=(--index-url "$INDEX_URL" "${PIP_ARGS[@]}")
 else
-  info "No requirements-worker.lock under $RELEASE; venv left without a lock install"
+  PIP_ARGS=(--no-index --find-links "$WHEELS_DIR" "${PIP_ARGS[@]}")
 fi
-info "Release venv ready: $VENV"
+
+info "Installing from $LOCK_FILE into $VENV_DIR"
+if [[ -z "$INDEX_URL" ]]; then
+  # Local wheels cover goliath packages only; third-party deps need PyPI or an index mirror.
+  pip install --find-links "$WHEELS_DIR" "${PIP_ARGS[@]}"
+else
+  pip install "${PIP_ARGS[@]}"
+fi
+
+info "Release install complete: $VENV_DIR"

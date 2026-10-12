@@ -1,98 +1,92 @@
-#!/usr/bin/env bash
-# Install and restart the goliath-gateway systemd unit, then require it to be active.
-
+#!/bin/bash
+# Install methyl-gateway systemd unit on this VM.
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
 Usage: scripts/install_gateway_systemd.sh [options]
 
+Install methyl-gateway on this VM's local disk. Do not point --root at /work
+(the worker share). Default: /opt/methyl-gateway
+
 Options:
-  --root PATH       Install root (default: /opt/goliath-gateway)
-  --env-file PATH   EnvironmentFile (default: /etc/goliath/gateway.env)
-  --user NAME       Service account (default: goliath)
-  --enable-nginx    Install deploy/nginx/goliath-gateway.conf
-  --dry-run
+  --root PATH           Gateway local root (default: /opt/methyl-gateway)
+  --arch KEY            aarch64 or amd64 (default: detect)
+  --runtime PATH        Path to runtime-bundle (default: <root>/runtime-bundle or this repo)
+  --no-start            Install/enable only; do not start
   -h, --help
 EOF
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=detect_platform.sh
+source "$SCRIPT_DIR/detect_platform.sh"
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
 
-ROOT="/opt/goliath-gateway"
-ENV_FILE="/etc/goliath/gateway.env"
-SERVICE_USER="goliath"
-ENABLE_NGINX=0
-DRY_RUN=0
+ROOT="${GOLIATH_ROOT:-/opt/methyl-gateway}"
+ARCH=""
+RUNTIME=""
+NO_START=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --root) ROOT="${2:-}"; shift 2 ;;
-    --env-file) ENV_FILE="${2:-}"; shift 2 ;;
-    --user) SERVICE_USER="${2:-}"; shift 2 ;;
-    --enable-nginx) ENABLE_NGINX=1; shift ;;
-    --dry-run) DRY_RUN=1; shift ;;
+    --arch) ARCH="${2:-}"; shift 2 ;;
+    --runtime) RUNTIME="${2:-}"; shift 2 ;;
+    --no-start) NO_START=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
 done
 
-info() { echo "[INFO] $*"; }
-die() { echo "[ERROR] $*" >&2; exit 1; }
-run() {
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "[DRY-RUN] $*"
-  else
-    "$@"
-  fi
-}
-
-UNIT_SRC="$REPO_ROOT/deploy/systemd/goliath-gateway.service"
-[[ -f "$UNIT_SRC" ]] || die "Missing unit template: $UNIT_SRC"
-
-if [[ "$DRY_RUN" -eq 0 ]]; then
-  rollouts_begin goliath-gateway "gateway $(hostname -s 2>/dev/null || hostname)"
+if [[ "$ROOT" == /work || "$ROOT" == /work/* ]]; then
+  echo "Gateway --root must be this VM's local disk, not the worker /work share (got $ROOT)." >&2
+  exit 1
 fi
 
-render() {
-  sed \
-    -e "s|__ROOT__|${ROOT}|g" \
-    -e "s|__USER__|${SERVICE_USER}|g" \
-    -e "s|__ENV_FILE__|${ENV_FILE}|g" \
-    -e "s|__ARCH__|amd64|g" \
-    "$1"
-}
-
-if [[ "$DRY_RUN" -eq 1 ]]; then
-  info "Would install goliath-gateway.service from $UNIT_SRC"
-  exit 0
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo "Run as root: sudo bash $0 ..." >&2
+  exit 1
 fi
 
-if ! id "$SERVICE_USER" >/dev/null 2>&1; then
-  run sudo useradd --system --create-home --home-dir "$ROOT" --shell /usr/sbin/nologin "$SERVICE_USER" \
-    || info "Could not create user $SERVICE_USER; using it anyway"
+ARCH="${ARCH:-$(platform_arch_key "$(detect_uname_arch)")}"
+if [[ -x "$ROOT/venv-${ARCH}/bin/python" ]]; then
+  VENV="$ROOT/venv-${ARCH}"
+elif [[ -x "$ROOT/venv/bin/python" ]]; then
+  VENV="$ROOT/venv"
+else
+  VENV="$ROOT/venv-${ARCH}"
 fi
-
-tmp="$(mktemp)"
-render "$UNIT_SRC" >"$tmp"
-run sudo install -m 644 "$tmp" /etc/systemd/system/goliath-gateway.service
-rm -f "$tmp"
-
-if [[ "$ENABLE_NGINX" -eq 1 ]]; then
-  ng="$REPO_ROOT/deploy/nginx/goliath-gateway.conf"
-  [[ -f "$ng" ]] || die "Missing nginx config: $ng"
-  run sudo install -m 644 "$ng" /etc/nginx/sites-available/goliath-gateway.conf
-  run sudo ln -sfn /etc/nginx/sites-available/goliath-gateway.conf /etc/nginx/sites-enabled/goliath-gateway.conf
-  run sudo nginx -t
-  run sudo systemctl reload nginx
+if [[ -d "$ROOT/runtime-bundle" ]]; then
+  RUNTIME="${RUNTIME:-$(readlink -f "$ROOT/runtime-bundle")}"
+elif [[ -d "$ROOT/current/runtime-bundle" ]]; then
+  RUNTIME="${RUNTIME:-$(readlink -f "$ROOT/current/runtime-bundle")}"
+else
+  RUNTIME="${RUNTIME:-$SCRIPT_DIR/..}"
 fi
+DEPLOY="$RUNTIME/deploy/systemd"
+[[ -d "$DEPLOY" ]] || DEPLOY="$SCRIPT_DIR/../deploy/systemd"
 
-run sudo systemctl daemon-reload
-run sudo systemctl enable goliath-gateway.service
-run sudo systemctl restart goliath-gateway.service
-run sudo systemctl is-active --quiet goliath-gateway.service
-info "goliath-gateway is active"
+SRC="$DEPLOY/methyl-gateway.service"
+[[ -f "$SRC" ]] || { echo "Missing $SRC" >&2; exit 1; }
+
+rollouts_begin goliath-gateway "gateway $(hostname -s 2>/dev/null || hostname)"
+
+sed -e "s|__GOLIATH_ROOT__|$ROOT|g" \
+    -e "s|__GOLIATH_VENV__|$VENV|g" \
+    "$SRC" >"/etc/systemd/system/methyl-gateway.service"
+
+systemctl daemon-reload
+systemctl enable methyl-gateway.service
+[[ "$NO_START" -eq 0 ]] && systemctl restart methyl-gateway.service
+systemctl status methyl-gateway.service --no-pager -l | head -15
+
+# Lease reclaim timer (expired RUNNING → READY); same gateway.env credentials.
+RECLAIM_INSTALL="$SCRIPT_DIR/install_reclaim_leases_timer.sh"
+if [[ -f "$RECLAIM_INSTALL" ]]; then
+  RECLAIM_ARGS=(--root "$ROOT" --arch "$ARCH" --runtime "$RUNTIME")
+  [[ "$NO_START" -eq 1 ]] && RECLAIM_ARGS+=(--no-start)
+  bash "$RECLAIM_INSTALL" "${RECLAIM_ARGS[@]}"
+fi
 rollouts_set_message "goliath-gateway active on $(hostname -s 2>/dev/null || hostname)"

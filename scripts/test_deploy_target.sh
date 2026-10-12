@@ -58,6 +58,36 @@ bash "$ROOT/scripts/deploy_target.sh" --help >/dev/null
 bash "$ROOT/scripts/promote_release.sh" --help >/dev/null
 bash "$ROOT/scripts/install_gateway_systemd.sh" --help >/dev/null
 bash "$ROOT/scripts/install_worker_systemd.sh" --help >/dev/null
-bash "$ROOT/scripts/verify_setup.sh" --runtime-bundle >/dev/null
+bash "$ROOT/scripts/verify_setup.sh" --help >/dev/null
+
+bed="$ROOT/workflow_engine/sql_pg/deploy_test_bed.sh"
+set +e
+env -u GOLIATH_ALLOW_TEST_BED_TOKEN -u GOLIATH_ENV -u GOLIATH_DEPLOY_TARGET \
+  PGHOST=db.example.com PGDATABASE=goliath PGUSER=goliath \
+  bash "$bed" >"$out" 2>"$err"
+status=$?
+set -e
+[[ "$status" -ne 0 ]] || fail "test-bed fixture must be refused for a non test-bed target"
+grep -q 'GOLIATH_ALLOW_TEST_BED_TOKEN' "$err" || fail "refusal should name the override"
+if grep -q 'test-bed-token' "$out" "$err"; then
+  fail "refusal printed the fixture token"
+fi
+
+assert_past_guard() {
+  local label="$1"
+  shift
+  set +e
+  env -u GOLIATH_ALLOW_TEST_BED_TOKEN "$@" \
+    PGCONNECT_TIMEOUT=1 PGHOST=127.0.0.1 PGPORT=1 PGDATABASE=goliath PGUSER=goliath \
+    bash "$bed" >"$out" 2>"$err"
+  status=$?
+  set -e
+  [[ "$status" -ne 0 ]] || fail "$label still needs a database"
+  if grep -q 'Refusing to apply the test-bed token' "$err"; then
+    fail "$label should pass the token guard"
+  fi
+}
+assert_past_guard "explicit override" GOLIATH_ALLOW_TEST_BED_TOKEN=1
+assert_past_guard "test-bed environment" GOLIATH_ENV=goliath-test
 
 echo "test_deploy_target ok"

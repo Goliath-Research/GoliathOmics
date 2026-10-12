@@ -201,7 +201,7 @@ do_systemd() {
     rollouts_report start --service goliath-worker --message "$msg"
   fi
   set +e
-  run sudo env ROLLOUTS_MESSAGE="$msg" bash "$SCRIPTS/install_worker_systemd.sh" "${sd_args[@]}"
+  run sudo env GOLIATH_ROLLOUTS_EXTERNAL=1 ROLLOUTS_MESSAGE="$msg" bash "$SCRIPTS/install_worker_systemd.sh" "${sd_args[@]}"
   rc=$?
   set -e
   if [[ "$DRY_RUN" -eq 0 ]]; then

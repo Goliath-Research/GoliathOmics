@@ -9,7 +9,7 @@ These are the Rollouts service ids. Each deploy script opens one deployment for 
 | Service | When it is reported |
 | --- | --- |
 | `goliath-gateway` | `scripts/install_gateway_systemd.sh` after the unit restarts and is active |
-| `goliathomics-runtime` | `scripts/promote_release.sh` after `current` is repointed and `verify_setup` passes. The **GoliathOmics release deploy** workflow reports the same service for the whole job. |
+| `goliathomics-runtime` | `scripts/promote_release.sh` when it exits after flipping `current` and writing `worker.env`. The **GoliathOmics release deploy** workflow reports the same service for the whole job. |
 | `goliath-worker` | `scripts/install_worker_systemd.sh` and the end of `do_systemd` in `scripts/provision_worker_node.sh`. The message includes hostname, arch, and capability. |
 | `goliath-reclaim-leases` | `scripts/install_reclaim_leases_timer.sh` |
 | `workflow-definitions` | `scripts/deploy_workflow_definitions.sh` and `scripts/deploy_mc_workflow_definitions.sh` |
@@ -52,7 +52,9 @@ These are dependencies of a target. They do not get their own Rollouts service:
 - Backblaze B2, the shared bucket workers use for parallel scratch
 - RunPod or myQNAPCloud, the long-term archive
 
-The gateway *process* is the `goliath-gateway` service. The Vultr machine it runs on is only the place that process is installed.
+The gateway *process* is reported as the `goliath-gateway` service. On the VM the unit installed from GoliathWorkflow is `methyl-gateway.service` (workers are `methyl-worker.service`, lease reclaim is `methyl-reclaim-leases.timer`). Those unit names are not the Rollouts service ids. The Vultr machine is only the place that process is installed.
+
+`GOLIATH_ROLLOUTS_EXTERNAL=1` or a service listed in `GOLIATH_ROLLOUTS_SKIP_SERVICES` makes that script skip its own report. `deploy_target.sh` sets `GOLIATH_ROLLOUTS_EXTERNAL=1` on the remote install so the driver reports once. `provision_worker_node.sh` `do_systemd` does the same for the nested `install_worker_systemd.sh` call. A direct run of those scripts on a VM still reports.
 
 ## Supersedes the draft reporter
 

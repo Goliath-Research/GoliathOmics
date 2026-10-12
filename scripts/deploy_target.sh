@@ -246,6 +246,7 @@ run_schema() {
   report_component start goliath-db-schema "schema ${TARGET}"
   export PGHOST="$db_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user"
   export PGSSLMODE="$db_ssl" PGPASSWORD="$db_password"
+  export GOLIATH_DEPLOY_TARGET="$TARGET"
   if GOLIATH_ROLLOUTS_EXTERNAL=1 bash "$REPO_ROOT/workflow_engine/sql_pg/deploy_test_bed.sh"; then
     report_component succeeded goliath-db-schema "schema ${TARGET}"
   else
@@ -284,11 +285,11 @@ run_gateway() {
   count="$(jq_get '.gateway.hosts | length')"
   [[ "$count" != "0" && "$count" != "null" ]] || die "gateway.hosts is empty"
   local i dest envfile remote_env root user port bind
-  root="$(jq_get '.gateway.install_root // "/opt/goliath-gateway"')"
+  root="$(jq_get '.gateway.install_root // "/opt/methyl-gateway"')"
   user="$(jq_get '.gateway.user // "goliath"')"
   port="$(jq_get '.gateway.port // 8080')"
   bind="$(jq_get '.gateway.bind_host // "127.0.0.1"')"
-  remote_env="$(jq_get '.gateway.env_file // "/etc/goliath/gateway.env"')"
+  remote_env="$(jq_get '.gateway.env_file // empty')"
   for ((i = 0; i < count; i++)); do
     dest="$(jq_get ".gateway.hosts[$i].ssh")"
     assert_remote_literal "gateway ssh" "$dest"
@@ -298,6 +299,9 @@ run_gateway() {
     assert_remote_literal "rollouts environment" "$GOLIATH_ENV"
     info "gateway host $dest"
     report_component start goliath-gateway "gateway ${dest}"
+    # install_gateway_systemd.sh also installs the reclaim timer. EXTERNAL skips
+    # the nested reports, so the driver records both services for this host.
+    report_component start goliath-reclaim-leases "reclaim-leases ${dest}"
     envfile="$stage_dir/gateway.env"
     if [[ "$db_kind" == "mssql" ]]; then
       write_kv_file "$envfile" \
@@ -325,10 +329,19 @@ run_gateway() {
     install_remote_tree "$dest"
     scp_to "$dest" "$envfile" /tmp/goliath-gateway.env
     rm -f "$envfile"
-    if ssh_cmd "$dest" "sudo install -m 600 -o root /tmp/goliath-gateway.env '$remote_env' && rm -f /tmp/goliath-gateway.env && sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_gateway_systemd.sh --root '$root' --env-file '$remote_env' --user '$user'"; then
+    # methyl-gateway.service reads <root>/env/gateway.env. The unit has no
+    # --env-file or User= flag. An extra profile env_file is copied beside it.
+    local gw_env_cmd="sudo mkdir -p '$root/env' && sudo install -m 600 -o root /tmp/goliath-gateway.env '$root/env/gateway.env'"
+    if [[ -n "$remote_env" && "$remote_env" != "null" && "$remote_env" != "$root/env/gateway.env" ]]; then
+      gw_env_cmd+=" && sudo install -m 600 -o root /tmp/goliath-gateway.env '$remote_env'"
+    fi
+    gw_env_cmd+=" && rm -f /tmp/goliath-gateway.env && sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_gateway_systemd.sh --root '$root'"
+    if ssh_cmd "$dest" "$gw_env_cmd"; then
       report_component succeeded goliath-gateway "gateway ${dest}"
+      report_component succeeded goliath-reclaim-leases "reclaim-leases ${dest}"
     else
       report_component failed goliath-gateway "gateway ${dest} failed"
+      report_component failed goliath-reclaim-leases "reclaim-leases ${dest} failed"
       return 1
     fi
   done
@@ -379,7 +392,13 @@ run_workers() {
     install_remote_tree "$dest"
     scp_to "$dest" "$envfile" /tmp/goliath-worker.env
     rm -f "$envfile"
-    if ssh_cmd "$dest" "sudo install -m 600 /tmp/goliath-worker.env /etc/goliath/worker.env && rm -f /tmp/goliath-worker.env && sudo mkdir -p '$root/env' && sudo cp /etc/goliath/worker.env '$root/env/worker.env' && sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 ROLLOUTS_MESSAGE='$msg' bash /tmp/goliath-deploy/scripts/install_worker_systemd.sh --root '$root' --arch '$arch' --capability '$cap'"; then
+    # methyl-worker.service hardcodes /work/goliath/env/worker.env. Also write
+    # <root>/env/worker.env when the profile root differs.
+    local cap_flag=""
+    if [[ -n "$cap" && "$cap" != "null" ]]; then
+      cap_flag="--capability '$cap'"
+    fi
+    if ssh_cmd "$dest" "sudo mkdir -p '$root/env' /work/goliath/env && sudo install -m 600 /tmp/goliath-worker.env '$root/env/worker.env' && sudo install -m 600 /tmp/goliath-worker.env /work/goliath/env/worker.env && rm -f /tmp/goliath-worker.env && sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_worker_systemd.sh --root '$root' --arch '$arch' $cap_flag"; then
       report_component succeeded goliath-worker "$msg"
     else
       report_component failed goliath-worker "$msg failed"

@@ -2,8 +2,8 @@
   "name": "goliath-test",
   "rollouts_environment": "goliath-test",
   "gateway": {
-    "install_root": "/opt/goliath-gateway",
-    "env_file": "/etc/goliath/gateway.env",
+    "install_root": "/opt/methyl-gateway",
+    "env_file": "/opt/methyl-gateway/env/gateway.env",
     "user": "goliath",
     "bind_host": "127.0.0.1",
     "port": 8080,

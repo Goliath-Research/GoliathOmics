@@ -1,24 +1,19 @@
-#!/usr/bin/env bash
-# Compile DomainPrograms and upsert workflow definitions when the platform DB
-# client (GoliathApp rest.db_client) is installed. Compiled specs are always
-# written under the output directory.
+#!/bin/bash
+# Compile SamplePrep + StudyValidationLifecycle DomainPrograms and deploy via direct DB.
 
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/deploy_workflow_definitions.sh [options] [program.json ...]
+Usage: scripts/deploy_workflow_definitions.sh [options]
 
 Options:
-  --program PATH     DomainProgram JSON (repeatable). Default: SamplePrep +
-                     study validation lifecycle fixtures.
-  --output DIR       Where compiled specs are written
-                     (default: <repo>/build/workflow-definitions)
-  --replace          Pass replace=true to the platform upsert
-  --dry-run          List programs and exit without a database connection
-  -h, --help
+  --output-dir PATH    Write compiled specs (default: /work/goliath/env/compiled)
+  --versions-out PATH  workflow_version_id map (default: /work/goliath/env/workflow_versions.json)
+  --dry-run            Compile only; do not deploy
+  -h, --help           Show this help
 
-Env: BACKEND_DB and POSTGRES_* or AZURE_SQL_* (same as the gateway).
+Requires BACKEND_DB + AZURE_SQL_* or POSTGRES_* (see deploy/env/gateway.*.env.example).
 EOF
 }
 
@@ -27,109 +22,112 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
 
-OUTPUT="$REPO_ROOT/build/workflow-definitions"
-REPLACE=0
+OUTPUT_DIR="${GOLIATH_ENV_DIR:-/work/goliath/env}/compiled"
+VERSIONS_OUT="${GOLIATH_ENV_DIR:-/work/goliath/env}/workflow_versions.json"
 DRY_RUN=0
-PROGRAMS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --program) PROGRAMS+=("${2:-}"); shift 2 ;;
-    --output) OUTPUT="${2:-}"; shift 2 ;;
-    --replace) REPLACE=1; shift ;;
+    --api-base) echo "Note: --api-base ignored (direct DB deploy only)" >&2; shift 2 ;;
+    --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
+    --versions-out) VERSIONS_OUT="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
-    *)
-      PROGRAMS+=("$1")
-      shift
-      ;;
+    *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
 done
 
-info() { echo "[INFO] $*"; }
-die() { echo "[ERROR] $*" >&2; exit 1; }
-
-if [[ ${#PROGRAMS[@]} -eq 0 ]]; then
-  PROGRAMS=(
-    "$REPO_ROOT/workflow_engine/domain/fixtures/sample_prep.program.json"
-    "$REPO_ROOT/workflow_engine/domain/fixtures/study_validation_lifecycle.program.json"
-  )
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+if [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
+  PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
 fi
 
-for program in "${PROGRAMS[@]}"; do
-  [[ -f "$program" ]] || die "Program not found: $program"
-  info "program: $program"
+RUNTIME_DOMAIN="${METHYL_RUNTIME_ROOT:-${GOLIATH_ROOT:-/work/goliath}/current/runtime-bundle}/domain"
+REPO_FIXTURES="$REPO_ROOT/workflow_engine/domain/fixtures"
+if [[ -f "$RUNTIME_DOMAIN/fixtures/sample_prep.program.json" ]]; then
+  FIXTURES="$RUNTIME_DOMAIN/fixtures"
+else
+  FIXTURES="$REPO_FIXTURES"
+fi
+SAMPLE_PREP="$FIXTURES/sample_prep.program.json"
+REMEDIATE="$FIXTURES/sample_prep_remediate.program.json"
+LIFECYCLE="$FIXTURES/study_validation_lifecycle.program.json"
+RNA_PREP="$FIXTURES/sample_prep_rnaseq.program.json"
+RNA_LIFECYCLE="$FIXTURES/rnaseq_study_lifecycle.program.json"
+PROT_PREP="$FIXTURES/sample_prep_proteomics.program.json"
+PROT_LIFECYCLE="$FIXTURES/proteomics_study_lifecycle.program.json"
+[[ -f "$LIFECYCLE" ]] || LIFECYCLE="$REPO_FIXTURES/study_validation_lifecycle.program.json"
+[[ -f "$SAMPLE_PREP" ]] || SAMPLE_PREP="$REPO_FIXTURES/sample_prep.program.json"
+[[ -f "$REMEDIATE" ]] || REMEDIATE="$REPO_FIXTURES/sample_prep_remediate.program.json"
+[[ -f "$RNA_PREP" ]] || RNA_PREP="$REPO_FIXTURES/sample_prep_rnaseq.program.json"
+[[ -f "$RNA_LIFECYCLE" ]] || RNA_LIFECYCLE="$REPO_FIXTURES/rnaseq_study_lifecycle.program.json"
+[[ -f "$PROT_PREP" ]] || PROT_PREP="$REPO_FIXTURES/sample_prep_proteomics.program.json"
+[[ -f "$PROT_LIFECYCLE" ]] || PROT_LIFECYCLE="$REPO_FIXTURES/proteomics_study_lifecycle.program.json"
+for f in "$SAMPLE_PREP" "$REMEDIATE" "$LIFECYCLE"; do
+  [[ -f "$f" ]] || { echo "Missing $f" >&2; exit 1; }
 done
 
+mkdir -p "$OUTPUT_DIR" "$(dirname "$VERSIONS_OUT")"
+
+COMPILE="$REPO_ROOT/scripts/compile_workflow_program.py"
+"$PYTHON_BIN" "$COMPILE" "$SAMPLE_PREP" -o "$OUTPUT_DIR/sample_prep_compiled.json"
+"$PYTHON_BIN" "$COMPILE" "$REMEDIATE" -o "$OUTPUT_DIR/sample_prep_remediate_compiled.json"
+"$PYTHON_BIN" "$COMPILE" "$LIFECYCLE" -o "$OUTPUT_DIR/study_validation_lifecycle_compiled.json"
+# RNA-Seq process pack (optional; compiled when fixtures are present).
+if [[ -f "$RNA_PREP" ]]; then
+  "$PYTHON_BIN" "$COMPILE" "$RNA_PREP" -o "$OUTPUT_DIR/sample_prep_rnaseq_compiled.json"
+fi
+if [[ -f "$RNA_LIFECYCLE" ]]; then
+  "$PYTHON_BIN" "$COMPILE" "$RNA_LIFECYCLE" -o "$OUTPUT_DIR/rnaseq_study_lifecycle_compiled.json"
+fi
+if [[ -f "$PROT_PREP" ]]; then
+  "$PYTHON_BIN" "$COMPILE" "$PROT_PREP" -o "$OUTPUT_DIR/sample_prep_proteomics_compiled.json"
+fi
+if [[ -f "$PROT_LIFECYCLE" ]]; then
+  "$PYTHON_BIN" "$COMPILE" "$PROT_LIFECYCLE" -o "$OUTPUT_DIR/proteomics_study_lifecycle_compiled.json"
+fi
+
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  info "dry-run: not contacting the database"
+  echo "Dry-run: compiled specs in $OUTPUT_DIR"
   exit 0
 fi
 
 rollouts_begin workflow-definitions "workflow definitions ($(hostname -s 2>/dev/null || hostname))"
 
-mkdir -p "$OUTPUT"
-export GOLIATH_PROGRAMS
-GOLIATH_PROGRAMS="$(printf '%s\n' "${PROGRAMS[@]}")"
-export GOLIATH_WF_OUTPUT="$OUTPUT"
-export GOLIATH_WF_REPLACE="$REPLACE"
-export GOLIATH_REPO_ROOT="$REPO_ROOT"
-
-python3 - <<'PY'
+"$PYTHON_BIN" - "$REPO_ROOT" "$OUTPUT_DIR" "$VERSIONS_OUT" <<'PY'
 import json
-import os
 import sys
 from pathlib import Path
 
-repo = Path(os.environ["GOLIATH_REPO_ROOT"])
-sys.path.insert(0, str(repo))
+repo = Path(sys.argv[1])
+out_dir = Path(sys.argv[2])
+versions_out = Path(sys.argv[3])
 sys.path.insert(0, str(repo / "workflow_engine"))
-sys.path.insert(0, str(repo / "workflow_engine" / "domain"))
-sys.path.insert(0, str(repo / "packages" / "methyldomain"))
 
-from ops.study_lifecycle import compile_program_spec
+from ops.workflow_deploy import deploy_workflow_definition
+from rest.connection import resolve_connection_config
+from rest.db import open_gateway_db
+from rest.db_client import create_workflow_definition, delete_workflow_definition
 
-programs = [Path(line) for line in os.environ["GOLIATH_PROGRAMS"].splitlines() if line.strip()]
-out = Path(os.environ["GOLIATH_WF_OUTPUT"])
-replace = os.environ.get("GOLIATH_WF_REPLACE") == "1"
-specs = []
-for program in programs:
-    spec = compile_program_spec(program)
-    dest = out / (program.stem + ".spec.json")
-    dest.write_text(json.dumps(spec, indent=2) + "\n", encoding="utf-8")
-    print(f"compiled {program.name} -> {dest}")
-    specs.append(spec)
-
+config = resolve_connection_config()
+db = open_gateway_db(config)
+results = {}
 try:
-    from rest.connection import resolve_connection_config
-    from rest.db import open_gateway_db
-    from rest.db_client import create_workflow_definition
-except ImportError as exc:
-    print(
-        "Platform DB client is not installed (rest.db_client). "
-        f"Specs were written under {out}. Import error: {exc}",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-db = open_gateway_db(resolve_connection_config())
-try:
-    versions = []
-    for spec in specs:
-        if replace:
-            spec = dict(spec)
-        created = create_workflow_definition(db, spec)
-        versions.append(
-            {
-                "name": spec.get("name"),
-                "workflow_version_id": created.get("workflow_version_id"),
-            }
+    for path in sorted(out_dir.glob("*_compiled.json")):
+        spec = json.loads(path.read_text(encoding="utf-8"))
+        name = spec.get("name") or path.stem
+        result = deploy_workflow_definition(
+            db,
+            {"spec": spec, "replace": True, "delete_instances": True},
+            create_workflow_definition=create_workflow_definition,
+            delete_workflow_definition=delete_workflow_definition,
         )
-        print(f"upserted {spec.get('name')} version={created.get('workflow_version_id')}")
+        results[name] = result
+        print(f"deployed {name}: workflow_version_id={result.get('workflow_version_id')}")
 finally:
     db.close()
 
-(out / "workflow_versions.json").write_text(json.dumps(versions, indent=2) + "\n", encoding="utf-8")
+versions_out.parent.mkdir(parents=True, exist_ok=True)
+versions_out.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
+print(f"wrote {versions_out}")
 PY
-
-info "Workflow definitions deployed"

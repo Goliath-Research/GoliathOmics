@@ -132,7 +132,7 @@ jobs:
             echo "Missing verify_setup.sh under $RUNTIME"
             exit 1
           fi
-          bash "$RUNTIME/scripts/verify_setup.sh"
+          GOLIATH_ROOT="${{ inputs.goliathRoot }}" bash "$RUNTIME/scripts/verify_setup.sh" --runtime-bundle
           if [[ -x "$RUNTIME/scripts/verify_e2e_node.sh" && "${{ inputs.runE2eVerify }}" == "true" ]]; then
             bash "$RUNTIME/scripts/verify_e2e_node.sh"
           fi

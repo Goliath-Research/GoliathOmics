@@ -8,6 +8,11 @@
 #   ./deploy_test_bed.sh
 #   ./deploy_test_bed.sh --run TwoGroupTestFlow
 #   ./deploy_test_bed.sh --run McTwoGroupTestFlow
+#
+# wf_test_bed_worker.sql inserts a well-known token fixture. This script
+# applies that fixture only when the host, database, GOLIATH_ENV, or
+# GOLIATH_DEPLOY_TARGET looks like a test bed. Set
+# GOLIATH_ALLOW_TEST_BED_TOKEN=1 to apply it to any other target.
 
 set -euo pipefail
 
@@ -56,6 +61,26 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# Word-boundary match so names like "goliath-test" or "test-bed" pass and
+# names like "production-work" or "latest" do not.
+test_bed_destination() {
+  if [[ "${GOLIATH_ALLOW_TEST_BED_TOKEN:-}" == "1" ]]; then
+    return 0
+  fi
+  local blob="${GOLIATH_DEPLOY_TARGET:-} ${GOLIATH_ENV:-} ${PGDATABASE:-} ${PGHOST:-}"
+  if [[ "$blob" =~ (^|[^A-Za-z0-9])(test-bed|testbed|test_bed|test)([^A-Za-z0-9]|$) ]]; then
+    return 0
+  fi
+  return 1
+}
+
+if ! test_bed_destination; then
+  echo "Refusing to apply the test-bed token fixture." >&2
+  echo "The host, database, and target name do not look like a test bed." >&2
+  echo "Set GOLIATH_ALLOW_TEST_BED_TOKEN=1 to apply it anyway." >&2
+  exit 1
+fi
 
 rollouts_begin goliath-db-schema "sql_pg test bed ${PGHOST}/${PGDATABASE}"
 
