@@ -30,21 +30,7 @@
     },
     "workers": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["name", "ssh", "arch"],
-        "properties": {
-          "name": {"type": "string"},
-          "ssh": {"type": "string"},
-          "port": {"type": "integer"},
-          "identity_file": {"type": "string"},
-          "arch": {"type": "string", "enum": ["aarch64", "amd64"]},
-          "capability": {"type": "string"},
-          "gpu": {"type": "boolean"},
-          "install_root": {"type": "string"}
-        }
-      }
+      "items": {"$ref": "#/definitions/worker"}
     },
     "runtime": {
       "type": "object",
@@ -67,12 +53,23 @@
         "kind": {"type": "string", "enum": ["postgres", "neon", "mssql"]},
         "project": {"type": "string", "description": "Neon project id or name. Not a secret."},
         "branch": {"type": "string"},
-        "host": {"type": "string"},
+        "host": {
+          "type": "string",
+          "description": "Pooled host for the running gateway. Neon pooler hostnames end in -pooler."
+        },
+        "schema_host": {
+          "type": "string",
+          "description": "Non-pooled host used for schema apply. DDL and session settings go here when the pooled host is a transaction pooler."
+        },
         "port": {"type": "integer"},
         "dbname": {"type": "string"},
         "user": {"type": "string"},
         "password": {"$ref": "#/definitions/secretRef"},
-        "sslmode": {"type": "string"}
+        "sslmode": {"type": "string"},
+        "channel_binding": {
+          "type": "string",
+          "description": "libpq channel_binding (PGCHANNELBINDING). Neon test uses require."
+        }
       }
     },
     "shared_storage": {"$ref": "#/definitions/objectStore"},
@@ -99,7 +96,80 @@
         "name": {"type": "string"},
         "ssh": {"type": "string", "description": "user@host passed to ssh. Not a secret."},
         "port": {"type": "integer"},
-        "identity_file": {"type": "string", "description": "Path to a private key on the operator machine. The key is not stored in this file."}
+        "identity_file": {
+          "type": "string",
+          "description": "Path to a private key on the operator machine, or secret:NAME whose value is that key. The key is not stored in this file."
+        }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "self_provision": {
+          "type": "boolean",
+          "description": "When true, the worker joins itself (for example a RunPod pool). deploy_target.sh does not SSH to it."
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["runpod", "ssh"]
+        },
+        "ssh": {"type": "string"},
+        "port": {"type": "integer"},
+        "identity_file": {
+          "type": "string",
+          "description": "Path to a private key, or secret:NAME whose value is that key. The key is not stored in this file."
+        },
+        "arch": {"type": "string", "enum": ["aarch64", "amd64"]},
+        "capability": {"type": "string"},
+        "gpu": {
+          "description": "true when an SSH worker has a GPU, or a GPU spec for a self-provisioned pool.",
+          "oneOf": [
+            {"type": "boolean"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["model"],
+              "properties": {
+                "model": {"type": "string", "minLength": 1},
+                "count": {"type": "integer", "minimum": 1},
+                "memory_gb": {"type": "integer", "minimum": 1}
+              }
+            }
+          ]
+        },
+        "vcpu": {"type": "integer", "minimum": 1},
+        "memory_gb": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Node RAM in GiB. GPU memory lives on gpu.memory_gb."
+        },
+        "volume_mount": {"type": "string"},
+        "template": {"type": "string"},
+        "image": {"type": "string"},
+        "install_root": {"type": "string"}
+      },
+      "if": {
+        "properties": {"self_provision": {"const": true}},
+        "required": ["self_provision"]
+      },
+      "then": {
+        "required": ["name", "arch", "provider"],
+        "allOf": [
+          {
+            "if": {
+              "properties": {"provider": {"const": "runpod"}},
+              "required": ["provider"]
+            },
+            "then": {
+              "required": ["template", "image", "volume_mount"]
+            }
+          }
+        ]
+      },
+      "else": {
+        "required": ["name", "ssh", "arch"]
       }
     },
     "objectStore": {
@@ -115,6 +185,11 @@
         "region": {"type": "string"},
         "host": {"type": "string"},
         "share": {"type": "string"},
+        "roles": {
+          "type": "array",
+          "items": {"type": "string", "enum": ["hot", "cold", "shared"]},
+          "description": "Which tiers this endpoint serves. myQNAPCloud on goliath-test serves both hot and cold."
+        },
         "access_key_id": {"$ref": "#/definitions/secretRef"},
         "secret_access_key": {"$ref": "#/definitions/secretRef"}
       }

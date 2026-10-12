@@ -10,7 +10,7 @@ These are the Rollouts service ids. Each deploy script opens one deployment for 
 | --- | --- |
 | `goliath-gateway` | `scripts/install_gateway_systemd.sh` after the unit restarts and is active |
 | `goliathomics-runtime` | `scripts/promote_release.sh` when it exits after flipping `current` and writing `worker.env`. The **GoliathOmics release deploy** workflow reports the same service for the whole job. |
-| `goliath-worker` | `scripts/install_worker_systemd.sh` and the end of `do_systemd` in `scripts/provision_worker_node.sh`. The message includes hostname, arch, and capability. |
+| `goliath-worker` | `scripts/install_worker_systemd.sh` and the end of `do_systemd` in `scripts/provision_worker_node.sh`. The message includes hostname, arch, and capability. A self-provisioning RunPod pod reports the same service from `deploy/runpod/goliath-worker-start.sh`; that message also includes `RUNPOD_POD_ID` and the GPU name from `nvidia-smi`. |
 | `goliath-reclaim-leases` | `scripts/install_reclaim_leases_timer.sh` |
 | `workflow-definitions` | `scripts/deploy_workflow_definitions.sh` and `scripts/deploy_mc_workflow_definitions.sh` |
 | `process-pack-catalog` | `scripts/deploy_process_pack_catalog.sh` |

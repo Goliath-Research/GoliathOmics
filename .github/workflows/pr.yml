@@ -38,6 +38,7 @@ jobs:
             scripts/provision_worker_node.sh \
             scripts/test_report_deploy.sh \
             scripts/test_deploy_target.sh \
+            deploy/runpod/goliath-worker-start.sh \
             workflow_engine/sql_pg/deploy_test_bed.sh
 
       - name: Rollouts reporter and target profile tests

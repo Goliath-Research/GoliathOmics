@@ -3,6 +3,10 @@
 # Secret values are read from the environment (GitHub environment secrets) or
 # /etc/goliath/<target>.env. They are written to per-host env files over SSH
 # and are never printed.
+#
+# Workers with self_provision=true (a RunPod pool) are not reached over SSH.
+# deploy_target.sh prints how those pods boot themselves. The pod start
+# script is deploy/runpod/goliath-worker-start.sh.
 
 set -euo pipefail
 
@@ -19,6 +23,11 @@ Options:
 
 GOLIATH_ENV is set from the profile rollouts_environment before any install
 script runs, so report_deploy.sh files the events on that environment.
+
+Workers marked self_provision do not use SSH. --component workers and
+--component all print the pod template and return without opening a session.
+Schema apply uses database.schema_host when it is set (Neon direct host),
+and database.host otherwise (the pooled host the gateway keeps using).
 EOF
 }
 
@@ -136,10 +145,13 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   info "secret names (values are not read):"
   secret_names | sed 's/^/  /'
   info "gateway hosts: $(jq_get '[.gateway.hosts[]?.ssh] | join(", ")')"
-  info "workers: $(jq_get '[.workers[]? | "\(.name) \(.ssh) \(.arch) \(.capability // "")"] | join("; ")')"
-  info "database host: $(jq_get '.database.host') kind=$(jq_get '.database.kind')"
-  info "shared storage: $(jq_get '.shared_storage.provider // "none"') $(jq_get '.shared_storage.endpoint // ""')"
-  info "long-term storage: $(jq_get '.long_term_storage.provider // "none"')"
+  info "workers: $(jq_get '[.workers[]? | if .self_provision == true then "\(.name) self_provision \(.provider // "unknown") \(.arch) \(.template // "")" else "\(.name) \(.ssh // "") \(.arch) \(.capability // "")" end] | join("; ")')"
+  info "database host: $(jq_get '.database.host') schema_host=$(jq_get '.database.schema_host // ""') kind=$(jq_get '.database.kind') channel_binding=$(jq_get '.database.channel_binding // ""')"
+  info "shared storage: $(jq_get '.shared_storage.provider // "none"') $(jq_get '.shared_storage.endpoint // ""') bucket=$(jq_get '.shared_storage.bucket // ""')"
+  info "long-term storage: $(jq_get '.long_term_storage.provider // "none"') endpoint=$(jq_get '.long_term_storage.endpoint // ""') roles=$(jq_get '[.long_term_storage.roles[]?] | join(",")')"
+  if jq -e '[.. | objects | .identity_file? // empty | select(. != "")] | length > 0' "$PROFILE" >/dev/null; then
+    info "ssh auth: publickey only (PasswordAuthentication=no) when identity_file is set"
+  fi
   exit 0
 fi
 
@@ -151,18 +163,56 @@ assert_remote_literal() {
   fi
 }
 
+# identity_file may be a filesystem path or secret:NAME. A secret value is the
+# PEM (or OpenSSH) private key. It is written mode 600 under the stage dir
+# and never printed. GitHub sometimes stores newlines as the two characters \n.
+materialize_identity() {
+  local raw="$1"
+  if [[ -z "$raw" || "$raw" == "null" ]]; then
+    printf ''
+    return 0
+  fi
+  if [[ "$raw" == secret:* ]]; then
+    local name value file old_umask
+    name="${raw#secret:}"
+    value="$(resolve_ref "$raw")" || return 1
+    if [[ "$value" != *$'\n'* && "$value" == *'\n'* ]]; then
+      value="${value//\\n/$'\n'}"
+    fi
+    file="$stage_dir/ssh-identity-${name}"
+    old_umask="$(umask)"
+    umask 077
+    printf '%s' "$value" >"$file"
+    if [[ "$value" != *$'\n' ]]; then
+      printf '\n' >>"$file"
+    fi
+    umask "$old_umask"
+    chmod 600 "$file"
+    printf '%s' "$file"
+    return 0
+  fi
+  printf '%s' "$raw"
+}
+
 ssh_cmd() {
   local dest="$1"
   shift
-  local port identity
+  local port identity raw_identity
   port="$(jq -r --arg dest "$dest" '.. | objects | select(.ssh? == $dest) | .port // empty' "$PROFILE" | head -n 1)"
-  identity="$(jq -r --arg dest "$dest" '.. | objects | select(.ssh? == $dest) | .identity_file // empty' "$PROFILE" | head -n 1)"
+  raw_identity="$(jq -r --arg dest "$dest" '.. | objects | select(.ssh? == $dest) | .identity_file // empty' "$PROFILE" | head -n 1)"
+  identity="$(materialize_identity "$raw_identity")" || return 1
   local args=(-o BatchMode=yes -o ConnectTimeout=20)
   if [[ -n "$port" ]]; then
     args+=(-p "$port")
   fi
   if [[ -n "$identity" ]]; then
-    args+=(-i "$identity")
+    # The gateway address is public. Refuse password auth even if sshd allows it.
+    args+=(
+      -i "$identity"
+      -o IdentitiesOnly=yes
+      -o PreferredAuthentications=publickey
+      -o PasswordAuthentication=no
+    )
   fi
   ssh "${args[@]}" "$dest" "$@"
 }
@@ -195,25 +245,50 @@ write_kv_file() {
 
 db_kind="$(jq_get '.database.kind // "postgres"')"
 db_host="$(jq_get '.database.host')"
+db_schema_host="$(jq_get '.database.schema_host // empty')"
+if [[ -z "$db_schema_host" || "$db_schema_host" == "null" ]]; then
+  db_schema_host="$db_host"
+fi
 db_port="$(jq_get '.database.port // 5432')"
 db_name="$(jq_get '.database.dbname')"
 db_user="$(jq_get '.database.user')"
 db_ssl="$(jq_get '.database.sslmode // "require"')"
-db_password="$(resolve_ref "$(jq_get '.database.password // empty')")"
+db_channel="$(jq_get '.database.channel_binding // empty')"
+if [[ "$db_channel" == "null" ]]; then
+  db_channel=""
+fi
+
+load_db_password() {
+  if [[ -n "${DB_PASSWORD+x}" ]]; then
+    return 0
+  fi
+  DB_PASSWORD="$(resolve_ref "$(jq_get '.database.password // empty')")"
+}
 
 shared_provider="$(jq_get '.shared_storage.provider // "none"')"
 shared_bucket="$(jq_get '.shared_storage.bucket // empty')"
 shared_endpoint="$(jq_get '.shared_storage.endpoint // empty')"
-shared_key="$(resolve_ref "$(jq_get '.shared_storage.access_key_id // empty')")"
-shared_secret="$(resolve_ref "$(jq_get '.shared_storage.secret_access_key // empty')")"
+shared_key=""
+shared_secret=""
 
 long_provider="$(jq_get '.long_term_storage.provider // "none"')"
 long_bucket="$(jq_get '.long_term_storage.bucket // empty')"
 long_endpoint="$(jq_get '.long_term_storage.endpoint // empty')"
 long_host="$(jq_get '.long_term_storage.host // empty')"
 long_share="$(jq_get '.long_term_storage.share // empty')"
-long_key="$(resolve_ref "$(jq_get '.long_term_storage.access_key_id // empty')")"
-long_secret="$(resolve_ref "$(jq_get '.long_term_storage.secret_access_key // empty')")"
+long_key=""
+long_secret=""
+
+load_storage_secrets() {
+  if [[ "${STORAGE_SECRETS_LOADED:-}" == "1" ]]; then
+    return 0
+  fi
+  shared_key="$(resolve_ref "$(jq_get '.shared_storage.access_key_id // empty')")"
+  shared_secret="$(resolve_ref "$(jq_get '.shared_storage.secret_access_key // empty')")"
+  long_key="$(resolve_ref "$(jq_get '.long_term_storage.access_key_id // empty')")"
+  long_secret="$(resolve_ref "$(jq_get '.long_term_storage.secret_access_key // empty')")"
+  STORAGE_SECRETS_LOADED=1
+}
 
 gateway_url="$(jq_get '.gateway.public_base_url // empty')"
 
@@ -243,9 +318,15 @@ run_schema() {
     info "schema.apply=none; skipping SQL"
     return 0
   fi
+  load_db_password
   report_component start goliath-db-schema "schema ${TARGET}"
-  export PGHOST="$db_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user"
-  export PGSSLMODE="$db_ssl" PGPASSWORD="$db_password"
+  # schema_host is the non-pooled Neon endpoint. The gateway keeps using host.
+  info "schema apply host=${db_schema_host} (gateway host=${db_host})"
+  export PGHOST="$db_schema_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user"
+  export PGSSLMODE="$db_ssl" PGPASSWORD="$DB_PASSWORD"
+  if [[ -n "$db_channel" ]]; then
+    export PGCHANNELBINDING="$db_channel"
+  fi
   export GOLIATH_DEPLOY_TARGET="$TARGET"
   if GOLIATH_ROLLOUTS_EXTERNAL=1 bash "$REPO_ROOT/workflow_engine/sql_pg/deploy_test_bed.sh"; then
     report_component succeeded goliath-db-schema "schema ${TARGET}"
@@ -283,7 +364,14 @@ install_remote_tree() {
 run_gateway() {
   local count
   count="$(jq_get '.gateway.hosts | length')"
-  [[ "$count" != "0" && "$count" != "null" ]] || die "gateway.hosts is empty"
+  if [[ "$count" == "0" || "$count" == "null" ]]; then
+    if [[ "$COMPONENT" == "gateway" ]]; then
+      die "gateway.hosts is empty"
+    fi
+    info "no gateway hosts; skipping gateway"
+    return 0
+  fi
+  load_db_password
   local i dest envfile remote_env root user port bind
   root="$(jq_get '.gateway.install_root // "/opt/methyl-gateway"')"
   user="$(jq_get '.gateway.user // "goliath"')"
@@ -309,22 +397,29 @@ run_gateway() {
         AZURE_SQL_SERVER "$db_host" \
         AZURE_SQL_DB "$db_name" \
         AZURE_SQL_USER "$db_user" \
-        AZURE_SQL_PASSWORD "$db_password" \
+        AZURE_SQL_PASSWORD "$DB_PASSWORD" \
         WF_GATEWAY_HOST "$bind" \
         WF_GATEWAY_PORT "$port" \
         GOLIATH_ENV "$GOLIATH_ENV"
     else
-      write_kv_file "$envfile" \
-        BACKEND_DB postgres \
-        POSTGRES_HOST "$db_host" \
-        POSTGRES_PORT "$db_port" \
-        POSTGRES_DB "$db_name" \
-        POSTGRES_USER "$db_user" \
-        POSTGRES_PASSWORD "$db_password" \
-        POSTGRES_SSLMODE "$db_ssl" \
-        WF_GATEWAY_HOST "$bind" \
-        WF_GATEWAY_PORT "$port" \
+      local -a gw_pairs=(
+        BACKEND_DB postgres
+        POSTGRES_HOST "$db_host"
+        POSTGRES_PORT "$db_port"
+        POSTGRES_DB "$db_name"
+        POSTGRES_USER "$db_user"
+        POSTGRES_PASSWORD "$DB_PASSWORD"
+        POSTGRES_SSLMODE "$db_ssl"
+      )
+      if [[ -n "$db_channel" ]]; then
+        gw_pairs+=(POSTGRES_CHANNEL_BINDING "$db_channel")
+      fi
+      gw_pairs+=(
+        WF_GATEWAY_HOST "$bind"
+        WF_GATEWAY_PORT "$port"
         GOLIATH_ENV "$GOLIATH_ENV"
+      )
+      write_kv_file "$envfile" "${gw_pairs[@]}"
     fi
     install_remote_tree "$dest"
     scp_to "$dest" "$envfile" /tmp/goliath-gateway.env
@@ -368,16 +463,57 @@ worker_env_file() {
     GOLIATH_LONGTERM_SECRET_ACCESS_KEY "$long_secret"
 }
 
+describe_self_provision_worker() {
+  local i="$1"
+  local purpose="$2"
+  local name provider arch template image mount gpu vcpu ram root
+  name="$(jq -r --argjson i "$i" '.workers[$i].name' "$PROFILE")"
+  provider="$(jq -r --argjson i "$i" '.workers[$i].provider // "unknown"' "$PROFILE")"
+  arch="$(jq -r --argjson i "$i" '.workers[$i].arch' "$PROFILE")"
+  template="$(jq -r --argjson i "$i" '.workers[$i].template // ""' "$PROFILE")"
+  image="$(jq -r --argjson i "$i" '.workers[$i].image // ""' "$PROFILE")"
+  mount="$(jq -r --argjson i "$i" '.workers[$i].volume_mount // "/work"' "$PROFILE")"
+  vcpu="$(jq -r --argjson i "$i" '.workers[$i].vcpu // ""' "$PROFILE")"
+  ram="$(jq -r --argjson i "$i" '.workers[$i].memory_gb // ""' "$PROFILE")"
+  root="$(jq -r --argjson i "$i" '.workers[$i].install_root // "/work/goliath"' "$PROFILE")"
+  gpu="$(jq -r --argjson i "$i" '
+    .workers[$i].gpu
+    | if type == "object" then
+        "\(.model) x\(.count // 1) (\(.memory_gb // "?")GB)"
+      elif . == true then "yes"
+      elif . == false then "no"
+      else "unspecified"
+      end
+  ' "$PROFILE")"
+  info "self-provision worker ${name} (${purpose}): no SSH"
+  info "  provider=${provider} arch=${arch} template=${template}"
+  info "  image=${image}"
+  info "  gpu=${gpu} vcpu=${vcpu} memory_gb=${ram} volume=${mount} install_root=${root}"
+  info "  boot: deploy/runpod/goliath-worker-start.sh as the pod template start command"
+  info "  the pod enrolls with WORKER_API_BASE and reports goliath-worker (RUNPOD_POD_ID, host, arch, GPU)"
+}
+
 run_workers() {
   local count
   count="$(jq_get '.workers | length')"
   [[ "$count" != "0" && "$count" != "null" ]] || die "workers is empty"
-  local i dest arch cap root host msg
+  local i dest arch cap root host msg self ssh_any=0 self_any=0
   for ((i = 0; i < count; i++)); do
+    self="$(jq -r --argjson i "$i" '.workers[$i].self_provision // false' "$PROFILE")"
+    if [[ "$self" == "true" ]]; then
+      describe_self_provision_worker "$i" "workers"
+      self_any=1
+      continue
+    fi
+    ssh_any=1
+    load_storage_secrets
     dest="$(jq_get ".workers[$i].ssh")"
     arch="$(jq_get ".workers[$i].arch")"
     cap="$(jq_get ".workers[$i].capability // empty")"
     root="$(jq -r --argjson i "$i" '.workers[$i].install_root // "/work/goliath"' "$PROFILE")"
+    if [[ -z "$dest" || "$dest" == "null" ]]; then
+      die "worker $(jq_get ".workers[$i].name") has no ssh host; set self_provision true for pools that boot themselves"
+    fi
     assert_remote_literal "worker ssh" "$dest"
     assert_remote_literal "worker arch" "$arch"
     assert_remote_literal "worker capability" "$cap"
@@ -405,28 +541,58 @@ run_workers() {
       return 1
     fi
   done
+  if [[ "$ssh_any" -eq 0 && "$self_any" -eq 1 ]]; then
+    info "workers: self-provision only; deploy_target.sh did not SSH"
+  fi
 }
 
 run_runtime() {
-  local root release pull_flag count i dest arch
+  local root release pull_flag count i dest arch self
+  local -a ssh_dest=() ssh_arch=()
+  local self_count=0
   root="$(jq_get '.runtime.root // "/work/goliath"')"
   release="$(jq_get '.runtime.release_dir // empty')"
-  [[ -n "$release" && "$release" != "null" ]] || die "runtime.release_dir is required"
+  if [[ "$release" == "null" ]]; then
+    release=""
+  fi
   if [[ "$(jq_get '.runtime.pull_parabricks // false')" == "true" ]]; then
     pull_flag="--pull-parabricks"
   else
     pull_flag="--skip-docker-pull"
   fi
-  count="$(jq_get '(.runtime.hosts // .workers) | length')"
-  [[ "$count" != "0" && "$count" != "null" ]] || die "no runtime hosts"
-  for ((i = 0; i < count; i++)); do
-    if jq -e '.runtime.hosts | type == "array" and length > 0' "$PROFILE" >/dev/null; then
-      dest="$(jq_get ".runtime.hosts[$i].ssh")"
-      arch="$(jq -r --argjson i "$i" '.workers[$i].arch // "amd64"' "$PROFILE")"
-    else
-      dest="$(jq_get ".workers[$i].ssh")"
-      arch="$(jq_get ".workers[$i].arch")"
+  if jq -e '.runtime.hosts | type == "array" and length > 0' "$PROFILE" >/dev/null; then
+    count="$(jq_get '.runtime.hosts | length')"
+    for ((i = 0; i < count; i++)); do
+      ssh_dest+=("$(jq_get ".runtime.hosts[$i].ssh")")
+      ssh_arch+=("$(jq -r --argjson i "$i" '.workers[$i].arch // "amd64"' "$PROFILE")")
+    done
+  else
+    count="$(jq_get '.workers | length')"
+    if [[ "$count" == "null" || -z "$count" ]]; then
+      count=0
     fi
+    for ((i = 0; i < count; i++)); do
+      self="$(jq -r --argjson i "$i" '.workers[$i].self_provision // false' "$PROFILE")"
+      if [[ "$self" == "true" ]]; then
+        describe_self_provision_worker "$i" "runtime"
+        self_count=$((self_count + 1))
+        continue
+      fi
+      ssh_dest+=("$(jq_get ".workers[$i].ssh")")
+      ssh_arch+=("$(jq_get ".workers[$i].arch")")
+    done
+  fi
+  if [[ "${#ssh_dest[@]}" -eq 0 ]]; then
+    if [[ "$self_count" -gt 0 ]]; then
+      info "runtime: self-provision workers use /work/goliath/current or bootstrap the GitHub release on boot; skipping SSH promote"
+      return 0
+    fi
+    die "no runtime hosts"
+  fi
+  [[ -n "$release" ]] || die "runtime.release_dir is required"
+  for ((i = 0; i < ${#ssh_dest[@]}; i++)); do
+    dest="${ssh_dest[$i]}"
+    arch="${ssh_arch[$i]}"
     assert_remote_literal "runtime ssh" "$dest"
     assert_remote_literal "runtime arch" "$arch"
     assert_remote_literal "runtime root" "$root"
