@@ -240,6 +240,17 @@ jq -e '.workers[0].self_provision == true and .workers[0].ssh == null' "$real" >
   || fail "goliath-test worker must be self-provision and have no ssh host"
 jq -e '.database.dbname == "GoliathOmics"' "$real" >/dev/null \
   || fail "goliath-test database must be GoliathOmics"
+jq -e '
+  .shared_storage.bucket == "goliath-omics"
+  and .shared_storage.endpoint == "https://s3.us-east-005.backblazeb2.com"
+  and .shared_storage.region == "us-east-005"
+  and .long_term_storage.bucket == "goliath-omics"
+  and .long_term_storage.endpoint == "https://s3.us-east-1.myqnapcloud.io"
+  and .long_term_storage.host == "s3.us-east-1.myqnapcloud.io"
+  and .long_term_storage.share == "goliath-omics"
+  and (.shared_storage | has("bucket_id") | not)
+  and (.long_term_storage | has("bucket_id") | not)
+' "$real" >/dev/null || fail "goliath-test storage endpoints do not match the filled profile"
 
 env -u NEON_TEST_PASSWORD -u B2_ACCESS_KEY_ID -u B2_SECRET_ACCESS_KEY \
   -u LONGTERM_ACCESS_KEY_ID -u LONGTERM_SECRET_ACCESS_KEY -u GOLIATH_DEPLOY_SSH_KEY \
@@ -251,8 +262,9 @@ grep -q 'ep-wandering-pine-a5l8s690-pooler.us-east-2.aws.neon.tech' "$out" || fa
 grep -q 'schema_host=ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech' "$out" || fail "dry-run should show schema_host"
 grep -q 'channel_binding=require' "$out" || fail "dry-run should show channel_binding"
 grep -q 'self_provision runpod amd64 runpod-torch-v280' "$out" || fail "dry-run should describe the RunPod pool"
-grep -q 'TODO-set-b2-bucket' "$out" || fail "dry-run should show the B2 bucket placeholder"
-grep -q 'TODO-set-myqnapcloud-endpoint' "$out" || fail "dry-run should show the myQNAPCloud placeholder"
+grep -q 'bucket=goliath-omics' "$out" || fail "dry-run should show the B2 bucket"
+grep -q 'https://s3.us-east-005.backblazeb2.com' "$out" || fail "dry-run should show the B2 endpoint"
+grep -q 'https://s3.us-east-1.myqnapcloud.io' "$out" || fail "dry-run should show the myQNAPCloud endpoint"
 grep -q 'PasswordAuthentication=no' "$out" || fail "dry-run should require key-only ssh"
 if grep -q 'NEON_TEST_PASSWORD=' "$out" "$err"; then
   fail "dry-run printed an assignment for a secret"
