@@ -36,6 +36,11 @@ jobs:
           tar -C "${{ runner.temp }}/release" -czf \
             "${{ runner.temp }}/methyl-pipeline-release-${VERSION}.tar.gz" .
 
+      - name: Require methyl-gateway console script
+        run: |
+          set -euo pipefail
+          bash scripts/check_gateway_wheel.sh "${{ runner.temp }}/release/wheels"
+
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:

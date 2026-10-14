@@ -52,14 +52,15 @@ RUNTIME_DIR="$OUTPUT/runtime-bundle"
 mkdir -p "$OUTPUT" "$WHEELS_DIR" "$RUNTIME_DIR"
 
 PARABRICKS_IMAGE="${METHYL_PARABRICKS_IMAGE:-$(resolve_parabricks_image)}"
-ARCH_KEY="$(platform_arch_key "$(detect_uname_arch)")"
 
 _resolve_pkg_path() {
   local name="$1"
+  # Do not fall through to workers/. A missing pyproject used to resolve
+  # workflow_engine as the worker tree and the release then omitted the
+  # methyl-gateway wheel.
   local candidates=(
     "$REPO_ROOT/packages/$name"
     "$REPO_ROOT/$name"
-    "$REPO_ROOT/workers"
   )
   local path
   for path in "${candidates[@]}"; do
@@ -78,10 +79,19 @@ build_wheels() {
     line="${line%%#*}"
     line="$(echo "$line" | xargs)"
     [[ -z "$line" ]] && continue
+    if [[ "$line" == "workflow_engine" ]]; then
+      info "  wheel: workflow_engine (methyl-gateway console scripts)"
+      bash "$SCRIPT_DIR/build_gateway_wheel.sh" \
+        --version "$VERSION" \
+        --wheels "$WHEELS_DIR" \
+        --sha-file "$OUTPUT/.gateway-source-sha"
+      continue
+    fi
     pkg_path="$(_resolve_pkg_path "$line")" || die "Package not found for packages.list entry: $line"
     info "  wheel: $line ($pkg_path)"
     "$PYTHON_BIN" -m pip wheel "$pkg_path" -w "$WHEELS_DIR" --no-deps
   done < "$REPO_ROOT/scripts/packages.list"
+  bash "$SCRIPT_DIR/check_gateway_wheel.sh" "$WHEELS_DIR"
 }
 
 write_lockfile() {
@@ -164,12 +174,20 @@ build_runtime_bundle() {
 }
 
 write_manifest_stub() {
-  local py_minor
+  local py_minor gateway_sha=""
   py_minor="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  if [[ -f "$OUTPUT/.gateway-source-sha" ]]; then
+    gateway_sha="$(tr -d '[:space:]' <"$OUTPUT/.gateway-source-sha")"
+    rm -f "$OUTPUT/.gateway-source-sha"
+  fi
+  if [[ -n "$gateway_sha" && ! "$gateway_sha" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    die "gateway source revision is not safe to record: $gateway_sha"
+  fi
   cat >"$OUTPUT/manifest.json" <<EOF
 {
   "version": "$VERSION",
   "python": "$py_minor",
+  "gateway_source": "$gateway_sha",
   "parabricks_image": "${PARABRICKS_IMAGE:-}",
   "parabricks_image_digest": "",
   "docker_data_root": "/work/goliath/docker",

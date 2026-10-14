@@ -13,7 +13,7 @@ Options:
   --root PATH           Gateway local root (default: /opt/methyl-gateway)
   --arch KEY            aarch64 or amd64 (default: detect)
   --runtime PATH        Path to runtime-bundle (default: <root>/runtime-bundle)
-  --release PATH        Extracted goliathomics release (methyl-pipeline wheel)
+  --release PATH        Extracted release whose wheels/ entry_points.txt provides methyl-gateway
   --no-start            Install/enable only; do not start timer
   -h, --help
 

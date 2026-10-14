@@ -456,8 +456,51 @@ if grep -q 'neon-secret-value' "$out" "$err"; then
   fail "refused gateway deploy printed the database password"
 fi
 
+write_entry_point_wheel() {
+  local dest="$1" name="$2" scripts="$3"
+  python3 - "$dest" "$name" "$scripts" <<'PY'
+import sys
+import zipfile
+from pathlib import Path
+
+dest, name, scripts = sys.argv[1:4]
+norm = name.replace("-", "_")
+dist = "%s-1.0.0.dist-info" % norm
+path = Path(dest) / ("%s-1.0.0-py3-none-any.whl" % norm)
+path.parent.mkdir(parents=True, exist_ok=True)
+meta = "Metadata-Version: 2.1\nName: %s\nVersion: 1.0.0\n\n" % name
+with zipfile.ZipFile(path, "w") as archive:
+    archive.writestr("%s/METADATA" % dist, meta)
+    if scripts.strip():
+        archive.writestr(
+            "%s/entry_points.txt" % dist,
+            "[console_scripts]\n%s\n" % scripts.strip(),
+        )
+PY
+}
+
+missing_wheel="$(mktemp -d)"
+printf '%s\n' '{"version":"0.0.0-test"}' >"$missing_wheel/manifest.json"
+mkdir -p "$missing_wheel/wheels"
+write_entry_point_wheel "$missing_wheel/wheels" methyl-worker ""
+: >"$ssh_log"
+set +e
+env NEON_TEST_PASSWORD='neon-secret-value' GOLIATH_DEPLOY_SSH_KEY="$fake_key" \
+  GOLIATH_RELEASE_SRC="$missing_wheel" PATH="$ssh_dir:$PATH" \
+  bash "$ROOT/scripts/deploy_target.sh" --target ssh-key-ci --component gateway >"$out" 2>"$err"
+status=$?
+set -e
+[[ "$status" -ne 0 ]] || fail "gateway deploy without the methyl-gateway console script must fail"
+grep -q 'entry_points.txt' "$err" || fail "gateway deploy should say the wheel was selected from entry_points.txt"
+if [[ -s "$ssh_log" ]]; then
+  fail "gateway deploy without the console script should fail before SSH"
+fi
+rm -rf "$missing_wheel"
+
 release_src="$(mktemp -d)"
 printf '%s\n' '{"version":"0.0.0-test"}' >"$release_src/manifest.json"
+mkdir -p "$release_src/wheels"
+write_entry_point_wheel "$release_src/wheels" corepkg $'methyl-gateway = rest.gateway:main\nmethyl-reclaim-leases = ops.reclaim_expired_leases:main'
 : >"$ssh_log"
 env NEON_TEST_PASSWORD='neon-secret-value' GOLIATH_DEPLOY_SSH_KEY="$fake_key" \
   GOLIATH_RELEASE_SRC="$release_src" PATH="$ssh_dir:$PATH" \

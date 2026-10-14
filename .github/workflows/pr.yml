@@ -40,6 +40,10 @@ jobs:
             scripts/test_report_deploy.sh \
             scripts/test_deploy_target.sh \
             scripts/test_install_gateway_venv.sh \
+            scripts/build_gateway_wheel.sh \
+            scripts/check_gateway_wheel.sh \
+            scripts/build_release.sh \
+            scripts/test_gateway_wheel_release.sh \
             deploy/runpod/goliath-worker-start.sh \
             workflow_engine/sql_pg/deploy_test_bed.sh
 
@@ -47,6 +51,7 @@ jobs:
         run: |
           bash scripts/test_report_deploy.sh
           bash scripts/test_deploy_target.sh
+          bash scripts/test_gateway_wheel_release.sh
 
   pr:
     runs-on: ubuntu-latest

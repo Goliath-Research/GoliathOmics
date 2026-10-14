@@ -142,6 +142,7 @@ manifest = {
         "methyl_extractor": me_ver,
     },
     "python": base.get("python", "3.12"),
+    "gateway_source": base.get("gateway_source", ""),
     "parabricks_image": base.get("parabricks_image", ""),
     "parabricks_image_digest": base.get("parabricks_image_digest", ""),
     "docker_data_root": base.get("docker_data_root", "/work/goliath/docker"),
