@@ -33,8 +33,10 @@ permissions:
 
 jobs:
   promote:
-    runs-on: ubuntu-latest
-    environment: goliath-test
+    # An empty target promotes on the production runner, which has /work.
+    # A named target SSHes from a clean hosted image and uses goliath-test secrets.
+    runs-on: ${{ inputs.target == '' && fromJSON('["self-hosted", "production-work-agents"]') || 'ubuntu-latest' }}
+    environment: ${{ inputs.target == '' && 'production-work' || 'goliath-test' }}
     steps:
       - uses: actions/checkout@v6
         continue-on-error: true

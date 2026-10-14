@@ -201,7 +201,10 @@ ssh_cmd() {
   port="$(jq -r --arg dest "$dest" '.. | objects | select(.ssh? == $dest) | .port // empty' "$PROFILE" | head -n 1)"
   raw_identity="$(jq -r --arg dest "$dest" '.. | objects | select(.ssh? == $dest) | .identity_file // empty' "$PROFILE" | head -n 1)"
   identity="$(materialize_identity "$raw_identity")" || return 1
-  local args=(-o BatchMode=yes -o ConnectTimeout=20)
+  # BatchMode refuses an unknown host. accept-new records the first key so a
+  # GitHub-hosted runner with an empty known_hosts can connect, and still
+  # rejects a changed key.
+  local args=(-o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new)
   if [[ -n "$port" ]]; then
     args+=(-p "$port")
   fi

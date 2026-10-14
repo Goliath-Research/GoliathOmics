@@ -445,6 +445,7 @@ env NEON_TEST_PASSWORD='neon-secret-value' GOLIATH_DEPLOY_SSH_KEY="$fake_key" PA
   bash "$ROOT/scripts/deploy_target.sh" --target ssh-key-ci --component gateway >"$out" 2>"$err"
 grep -q 'PasswordAuthentication=no' "$ssh_log" || fail "ssh client should disable password auth"
 grep -q 'IdentitiesOnly=yes' "$ssh_log" || fail "ssh client should use only the provided key"
+grep -q 'StrictHostKeyChecking=accept-new' "$ssh_log" || fail "ssh client should record a new host key"
 [[ -f "$ssh_dir/copied-identity" ]] || fail "ssh client did not receive an identity file"
 [[ "$(cat "$ssh_dir/ident-mode")" == "600" ]] || fail "identity file must be mode 600"
 grep -q 'TESTKEYMATERIAL' "$ssh_dir/copied-identity" || fail "identity file should contain the key"
