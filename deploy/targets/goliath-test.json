@@ -52,15 +52,15 @@
   },
   "shared_storage": {
     "provider": "b2",
-    "bucket": "TODO-set-b2-bucket",
-    "endpoint": "TODO-set-b2-s3-endpoint",
-    "region": "TODO-set-b2-region",
+    "bucket": "goliath-omics",
+    "endpoint": "https://s3.us-east-005.backblazeb2.com",
+    "region": "us-east-005",
     "access_key_id": "secret:B2_ACCESS_KEY_ID",
     "secret_access_key": "secret:B2_SECRET_ACCESS_KEY"
   },
   "long_term_storage": {
     "provider": "myqnapcloud",
-    "endpoint": "TODO-set-myqnapcloud-endpoint",
+    "endpoint": "https://s3.us-east-1.myqnapcloud.io",
     "host": "TODO-set-myqnapcloud-host",
     "share": "TODO-set-myqnapcloud-share",
     "roles": ["hot", "cold"],

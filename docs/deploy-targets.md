@@ -62,8 +62,8 @@ When `target` is set, the workflow start and finish steps report `goliathomics-r
 | Database | Neon Postgres. Pooled host `ep-wandering-pine-a5l8s690-pooler.us-east-2.aws.neon.tech` for the gateway. Direct host `ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech` (`schema_host`) for schema apply. Database `GoliathOmics` (in SQL, double-quote the identifier: `"GoliathOmics"`), user `neondb_owner`, `sslmode` and `channel_binding` `require`. Password `secret:NEON_TEST_PASSWORD`. |
 | Schema | `schema.apply` is `test-bed`. Engine DDL is already applied; this step only runs the test-bed SQL in this repo. |
 | Gateway | Public host `45.76.21.8`, SSH user `linuxuser`, key `secret:GOLIATH_DEPLOY_SSH_KEY`, install root `/opt/methyl-gateway`. Worker API base `https://45.76.21.8/v1`. |
-| Shared storage | Backblaze B2. Keys `secret:B2_ACCESS_KEY_ID` and `secret:B2_SECRET_ACCESS_KEY`. Bucket, endpoint, and region are `TODO-set-b2-*` until you fill them in. |
-| Long-term storage | myQNAPCloud, serving both hot and cold (`roles`: `hot`, `cold`). Keys `secret:LONGTERM_ACCESS_KEY_ID` and `secret:LONGTERM_SECRET_ACCESS_KEY`. Endpoint, host, and share are `TODO-set-myqnapcloud-*`. |
+| Shared storage | Backblaze B2 bucket `goliath-omics`, endpoint `https://s3.us-east-005.backblazeb2.com`, region `us-east-005`. Keys `secret:B2_ACCESS_KEY_ID` and `secret:B2_SECRET_ACCESS_KEY`. The schema has no bucket-id field. |
+| Long-term storage | myQNAPCloud, serving both hot and cold (`roles`: `hot`, `cold`). Endpoint `https://s3.us-east-1.myqnapcloud.io`. Keys `secret:LONGTERM_ACCESS_KEY_ID` and `secret:LONGTERM_SECRET_ACCESS_KEY`. Host and share remain `TODO-set-myqnapcloud-host` and `TODO-set-myqnapcloud-share`. |
 | Workers | No SSH hosts. One self-provisioning RunPod pool, `goliath-worker-1`. |
 
 ## Self-provisioning workers
