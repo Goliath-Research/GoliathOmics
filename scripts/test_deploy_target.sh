@@ -79,6 +79,7 @@ bash "$ROOT/scripts/report_deploy.sh" --help >/dev/null
 bash "$ROOT/scripts/deploy_target.sh" --help >/dev/null
 bash "$ROOT/scripts/promote_release.sh" --help >/dev/null
 bash "$ROOT/scripts/install_gateway_systemd.sh" --help >/dev/null
+bash "$ROOT/scripts/install_gateway_venv.sh" --help >/dev/null
 bash "$ROOT/scripts/install_worker_systemd.sh" --help >/dev/null
 bash "$ROOT/scripts/verify_setup.sh" --help >/dev/null
 
@@ -441,7 +442,25 @@ cat >"$ssh_fixture" <<'EOF'
 EOF
 : >"$ssh_log"
 fake_key=$'-----BEGIN OPENSSH PRIVATE KEY-----\nTESTKEYMATERIAL\n-----END OPENSSH PRIVATE KEY-----'
+set +e
 env NEON_TEST_PASSWORD='neon-secret-value' GOLIATH_DEPLOY_SSH_KEY="$fake_key" PATH="$ssh_dir:$PATH" \
+  bash "$ROOT/scripts/deploy_target.sh" --target ssh-key-ci --component gateway >"$out" 2>"$err"
+status=$?
+set -e
+[[ "$status" -ne 0 ]] || fail "gateway deploy without a release artifact must fail"
+grep -q 'GOLIATH_RELEASE_SRC' "$err" || fail "gateway deploy should say the release artifact is required"
+if [[ -s "$ssh_log" ]]; then
+  fail "gateway deploy without a release artifact should fail before SSH"
+fi
+if grep -q 'neon-secret-value' "$out" "$err"; then
+  fail "refused gateway deploy printed the database password"
+fi
+
+release_src="$(mktemp -d)"
+printf '%s\n' '{"version":"0.0.0-test"}' >"$release_src/manifest.json"
+: >"$ssh_log"
+env NEON_TEST_PASSWORD='neon-secret-value' GOLIATH_DEPLOY_SSH_KEY="$fake_key" \
+  GOLIATH_RELEASE_SRC="$release_src" PATH="$ssh_dir:$PATH" \
   bash "$ROOT/scripts/deploy_target.sh" --target ssh-key-ci --component gateway >"$out" 2>"$err"
 grep -q 'PasswordAuthentication=no' "$ssh_log" || fail "ssh client should disable password auth"
 grep -q 'IdentitiesOnly=yes' "$ssh_log" || fail "ssh client should use only the provided key"
@@ -454,6 +473,11 @@ fi
 if grep -q 'neon-secret-value' "$out" "$err" "$ssh_log"; then
   fail "deploy printed the database password"
 fi
+grep -q "install_gateway_systemd.sh --root '/opt/methyl-gateway' --release '/opt/methyl-gateway/release'" "$ssh_log" \
+  || fail "gateway deploy should install the venv from the staged release before enabling the service"
+grep -q 'scripts/install_gateway_venv.sh' "$ROOT/scripts/deploy_target.sh" \
+  || fail "gateway bundle must ship install_gateway_venv.sh"
+rm -rf "$release_src"
 
 command -v shellcheck >/dev/null 2>&1 || fail "shellcheck is required"
 shellcheck -S warning -e SC1091 "$start_script"
@@ -636,4 +660,5 @@ fi
 grep -q 'methyl_worker' "$out" || fail "dry-run join should still enroll"
 
 rm -rf "$fixture_dir"
+bash "$ROOT/scripts/test_install_gateway_venv.sh"
 echo "test_deploy_target ok"

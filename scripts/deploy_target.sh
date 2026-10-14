@@ -441,6 +441,7 @@ install_remote_tree() {
     scripts/report_deploy.sh \
     scripts/rollouts_hook.sh \
     scripts/install_gateway_systemd.sh \
+    scripts/install_gateway_venv.sh \
     scripts/install_worker_systemd.sh \
     scripts/install_reclaim_leases_timer.sh \
     scripts/promote_release.sh \
@@ -470,18 +471,29 @@ run_gateway() {
     return 0
   fi
   load_db_password
-  local i dest envfile remote_env root user port bind
+  # The release artifact is already on the runner (GOLIATH_RELEASE_SRC).
+  # Runtime promote does not stage it onto this gateway: goliath-test workers
+  # are self-provision and skip SSH. Without the wheel, /opt/methyl-gateway
+  # only receives env/ and methyl-gateway.service exits 203/EXEC.
+  if [[ -z "${GOLIATH_RELEASE_SRC:-}" ]]; then
+    die "GOLIATH_RELEASE_SRC is not set. Gateway deploy installs the methyl-gateway package from the goliathomics release (methyl-pipeline wheel) into the gateway venv before enabling the service."
+  fi
+  [[ -d "$GOLIATH_RELEASE_SRC" ]] || die "GOLIATH_RELEASE_SRC is not a directory: $GOLIATH_RELEASE_SRC"
+  [[ -f "$GOLIATH_RELEASE_SRC/manifest.json" ]] || die "GOLIATH_RELEASE_SRC has no manifest.json: $GOLIATH_RELEASE_SRC"
+  local i dest envfile remote_env root user port bind release_remote
   root="$(jq_get '.gateway.install_root // "/opt/methyl-gateway"')"
   user="$(jq_get '.gateway.user // "goliath"')"
   port="$(jq_get '.gateway.port // 8080')"
   bind="$(jq_get '.gateway.bind_host // "127.0.0.1"')"
   remote_env="$(jq_get '.gateway.env_file // empty')"
+  release_remote="$root/release"
   for ((i = 0; i < count; i++)); do
     dest="$(jq_get ".gateway.hosts[$i].ssh")"
     assert_remote_literal "gateway ssh" "$dest"
     assert_remote_literal "gateway root" "$root"
     assert_remote_literal "gateway user" "$user"
     assert_remote_literal "gateway env file" "$remote_env"
+    assert_remote_literal "gateway release dir" "$release_remote"
     assert_remote_literal "rollouts environment" "$GOLIATH_ENV"
     info "gateway host $dest"
     report_component start goliath-gateway "gateway ${dest}"
@@ -520,6 +532,11 @@ run_gateway() {
       write_kv_file "$envfile" "${gw_pairs[@]}"
     fi
     install_remote_tree "$dest"
+    if ! stage_release_dir "$dest" "$release_remote"; then
+      report_component failed goliath-gateway "gateway ${dest} failed"
+      report_component failed goliath-reclaim-leases "reclaim-leases ${dest} failed"
+      return 1
+    fi
     scp_to "$dest" "$envfile" /tmp/goliath-gateway.env
     rm -f "$envfile"
     # methyl-gateway.service reads <root>/env/gateway.env. The unit has no
@@ -529,7 +546,9 @@ run_gateway() {
     if [[ -n "$remote_env" && "$remote_env" != "null" && "$remote_env" != "$root/env/gateway.env" ]]; then
       gw_env_cmd+=" && sudo install -m 600 -o root /tmp/goliath-gateway.env '$remote_env'"
     fi
-    gw_env_cmd+=" && rm -f /tmp/goliath-gateway.env && sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_gateway_systemd.sh --root '$root'"
+    # install_gateway_systemd.sh creates venv-<arch> and installs the wheel
+    # before systemctl enable/restart. The reclaim timer uses that venv too.
+    gw_env_cmd+=" && rm -f /tmp/goliath-gateway.env && sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_gateway_systemd.sh --root '$root' --release '$release_remote'"
     if ssh_cmd "$dest" "$gw_env_cmd"; then
       report_component succeeded goliath-gateway "gateway ${dest}"
       report_component succeeded goliath-reclaim-leases "reclaim-leases ${dest}"
