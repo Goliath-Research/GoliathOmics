@@ -2,8 +2,9 @@
 # RunPod container start command for a self-provisioning goliath worker.
 #
 # The stock runpod-torch-v280 image starts /start.sh (Jupyter and SSH). The
-# template start command is deploy/runpod/goliath-worker-bootstrap.sh, which
-# installs this script onto /work and runs it. This script joins the gateway,
+# template start command downloads deploy/runpod/goliath-worker-bootstrap.sh
+# from the goliathomics release and runs it. The bootstrap installs this
+# script onto /work and runs it. This script joins the gateway,
 # starts methyl-worker, then execs /start.sh.
 #
 # Secrets are read only from the environment (RunPod secrets). This script

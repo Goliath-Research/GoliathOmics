@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Fetch goliath-worker-start.sh onto an empty /work volume and run it.
 #
-# The RunPod template start command is bash -lc of this file.
-# This file must not contain a single-quote character, because that command
-# wraps the file in single quotes. Do not run it under set -x.
+# The RunPod template start command is deploy/runpod/template-start-command.sh.
+# That one line downloads this file from the goliathomics-* git tag through
+# the GitHub contents API and runs it. This file is not pasted into the template.
+# Do not run it under set -x.
 #
 # GH_TOKEN (or GITHUB_TOKEN) is a fine-grained PAT with Contents read. It is
 # written to a mode 600 header file and removed. It is never printed.

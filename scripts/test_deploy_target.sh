@@ -31,7 +31,16 @@ restore_real_profile() {
     real_backup=""
   fi
 }
-trap 'restore_real_profile' EXIT
+api_pid=""
+cleanup() {
+  if [[ -n "$api_pid" ]]; then
+    kill "$api_pid" 2>/dev/null || true
+    wait "$api_pid" 2>/dev/null || true
+    api_pid=""
+  fi
+  restore_real_profile
+}
+trap cleanup EXIT
 jq -e . "$example" >/dev/null
 jq -e . "$schema" >/dev/null
 
@@ -322,6 +331,11 @@ ssh_fixture="$ROOT/deploy/targets/ssh-key-ci.json"
 le_fixture="$ROOT/deploy/targets/tls-le-ci.json"
 cleanup_fixtures() {
   rm -f "$all_fixture" "$schema_fixture" "$ssh_fixture" "$le_fixture"
+  if [[ -n "${api_pid:-}" ]]; then
+    kill "$api_pid" 2>/dev/null || true
+    wait "$api_pid" 2>/dev/null || true
+    api_pid=""
+  fi
   restore_real_profile
   if [[ -n "${supervisor_pid:-}" ]]; then
     local pgid
@@ -598,6 +612,7 @@ command -v shellcheck >/dev/null 2>&1 || fail "shellcheck is required"
 shellcheck -S warning -e SC1091 \
   "$start_script" \
   "$ROOT/deploy/runpod/goliath-worker-bootstrap.sh" \
+  "$ROOT/deploy/runpod/template-start-command.sh" \
   "$ROOT/scripts/setup_gateway_nginx.sh" \
   "$ROOT/scripts/provision_gateway_node.sh" \
   "$ROOT/scripts/test_setup_gateway_nginx.sh"
@@ -865,23 +880,75 @@ if [[ -f "$layout_mount/goliath/logs/methyl-worker.supervisor.pid" ]]; then
 fi
 
 boot="$ROOT/deploy/runpod/goliath-worker-bootstrap.sh"
-python3 - "$ROOT/deploy/runpod/README.md" "$boot" <<'PY'
+stub_cmd="$ROOT/deploy/runpod/template-start-command.sh"
+python3 - "$ROOT/deploy/runpod/README.md" "$stub_cmd" <<'PY'
 import pathlib, sys
-readme, script = map(pathlib.Path, sys.argv[1:])
-file_text = script.read_text()
-if "'" in file_text:
-    raise SystemExit("bootstrap file contains a single quote")
-text = readme.read_text()
-begin = "<!-- goliath-bootstrap-command:begin -->"
-end = "<!-- goliath-bootstrap-command:end -->"
-chunk = text.split(begin, 1)[1].split(end, 1)[0]
-prefix = "```text\nbash -lc '\n"
-start = chunk.index(prefix) + len(prefix)
-stop = chunk.rindex("'\n```")
-body = chunk[start:stop]
-if body != file_text:
-    raise SystemExit("readme start command does not match the bootstrap file")
+readme_path, cmd_path = map(pathlib.Path, sys.argv[1:])
+file_line = ""
+for line in cmd_path.read_text().splitlines():
+    if line.startswith("bash -lc '"):
+        file_line = line
+        break
+if not file_line:
+    raise SystemExit("template-start-command.sh has no bash -lc line")
+text = readme_path.read_text()
+begin = "<!-- goliath-template-start:begin -->"
+end = "<!-- goliath-template-start:end -->"
+if begin not in text or end not in text:
+    raise SystemExit("readme is missing the template start markers")
+chunk = text.split(begin, 1)[1].split(end, 1)[0].strip()
+if not chunk.startswith("```text\n") or not chunk.endswith("\n```"):
+    raise SystemExit("template start fence missing")
+readme_line = chunk[len("```text\n"):-len("\n```")]
+if "\n" in readme_line:
+    raise SystemExit("template start command must be one line")
+if readme_line != file_line:
+    raise SystemExit("readme start command does not match template-start-command.sh")
+if len(file_line) > 1200:
+    raise SystemExit(f"template start command is {len(file_line)} chars; keep it <= 1200")
+if not file_line.startswith("bash -lc '") or not file_line.endswith("'"):
+    raise SystemExit("template start command must be bash -lc of one single-quoted script")
+inner = file_line[len("bash -lc '"):-1]
+if "'" in inner:
+    raise SystemExit("template start command is not quote-safe: single quote inside bash -lc")
+if "jq" in inner.split("python3", 1)[-1]:
+    raise SystemExit("template start command must not require jq")
+for needle in (
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "GOLIATH_RELEASE_TAG",
+    "GOLIATH_GITHUB_REPO",
+    "Goliath-Research/GoliathOmics",
+    "goliathomics-",
+    "deploy/runpod/goliath-worker-bootstrap.sh",
+    'exec "${GOLIATH_START_KEEPALIVE:-/start.sh}"',
+    "draft",
+    "prerelease",
+    "set +x",
+):
+    if needle not in inner:
+        raise SystemExit(f"template start command is missing {needle}")
+start = inner.index('python3 -c "') + len('python3 -c "')
+chars = []
+i = start
+while i < len(inner):
+    ch = inner[i]
+    if ch == '"':
+        break
+    if ch == "\\" and i + 1 < len(inner) and inner[i + 1] in '$`"\\':
+        chars.append(inner[i + 1])
+        i += 2
+        continue
+    chars.append(ch)
+    i += 1
+else:
+    raise SystemExit("python -c string in the template start command is not closed")
+program = "".join(chars)
+if "'" in program:
+    raise SystemExit("fetched-script python is not quote-safe")
+compile(program, "<template-start>", "exec")
 PY
+bash -n "$stub_cmd"
 
 boot_mount="$(mktemp -d)"
 boot_bin="$(mktemp -d)"
@@ -1113,33 +1180,266 @@ if find "$boot_mount/fresh/goliath/tmp" -type f 2>/dev/null | grep -q .; then
   fail "rejected tag left a header file behind"
 fi
 
-# The pasted template command is the same script. Run it once on an empty mount.
+assemble="$ROOT/.github/workflows/release-assemble.yml"
+grep -q 'test -s deploy/runpod/goliath-worker-bootstrap.sh' "$assemble" \
+  || fail "release assemble should require the bootstrap script on the tagged commit"
+grep -q 'test -s deploy/runpod/goliath-worker-start.sh' "$assemble" \
+  || fail "release assemble should require the start script on the tagged commit"
+
+# The template line fetches the bootstrap from a GitHub-shaped API, then the
+# bootstrap fetches the start script with curl. Serve both from this host.
 paste_mount="$(mktemp -d)"
-paste_cmd="$(mktemp)"
-python3 - "$ROOT/deploy/runpod/README.md" "$paste_cmd" <<'PY'
-import pathlib, sys
-readme, dest = map(pathlib.Path, sys.argv[1:])
-text = readme.read_text()
-begin = "<!-- goliath-bootstrap-command:begin -->"
-end = "<!-- goliath-bootstrap-command:end -->"
-chunk = text.split(begin, 1)[1].split(end, 1)[0].strip()
-if not chunk.startswith("```text\n") or not chunk.endswith("\n```"):
-    raise SystemExit("start command fence missing")
-dest.write_text(chunk[len("```text\n"):-len("\n```")] + "\n")
+api_urls="$paste_mount/api.urls"
+api_auth="$paste_mount/api.auth"
+api_port_file="$paste_mount/api.port"
+api_body="$paste_mount/api.body"
+api_fail="$paste_mount/api.fail"
+api_delay="$paste_mount/api.delay"
+api_py="$paste_mount/github_api.py"
+: >"$api_urls"
+: >"$api_auth"
+: >"$api_delay"
+python3 - "$boot_releases" <<'PY'
+import json, pathlib, sys
+pathlib.Path(sys.argv[1]).write_text(json.dumps([
+    {"tag_name": "goliathomics-2099.1.0", "draft": True, "prerelease": False},
+    {"tag_name": "goliathomics-2099.0.1", "draft": False, "prerelease": True},
+    {"tag_name": "v2026.10.2", "draft": False, "prerelease": False},
+    {"tag_name": "goliathomics-2026.10.2", "draft": False, "prerelease": False},
+]))
 PY
-: >"$curl_urls"
-env -u GITHUB_TOKEN \
-  GOLIATH_WORK_MOUNT="$paste_mount" \
-  GOLIATH_ROOT="$paste_mount/goliath" \
+cat >"$api_body" <<'EOF'
+#!/bin/bash
+# goliath-worker fetched bootstrap
+printf 'fetched-bootstrap\n'
+exit 0
+EOF
+cat >"$api_py" <<'PY'
+import base64, json, os, sys, time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+port_file, url_file, auth_file, body_file, releases_file, fail_file, delay_file = sys.argv[1:8]
+expect = os.environ.get("GOLIATH_TEST_EXPECT_TOKEN", "")
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        delay = Path(delay_file).read_text(encoding="utf-8").strip()
+        if delay:
+            time.sleep(float(delay))
+        with open(url_file, "a", encoding="utf-8") as handle:
+            handle.write(self.path + "\n")
+        auth = self.headers.get("Authorization") or ""
+        if expect and auth == "Bearer " + expect:
+            Path(auth_file).write_text("bearer\n", encoding="utf-8")
+        elif auth:
+            Path(auth_file).write_text("other\n", encoding="utf-8")
+        if Path(fail_file).exists():
+            self.send_response(500)
+            self.end_headers()
+            return
+        if "/releases?" in self.path:
+            data = Path(releases_file).read_bytes()
+        elif "/contents/deploy/runpod/goliath-worker-bootstrap.sh?ref=" in self.path:
+            raw = Path(body_file).read_bytes()
+            payload = base64.b64encode(raw).decode("ascii")
+            wrapped = "\n".join(payload[i:i + 60] for i in range(0, len(payload), 60))
+            data = json.dumps({"encoding": "base64", "content": wrapped}).encode("ascii")
+        else:
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def log_message(self, fmt, *args):
+        return
+
+server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+Path(port_file).write_text(str(server.server_address[1]), encoding="utf-8")
+server.serve_forever()
+PY
+GOLIATH_TEST_EXPECT_TOKEN="gh-sekret-token" \
+  python3 "$api_py" "$api_port_file" "$api_urls" "$api_auth" "$api_body" \
+    "$boot_releases" "$api_fail" "$api_delay" &
+api_pid=$!
+for ((i = 0; i < 50; i++)); do
+  [[ -s "$api_port_file" ]] && break
+  sleep 0.05
+done
+[[ -s "$api_port_file" ]] || fail "template API fixture did not start"
+api_port="$(cat "$api_port_file")"
+
+run_stub() {
+  # Export inside a subshell. A parameter expansion is not an assignment word,
+  # and the token stays out of argv.
+  (
+    export GITHUB_TOKEN=""
+    export GH_TOKEN="${STUB_TOKEN:-gh-sekret-token}"
+    export GOLIATH_GITHUB_API="http://127.0.0.1:${api_port}"
+    export GOLIATH_GITHUB_REPO="Goliath-Research/GoliathOmics"
+    export PATH="$boot_bin:$PATH"
+    local extra
+    for extra in "$@"; do
+      export "${extra?}"
+    done
+    bash "$stub_cmd" >"$out" 2>"$err"
+  )
+}
+
+: >"$api_urls"
+: >"$api_auth"
+printf '1.2\n' >"$api_delay"
+GITHUB_TOKEN='' \
   GH_TOKEN="gh-sekret-token" \
-  GOLIATH_RELEASE_TAG="goliathomics-2026.10.2" \
+  GOLIATH_GITHUB_API="http://127.0.0.1:${api_port}" \
   GOLIATH_GITHUB_REPO="Goliath-Research/GoliathOmics" \
   PATH="$boot_bin:$PATH" \
-  bash "$paste_cmd" >"$out" 2>"$err"
-grep -q 'stub-ran' "$out" || fail "pasted start command should download and run the start script"
-if grep -q 'gh-sekret-token' "$out" "$err" "$curl_args"; then
-  fail "pasted start command printed GH_TOKEN"
+  bash "$stub_cmd" >"$out" 2>"$err" &
+stub_pid=$!
+seen_py=0
+for ((i = 0; i < 40; i++)); do
+  for cmdf in /proc/[0-9]*/cmdline; do
+    if grep -q -a 'goliath-worker-bootstrap.sh' "$cmdf" 2>/dev/null; then
+      seen_py=1
+      break
+    fi
+  done
+  [[ "$seen_py" -eq 1 ]] && break
+  sleep 0.05
+done
+[[ "$seen_py" -eq 1 ]] || fail "template stub python did not start"
+token_on_cmdline=0
+for cmdf in /proc/[0-9]*/cmdline; do
+  if grep -q -a 'gh-sekret-token' "$cmdf" 2>/dev/null; then
+    token_on_cmdline=1
+  fi
+done
+[[ "$token_on_cmdline" -eq 0 ]] || fail "GH_TOKEN appeared on a process command line"
+set +e
+wait "$stub_pid"
+status=$?
+set -e
+[[ "$status" -eq 0 ]] || fail "template stub should run the fetched bootstrap (status $status)"
+grep -q 'fetched-bootstrap' "$out" || fail "template stub should run the script it downloaded"
+grep -q '/releases?per_page=100' "$api_urls" || fail "unset tag should list GitHub releases"
+grep -q 'ref=goliathomics-2026.10.2' "$api_urls" || fail "stub should select the newest non-draft goliathomics release"
+if grep -q 'goliathomics-2099' "$api_urls"; then
+  fail "stub selected a draft or prerelease tag"
 fi
+if grep -q 'ref=v2026.10.2' "$api_urls"; then
+  fail "stub selected a release outside the goliathomics prefix"
+fi
+[[ "$(cat "$api_auth")" == "bearer" ]] || fail "stub should send a bearer header"
+if grep -q 'gh-sekret-token' "$out" "$err" "$api_urls"; then
+  fail "template stub printed GH_TOKEN"
+fi
+: >"$api_delay"
+
+: >"$api_urls"
+run_stub GOLIATH_RELEASE_TAG="goliathomics-9.9.9"
+grep -q 'ref=goliathomics-9.9.9' "$api_urls" || fail "pinned tag should be the bootstrap contents ref"
+if grep -q '/releases?per_page=' "$api_urls"; then
+  fail "pinned tag should not list releases"
+fi
+grep -q 'fetched-bootstrap' "$out" || fail "pinned tag should still run the fetched bootstrap"
+
+keep_stub="$paste_mount/keep.sh"
+keep_marker="$paste_mount/kept"
+cat >"$keep_stub" <<EOF
+#!/bin/bash
+printf 'stub-kept\n' >"$keep_marker"
+exit 0
+EOF
+chmod +x "$keep_stub"
+: >"$api_urls"
+rm -f "$api_fail"
+touch "$api_fail"
+run_stub GOLIATH_START_KEEPALIVE="$keep_stub"
+rm -f "$api_fail"
+grep -q 'stub-kept' "$keep_marker" || fail "stub failure should exec /start.sh"
+grep -q 'goliath-stub-failed' "$err" || fail "stub failure should log goliath-stub-failed"
+if grep -q 'gh-sekret-token' "$out" "$err"; then
+  fail "failed stub printed GH_TOKEN"
+fi
+
+: >"$api_urls"
+rm -f "$keep_marker"
+run_stub GOLIATH_RELEASE_TAG="sekret-not-a-tag" GOLIATH_START_KEEPALIVE="$keep_stub"
+grep -q 'stub-kept' "$keep_marker" || fail "unsafe release tag should fall back to /start.sh"
+if grep -q 'sekret-not-a-tag' "$out" "$err" "$api_urls"; then
+  fail "stub printed or requested the rejected release tag"
+fi
+if grep -q 'gh-sekret-token' "$out" "$err"; then
+  fail "rejected tag stub printed GH_TOKEN"
+fi
+
+: >"$api_urls"
+rm -f "$keep_marker"
+env -u GH_TOKEN -u GITHUB_TOKEN \
+  GOLIATH_GITHUB_API="http://127.0.0.1:${api_port}" \
+  GOLIATH_GITHUB_REPO="Goliath-Research/GoliathOmics" \
+  GOLIATH_START_KEEPALIVE="$keep_stub" \
+  PATH="$boot_bin:$PATH" \
+  bash "$stub_cmd" >"$out" 2>"$err"
+grep -q 'stub-kept' "$keep_marker" || fail "missing GH_TOKEN should fall back to /start.sh"
+[[ ! -s "$api_urls" ]] || fail "missing GH_TOKEN should not call GitHub"
+if grep -q 'gh-sekret-token' "$out" "$err"; then
+  fail "missing token stub printed GH_TOKEN"
+fi
+
+: >"$api_urls"
+rm -f "$keep_marker"
+GH_TOKEN=$'line1\nline2' \
+  GITHUB_TOKEN='' \
+  GOLIATH_GITHUB_API="http://127.0.0.1:${api_port}" \
+  GOLIATH_GITHUB_REPO="Goliath-Research/GoliathOmics" \
+  GOLIATH_START_KEEPALIVE="$keep_stub" \
+  PATH="$boot_bin:$PATH" \
+  bash "$stub_cmd" >"$out" 2>"$err"
+grep -q 'stub-kept' "$keep_marker" || fail "a GH_TOKEN with a newline should fall back to /start.sh"
+[[ ! -s "$api_urls" ]] || fail "a GH_TOKEN with a newline should not call GitHub"
+if grep -q 'line1' "$out" "$err"; then
+  fail "stub printed a GH_TOKEN that contained a newline"
+fi
+
+printf '#!/bin/bash\nprintf pwned\\n\n' >"$api_body"
+rm -f "$keep_marker"
+: >"$api_urls"
+run_stub GOLIATH_RELEASE_TAG="goliathomics-2026.10.2" GOLIATH_START_KEEPALIVE="$keep_stub"
+grep -q 'stub-kept' "$keep_marker" || fail "a download that is not the bootstrap should fall back to /start.sh"
+if grep -q 'pwned' "$out" "$err"; then
+  fail "stub executed a file that was not the bootstrap"
+fi
+
+# The README line is the same command. It should download the real bootstrap,
+# and that bootstrap should download and run the start script.
+cp "$boot" "$api_body"
+mkdir -p "$paste_mount"
+: >"$curl_urls"
+: >"$curl_args"
+: >"$api_urls"
+GH_TOKEN="gh-sekret-token" \
+  GOLIATH_GITHUB_API="http://127.0.0.1:${api_port}" \
+  GOLIATH_GITHUB_REPO="Goliath-Research/GoliathOmics" \
+  GOLIATH_RELEASE_TAG="goliathomics-2026.10.2" \
+  GOLIATH_WORK_MOUNT="$paste_mount" \
+  GOLIATH_ROOT="$paste_mount/goliath" \
+  PATH="$boot_bin:$PATH" \
+  bash "$stub_cmd" >"$out" 2>"$err"
+grep -q 'stub-ran' "$out" || fail "template command should download the bootstrap and run the start script"
+grep -q 'ref=goliathomics-2026.10.2' "$api_urls" || fail "template command should fetch the bootstrap at the pinned tag"
+grep -q 'goliath-worker-start.sh' "$curl_urls" || fail "bootstrap started by the template should fetch the start script"
+if grep -q 'gh-sekret-token' "$out" "$err" "$curl_args" "$api_urls"; then
+  fail "template command printed GH_TOKEN"
+fi
+kill "$api_pid" 2>/dev/null || true
+set +e
+wait "$api_pid"
+set -e
+api_pid=""
 
 stop_mount="$(mktemp -d)"
 mkdir -p "$stop_mount/goliath/bin"
