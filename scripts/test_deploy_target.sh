@@ -244,9 +244,10 @@ jq -e '
   .shared_storage.bucket == "goliath-omics"
   and .shared_storage.endpoint == "https://s3.us-east-005.backblazeb2.com"
   and .shared_storage.region == "us-east-005"
+  and .long_term_storage.bucket == "goliath-omics"
   and .long_term_storage.endpoint == "https://s3.us-east-1.myqnapcloud.io"
-  and .long_term_storage.host == "TODO-set-myqnapcloud-host"
-  and .long_term_storage.share == "TODO-set-myqnapcloud-share"
+  and .long_term_storage.host == "s3.us-east-1.myqnapcloud.io"
+  and .long_term_storage.share == "goliath-omics"
   and (.shared_storage | has("bucket_id") | not)
   and (.long_term_storage | has("bucket_id") | not)
 ' "$real" >/dev/null || fail "goliath-test storage endpoints do not match the filled profile"

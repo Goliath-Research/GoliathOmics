@@ -60,9 +60,10 @@
   },
   "long_term_storage": {
     "provider": "myqnapcloud",
+    "bucket": "goliath-omics",
     "endpoint": "https://s3.us-east-1.myqnapcloud.io",
-    "host": "TODO-set-myqnapcloud-host",
-    "share": "TODO-set-myqnapcloud-share",
+    "host": "s3.us-east-1.myqnapcloud.io",
+    "share": "goliath-omics",
     "roles": ["hot", "cold"],
     "access_key_id": "secret:LONGTERM_ACCESS_KEY_ID",
     "secret_access_key": "secret:LONGTERM_SECRET_ACCESS_KEY"

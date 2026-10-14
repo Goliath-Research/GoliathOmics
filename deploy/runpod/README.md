@@ -41,9 +41,10 @@ Set plain values in the template. Reference RunPod secrets as `{{ RUNPOD_SECRET_
 | `CLUSTER_KEY` | `goliath` |
 | `B2_BUCKET` | `goliath-omics` |
 | `B2_ENDPOINT` | `https://s3.us-east-005.backblazeb2.com` |
+| `LONGTERM_BUCKET` | `goliath-omics` |
 | `LONGTERM_ENDPOINT` | `https://s3.us-east-1.myqnapcloud.io` |
-| `LONGTERM_HOST` | still unset (profile placeholder `TODO-set-myqnapcloud-host`) |
-| `LONGTERM_SHARE` | still unset (profile placeholder `TODO-set-myqnapcloud-share`) |
+| `LONGTERM_HOST` | `s3.us-east-1.myqnapcloud.io` |
+| `LONGTERM_SHARE` | `goliath-omics` |
 | `CURSOR_API_KEY` | `{{ RUNPOD_SECRET_CURSOR_API_KEY }}` |
 | `GOLIATH_WORKER_TOKEN` | `{{ RUNPOD_SECRET_GOLIATH_WORKER_TOKEN }}` |
 | `B2_ACCESS_KEY_ID` | `{{ RUNPOD_SECRET_B2_ACCESS_KEY_ID }}` |
