@@ -140,6 +140,26 @@ jobs:
           tar -xzf "${{ runner.temp }}/bundle-dl"/goliathomics-release-*.tar.gz \
             -C "${{ runner.temp }}/bundle"
 
+      - name: Install gateway SSH known hosts
+        if: inputs.target != ''
+        env:
+          GOLIATH_GATEWAY_KNOWN_HOSTS: ${{ secrets.GOLIATH_GATEWAY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          # ssh-keyscan output, one or more lines, stored as an environment
+          # secret. Do not scan the gateway from this job and do not disable
+          # StrictHostKeyChecking.
+          known="${GOLIATH_GATEWAY_KNOWN_HOSTS:-}"
+          if [[ -z "${known//[[:space:]]/}" ]]; then
+            echo "ERROR: GOLIATH_GATEWAY_KNOWN_HOSTS is empty. Set the goliath-test environment secret to the ssh-keyscan output for the gateway (one or more host lines) before this deploy." >&2
+            exit 1
+          fi
+          umask 077
+          mkdir -p "${HOME}/.ssh"
+          chmod 700 "${HOME}/.ssh"
+          printf '%s\n' "$known" > "${HOME}/.ssh/known_hosts"
+          chmod 600 "${HOME}/.ssh/known_hosts"
+
       - name: Deploy target profile
         if: inputs.target != ''
         env:

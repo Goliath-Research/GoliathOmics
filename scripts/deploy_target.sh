@@ -7,6 +7,11 @@
 # Workers with self_provision=true (a RunPod pool) are not reached over SSH.
 # deploy_target.sh prints how those pods boot themselves. The pod start
 # script is deploy/runpod/goliath-worker-start.sh.
+#
+# SSH and scp read host keys from ~/.ssh/known_hosts. The release-deploy
+# workflow writes the GOLIATH_GATEWAY_KNOWN_HOSTS secret there before it
+# calls this script. This script does not run ssh-keyscan and does not
+# set StrictHostKeyChecking=no.
 
 set -euo pipefail
 
@@ -197,11 +202,18 @@ materialize_identity() {
 ssh_cmd() {
   local dest="$1"
   shift
-  local port identity raw_identity
+  local port identity raw_identity known_hosts
   port="$(jq -r --arg dest "$dest" '.. | objects | select(.ssh? == $dest) | .port // empty' "$PROFILE" | head -n 1)"
   raw_identity="$(jq -r --arg dest "$dest" '.. | objects | select(.ssh? == $dest) | .identity_file // empty' "$PROFILE" | head -n 1)"
   identity="$(materialize_identity "$raw_identity")" || return 1
-  local args=(-o BatchMode=yes -o ConnectTimeout=20)
+  # Pin the user known_hosts file. scp_to runs through this function, so
+  # both SSH and file copy consult the same path the workflow populates.
+  known_hosts="${HOME}/.ssh/known_hosts"
+  local args=(
+    -o BatchMode=yes
+    -o ConnectTimeout=20
+    -o "UserKnownHostsFile=${known_hosts}"
+  )
   if [[ -n "$port" ]]; then
     args+=(-p "$port")
   fi

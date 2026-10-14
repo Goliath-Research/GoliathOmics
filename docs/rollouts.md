@@ -43,7 +43,7 @@ sudo chmod 600 /etc/goliath/rollouts.env
 
 The committed template is `deploy/env/rollouts.env.example`. Do not commit a real key.
 
-GitHub Actions reads the repository or environment secret **`CURSOR_API_KEY`** (the name the reporter accepts, and no other). The release-deploy job runs on a GitHub-hosted runner in the `goliath-test` GitHub environment. That environment needs `CURSOR_API_KEY`, `NEON_TEST_PASSWORD`, `GOLIATH_DEPLOY_SSH_KEY`, `B2_ACCESS_KEY_ID`, `B2_SECRET_ACCESS_KEY`, `LONGTERM_ACCESS_KEY_ID`, and `LONGTERM_SECRET_ACCESS_KEY`.
+GitHub Actions reads the repository or environment secret **`CURSOR_API_KEY`** (the name the reporter accepts, and no other). The release-deploy job runs on a GitHub-hosted runner in the `goliath-test` GitHub environment. That environment needs `CURSOR_API_KEY`, `NEON_TEST_PASSWORD`, `GOLIATH_DEPLOY_SSH_KEY`, `GOLIATH_GATEWAY_KNOWN_HOSTS`, `B2_ACCESS_KEY_ID`, `B2_SECRET_ACCESS_KEY`, `LONGTERM_ACCESS_KEY_ID`, and `LONGTERM_SECRET_ACCESS_KEY`. `GOLIATH_GATEWAY_KNOWN_HOSTS` is the gateway `ssh-keyscan` output (one or more lines). When `target` is set, the job writes it to `~/.ssh/known_hosts` before SSH and fails if it is empty.
 
 ## What is not a service
 

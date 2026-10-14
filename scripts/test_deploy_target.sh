@@ -445,6 +445,11 @@ env NEON_TEST_PASSWORD='neon-secret-value' GOLIATH_DEPLOY_SSH_KEY="$fake_key" PA
   bash "$ROOT/scripts/deploy_target.sh" --target ssh-key-ci --component gateway >"$out" 2>"$err"
 grep -q 'PasswordAuthentication=no' "$ssh_log" || fail "ssh client should disable password auth"
 grep -q 'IdentitiesOnly=yes' "$ssh_log" || fail "ssh client should use only the provided key"
+grep -qF "UserKnownHostsFile=${HOME}/.ssh/known_hosts" "$ssh_log" \
+  || fail "ssh client should use ~/.ssh/known_hosts"
+if grep -q 'StrictHostKeyChecking=no' "$ssh_log"; then
+  fail "ssh client must not disable host key checking"
+fi
 [[ -f "$ssh_dir/copied-identity" ]] || fail "ssh client did not receive an identity file"
 [[ "$(cat "$ssh_dir/ident-mode")" == "600" ]] || fail "identity file must be mode 600"
 grep -q 'TESTKEYMATERIAL' "$ssh_dir/copied-identity" || fail "identity file should contain the key"
@@ -454,6 +459,25 @@ fi
 if grep -q 'neon-secret-value' "$out" "$err" "$ssh_log"; then
   fail "deploy printed the database password"
 fi
+
+workflow="$ROOT/.github/workflows/release-deploy.yml"
+grep -q 'GOLIATH_GATEWAY_KNOWN_HOSTS: \${{ secrets.GOLIATH_GATEWAY_KNOWN_HOSTS }}' "$workflow" \
+  || fail "release-deploy should read the GOLIATH_GATEWAY_KNOWN_HOSTS secret"
+grep -q 'mkdir -p "\${HOME}/.ssh"' "$workflow" || fail "release-deploy should create ~/.ssh"
+grep -q 'chmod 700 "\${HOME}/.ssh"' "$workflow" || fail "release-deploy should set ~/.ssh to mode 700"
+grep -q 'chmod 600 "\${HOME}/.ssh/known_hosts"' "$workflow" || fail "release-deploy should set known_hosts to mode 600"
+grep -q 'GOLIATH_GATEWAY_KNOWN_HOSTS is empty' "$workflow" || fail "release-deploy should fail when the known hosts secret is empty"
+if grep -E '^[[:space:]]*ssh-keyscan([[:space:]]|$)' "$workflow" || grep -q 'StrictHostKeyChecking=no' "$workflow"; then
+  fail "release-deploy must not scan hosts or disable host key checking"
+fi
+awk '
+  /name: Install gateway SSH known hosts/ { seen_hosts = 1 }
+  /name: Deploy target profile/ {
+    if (!seen_hosts) exit 1
+    found_deploy = 1
+  }
+  END { if (!seen_hosts || !found_deploy) exit 1 }
+' "$workflow" || fail "known hosts step must run before deploy SSH"
 
 command -v shellcheck >/dev/null 2>&1 || fail "shellcheck is required"
 shellcheck -S warning -e SC1091 "$start_script"
