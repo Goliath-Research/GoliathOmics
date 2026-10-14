@@ -82,6 +82,92 @@ build_wheels() {
     info "  wheel: $line ($pkg_path)"
     "$PYTHON_BIN" -m pip wheel "$pkg_path" -w "$WHEELS_DIR" --no-deps
   done < "$REPO_ROOT/scripts/packages.list"
+  # packages.list wheels science packages and methyl-worker. None of them
+  # define methyl-gateway or methyl-reclaim-leases, so the gateway venv
+  # install cannot create ExecStart and systemd stays at 203/EXEC.
+  build_gateway_wheel
+}
+
+# Platform gateway (rest.gateway) stays in GoliathApp. Lease reclaim
+# (ops.reclaim_expired_leases) stays in this tree. One wheel has to provide
+# both console scripts or install_gateway_venv.sh refuses to enable the unit.
+# Override with GOLIATH_APP_REF (full commit SHA) when the platform pin moves.
+build_gateway_wheel() {
+  local ref="${GOLIATH_APP_REF:-cc0d0716e85459af3c64df2392b03703a0e9ecc9}"
+  local work archive root engine
+  command -v curl >/dev/null 2>&1 || die "curl is required to fetch the GoliathApp methyl-gateway sources"
+  work="$(mktemp -d)"
+  archive="$work/goliathapp.tar.gz"
+  info "Building methyl-gateway wheel from GoliathApp $ref"
+  curl -fsSL -o "$archive" "https://github.com/Goliath-Research/GoliathApp/archive/${ref}.tar.gz"
+  tar -xzf "$archive" -C "$work"
+  root=""
+  for candidate in "$work"/GoliathApp-*; do
+    if [[ -d "$candidate/workflow_engine" ]]; then
+      root="$candidate"
+      break
+    fi
+  done
+  [[ -n "$root" ]] || die "GoliathApp archive $ref has no workflow_engine"
+  engine="$root/workflow_engine"
+  [[ -f "$engine/pyproject.toml" ]] || die "GoliathApp $ref workflow_engine has no pyproject.toml"
+  [[ -f "$engine/rest/gateway.py" ]] || die "GoliathApp $ref has no rest/gateway.py (methyl-gateway entry point)"
+  [[ -d "$REPO_ROOT/workflow_engine/ops" ]] || die "workflow_engine/ops is required for methyl-reclaim-leases"
+  rm -rf "$engine/ops"
+  mkdir -p "$engine/ops"
+  cp -R "$REPO_ROOT/workflow_engine/ops/." "$engine/ops/"
+  find "$engine/ops" -depth -type d -name '__pycache__' -exec rm -rf {} +
+  # Upstream pyproject names a README that the platform tree does not ship.
+  if [[ ! -f "$engine/README.md" ]]; then
+    printf '%s\n' "MethylPipeline workflow REST gateway." >"$engine/README.md"
+  fi
+  "$PYTHON_BIN" -m pip wheel "$engine" -w "$WHEELS_DIR" --no-deps
+  rm -rf "$work"
+  verify_gateway_wheel
+}
+
+verify_gateway_wheel() {
+  "$PYTHON_BIN" - "$WHEELS_DIR" <<'PY'
+import sys
+import zipfile
+from pathlib import Path
+
+wheels_dir = Path(sys.argv[1])
+wheels = sorted(wheels_dir.glob("methyl_gateway-*.whl"))
+if not wheels:
+    print("[ERROR] methyl-gateway wheel was not written to %s" % wheels_dir, file=sys.stderr)
+    sys.exit(1)
+wheel = wheels[-1]
+needed = {"methyl-gateway", "methyl-reclaim-leases"}
+scripts = set()
+has_gateway = False
+has_reclaim = False
+with zipfile.ZipFile(wheel) as zf:
+    text = ""
+    for name in zf.namelist():
+        if name.endswith(".dist-info/entry_points.txt"):
+            text = zf.read(name).decode("utf-8", "replace")
+        elif name.endswith("rest/gateway.py"):
+            has_gateway = True
+        elif name.endswith("ops/reclaim_expired_leases.py"):
+            has_reclaim = True
+    in_section = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            in_section = line.lower() == "[console_scripts]"
+            continue
+        if in_section and "=" in line:
+            scripts.add(line.split("=", 1)[0].strip())
+missing = sorted(needed - scripts)
+if missing or not has_gateway or not has_reclaim:
+    detail = ", ".join(missing) if missing else "rest.gateway or ops.reclaim_expired_leases"
+    print("[ERROR] %s does not provide %s" % (wheel.name, detail), file=sys.stderr)
+    sys.exit(1)
+print("[INFO] %s provides methyl-gateway and methyl-reclaim-leases" % wheel.name)
+PY
 }
 
 write_lockfile() {
