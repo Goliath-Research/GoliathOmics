@@ -49,6 +49,7 @@ jobs:
             scripts/test_gateway_wheel_release.sh \
             deploy/runpod/goliath-worker-bootstrap.sh \
             deploy/runpod/goliath-worker-start.sh \
+            deploy/runpod/template-start-command.sh \
             workflow_engine/sql_pg/deploy_test_bed.sh
 
       - name: Rollouts reporter and target profile tests

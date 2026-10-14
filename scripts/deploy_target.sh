@@ -6,9 +6,10 @@
 #
 # Workers with self_provision=true (a RunPod pool) are not reached over SSH.
 # deploy_target.sh prints how those pods boot themselves. The template start
-# command is deploy/runpod/goliath-worker-bootstrap.sh, which installs
-# deploy/runpod/goliath-worker-start.sh onto an empty /work. See
-# deploy/runpod/README.md.
+# command is the one line in deploy/runpod/template-start-command.sh. It
+# downloads deploy/runpod/goliath-worker-bootstrap.sh from the goliathomics
+# release, and that script installs deploy/runpod/goliath-worker-start.sh
+# onto an empty /work. See deploy/runpod/README.md.
 #
 # The gateway component also installs nginx and TLS
 # (scripts/setup_gateway_nginx.sh). The default certificate is self-signed
@@ -702,7 +703,7 @@ describe_self_provision_worker() {
   info "  provider=${provider} arch=${arch} template=${template}"
   info "  image=${image}"
   info "  gpu=${gpu} vcpu=${vcpu} memory_gb=${ram} volume=${mount} install_root=${root}"
-  info "  boot: template start command installs deploy/runpod/goliath-worker-start.sh onto an empty /work"
+  info "  boot: template start command fetches deploy/runpod/goliath-worker-bootstrap.sh, which installs deploy/runpod/goliath-worker-start.sh onto an empty /work"
   info "  the pod enrolls with WORKER_API_BASE and reports goliath-worker (RUNPOD_POD_ID, host, arch, GPU)"
 }
 

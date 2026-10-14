@@ -60,6 +60,14 @@ jobs:
           name: goliathomics-release-${{ inputs.releaseVersion }}
           path: ${{ runner.temp }}/goliathomics-release
 
+      - name: Require RunPod worker scripts on the release commit
+        run: |
+          set -euo pipefail
+          # gh release create tags this checkout. The RunPod template stub
+          # reads these paths from that git tag through the contents API.
+          test -s deploy/runpod/goliath-worker-bootstrap.sh
+          test -s deploy/runpod/goliath-worker-start.sh
+
       - name: Publish goliathomics GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
