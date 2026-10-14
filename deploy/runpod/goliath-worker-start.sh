@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
 # RunPod container start command for a self-provisioning goliath worker.
 #
-# The stock runpod-torch-v280 image starts /start.sh (Jupyter and SSH). Point
-# the template's container start command at this script. It joins the gateway,
+# The stock runpod-torch-v280 image starts /start.sh (Jupyter and SSH). The
+# template start command is deploy/runpod/goliath-worker-bootstrap.sh, which
+# installs this script onto /work and runs it. This script joins the gateway,
 # starts methyl-worker, then execs /start.sh.
 #
 # Secrets are read only from the environment (RunPod secrets). This script
 # never prints them. Do not run it under set -x.
+#
+# A fresh /work only needs to be mounted and writable. This script creates
+# the shared layout, downloads the release bundle when current is missing,
+# and joins the gateway. Failures log and exec /start.sh so sshd (port 22)
+# and Jupyter (port 8888) stay up. RunPod then does not restart the pod.
+# GOLIATH_START_NO_EXEC=1 makes those failures exit 1 instead (tests).
 
 set +x
 set -euo pipefail
+set -E
 
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 WORK_MOUNT="${GOLIATH_WORK_MOUNT:-/work}"
@@ -22,7 +30,41 @@ GPU_DESC=""
 HOST_SHORT=""
 
 log() { printf '[goliath-worker-start] %s\n' "$*"; }
-die() { printf '[goliath-worker-start] ERROR: %s\n' "$*" >&2; exit 1; }
+
+exec_keepalive() {
+  local keepalive="${GOLIATH_START_KEEPALIVE:-/start.sh}"
+  if [[ -x "$keepalive" ]]; then
+    log "exec ${keepalive}"
+    if [[ "$#" -gt 0 ]]; then
+      exec "$keepalive" "$@"
+    fi
+    exec "$keepalive"
+  fi
+  printf '[goliath-worker-start] ERROR: %s is not executable; sleeping so the pod is not restarted\n' "$keepalive" >&2
+  exec sleep infinity
+}
+
+die() {
+  trap - ERR
+  printf '[goliath-worker-start] ERROR: %s\n' "$*" >&2
+  if [[ "${GOLIATH_START_NO_EXEC:-}" == "1" ]]; then
+    exit 1
+  fi
+  printf '[goliath-worker-start] keeping the pod alive for debugging (sshd port 22, Jupyter port 8888)\n' >&2
+  exec_keepalive
+}
+
+on_err() {
+  local rc=$?
+  trap - ERR
+  printf '[goliath-worker-start] ERROR: command failed at line %s (exit %s)\n' "$1" "$rc" >&2
+  if [[ "${GOLIATH_START_NO_EXEC:-}" == "1" ]]; then
+    exit 1
+  fi
+  printf '[goliath-worker-start] keeping the pod alive for debugging (sshd port 22, Jupyter port 8888)\n' >&2
+  exec_keepalive
+}
+trap 'on_err "${BASH_LINENO[0]}"' ERR
 
 wait_for_work() {
   local i
@@ -174,6 +216,35 @@ ensure_current() {
   log "promoting ${dest}"
   bash "$promote" "${promote_args[@]}"
   [[ -e "$ROOT/current" ]] || die "promote did not create $ROOT/current"
+}
+
+# samples, genomes, and the docker data-root live on the network volume.
+# Join mode skips host setup, so create them here. init_work_layout.sh only
+# creates missing roots and keeps an existing site manifest.
+ensure_work_layout() {
+  local work_root init
+  work_root="$(dirname "$ROOT")"
+  init=""
+  if init="$(resolve_tool "" init_work_layout.sh)"; then
+    log "ensuring work layout under ${work_root}"
+    bash "$init" --work "$work_root" || die "init_work_layout.sh failed"
+  else
+    log "init_work_layout.sh not in the release; creating samples, genomes, and goliath directories"
+    mkdir -p \
+      "$work_root/samples" \
+      "$work_root/projects" \
+      "$work_root/cache" \
+      "$work_root/genomes" \
+      "$work_root/site" \
+      "$ROOT/bin" \
+      "$ROOT/env" \
+      "$ROOT/logs" \
+      "$ROOT/tmp" \
+      "$ROOT/releases"
+    chmod 0777 "$work_root/samples" "$work_root/projects" "$work_root/cache" 2>/dev/null || true
+    chmod 0755 "$work_root/genomes" "$work_root/site" "$ROOT" 2>/dev/null || true
+  fi
+  mkdir -p "$ROOT/docker" "$ROOT/logs" "$ROOT/tmp" "$ROOT/bin"
 }
 
 maybe_reexec() {
@@ -572,16 +643,7 @@ finish_exec() {
     log "GOLIATH_START_NO_EXEC set; not execing /start.sh"
     exit 0
   fi
-  if [[ -x /start.sh ]]; then
-    log "exec /start.sh"
-    exec /start.sh "$@"
-  fi
-  log "ERROR: /start.sh is missing; keeping the worker supervisor in the foreground"
-  local pidfile="$LOG_DIR/methyl-worker.supervisor.pid"
-  if [[ -f "$pidfile" ]]; then
-    wait "$(cat "$pidfile")" || true
-  fi
-  exit 1
+  exec_keepalive "$@"
 }
 
 main() {
@@ -589,6 +651,7 @@ main() {
   mkdir -p "$ROOT" "$ROOT/tmp"
   ensure_current
   maybe_reexec "$@"
+  ensure_work_layout
   [[ -n "${WORKER_API_BASE:-}" ]] || die "WORKER_API_BASE is required (profile public_base_url, for example https://45.76.21.8/v1)"
   detect_gpu
   install_gateway_ca
