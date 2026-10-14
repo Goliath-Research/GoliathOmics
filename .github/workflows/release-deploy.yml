@@ -33,11 +33,64 @@ permissions:
 
 jobs:
   promote:
-    runs-on: [self-hosted, production-work-agents]
-    environment: production-work
+    runs-on: ubuntu-latest
+    environment: goliath-test
     steps:
       - uses: actions/checkout@v6
         continue-on-error: true
+
+      - name: Ensure deploy tools
+        run: |
+          set -euo pipefail
+          packages=()
+          command -v jq >/dev/null 2>&1 || packages+=(jq)
+          command -v ssh >/dev/null 2>&1 || packages+=(openssh-client)
+          command -v psql >/dev/null 2>&1 || packages+=(postgresql-client)
+          command -v curl >/dev/null 2>&1 || packages+=(curl)
+          command -v python3 >/dev/null 2>&1 || packages+=(python3)
+          if [[ ${#packages[@]} -gt 0 ]]; then
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "${packages[@]}"
+          fi
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "gh is not available" >&2
+            exit 1
+          fi
+          for cmd in jq ssh psql gh curl python3; do
+            command -v "$cmd" >/dev/null 2>&1 || {
+              echo "required tool not available: $cmd" >&2
+              exit 1
+            }
+          done
+
+      - name: Resolve Rollouts environment
+        id: rollouts-env
+        env:
+          DEPLOY_TARGET: ${{ inputs.target }}
+        run: |
+          set +e
+          fallback="production-work"
+          env_name="$fallback"
+          target="${DEPLOY_TARGET:-}"
+          if [[ -n "$target" ]]; then
+            if [[ ! "$target" =~ ^[A-Za-z0-9._-]+$ ]]; then
+              echo "target is not a profile id; Rollouts environment falls back to ${fallback}"
+            elif [[ ! -f "deploy/targets/${target}.json" ]]; then
+              echo "target profile deploy/targets/${target}.json is missing; Rollouts environment falls back to ${fallback}"
+            elif ! command -v jq >/dev/null 2>&1; then
+              echo "jq is not available; Rollouts environment falls back to ${fallback}"
+            else
+              from_profile="$(jq -r '.rollouts_environment // empty' "deploy/targets/${target}.json" 2>/dev/null || true)"
+              if [[ -n "$from_profile" && "$from_profile" != "null" && "$from_profile" =~ ^[A-Za-z0-9._-]+$ ]]; then
+                env_name="$from_profile"
+              else
+                echo "rollouts_environment is missing or not a safe id; Rollouts environment falls back to ${fallback}"
+              fi
+            fi
+          fi
+          echo "Rollouts environment: ${env_name}"
+          echo "name=${env_name}" >> "${GITHUB_OUTPUT:-/dev/null}"
+          exit 0
 
       - name: Report deployment start
         continue-on-error: true
@@ -45,13 +98,15 @@ jobs:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           RELEASE_VERSION: ${{ inputs.releaseVersion }}
           GH_TOKEN: ${{ github.token }}
-          GOLIATH_ENV: production-work
+          ROLLOUTS_ENVIRONMENT: ${{ steps.rollouts-env.outputs.name }}
         run: |
           set +e
           if [[ ! -f scripts/report_deploy.sh ]]; then
             echo "report_deploy.sh is not in this checkout; skipping Rollouts start"
             exit 0
           fi
+          rollouts_env="${ROLLOUTS_ENVIRONMENT:-${GOLIATH_ENV:-production-work}}"
+          export GOLIATH_ENV="$rollouts_env"
           PY=python3
           command -v python3 >/dev/null 2>&1 || PY=python
           ref_json=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/goliathomics-${RELEASE_VERSION}") || exit 0
@@ -66,7 +121,7 @@ jobs:
           fi
           bash scripts/report_deploy.sh start \
             --service goliathomics-runtime \
-            --env production-work \
+            --env "$GOLIATH_ENV" \
             --version "$sha" \
             --message "release ${RELEASE_VERSION}"
           exit 0
@@ -145,7 +200,7 @@ jobs:
         continue-on-error: true
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GOLIATH_ENV: production-work
+          ROLLOUTS_ENVIRONMENT: ${{ steps.rollouts-env.outputs.name }}
           DEPLOY_OUTCOME: ${{ job.status }}
         run: |
           set +e
@@ -153,29 +208,31 @@ jobs:
             echo "report_deploy.sh is not in this checkout; skipping Rollouts finish"
             exit 0
           fi
+          rollouts_env="${ROLLOUTS_ENVIRONMENT:-${GOLIATH_ENV:-production-work}}"
+          export GOLIATH_ENV="$rollouts_env"
           case "$DEPLOY_OUTCOME" in
             success)
               bash scripts/report_deploy.sh succeeded \
                 --service goliathomics-runtime \
-                --env production-work \
+                --env "$GOLIATH_ENV" \
                 --message "release deploy succeeded"
               ;;
             failure)
               bash scripts/report_deploy.sh failed \
                 --service goliathomics-runtime \
-                --env production-work \
+                --env "$GOLIATH_ENV" \
                 --message "release deploy failed"
               ;;
             cancelled)
               bash scripts/report_deploy.sh aborted \
                 --service goliathomics-runtime \
-                --env production-work \
+                --env "$GOLIATH_ENV" \
                 --message "release deploy aborted"
               ;;
             *)
               bash scripts/report_deploy.sh failed \
                 --service goliathomics-runtime \
-                --env production-work \
+                --env "$GOLIATH_ENV" \
                 --message "release deploy ${DEPLOY_OUTCOME}"
               ;;
           esac

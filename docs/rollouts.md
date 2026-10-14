@@ -23,7 +23,9 @@ The actor recorded on each event is `user@hostname`. The environment defaults to
 
 Each customer setup is its own Rollouts environment. The test setup is not the production environment. `deploy/targets/<name>.json` sets `rollouts_environment`, and `scripts/deploy_target.sh` exports that value before it runs install scripts. See [deploy targets](deploy-targets.md).
 
-`production-work` is the environment used by the runner-local promote in `.github/workflows/release-deploy.yml`.
+**GoliathOmics release deploy** reports `goliathomics-runtime` for the whole job on that same environment. When the `target` input is set, the start and finish steps read `rollouts_environment` from the profile (`goliath-test` for the test target) instead of filing those events on a second environment. When `target` is empty, they fall back to `production-work`. `scripts/report_deploy.sh` stays non-fatal.
+
+The job runs on a GitHub-hosted `ubuntu-latest` runner in the GitHub environment `goliath-test`.
 
 ## API key
 
@@ -41,7 +43,7 @@ sudo chmod 600 /etc/goliath/rollouts.env
 
 The committed template is `deploy/env/rollouts.env.example`. Do not commit a real key.
 
-GitHub Actions reads the repository or environment secret **`CURSOR_API_KEY`** (the name the reporter accepts, and no other). The release-deploy job runs in the `production-work` GitHub environment, so the secret must be available there.
+GitHub Actions reads the repository or environment secret **`CURSOR_API_KEY`** (the name the reporter accepts, and no other). The release-deploy job runs on a GitHub-hosted runner in the `goliath-test` GitHub environment. That environment needs `CURSOR_API_KEY`, `NEON_TEST_PASSWORD`, `GOLIATH_DEPLOY_SSH_KEY`, `B2_ACCESS_KEY_ID`, `B2_SECRET_ACCESS_KEY`, `LONGTERM_ACCESS_KEY_ID`, and `LONGTERM_SECRET_ACCESS_KEY`.
 
 ## What is not a service
 

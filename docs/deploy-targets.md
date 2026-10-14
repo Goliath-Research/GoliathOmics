@@ -45,9 +45,13 @@ SSH uses `BatchMode`. The profile stores `user@host` and an optional `identity_f
 
 ## GitHub Actions
 
-**GoliathOmics release deploy** takes an optional `target` input. When it is set, the job runs `deploy_target.sh --component all` instead of the runner-local promote. The job's GitHub environment is `production-work`. Map each `secret:NAME` the profile uses into that job (the workflow maps `NEON_TEST_PASSWORD`, `B2_ACCESS_KEY_ID`, `B2_SECRET_ACCESS_KEY`, `LONGTERM_ACCESS_KEY_ID`, `LONGTERM_SECRET_ACCESS_KEY`, and `GOLIATH_DEPLOY_SSH_KEY`). A customer with different secret names needs those names added to the job `env` block, or the values placed in `/etc/goliath/<target>.env` on the runner. `GOLIATH_DEPLOY_SSH_KEY` is the gateway private key, not a path.
+**GoliathOmics release deploy** takes an optional `target` input. When it is set, the job runs `deploy_target.sh --component all` instead of the runner-local promote. The job runs on a GitHub-hosted `ubuntu-latest` runner in the GitHub environment `goliath-test`. That environment needs `CURSOR_API_KEY`, `NEON_TEST_PASSWORD`, `GOLIATH_DEPLOY_SSH_KEY`, `B2_ACCESS_KEY_ID`, `B2_SECRET_ACCESS_KEY`, `LONGTERM_ACCESS_KEY_ID`, and `LONGTERM_SECRET_ACCESS_KEY`. The workflow maps those names into the job. A customer with different secret names needs those names added to the job `env` block, or the values placed in `/etc/goliath/<target>.env` on the runner. `GOLIATH_DEPLOY_SSH_KEY` is the gateway private key, not a path.
+
+The runner installs `postgresql-client` with apt when `psql` is missing, and installs `jq`, `openssh-client`, `curl`, and `python3` when those commands are missing. `gh` is the GitHub CLI already on the hosted image.
 
 Leave `target` empty to keep the single-runner promote of an assembled bundle. That path reports service `goliathomics-runtime` once for the job. The promote script skips its own report for that service when `GOLIATH_ROLLOUTS_SKIP_SERVICES` includes it, so the bundle and the workflow do not open two deployments.
+
+When `target` is set, the workflow start and finish steps report `goliathomics-runtime` on the profile's `rollouts_environment`. For `goliath-test` that value is `goliath-test`, the same environment `deploy_target.sh` uses for the other services, so one deploy stays on one Rollouts environment. When `target` is empty, or the profile has no usable `rollouts_environment`, those steps fall back to `production-work`. `scripts/report_deploy.sh` stays non-fatal: a failed report does not fail the job.
 
 ## goliath-test
 
@@ -80,4 +84,4 @@ PasswordAuthentication no
 KbdInteractiveAuthentication no
 ```
 
-Reload `sshd` after that change. The deploy client also passes `-o PasswordAuthentication=no -o PreferredAuthentications=publickey -o IdentitiesOnly=yes` and `-i` the key from `secret:GOLIATH_DEPLOY_SSH_KEY`. Do not commit the key. Put it in the `production-work` GitHub environment (the release-deploy job's environment) or in `/etc/goliath/goliath-test.env` on the runner.
+Reload `sshd` after that change. The deploy client also passes `-o PasswordAuthentication=no -o PreferredAuthentications=publickey -o IdentitiesOnly=yes` and `-i` the key from `secret:GOLIATH_DEPLOY_SSH_KEY`. Do not commit the key. Put it in the `goliath-test` GitHub environment (the release-deploy job's environment) or in `/etc/goliath/goliath-test.env` on the runner.
