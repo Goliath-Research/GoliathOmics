@@ -8,7 +8,8 @@
 # GH_TOKEN (or GITHUB_TOKEN) is a fine-grained PAT with Contents read. It is
 # written to a mode 600 header file and removed. It is never printed.
 # GOLIATH_RELEASE_TAG pins the git tag. Unset, the newest non-draft
-# goliathomics-* release is used.
+# goliathomics-* release is used. That tag is exported for the start
+# script release-bundle download.
 # On failure the pod stays up: /start.sh keeps sshd (port 22) and Jupyter
 # (port 8888) running so RunPod does not restart the container.
 # GOLIATH_START_NO_EXEC=1 makes failures exit 1 instead (tests).
@@ -52,6 +53,7 @@ on_stop() {
   if [[ "$child" != "0" ]]; then
     kill -TERM "$child" 2>/dev/null || true
   fi
+  rm -f "$HEADER_FILE" "$DOWNLOAD_TMP" "$META_FILE"
   exit 0
 }
 on_err() {
@@ -180,6 +182,7 @@ fetch_start_script() {
   chmod 600 "$HEADER_FILE"
   resolve_tag "$repo" || hold "no goliathomics GitHub release; set GOLIATH_RELEASE_TAG"
   require_tag "$RELEASE_TAG"
+  export GOLIATH_RELEASE_TAG="$RELEASE_TAG"
   log "downloading goliath-worker-start.sh from ${repo} ref ${RELEASE_TAG}"
   url="https://api.github.com/repos/${repo}/contents/deploy/runpod/goliath-worker-start.sh?ref=${RELEASE_TAG}"
   META_FILE="$ROOT/tmp/goliath-worker-start.json"
