@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   release:
@@ -22,7 +21,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install build tools
-        run: python -m pip install -U pip build wheel pip-tools twine
+        run: python -m pip install -U pip build wheel pip-tools
 
       - name: Build release (wheels + runtime-bundle + manifest)
         id: build
@@ -58,27 +57,3 @@ jobs:
               --generate-notes \
               "$TARBALL"
           fi
-
-      - name: Upload wheels to GitHub Packages (pypi-goliath)
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PYPIRC: ${{ runner.temp }}/.pypirc
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-          import os
-          Path(os.environ["PYPIRC"]).write_text(
-              "[distutils]\n"
-              "index-servers = pypi-goliath\n\n"
-              "[pypi-goliath]\n"
-              "repository = https://pypi.pkg.github.com/Goliath-Research\n"
-              "username = __token__\n"
-              f"password = {os.environ['GH_TOKEN']}\n",
-              encoding="utf-8",
-          )
-          PY
-          twine upload --non-interactive \
-            --config-file "$PYPIRC" \
-            --repository pypi-goliath \
-            "${{ runner.temp }}/release/wheels/"*.whl
