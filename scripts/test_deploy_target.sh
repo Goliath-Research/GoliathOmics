@@ -597,6 +597,7 @@ awk '
 command -v shellcheck >/dev/null 2>&1 || fail "shellcheck is required"
 shellcheck -S warning -e SC1091 \
   "$start_script" \
+  "$ROOT/deploy/runpod/goliath-worker-bootstrap.sh" \
   "$ROOT/scripts/setup_gateway_nginx.sh" \
   "$ROOT/scripts/provision_gateway_node.sh" \
   "$ROOT/scripts/test_setup_gateway_nginx.sh"
@@ -769,6 +770,10 @@ grep -q "^GOLIATH_GATEWAY_CA_FILE=${ca_file}\$" "$seen" \
   || fail "supervisor did not load GOLIATH_GATEWAY_CA_FILE"
 grep -q "^REQUESTS_CA_BUNDLE=${bundle_file}\$" "$seen" \
   || fail "supervisor did not load REQUESTS_CA_BUNDLE"
+for layout_name in samples projects cache genomes site; do
+  [[ -d "$work_root/$layout_name" ]] || fail "start script should create ${layout_name} on an empty layout"
+done
+[[ -d "$work_root/goliath/docker" ]] || fail "start script should create the docker data root"
 
 empty_root="$(mktemp -d)"
 set +e
@@ -785,6 +790,388 @@ set -e
 grep -q 'GOLIATH_RELEASE_URL' "$err" || fail "missing release should name GOLIATH_RELEASE_URL"
 if grep -q 'sekret-token' "$out" "$err"; then
   fail "failed bootstrap printed the worker token"
+fi
+
+keep_marker="$(mktemp)"
+keep_script="$work_root/keepalive.sh"
+cat >"$keep_script" <<EOF
+#!/bin/bash
+printf 'kept-alive\n' >"$keep_marker"
+exit 0
+EOF
+chmod +x "$keep_script"
+set +e
+env -u GH_TOKEN -u GITHUB_TOKEN -u GOLIATH_RELEASE_URL -u GOLIATH_START_NO_EXEC \
+  GOLIATH_WORKER_TOKEN="sekret-token" \
+  GOLIATH_ROOT="$empty_root/goliath" \
+  GOLIATH_WORK_MOUNT="$empty_root" \
+  GOLIATH_START_KEEPALIVE="$keep_script" \
+  PATH="$work_root:$PATH" \
+  bash "$start_script" >"$out" 2>"$err"
+status=$?
+set -e
+[[ "$status" -eq 0 ]] || fail "start failure should exec the keepalive command (status $status)"
+grep -q 'kept-alive' "$keep_marker" || fail "start failure should keep the pod alive"
+grep -q 'GOLIATH_RELEASE_URL' "$err" || fail "keepalive path should still log why startup failed"
+grep -q 'keeping the pod alive' "$err" || fail "keepalive path should say the pod stays up"
+if grep -q 'sekret-token' "$out" "$err"; then
+  fail "keepalive path printed the worker token"
+fi
+
+layout_mount="$(mktemp -d)"
+layout_log="$(mktemp)"
+layout_token="$(mktemp)"
+layout_prov="$(mktemp)"
+layout_report="$(mktemp)"
+mkdir -p "$layout_mount/goliath/current/runtime-bundle/scripts" \
+  "$layout_mount/goliath/venv-amd64/bin" \
+  "$layout_mount/goliath/env"
+cp "$work_root/goliath/venv-amd64/bin/methyl-worker" "$layout_mount/goliath/venv-amd64/bin/methyl-worker"
+cp "$work_root/goliath/env/worker.env" "$layout_mount/goliath/env/worker.env"
+chmod +x "$layout_mount/goliath/venv-amd64/bin/methyl-worker"
+cat >"$layout_mount/goliath/current/runtime-bundle/scripts/init_work_layout.sh" <<EOF
+#!/bin/bash
+printf '%s\n' "\$*" >"$layout_log"
+exit 0
+EOF
+cat >"$layout_prov" <<EOF
+#!/bin/bash
+printf '%s\n' "\$*" >>"$layout_log"
+mkdir -p "\$(dirname "$layout_token")"
+printf 'WORKER_ID=7\nWORKER_TOKEN=minted-token\n' >"$layout_token"
+chmod 600 "$layout_token"
+exit 0
+EOF
+cat >"$layout_report" <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+chmod +x "$layout_prov" "$layout_report"
+env -u GH_TOKEN -u GITHUB_TOKEN -u GOLIATH_RELEASE_URL \
+  GOLIATH_ROOT="$layout_mount/goliath" \
+  GOLIATH_WORK_MOUNT="$layout_mount" \
+  GOLIATH_LOG_DIR="$layout_mount/goliath/logs" \
+  GOLIATH_START_NO_EXEC=1 \
+  GOLIATH_PROVISION_SCRIPT="$layout_prov" \
+  GOLIATH_REPORT_SCRIPT="$layout_report" \
+  METHYL_WORKER_TOKEN_FILE="$layout_token" \
+  WORKER_API_BASE="https://45.76.21.8/v1" \
+  RUNPOD_POD_ID="pod-layout" \
+  PATH="$work_root:$PATH" \
+  bash "$start_script" >"$out" 2>"$err"
+grep -q -- "--work $layout_mount" "$layout_log" || fail "start script should run init_work_layout.sh from the release"
+if [[ -f "$layout_mount/goliath/logs/methyl-worker.supervisor.pid" ]]; then
+  kill "$(cat "$layout_mount/goliath/logs/methyl-worker.supervisor.pid")" >/dev/null 2>&1 || true
+fi
+
+boot="$ROOT/deploy/runpod/goliath-worker-bootstrap.sh"
+python3 - "$ROOT/deploy/runpod/README.md" "$boot" <<'PY'
+import pathlib, sys
+readme, script = map(pathlib.Path, sys.argv[1:])
+file_text = script.read_text()
+if "'" in file_text:
+    raise SystemExit("bootstrap file contains a single quote")
+text = readme.read_text()
+begin = "<!-- goliath-bootstrap-command:begin -->"
+end = "<!-- goliath-bootstrap-command:end -->"
+chunk = text.split(begin, 1)[1].split(end, 1)[0]
+prefix = "```text\nbash -lc '\n"
+start = chunk.index(prefix) + len(prefix)
+stop = chunk.rindex("'\n```")
+body = chunk[start:stop]
+if body != file_text:
+    raise SystemExit("readme start command does not match the bootstrap file")
+PY
+
+boot_mount="$(mktemp -d)"
+boot_bin="$(mktemp -d)"
+boot_stub="$boot_mount/stub.sh"
+boot_releases="$boot_mount/releases.json"
+boot_contents="$boot_mount/contents.json"
+curl_urls="$boot_mount/curl.urls"
+curl_args="$boot_mount/curl.args"
+curl_mode="$boot_mount/curl.mode"
+curl_auth="$boot_mount/curl.auth"
+cat >"$boot_stub" <<'EOF'
+#!/usr/bin/env bash
+# goliath-worker-start stub
+printf 'stub-ran\n'
+exit 0
+EOF
+python3 - "$boot_stub" "$boot_releases" "$boot_contents" <<'PY'
+import base64, json, pathlib, sys
+stub, releases, contents = map(pathlib.Path, sys.argv[1:])
+releases.write_text(json.dumps([
+    {"tag_name": "goliathomics-2099.1.0", "draft": True, "prerelease": False},
+    {"tag_name": "v2026.10.2", "draft": False, "prerelease": False},
+    {"tag_name": "goliathomics-2026.10.2", "draft": False, "prerelease": False},
+]))
+payload = base64.b64encode(stub.read_bytes()).decode("ascii")
+contents.write_text(json.dumps({"encoding": "base64", "content": payload}))
+PY
+cat >"$boot_bin/curl" <<EOF
+#!/bin/bash
+url=""
+out=""
+header=""
+printf '%s\n' "\$*" >>"$curl_args"
+args=("\$@")
+i=0
+while [[ \$i -lt \${#args[@]} ]]; do
+  a="\${args[\$i]}"
+  case "\$a" in
+    -o)
+      i=\$((i + 1))
+      out="\${args[\$i]}"
+      ;;
+    -H)
+      i=\$((i + 1))
+      h="\${args[\$i]}"
+      case "\$h" in
+        @*) header="\${h#@}" ;;
+      esac
+      ;;
+    http*)
+      url="\$a"
+      ;;
+  esac
+  i=\$((i + 1))
+done
+printf '%s\n' "\$url" >>"$curl_urls"
+if [[ -n "\$header" ]]; then
+  stat -c %a "\$header" >"$curl_mode"
+  if grep -q "^Authorization: Bearer " "\$header"; then
+    printf 'bearer\n' >"$curl_auth"
+  fi
+fi
+case "\$url" in
+  *"/releases?per_page="*)
+    cp "$boot_releases" "\$out"
+    ;;
+  *"/contents/deploy/runpod/goliath-worker-start.sh?ref="*)
+    cp "$boot_contents" "\$out"
+    ;;
+  *)
+    printf 'unexpected url\n' >&2
+    exit 1
+    ;;
+esac
+exit 0
+EOF
+chmod +x "$boot_bin/curl"
+
+run_boot() {
+  env -u GITHUB_TOKEN -u GOLIATH_RELEASE_URL \
+    GOLIATH_WORK_MOUNT="$boot_mount" \
+    GOLIATH_ROOT="$boot_mount/goliath" \
+    GH_TOKEN="gh-sekret-token" \
+    CURSOR_API_KEY="cursor-sekret" \
+    GOLIATH_GITHUB_REPO="Goliath-Research/GoliathOmics" \
+    PATH="$boot_bin:$PATH" \
+    bash "$boot" >"$out" 2>"$err"
+}
+
+: >"$curl_urls"
+: >"$curl_args"
+run_boot
+grep -q 'stub-ran' "$out" || fail "bootstrap should run the downloaded start script"
+grep -q 'goliathomics-2026.10.2' "$curl_urls" || fail "bootstrap should fetch the goliathomics release tag"
+grep -q '/releases?per_page=' "$curl_urls" || fail "bootstrap should list releases when no tag is pinned"
+[[ "$(cat "$curl_auth")" == "bearer" ]] || fail "bootstrap should send a bearer header"
+[[ "$(cat "$curl_mode")" == "600" ]] || fail "GitHub header file must be mode 600"
+[[ "$(stat -c %a "$boot_mount/goliath/bin/goliath-worker-start.sh")" == "755" ]] \
+  || fail "installed start script must be mode 755"
+cmp -s "$boot_stub" "$boot_mount/goliath/bin/goliath-worker-start.sh" \
+  || fail "installed start script should match the release contents"
+if find "$boot_mount/goliath/tmp" -type f | grep -q .; then
+  fail "bootstrap left a GitHub header or download in tmp"
+fi
+if grep -q 'gh-sekret-token' "$out" "$err" "$curl_args" "$curl_urls"; then
+  fail "bootstrap printed or passed GH_TOKEN on the curl command line"
+fi
+if grep -q 'cursor-sekret' "$out" "$err"; then
+  fail "bootstrap printed CURSOR_API_KEY"
+fi
+url_lines="$(wc -l <"$curl_urls" | tr -d ' ')"
+env -u GH_TOKEN -u GITHUB_TOKEN \
+  GOLIATH_WORK_MOUNT="$boot_mount" \
+  GOLIATH_ROOT="$boot_mount/goliath" \
+  PATH="$boot_bin:$PATH" \
+  bash "$boot" >"$out" 2>"$err"
+grep -q 'using existing' "$out" || fail "second boot should reuse the installed start script"
+url_lines_after="$(wc -l <"$curl_urls" | tr -d ' ')"
+[[ "$url_lines_after" == "$url_lines" ]] || fail "second boot should not call GitHub"
+
+rm -rf "$boot_mount/goliath"
+mkdir -p "$boot_mount/goliath/current/runtime-bundle/deploy/runpod" \
+  "$boot_mount/goliath/bin"
+cat >"$boot_mount/goliath/current/runtime-bundle/deploy/runpod/goliath-worker-start.sh" <<'EOF'
+#!/usr/bin/env bash
+# goliath-worker-start bundle
+printf 'bundle-ran\n'
+exit 0
+EOF
+cat >"$boot_mount/goliath/bin/goliath-worker-start.sh" <<'EOF'
+#!/usr/bin/env bash
+# goliath-worker-start old
+printf 'old-ran\n'
+exit 0
+EOF
+chmod 755 "$boot_mount/goliath/current/runtime-bundle/deploy/runpod/goliath-worker-start.sh" \
+  "$boot_mount/goliath/bin/goliath-worker-start.sh"
+env -u GH_TOKEN -u GITHUB_TOKEN \
+  GOLIATH_WORK_MOUNT="$boot_mount" \
+  GOLIATH_ROOT="$boot_mount/goliath" \
+  PATH="$boot_bin:$PATH" \
+  bash "$boot" >"$out" 2>"$err"
+grep -q 'bundle-ran' "$out" || fail "bootstrap should prefer the current release bundle"
+if grep -q 'old-ran' "$out"; then
+  fail "bootstrap ran the stale bin copy"
+fi
+
+: >"$curl_urls"
+rm -rf "$boot_mount/goliath"
+env -u GITHUB_TOKEN \
+  GOLIATH_WORK_MOUNT="$boot_mount" \
+  GOLIATH_ROOT="$boot_mount/goliath" \
+  GH_TOKEN="gh-sekret-token" \
+  GOLIATH_RELEASE_TAG="goliathomics-9.9.9" \
+  GOLIATH_GITHUB_REPO="Goliath-Research/GoliathOmics" \
+  PATH="$boot_bin:$PATH" \
+  bash "$boot" >"$out" 2>"$err"
+grep -q 'ref=goliathomics-9.9.9' "$curl_urls" || fail "pinned tag should be the contents ref"
+if grep -q '/releases?per_page=' "$curl_urls"; then
+  fail "pinned tag should not list releases"
+fi
+
+mkdir -p "$boot_mount/fresh"
+set +e
+env -u GH_TOKEN -u GITHUB_TOKEN \
+  GOLIATH_WORK_MOUNT="$boot_mount/fresh" \
+  GOLIATH_ROOT="$boot_mount/fresh/goliath" \
+  GOLIATH_START_NO_EXEC=1 \
+  CURSOR_API_KEY="cursor-sekret" \
+  PATH="$boot_bin:$PATH" \
+  bash "$boot" >"$out" 2>"$err"
+status=$?
+set -e
+[[ "$status" -ne 0 ]] || fail "bootstrap without a script or token should fail when NO_EXEC is set"
+grep -q 'GH_TOKEN' "$err" || fail "missing token should name GH_TOKEN"
+if grep -q 'cursor-sekret' "$out" "$err"; then
+  fail "failed bootstrap printed CURSOR_API_KEY"
+fi
+
+# The mount check above used a path that was not created yet. Recreate a real
+# empty mount for the keepalive and bad-tag cases.
+rm -rf "$boot_mount/fresh"
+mkdir -p "$boot_mount/fresh"
+keep2="$boot_mount/keep.sh"
+keep2_marker="$boot_mount/kept"
+cat >"$keep2" <<EOF
+#!/bin/bash
+printf 'boot-kept\n' >"$keep2_marker"
+exit 0
+EOF
+chmod +x "$keep2"
+set +e
+env -u GH_TOKEN -u GITHUB_TOKEN -u GOLIATH_START_NO_EXEC \
+  GOLIATH_WORK_MOUNT="$boot_mount/fresh" \
+  GOLIATH_ROOT="$boot_mount/fresh/goliath" \
+  GOLIATH_START_KEEPALIVE="$keep2" \
+  CURSOR_API_KEY="cursor-sekret" \
+  PATH="$boot_bin:$PATH" \
+  bash "$boot" >"$out" 2>"$err"
+status=$?
+set -e
+[[ "$status" -eq 0 ]] || fail "bootstrap failure should keep the pod alive (status $status)"
+grep -q 'boot-kept' "$keep2_marker" || fail "bootstrap failure should exec keepalive"
+grep -q 'keeping the pod alive' "$err" || fail "bootstrap failure should log that the pod stays up"
+if grep -q 'cursor-sekret' "$out" "$err"; then
+  fail "keepalive bootstrap printed CURSOR_API_KEY"
+fi
+
+set +e
+env -u GH_TOKEN -u GITHUB_TOKEN \
+  GOLIATH_WORK_MOUNT="$boot_mount/fresh" \
+  GOLIATH_ROOT="$boot_mount/fresh/goliath" \
+  GOLIATH_START_NO_EXEC=1 \
+  GOLIATH_RELEASE_TAG="sekret-not-a-tag" \
+  GH_TOKEN="gh-sekret-token" \
+  PATH="$boot_bin:$PATH" \
+  bash "$boot" >"$out" 2>"$err"
+status=$?
+set -e
+[[ "$status" -ne 0 ]] || fail "unsafe release tag should fail"
+grep -q 'goliathomics-<version>' "$err" || fail "unsafe tag should explain the required shape"
+if grep -q 'sekret-not-a-tag' "$out" "$err"; then
+  fail "bootstrap printed the rejected release tag"
+fi
+if grep -q 'gh-sekret-token' "$out" "$err"; then
+  fail "rejected tag path printed GH_TOKEN"
+fi
+if find "$boot_mount/fresh/goliath/tmp" -type f 2>/dev/null | grep -q .; then
+  fail "rejected tag left a header file behind"
+fi
+
+# The pasted template command is the same script. Run it once on an empty mount.
+paste_mount="$(mktemp -d)"
+paste_cmd="$(mktemp)"
+python3 - "$ROOT/deploy/runpod/README.md" "$paste_cmd" <<'PY'
+import pathlib, sys
+readme, dest = map(pathlib.Path, sys.argv[1:])
+text = readme.read_text()
+begin = "<!-- goliath-bootstrap-command:begin -->"
+end = "<!-- goliath-bootstrap-command:end -->"
+chunk = text.split(begin, 1)[1].split(end, 1)[0].strip()
+if not chunk.startswith("```text\n") or not chunk.endswith("\n```"):
+    raise SystemExit("start command fence missing")
+dest.write_text(chunk[len("```text\n"):-len("\n```")] + "\n")
+PY
+: >"$curl_urls"
+env -u GITHUB_TOKEN \
+  GOLIATH_WORK_MOUNT="$paste_mount" \
+  GOLIATH_ROOT="$paste_mount/goliath" \
+  GH_TOKEN="gh-sekret-token" \
+  GOLIATH_RELEASE_TAG="goliathomics-2026.10.2" \
+  GOLIATH_GITHUB_REPO="Goliath-Research/GoliathOmics" \
+  PATH="$boot_bin:$PATH" \
+  bash "$paste_cmd" >"$out" 2>"$err"
+grep -q 'stub-ran' "$out" || fail "pasted start command should download and run the start script"
+if grep -q 'gh-sekret-token' "$out" "$err" "$curl_args"; then
+  fail "pasted start command printed GH_TOKEN"
+fi
+
+stop_mount="$(mktemp -d)"
+mkdir -p "$stop_mount/goliath/bin"
+cat >"$stop_mount/goliath/bin/goliath-worker-start.sh" <<'EOF'
+#!/usr/bin/env bash
+# goliath-worker-start sleeper
+printf '%s\n' "$$" >"${STOP_PID:?}"
+exec sleep 30
+EOF
+chmod 755 "$stop_mount/goliath/bin/goliath-worker-start.sh"
+stop_pidfile="$stop_mount/child.pid"
+env -u GH_TOKEN -u GITHUB_TOKEN \
+  GOLIATH_WORK_MOUNT="$stop_mount" \
+  GOLIATH_ROOT="$stop_mount/goliath" \
+  STOP_PID="$stop_pidfile" \
+  PATH="$boot_bin:$PATH" \
+  bash "$boot" >"$out" 2>"$err" &
+boot_pid=$!
+for ((i = 0; i < 50; i++)); do
+  [[ -s "$stop_pidfile" ]] && break
+  sleep 0.1
+done
+[[ -s "$stop_pidfile" ]] || fail "bootstrap did not start the worker script"
+kill -TERM "$boot_pid"
+set +e
+wait "$boot_pid"
+status=$?
+set -e
+[[ "$status" -eq 0 ]] || fail "SIGTERM should stop the bootstrap without a failing exit (status $status)"
+if kill -0 "$(cat "$stop_pidfile")" 2>/dev/null; then
+  kill "$(cat "$stop_pidfile")" 2>/dev/null || true
+  fail "SIGTERM should stop the start script"
 fi
 
 prov_root="$(mktemp -d)"

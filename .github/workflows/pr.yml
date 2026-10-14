@@ -47,6 +47,7 @@ jobs:
             scripts/check_gateway_wheel.sh \
             scripts/build_release.sh \
             scripts/test_gateway_wheel_release.sh \
+            deploy/runpod/goliath-worker-bootstrap.sh \
             deploy/runpod/goliath-worker-start.sh \
             workflow_engine/sql_pg/deploy_test_bed.sh
 
