@@ -488,10 +488,24 @@ run_gateway() {
   # are self-provision and skip SSH. Without the wheel, /opt/methyl-gateway
   # only receives env/ and methyl-gateway.service exits 203/EXEC.
   if [[ -z "${GOLIATH_RELEASE_SRC:-}" ]]; then
-    die "GOLIATH_RELEASE_SRC is not set. Gateway deploy installs the methyl-gateway package from the goliathomics release (methyl-pipeline wheel) into the gateway venv before enabling the service."
+    die "GOLIATH_RELEASE_SRC is not set. Gateway deploy installs the methyl-gateway package from the goliathomics release into the gateway venv before enabling the service."
   fi
   [[ -d "$GOLIATH_RELEASE_SRC" ]] || die "GOLIATH_RELEASE_SRC is not a directory: $GOLIATH_RELEASE_SRC"
   [[ -f "$GOLIATH_RELEASE_SRC/manifest.json" ]] || die "GOLIATH_RELEASE_SRC has no manifest.json: $GOLIATH_RELEASE_SRC"
+  # The core package wheel is identified by the methyl-gateway console script
+  # in entry_points.txt. Plugin wheels in the same directory do not match,
+  # and a filename such as methyl-pipeline-*.whl is not enough.
+  local gateway_wheel_meta="" gateway_wheel_path=""
+  if ! gateway_wheel_meta="$(bash "$REPO_ROOT/scripts/install_gateway_venv.sh" --find-wheel "$GOLIATH_RELEASE_SRC")"; then
+    die "no wheel under $GOLIATH_RELEASE_SRC provides the methyl-gateway console script in entry_points.txt"
+  fi
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      WHEEL=*) gateway_wheel_path="${line#WHEEL=}" ;;
+    esac
+  done <<<"$gateway_wheel_meta"
+  [[ -n "$gateway_wheel_path" && -f "$gateway_wheel_path" ]] || die "gateway wheel discovery did not return a file under $GOLIATH_RELEASE_SRC"
+  info "gateway console script wheel: $gateway_wheel_path"
   local i dest envfile remote_env root user port bind release_remote
   root="$(jq_get '.gateway.install_root // "/opt/methyl-gateway"')"
   user="$(jq_get '.gateway.user // "goliath"')"

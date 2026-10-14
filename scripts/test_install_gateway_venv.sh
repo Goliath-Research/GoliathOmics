@@ -54,8 +54,8 @@ grep -q 'Requires-Python' "$err" || fail "invalid Requires-Python should name th
 rm -f "$err"
 
 build_wheel() {
-  local dest="$1" name="$2" version="$3" requires="$4" scripts="$5"
-  python3 - "$dest" "$name" "$version" "$requires" "$scripts" <<'PY'
+  local dest="$1" name="$2" version="$3" requires="$4" scripts="$5" requires_dist="${6:-}"
+  python3 - "$dest" "$name" "$version" "$requires" "$scripts" "$requires_dist" <<'PY'
 import base64
 import hashlib
 import re
@@ -63,7 +63,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-dest, name, version, requires, scripts = sys.argv[1:6]
+dest, name, version, requires, scripts, requires_dist = sys.argv[1:7]
 norm = re.sub(r"[-_.]+", "_", name).strip("_").lower()
 dist = "%s-%s" % (norm, version)
 wheel_path = Path(dest) / ("%s-%s-py3-none-any.whl" % (norm, version))
@@ -77,6 +77,8 @@ metadata = (
 )
 if requires:
     metadata += "Requires-Python: %s\n" % requires
+for dep in [item.strip() for item in requires_dist.split(",") if item.strip()]:
+    metadata += "Requires-Dist: %s\n" % dep
 metadata += "\n"
 wheel_meta = "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n\n"
 files = {
@@ -209,10 +211,38 @@ set +e
 bash "$SCRIPT" --root "$bare_root" --arch amd64 --release "$bare" >"$out" 2>"$err"
 status=$?
 set -e
-[[ "$status" -ne 0 ]] || fail "a wheel without console scripts must fail"
-grep -q 'methyl-gateway entry point missing' "$err" || fail "missing entry point should be named"
+[[ "$status" -ne 0 ]] || fail "a filename match without the console script must fail"
+grep -q 'console script' "$err" || fail "missing console script should be named: $(cat "$err")"
+grep -q 'entry_points.txt' "$err" || fail "discovery should read entry_points.txt"
 grep -q '203/EXEC' "$err" || fail "missing entry point should mention status 203/EXEC"
 [[ ! -x "$bare_root/venv-amd64/bin/methyl-gateway" ]] || fail "missing script wheel must not leave methyl-gateway"
+
+# The core wheel may not be named methyl-pipeline or methyl-gateway.
+odd="$work/odd-release"
+odd_root="$work/odd-root"
+mkdir -p "$odd/wheels"
+build_wheel "$odd/wheels" methyl-pipeline 2.0.0 '>=3.10,<3.15' '' >/dev/null
+build_wheel "$odd/wheels" corepkg 2.0.0 '>=3.10,<3.15' "$entry_scripts" >/dev/null
+bash "$SCRIPT" --root "$odd_root" --arch amd64 --release "$odd" >"$out" 2>"$err"
+grep -q 'corepkg-2.0.0' "$out" || fail "install should select the wheel by entry_points.txt, not the filename"
+if grep -q 'methyl_pipeline-2.0.0' "$out"; then
+  fail "filename methyl-pipeline without the console script must not be installed"
+fi
+[[ "$("$odd_root/venv-amd64/bin/methyl-gateway")" == "gateway" ]] || fail "corepkg methyl-gateway did not run"
+
+req_release="$work/req-release"
+req_root="$work/req-root"
+mkdir -p "$req_release/wheels"
+build_wheel "$req_release/wheels" goliath-gateway-test-dep 1.0.0 '>=3.10,<3.15' '' >/dev/null
+build_wheel "$req_release/wheels" corepkg 3.0.0 '>=3.10,<3.15' "$entry_scripts" 'goliath-gateway-test-dep' >/dev/null
+printf '%s\n' 'goliath-gateway-test-dep' 'numpy' >"$req_release/requirements-pipeline.txt"
+bash "$SCRIPT" --root "$req_root" --arch amd64 --release "$req_release" >"$out" 2>"$err"
+grep -q 'requirements-pipeline.txt' "$out" || fail "relevant requirements-pipeline.txt lines should be installed"
+"$req_root/venv-amd64/bin/python" -m pip show goliath-gateway-test-dep >/dev/null \
+  || fail "gateway dependency wheel should be installed via find-links"
+if "$req_root/venv-amd64/bin/python" -m pip show numpy >/dev/null 2>&1; then
+  fail "requirements-pipeline.txt packages that are not gateway dependencies must not be installed"
+fi
 
 set +e
 bash "$SCRIPT" --root /work/goliath --release "$release" >"$out" 2>"$err"
@@ -242,8 +272,8 @@ set +e
 bash "$SCRIPT" --root "$work/only-worker-root" --arch amd64 --release "$only_worker" >"$out" 2>"$err"
 status=$?
 set -e
-[[ "$status" -ne 0 ]] || fail "a release without the methyl-pipeline wheel must fail"
-grep -q 'methyl-pipeline' "$err" || fail "missing wheel error should mention the methyl-pipeline wheel"
+[[ "$status" -ne 0 ]] || fail "a release without the methyl-gateway console script must fail"
+grep -q 'console script' "$err" || fail "missing wheel error should mention the console script"
 
 rm -f "$out" "$err"
 echo "test_install_gateway_venv ok"

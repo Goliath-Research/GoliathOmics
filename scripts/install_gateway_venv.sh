@@ -4,7 +4,8 @@
 # methyl-gateway.service ExecStart is <root>/venv-<arch>/bin/methyl-gateway.
 # Enabling that unit before this script runs makes systemd exit 203/EXEC,
 # because the directory only contains env/. The console scripts live in the
-# methyl-pipeline wheel shipped inside goliathomics-release-<ver>.tar.gz.
+# core package wheel shipped inside the release wheels/ directory.
+# That wheel is selected by entry_points.txt, not by its filename.
 # methyl-reclaim-leases is installed from the same release.
 
 set -euo pipefail
@@ -13,15 +14,21 @@ usage() {
   cat <<'EOF'
 Usage: scripts/install_gateway_venv.sh [options]
 
-Create <root>/venv-<arch> and install the methyl-gateway package from the
-methyl-pipeline wheel in a GoliathOmics release tree. Re-running is safe:
-an existing venv is reused when its Python still satisfies Requires-Python,
-and pip install is repeated so a new wheel upgrades the entry points.
+Create <root>/venv-<arch> and install the package whose entry_points.txt
+declares the methyl-gateway console script. Re-running is safe: an existing
+venv is reused when its Python still satisfies Requires-Python, and pip
+install is repeated so a new wheel upgrades the entry points.
+
+The wheel is chosen by reading *.dist-info/entry_points.txt. A filename such
+as methyl-pipeline-*.whl or methyl-gateway-*.whl is not sufficient. pip
+installs that wheel with --find-links pointing at wheels/, and any
+requirements-pipeline.txt lines that name a dependency of the wheel.
 
 Options:
   --root PATH           Gateway local root (default: /opt/methyl-gateway)
   --arch KEY            aarch64 or amd64 (default: detect)
   --release PATH        Extracted goliathomics release (wheels/ or a wheel)
+  --find-wheel PATH     Print the wheel that provides methyl-gateway and exit
   --check-requires SPEC VERSION
                         Exit 0 when VERSION satisfies Requires-Python SPEC
   --select-python SPEC  Print the newest CPython uv should provision for SPEC
@@ -176,17 +183,20 @@ fi
 ROOT="${GOLIATH_ROOT:-/opt/methyl-gateway}"
 ARCH=""
 RELEASE=""
+FIND_WHEEL_ONLY=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --root) ROOT="${2:-}"; shift 2 ;;
     --arch) ARCH="${2:-}"; shift 2 ;;
     --release) RELEASE="${2:-}"; shift 2 ;;
+    --find-wheel) FIND_WHEEL_ONLY=1; RELEASE="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
 done
 
+if [[ "$FIND_WHEEL_ONLY" -eq 0 ]]; then
 if [[ "$ROOT" == /work || "$ROOT" == /work/* ]]; then
   die "Gateway --root must be this VM's local disk, not the worker /work share (got $ROOT)."
 fi
@@ -217,6 +227,7 @@ if [[ -z "$RELEASE" ]]; then
 fi
 
 [[ -d "$RELEASE" ]] || die "release directory not found: $RELEASE"
+fi
 
 find_gateway_wheel() {
   python3 - "$1" <<'PY'
@@ -236,14 +247,6 @@ skip = {
 }
 gateway_script = "methyl-gateway"
 reclaim_script = "methyl-reclaim-leases"
-gateway_names = {"methyl-gateway"}
-pipeline_names = {"methyl-pipeline", "methylpipeline"}
-
-def norm(value):
-    text = value.strip().lower().replace("_", "-")
-    while "--" in text:
-        text = text.replace("--", "-")
-    return text
 
 def dist_info(zf, filename):
     suffix = "/" + filename
@@ -282,28 +285,25 @@ for path in wheels:
     except zipfile.BadZipFile:
         print("[WARN] skipping invalid wheel %s" % path, file=sys.stderr)
         continue
-    normalized = norm(name)
-    filename = path.name.lower()
     score = 0
     if gateway_script in scripts:
         score += 100
     if reclaim_script in scripts:
         score += 40
-    if normalized in gateway_names:
-        score += 20
-    if normalized in pipeline_names:
-        score += 10
-    if "methyl" in filename and ("pipeline" in filename or "gateway" in filename):
-        score += 5
+    # Distribution name and filename are not evidence. Plugin wheels share
+    # the wheels/ directory and must not be selected in place of the core
+    # package that declares the console script.
     if score <= 0:
         continue
     candidates.append((score, str(path), name, requires, scripts))
 
-if not candidates:
+gateway_rows = [item for item in candidates if gateway_script in item[4]]
+if not gateway_rows:
     print(
-        "[ERROR] no methyl-gateway or methyl-pipeline wheel under %s. "
-        "Expected the methyl-pipeline wheel from goliathomics-release-<ver>.tar.gz "
-        "(wheels/*.whl) that provides the methyl-gateway console script." % release,
+        "[ERROR] no wheel under %s provides the methyl-gateway console script. "
+        "Looked at entry_points.txt [console_scripts] under wheels/*.whl. "
+        "A filename such as methyl-pipeline-*.whl or methyl-gateway-*.whl is not enough."
+        % release,
         file=sys.stderr,
     )
     sys.exit(1)
@@ -311,12 +311,6 @@ if not candidates:
 def best(rows):
     return max(rows, key=lambda item: (item[0], -len(item[1]), item[1]))
 
-gateway_rows = [
-    item for item in candidates
-    if gateway_script in item[4] or norm(item[2]) in gateway_names or norm(item[2]) in pipeline_names
-]
-if not gateway_rows:
-    gateway_rows = candidates
 chosen = best(gateway_rows)
 reclaim_rows = [item for item in candidates if reclaim_script in item[4]]
 reclaim = best(reclaim_rows) if reclaim_rows else None
@@ -333,6 +327,12 @@ print("RECLAIM_WHEEL=%s" % reclaim_path)
 print("RECLAIM_REQUIRES=%s" % reclaim_requires)
 PY
 }
+
+if [[ "$FIND_WHEEL_ONLY" -eq 1 ]]; then
+  [[ -n "$RELEASE" && -d "$RELEASE" ]] || die "usage: $0 --find-wheel RELEASE_DIR"
+  find_gateway_wheel "$RELEASE"
+  exit 0
+fi
 
 meta=""
 if ! meta="$(find_gateway_wheel "$RELEASE")"; then
@@ -478,16 +478,92 @@ else
   fi
 fi
 
+# Lines from requirements-pipeline.txt whose distribution is a Requires-Dist
+# of the selected wheel. The rest of that file is the science stack and is
+# not installed on the gateway.
+relevant_requirements() {
+  local wheel="$1"
+  local release="$2"
+  python3 - "$wheel" "$release" <<'PY'
+import re
+import sys
+import zipfile
+from email.parser import Parser
+from pathlib import Path
+
+wheel = Path(sys.argv[1])
+release = Path(sys.argv[2])
+
+def norm(name):
+    return re.sub(r"[-_.]+", "-", name).strip("-").lower()
+
+def dist_info(zf, filename):
+    suffix = "/" + filename
+    for name in zf.namelist():
+        if ".dist-info/" in name and name.endswith(suffix):
+            return zf.read(name).decode("utf-8", "replace")
+    return ""
+
+with zipfile.ZipFile(wheel) as archive:
+    metadata = Parser().parsestr(dist_info(archive, "METADATA"))
+
+required = set()
+for value in metadata.get_all("Requires-Dist") or []:
+    head, _, marker = value.partition(";")
+    # Optional extras (pytest, pyrefly) are not gateway runtime dependencies.
+    if re.search(r"extra\s*==", marker):
+        continue
+    match = re.match(r"^([A-Za-z0-9][A-Za-z0-9_.-]*)", head.strip())
+    if match:
+        required.add(norm(match.group(1)))
+
+req_path = None
+for candidate in (
+    release / "requirements-pipeline.txt",
+    release / "runtime-bundle" / "requirements-pipeline.txt",
+):
+    if candidate.is_file():
+        req_path = candidate
+        break
+
+if req_path is None or not required:
+    sys.exit(0)
+
+kept = []
+for raw in req_path.read_text(encoding="utf-8").splitlines():
+    body = raw.split("#", 1)[0].strip()
+    if not body or body.startswith("-"):
+        continue
+    match = re.match(r"^([A-Za-z0-9][A-Za-z0-9_.-]*)", body)
+    if match and norm(match.group(1)) in required:
+        kept.append(body)
+
+if kept:
+    print("\n".join(kept))
+PY
+}
+
 install_wheel() {
   local wheel="$1"
   local -a pip_args
+  local req_body="" req_file=""
   pip_args=(--disable-pip-version-check --upgrade)
   if [[ -d "$RELEASE/wheels" ]]; then
     pip_args+=(--find-links "$RELEASE/wheels")
   fi
   pip_args+=(--find-links "$(dirname "$wheel")")
-  info "installing $wheel into $VENV"
+  req_body="$(relevant_requirements "$wheel" "$RELEASE")"
+  if [[ -n "$req_body" ]]; then
+    req_file="$(mktemp)"
+    printf '%s\n' "$req_body" >"$req_file"
+    info "including gateway dependencies from requirements-pipeline.txt"
+    pip_args+=(-r "$req_file")
+  fi
+  info "installing $wheel into $VENV (find-links for wheels/)"
   "$VENV/bin/python" -m pip install "${pip_args[@]}" "$wheel"
+  if [[ -n "$req_file" ]]; then
+    rm -f "$req_file"
+  fi
 }
 
 install_wheel "$WHEEL"
