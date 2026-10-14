@@ -11,13 +11,12 @@ Options:
   --release-dir PATH   Release directory with wheels/ and requirements-worker.lock
   --venv PATH          Target virtualenv (default: /work/goliath/venv-<arch>)
   --python BIN         Python interpreter for venv creation (default: python3.12)
-  --index-url URL      Optional PyPI index (GitHub Packages pypi-goliath)
+  --index-url URL      Optional package index. Omit to install from wheels/ in the release directory.
   --recreate-venv      Remove existing venv before install
   -h, --help           Show this help
 
 Examples:
   scripts/install_release.sh --release-dir /work/goliath/releases/2026.6.1 --venv /work/goliath/venv-aarch64
-  scripts/install_release.sh --release-dir /work/goliath/current --index-url "https://pypi.pkg.github.com/Goliath-Research/simple/"
 EOF
 }
 
