@@ -149,7 +149,7 @@ build_runtime_bundle() {
            install_host_tools_gpu_vm.sh \
            register_worker.sh build_release.sh package_methyl_extractor.sh \
            download_methyl_extractor_artifacts.sh assemble_release.sh bootstrap_goliath.sh \
-           install_gateway_systemd.sh install_worker_systemd.sh \
+           install_gateway_systemd.sh install_gateway_venv.sh install_worker_systemd.sh \
            install_reclaim_leases_timer.sh provision_gateway_node.sh \
            provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh \
            install_methyl_extractor_tarball.sh \

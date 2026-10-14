@@ -13,8 +13,12 @@ Options:
   --root PATH           Gateway local root (default: /opt/methyl-gateway)
   --arch KEY            aarch64 or amd64 (default: detect)
   --runtime PATH        Path to runtime-bundle (default: <root>/runtime-bundle or this repo)
+  --release PATH        Extracted goliathomics release (methyl-pipeline wheel)
   --no-start            Install/enable only; do not start
   -h, --help
+
+Creates <root>/venv-<arch>, installs methyl-gateway from the release wheel,
+and only then enables the unit. Without that binary systemd exits 203/EXEC.
 EOF
 }
 
@@ -27,6 +31,7 @@ source "$SCRIPT_DIR/rollouts_hook.sh"
 ROOT="${GOLIATH_ROOT:-/opt/methyl-gateway}"
 ARCH=""
 RUNTIME=""
+RELEASE=""
 NO_START=0
 
 while [[ $# -gt 0 ]]; do
@@ -34,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     --root) ROOT="${2:-}"; shift 2 ;;
     --arch) ARCH="${2:-}"; shift 2 ;;
     --runtime) RUNTIME="${2:-}"; shift 2 ;;
+    --release) RELEASE="${2:-}"; shift 2 ;;
     --no-start) NO_START=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
@@ -51,12 +57,22 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 ARCH="${ARCH:-$(platform_arch_key "$(detect_uname_arch)")}"
-if [[ -x "$ROOT/venv-${ARCH}/bin/python" ]]; then
+# The unit's ExecStart is venv-<arch>/bin/methyl-gateway. Install that
+# entry point before enable/restart, or systemd reports status 203/EXEC.
+VENV_INSTALL="$SCRIPT_DIR/install_gateway_venv.sh"
+[[ -f "$VENV_INSTALL" ]] || { echo "Missing $VENV_INSTALL" >&2; exit 1; }
+venv_args=(--root "$ROOT" --arch "$ARCH")
+if [[ -n "$RELEASE" ]]; then
+  venv_args+=(--release "$RELEASE")
+fi
+bash "$VENV_INSTALL" "${venv_args[@]}"
+if [[ -x "$ROOT/venv-${ARCH}/bin/methyl-gateway" ]]; then
   VENV="$ROOT/venv-${ARCH}"
-elif [[ -x "$ROOT/venv/bin/python" ]]; then
+elif [[ -x "$ROOT/venv/bin/methyl-gateway" ]]; then
   VENV="$ROOT/venv"
 else
-  VENV="$ROOT/venv-${ARCH}"
+  echo "[ERROR] methyl-gateway entry point missing at $ROOT/venv-${ARCH}/bin/methyl-gateway" >&2
+  exit 1
 fi
 if [[ -d "$ROOT/runtime-bundle" ]]; then
   RUNTIME="${RUNTIME:-$(readlink -f "$ROOT/runtime-bundle")}"
@@ -86,6 +102,7 @@ systemctl status methyl-gateway.service --no-pager -l -n 15
 RECLAIM_INSTALL="$SCRIPT_DIR/install_reclaim_leases_timer.sh"
 if [[ -f "$RECLAIM_INSTALL" ]]; then
   RECLAIM_ARGS=(--root "$ROOT" --arch "$ARCH" --runtime "$RUNTIME")
+  [[ -n "$RELEASE" ]] && RECLAIM_ARGS+=(--release "$RELEASE")
   [[ "$NO_START" -eq 1 ]] && RECLAIM_ARGS+=(--no-start)
   bash "$RECLAIM_INSTALL" "${RECLAIM_ARGS[@]}"
 fi

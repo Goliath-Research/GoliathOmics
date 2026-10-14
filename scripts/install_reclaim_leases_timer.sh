@@ -13,8 +13,12 @@ Options:
   --root PATH           Gateway local root (default: /opt/methyl-gateway)
   --arch KEY            aarch64 or amd64 (default: detect)
   --runtime PATH        Path to runtime-bundle (default: <root>/runtime-bundle)
+  --release PATH        Extracted goliathomics release (methyl-pipeline wheel)
   --no-start            Install/enable only; do not start timer
   -h, --help
+
+Installs methyl-reclaim-leases into <root>/venv-<arch> from the release wheel
+before enabling the timer. A missing binary would make the oneshot exit 203/EXEC.
 EOF
 }
 
@@ -27,6 +31,7 @@ source "$SCRIPT_DIR/rollouts_hook.sh"
 ROOT="${GOLIATH_ROOT:-/opt/methyl-gateway}"
 ARCH=""
 RUNTIME=""
+RELEASE=""
 NO_START=0
 
 while [[ $# -gt 0 ]]; do
@@ -34,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     --root) ROOT="${2:-}"; shift 2 ;;
     --arch) ARCH="${2:-}"; shift 2 ;;
     --runtime) RUNTIME="${2:-}"; shift 2 ;;
+    --release) RELEASE="${2:-}"; shift 2 ;;
     --no-start) NO_START=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
@@ -51,12 +57,23 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 ARCH="${ARCH:-$(platform_arch_key "$(detect_uname_arch)")}"
+VENV_INSTALL="$SCRIPT_DIR/install_gateway_venv.sh"
+[[ -f "$VENV_INSTALL" ]] || { echo "Missing $VENV_INSTALL" >&2; exit 1; }
+venv_args=(--root "$ROOT" --arch "$ARCH")
+if [[ -n "$RELEASE" ]]; then
+  venv_args+=(--release "$RELEASE")
+fi
+bash "$VENV_INSTALL" "${venv_args[@]}"
 if [[ -x "$ROOT/venv-${ARCH}/bin/python" ]]; then
   VENV="$ROOT/venv-${ARCH}"
 elif [[ -x "$ROOT/venv/bin/python" ]]; then
   VENV="$ROOT/venv"
 else
   VENV="$ROOT/venv-${ARCH}"
+fi
+if [[ ! -x "$VENV/bin/methyl-reclaim-leases" ]]; then
+  echo "[ERROR] $VENV/bin/methyl-reclaim-leases is missing. methyl-reclaim-leases.service would fail with status 203/EXEC." >&2
+  exit 1
 fi
 if [[ -d "$ROOT/runtime-bundle" ]]; then
   RUNTIME="${RUNTIME:-$(readlink -f "$ROOT/runtime-bundle")}"
@@ -74,10 +91,6 @@ TIMER_SRC="$DEPLOY/methyl-reclaim-leases.timer"
 [[ -f "$TIMER_SRC" ]] || { echo "Missing $TIMER_SRC" >&2; exit 1; }
 
 rollouts_begin goliath-reclaim-leases "reclaim-leases $(hostname -s 2>/dev/null || hostname)"
-
-if [[ ! -x "$VENV/bin/methyl-reclaim-leases" ]]; then
-  echo "WARN: $VENV/bin/methyl-reclaim-leases not found; install/upgrade methyl-gateway wheel first" >&2
-fi
 
 sed -e "s|__GOLIATH_ROOT__|$ROOT|g" \
     -e "s|__GOLIATH_VENV__|$VENV|g" \
