@@ -232,9 +232,13 @@ EOF
   install -m 644 "$tmp/fullchain.pem" "$SSL_DIR/fullchain.pem"
   install -m 600 "$tmp/privkey.pem" "$SSL_DIR/privkey.pem"
   rm -rf "$tmp"
-  printf 'mode=self-signed host=%s san=%s\n' "$PUBLIC_HOST" "$san" >"$SSL_DIR/source"
-  chmod 644 "$SSL_DIR/source"
-  info "issued self-signed certificate at ${SSL_DIR} (${san})"
+  if [[ "${1:-}" == "bootstrap" ]]; then
+    info "temporary certificate at ${SSL_DIR} so nginx can serve the ACME HTTP-01 challenge"
+  else
+    printf 'mode=self-signed host=%s san=%s\n' "$PUBLIC_HOST" "$san" >"$SSL_DIR/source"
+    chmod 644 "$SSL_DIR/source"
+    info "issued self-signed certificate at ${SSL_DIR} (${san})"
+  fi
 }
 
 keep_self_signed() {
@@ -273,24 +277,35 @@ install_self_signed() {
   install -m 644 "$SSL_DIR/fullchain.pem" "$SSL_DIR/ca.pem"
 }
 
-install_letsencrypt() {
+letsencrypt_live_ready() {
+  [[ -s "$LE_ROOT/live/$DOMAIN/fullchain.pem" && -s "$LE_ROOT/live/$DOMAIN/privkey.pem" ]]
+}
+
+link_letsencrypt_certs() {
   local live
   live="$LE_ROOT/live/$DOMAIN"
-  mkdir -p "$SSL_DIR" "$WEBROOT" "$LE_ROOT"
-  if [[ -s "$live/fullchain.pem" && -s "$live/privkey.pem" ]]; then
-    info "reusing Let's Encrypt certificate for ${DOMAIN}"
-  else
-    ensure_cmd certbot certbot
-    info "requesting a Let's Encrypt certificate for ${DOMAIN}"
-    certbot certonly --webroot -w "$WEBROOT" -d "$DOMAIN" \
-      --email "$EMAIL" --agree-tos --non-interactive --keep-until-expiring
-  fi
-  [[ -s "$live/fullchain.pem" && -s "$live/privkey.pem" ]] || die "Let's Encrypt did not produce ${live}/fullchain.pem"
   ln -sfn "$live/fullchain.pem" "$SSL_DIR/fullchain.pem"
   ln -sfn "$live/privkey.pem" "$SSL_DIR/privkey.pem"
   ln -sfn "$live/fullchain.pem" "$SSL_DIR/ca.pem"
   printf 'mode=letsencrypt domain=%s\n' "$DOMAIN" >"$SSL_DIR/source"
   chmod 644 "$SSL_DIR/source"
+}
+
+install_renew_hook() {
+  local dir hook
+  dir="$LE_ROOT/renewal-hooks/deploy"
+  hook="$dir/methyl-gateway"
+  mkdir -p "$dir"
+  # certbot renew updates the live files and does not reload nginx.
+  cat >"$hook" <<'EOF'
+#!/bin/sh
+if systemctl is-active --quiet nginx; then
+  systemctl reload nginx
+else
+  systemctl restart nginx
+fi
+EOF
+  chmod 755 "$hook"
 }
 
 render_site() {
@@ -416,14 +431,39 @@ publish_cert_hint() {
 }
 
 open_firewall
+issue_le=0
 if [[ "$TLS_MODE" == "letsencrypt" ]]; then
-  install_letsencrypt
+  mkdir -p "$SSL_DIR" "$WEBROOT" "$LE_ROOT"
+  if letsencrypt_live_ready; then
+    info "reusing Let's Encrypt certificate for ${DOMAIN}"
+    link_letsencrypt_certs
+  else
+    # The site's port 443 block must load before nginx can serve the
+    # HTTP-01 webroot. An existing key is kept; otherwise this is temporary.
+    chmod 755 "$SSL_DIR"
+    if ! keep_self_signed; then
+      issue_self_signed bootstrap
+    fi
+    issue_le=1
+  fi
 else
   install_self_signed
 fi
 site="$(install_site)"
 nginx_test "$site"
 reload_nginx
+if [[ "$issue_le" -eq 1 ]]; then
+  ensure_cmd certbot certbot
+  info "requesting a Let's Encrypt certificate for ${DOMAIN}"
+  certbot certonly --webroot -w "$WEBROOT" -d "$DOMAIN" \
+    --email "$EMAIL" --agree-tos --non-interactive --keep-until-expiring
+  letsencrypt_live_ready || die "Let's Encrypt did not produce ${LE_ROOT}/live/${DOMAIN}/fullchain.pem"
+  link_letsencrypt_certs
+  reload_nginx
+fi
+if [[ "$TLS_MODE" == "letsencrypt" ]]; then
+  install_renew_hook
+fi
 probe_proxy
 publish_cert_hint
 info "methyl-gateway nginx site installed (${TLS_MODE}, ${PUBLIC_HOST} -> ${BIND}:${PORT})"
