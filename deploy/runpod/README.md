@@ -36,6 +36,7 @@ Set plain values in the template. Reference RunPod secrets as `{{ RUNPOD_SECRET_
 | Variable | Value |
 | --- | --- |
 | `WORKER_API_BASE` | `https://45.76.21.8/v1` (the profile `public_base_url`; the worker appends `/workers/...`) |
+| `GOLIATH_GATEWAY_CA_PEM` | `{{ RUNPOD_SECRET_GOLIATH_GATEWAY_CA_PEM }}` — PEM of the gateway `ca.pem`. Required while the gateway TLS mode is `self-signed`. |
 | `GOLIATH_ENV` | `goliath-test` |
 | `GOLIATH_GITHUB_REPO` | `Goliath-Research/GoliathOmics` |
 | `CLUSTER_KEY` | `goliath` |
@@ -58,6 +59,24 @@ Set plain values in the template. Reference RunPod secrets as `{{ RUNPOD_SECRET_
 `GOLIATH_WORKER_CAPABILITY` is optional. Leave it unset so `methyl-worker enroll` probes the GPU host (that probe uses `nvidia-smi`). Set it only to pin a catalog capability such as `parabricks.fq2bam`. The Rollouts message always includes the GPU name `nvidia-smi` printed, plus `RUNPOD_POD_ID`, the hostname, and `arch`.
 
 `RUNPOD_POD_ID` is injected by RunPod. Do not set it.
+
+## Gateway certificate
+
+goliath-test has no DNS name. The gateway deploy issues a self-signed certificate for `45.76.21.8` and keeps it at `/etc/ssl/methyl-gateway/ca.pem`. `methyl-worker` and `requests` will not trust that certificate until the pod has the PEM.
+
+After the first gateway deploy that installs nginx:
+
+```bash
+ssh -i <deploy-key> linuxuser@45.76.21.8 sudo cat /etc/ssl/methyl-gateway/ca.pem
+```
+
+Create a RunPod secret named `GOLIATH_GATEWAY_CA_PEM` whose value is that PEM, including the `BEGIN CERTIFICATE` and `END CERTIFICATE` lines. In the template, set `GOLIATH_GATEWAY_CA_PEM` to `{{ RUNPOD_SECRET_GOLIATH_GATEWAY_CA_PEM }}`.
+
+On boot the start script writes the PEM to `/work/goliath/env/gateway-ca.pem` (mode 644) and does not print it. When a system CA bundle is present it also writes `/work/goliath/env/requests-ca-bundle.pem` (the system bundle plus the gateway certificate) and exports `REQUESTS_CA_BUNDLE` and `SSL_CERT_FILE` to that file. `GOLIATH_GATEWAY_CA_FILE` points at the gateway certificate alone. `methyl-worker` adds `GOLIATH_GATEWAY_CA_FILE` to the default trust store for gateway HTTPS. `requests` uses `REQUESTS_CA_BUNDLE`, which still contains the system CAs, so other HTTPS calls keep working.
+
+Restart the pod after the secret is set. A pod that was already joined still rewrites `worker.env` on boot. If you rotate the gateway certificate, delete `/etc/ssl/methyl-gateway` on the gateway, deploy again, and replace the RunPod secret with the new `ca.pem`.
+
+Leave `GOLIATH_GATEWAY_CA_PEM` unset when `gateway.tls.mode` is `letsencrypt`. Those certificates are in the public trust store.
 
 Optional: `GOLIATH_RELEASE_URL` is a direct tarball URL. `GOLIATH_RELEASE_TAG` selects a tag instead of the latest release. Prefer leaving both unset and letting `GH_TOKEN` read the latest `goliathomics-release-*.tar.gz` asset when `/work/goliath/current` is absent.
 

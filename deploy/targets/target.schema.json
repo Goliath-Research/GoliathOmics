@@ -22,6 +22,29 @@
         "bind_host": {"type": "string"},
         "port": {"type": "integer"},
         "public_base_url": {"type": "string"},
+        "tls": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Public TLS in front of the loopback gateway. Omitted mode means self-signed. letsencrypt is optional and needs a domain.",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["self-signed", "letsencrypt"]
+            },
+            "san_ip": {
+              "type": "string",
+              "description": "IPv4 subjectAltName for a self-signed certificate. Defaults to the host of public_base_url when that host is an IP. The certificate is generated once on the gateway and kept across deploys."
+            },
+            "domain": {
+              "type": "string",
+              "description": "DNS name for letsencrypt. Not required for an IP-only self-signed gateway."
+            },
+            "email": {
+              "type": "string",
+              "description": "ACME contact email for letsencrypt. Not a secret."
+            }
+          }
+        },
         "hosts": {
           "type": "array",
           "items": {"$ref": "#/definitions/sshHost"}

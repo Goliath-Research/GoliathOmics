@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -52,6 +53,73 @@ class SubmitAck:
     accepted: bool
     instance_status: str
     next_ready_count: int
+
+
+def _normalize_pem(raw: str) -> str:
+    text = raw.strip()
+    if "\n" not in text and "\\n" in text:
+        text = text.replace("\\n", "\n")
+    if "-----BEGIN CERTIFICATE-----" not in text:
+        raise RuntimeError("GOLIATH_GATEWAY_CA_PEM does not contain a PEM certificate")
+    if not text.endswith("\n"):
+        text += "\n"
+    return text
+
+
+def materialize_gateway_ca_file() -> Optional[str]:
+    """Write GOLIATH_GATEWAY_CA_PEM to a file, or return GOLIATH_GATEWAY_CA_FILE.
+
+    The returned file is an extra trust anchor for the gateway, loaded in
+    addition to the system CA store.
+    """
+    pem = os.environ.get("GOLIATH_GATEWAY_CA_PEM", "")
+    explicit = os.environ.get("GOLIATH_GATEWAY_CA_FILE", "").strip()
+    if pem.strip():
+        text = _normalize_pem(pem)
+        if explicit:
+            dest = Path(explicit)
+        else:
+            root = os.environ.get("GOLIATH_ROOT", "").strip()
+            dest = Path(root) / "env" / "gateway-ca.pem" if root else Path("/etc/methyl/gateway-ca.pem")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        current = dest.read_text(encoding="utf-8") if dest.is_file() else ""
+        if current != text:
+            tmp = dest.with_name(dest.name + ".tmp")
+            tmp.write_text(text, encoding="utf-8")
+            os.chmod(tmp, 0o644)
+            tmp.replace(dest)
+        return str(dest)
+    if explicit:
+        path = Path(explicit)
+        if not path.is_file():
+            raise RuntimeError(f"GOLIATH_GATEWAY_CA_FILE is not a file: {explicit}")
+        return str(path)
+    return None
+
+
+def gateway_ssl_context() -> ssl.SSLContext:
+    """Default trust store plus the pinned gateway certificate, when one is set.
+
+    REQUESTS_CA_BUNDLE and CURL_CA_BUNDLE are loaded as additional anchors so
+    a combined bundle (system CAs plus the gateway cert) is honored. They do
+    not replace the default store unless SSL_CERT_FILE is already set in the
+    environment, which OpenSSL applies inside create_default_context.
+    """
+    ctx = ssl.create_default_context()
+    extras: list[str] = []
+    pinned = materialize_gateway_ca_file()
+    if pinned:
+        extras.append(pinned)
+    for key in ("REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE"):
+        value = os.environ.get(key, "").strip()
+        if value and value not in extras and Path(value).is_file():
+            extras.append(value)
+    for path in extras:
+        try:
+            ctx.load_verify_locations(cafile=path)
+        except (OSError, ssl.SSLError) as exc:
+            raise RuntimeError(f"gateway CA bundle is not a readable certificate file: {path}") from exc
+    return ctx
 
 
 def _load_arc_resource_id() -> Optional[str]:
@@ -104,7 +172,11 @@ class WorkflowRestClient:
             headers["Content-Type"] = "application/json"
         req = Request(url, data=data, headers=headers, method=method)
         try:
-            with urlopen(req, timeout=self.timeout_seconds) as resp:
+            if req.type == "https":
+                response_cm = urlopen(req, timeout=self.timeout_seconds, context=gateway_ssl_context())
+            else:
+                response_cm = urlopen(req, timeout=self.timeout_seconds)
+            with response_cm as resp:
                 body = resp.read().decode("utf-8")
                 if not body:
                     return {}
@@ -118,7 +190,14 @@ class WorkflowRestClient:
                 ) from exc
             raise RuntimeError(f"HTTP {exc.code} {path}: {detail}") from exc
         except URLError as exc:
-            raise RuntimeError(f"Request failed {path}: {exc}") from exc
+            hint = ""
+            reason_text = str(getattr(exc, "reason", exc))
+            if "CERTIFICATE_VERIFY_FAILED" in reason_text or "certificate verify failed" in reason_text:
+                hint = (
+                    " Trust the gateway certificate with GOLIATH_GATEWAY_CA_FILE or "
+                    "GOLIATH_GATEWAY_CA_PEM (the RunPod secret of that name)."
+                )
+            raise RuntimeError(f"Request failed {path}: {exc}.{hint}") from exc
 
     def _post_json(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._request_json(path, method="POST", payload=payload)

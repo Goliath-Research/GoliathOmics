@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import http.server
+import ssl
+import subprocess
+import threading
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+from urllib.error import HTTPError
 
 import pytest
 
-from methyl_worker.client import WorkflowRestClient
+from methyl_worker.client import WorkflowRestClient, materialize_gateway_ca_file
 
 
 def test_request_task_sends_arc_header(tmp_path) -> None:
@@ -98,8 +104,117 @@ def test_post_json_http_error() -> None:
     err.read.return_value = b"unauthorized"
 
     with patch("methyl_worker.client.urlopen") as mock_urlopen:
-        from urllib.error import HTTPError
-
         mock_urlopen.side_effect = HTTPError("http://x", 401, "nope", {}, err)
         with pytest.raises(RuntimeError, match="HTTP 401"):
             client.authenticate(1, "bad")
+
+
+def _issue_test_cert(directory: Path) -> tuple[Path, Path]:
+    cert = directory / "cert.pem"
+    key = directory / "key.pem"
+    config = directory / "openssl.cnf"
+    config.write_text(
+        "\n".join(
+            [
+                "[req]",
+                "distinguished_name = dn",
+                "x509_extensions = v3",
+                "prompt = no",
+                "[dn]",
+                "CN = 127.0.0.1",
+                "[v3]",
+                "subjectAltName = IP:127.0.0.1",
+                "basicConstraints = critical,CA:TRUE",
+                "keyUsage = critical,digitalSignature,keyEncipherment,keyCertSign",
+                "extendedKeyUsage = serverAuth",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-sha256",
+            "-days",
+            "2",
+            "-nodes",
+            "-keyout",
+            str(key),
+            "-out",
+            str(cert),
+            "-config",
+            str(config),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return cert, key
+
+
+class _Handler(http.server.BaseHTTPRequestHandler):
+    def do_POST(self) -> None:  # noqa: N802
+        length = int(self.headers.get("Content-Length", "0"))
+        self.rfile.read(length)
+        body = b"{}"
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: object) -> None:
+        return
+
+
+def _serve(cert: Path, key: Path) -> tuple[http.server.ThreadingHTTPServer, int]:
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certfile=str(cert), keyfile=str(key))
+    server.socket = context.wrap_socket(server.socket, server_side=True)
+    port = int(server.server_address[1])
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, port
+
+
+def _clear_ca_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in (
+        "GOLIATH_GATEWAY_CA_PEM",
+        "GOLIATH_GATEWAY_CA_FILE",
+        "GOLIATH_ROOT",
+        "REQUESTS_CA_BUNDLE",
+        "CURL_CA_BUNDLE",
+        "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_https_client_trusts_pinned_gateway_cert(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cert, key = _issue_test_cert(tmp_path)
+    server, port = _serve(cert, key)
+    try:
+        _clear_ca_env(monkeypatch)
+        client = WorkflowRestClient(f"https://127.0.0.1:{port}/v1")
+        with pytest.raises(RuntimeError, match="Trust the gateway certificate"):
+            client.authenticate(1, "tok")
+
+        monkeypatch.setenv("GOLIATH_GATEWAY_CA_FILE", str(cert))
+        client.authenticate(1, "tok")
+
+        _clear_ca_env(monkeypatch)
+        monkeypatch.setenv("GOLIATH_ROOT", str(tmp_path))
+        pem = cert.read_text(encoding="utf-8").replace("\n", "\\n")
+        monkeypatch.setenv("GOLIATH_GATEWAY_CA_PEM", pem)
+        written = materialize_gateway_ca_file()
+        assert written is not None
+        assert "BEGIN CERTIFICATE" in Path(written).read_text(encoding="utf-8")
+        client.authenticate(1, "tok")
+    finally:
+        server.shutdown()
+        server.server_close()

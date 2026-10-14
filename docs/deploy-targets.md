@@ -35,7 +35,7 @@ scripts/deploy_target.sh --target goliath-test --component all
 | Component | What it does |
 | --- | --- |
 | `schema` | Applies `workflow_engine/sql_pg/deploy_test_bed.sh` when `schema.apply` is `test-bed`. Engine DDL from GoliathApp must already be loaded. `schema.apply` `none` skips SQL. The connection uses `database.schema_host` when set (Neon direct host) and `database.host` otherwise. `channel_binding` is exported as `PGCHANNELBINDING`. The test-bed token fixture is applied only when the target name, `rollouts_environment`, database name, or host looks like a test bed. Set `GOLIATH_ALLOW_TEST_BED_TOKEN=1` to apply it to any other database. |
-| `gateway` | Writes `<install_root>/env/gateway.env` (database password and `POSTGRES_CHANNEL_BINDING` when set; default root `/opt/methyl-gateway`) and runs `install_gateway_systemd.sh --root`. The gateway keeps the pooled `database.host`. That script installs `methyl-gateway.service` and the reclaim timer. It does not take `--env-file` or `--user`. SSH uses the host `identity_file`. A `secret:NAME` value is the private key, written to a mode 600 file and passed with `-i`. The client sets `PasswordAuthentication=no`. |
+| `gateway` | Writes `<install_root>/env/gateway.env` (database password and `POSTGRES_CHANNEL_BINDING` when set; default root `/opt/methyl-gateway`) and runs `install_gateway_systemd.sh --root`. The gateway keeps the pooled `database.host`. That script installs `methyl-gateway.service` and the reclaim timer. It does not take `--env-file` or `--user`. The same SSH session then runs `setup_gateway_nginx.sh`, which installs nginx if needed, installs `deploy/nginx/methyl-gateway.conf` as a proxy to `bind_host:port` (default `127.0.0.1:8080`), and reloads nginx. TLS defaults to a self-signed certificate. SSH uses the host `identity_file`. A `secret:NAME` value is the private key, written to a mode 600 file and passed with `-i`. The client sets `PasswordAuthentication=no`. |
 | `runtime` | Runs `promote_release.sh --root --release --arch` plus `--pull-parabricks` or `--skip-docker-pull` on SSH hosts. Self-provision workers skip this SSH promote and boot from `/work/goliath/current` or a GitHub release bundle. |
 | `workers` | SSH workers: writes `/work/goliath/env/worker.env` (the path `methyl-worker.service` loads) and `<install_root>/env/worker.env`, then runs `install_worker_systemd.sh --root --arch` and `--capability` when the profile sets one. `self_provision: true` workers: no SSH. The driver prints the pool (provider, template, image, GPU, volume) and exits successfully. |
 
@@ -61,7 +61,7 @@ When `target` is set, the workflow start and finish steps report `goliathomics-r
 | --- | --- |
 | Database | Neon Postgres. Pooled host `ep-wandering-pine-a5l8s690-pooler.us-east-2.aws.neon.tech` for the gateway. Direct host `ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech` (`schema_host`) for schema apply. Database `GoliathOmics` (in SQL, double-quote the identifier: `"GoliathOmics"`), user `neondb_owner`, `sslmode` and `channel_binding` `require`. Password `secret:NEON_TEST_PASSWORD`. |
 | Schema | `schema.apply` is `test-bed`. Engine DDL is already applied; this step only runs the test-bed SQL in this repo. |
-| Gateway | Public host `45.76.21.8`, SSH user `linuxuser`, key `secret:GOLIATH_DEPLOY_SSH_KEY`, host keys in the environment secret `GOLIATH_GATEWAY_KNOWN_HOSTS`, install root `/opt/methyl-gateway`. Worker API base `https://45.76.21.8/v1`. |
+| Gateway | Public host `45.76.21.8`, SSH user `linuxuser`, key `secret:GOLIATH_DEPLOY_SSH_KEY`, host keys in the environment secret `GOLIATH_GATEWAY_KNOWN_HOSTS`, install root `/opt/methyl-gateway`. Worker API base `https://45.76.21.8/v1`. TLS mode `self-signed`, SAN IP `45.76.21.8`. Nginx proxies public 443 to `127.0.0.1:8080`. |
 | Shared storage | Backblaze B2 bucket `goliath-omics`, endpoint `https://s3.us-east-005.backblazeb2.com`, region `us-east-005`. Keys `secret:B2_ACCESS_KEY_ID` and `secret:B2_SECRET_ACCESS_KEY`. The schema has no bucket-id field. |
 | Long-term storage | myQNAPCloud, serving both hot and cold (`roles`: `hot`, `cold`). Bucket and share `goliath-omics`, endpoint `https://s3.us-east-1.myqnapcloud.io`, host `s3.us-east-1.myqnapcloud.io`. Keys `secret:LONGTERM_ACCESS_KEY_ID` and `secret:LONGTERM_SECRET_ACCESS_KEY`. |
 | Workers | No SSH hosts. One self-provisioning RunPod pool, `goliath-worker-1`. |
@@ -71,6 +71,23 @@ When `target` is set, the workflow start and finish steps report `goliathomics-r
 A worker object with `self_provision: true` is a pool that boots itself. `deploy_target.sh --component workers` and `--component all` do not open an SSH session to it. They print the provider, template, image, GPU, vCPU, RAM, and volume, then return success. SSH workers in the same list are still installed over SSH.
 
 `goliath-worker-1` is provider `runpod`, arch `amd64`, GPU RTX 6000 Ada × 1 (48 GB), 16 vCPU, 62 GB RAM, volume `/work`, template `runpod-torch-v280`, image `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404`. The pod start command and the RunPod secret names are in [deploy/runpod/README.md](../deploy/runpod/README.md). On boot the pod runs `provision_worker_node.sh --join-mode join --arch amd64 --gpu` and reports `goliath-worker` itself. The message includes `RUNPOD_POD_ID`, hostname, arch, and the GPU name from `nvidia-smi`.
+
+## Gateway TLS
+
+`methyl-gateway` stays on `gateway.bind_host` and `gateway.port` (`127.0.0.1:8080` for goliath-test). Workers use `gateway.public_base_url`. `setup_gateway_nginx.sh` is what makes that URL answer:
+
+- Installs the `nginx` package when the `nginx` command is missing.
+- Installs `deploy/nginx/methyl-gateway.conf` (HTTP redirects to HTTPS; `/v1/` proxies to the loopback gateway) and reloads nginx. Re-running the deploy does this again.
+- When `ufw` is already active, allows `80/tcp` and `443/tcp`. It does not enable `ufw` when `ufw` is inactive, and it does not change SSH rules.
+- Curls `https://127.0.0.1/v1/` through nginx and fails the deploy when that check does not get an HTTP response from the gateway (connection failure, or HTTP 502/504).
+
+`gateway.tls` is optional. Omitted, or `"mode": "self-signed"`, issues a certificate once under `/etc/ssl/methyl-gateway/` (`fullchain.pem`, `privkey.pem`, and `ca.pem`). The subjectAltName is `gateway.tls.san_ip` when set, otherwise the host of `public_base_url` when that host is an IPv4 address, otherwise that DNS name. A later deploy reuses the key. To rotate it, delete `/etc/ssl/methyl-gateway` on the gateway and deploy again.
+
+`gateway.tls.mode` `letsencrypt` is the optional path when a DNS name exists. Set `gateway.tls.domain` and `gateway.tls.email`, and point `public_base_url` at `https://<domain>/v1`. The domain must resolve to the gateway. An IP-only gateway does not need this mode.
+
+The Vultr cloud firewall, if this instance is assigned to one, is not `ufw`. That group has to allow inbound TCP 443. Allow TCP 80 as well when you want the HTTP redirect or Let's Encrypt HTTP-01. The loopback deploy check does not pass through that firewall.
+
+RunPod workers trust a self-signed gateway certificate by pinning `ca.pem`. See [deploy/runpod/README.md](../deploy/runpod/README.md).
 
 ## Public gateway SSH
 
