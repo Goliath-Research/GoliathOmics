@@ -215,6 +215,83 @@ append_kv() {
   printf '%s="%s"\n' "$key" "$val" >>"$dest"
 }
 
+system_ca_bundle() {
+  local candidate
+  if [[ -n "${GOLIATH_SYSTEM_CA_BUNDLE:-}" && -f "${GOLIATH_SYSTEM_CA_BUNDLE}" ]]; then
+    printf '%s' "${GOLIATH_SYSTEM_CA_BUNDLE}"
+    return 0
+  fi
+  for candidate in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt /etc/ssl/cert.pem; do
+    if [[ -f "$candidate" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+write_gateway_ca_pem() {
+  local dest="$1"
+  local pem="$2"
+  local old_umask
+  if [[ "$pem" != *$'\n'* && "$pem" == *'\n'* ]]; then
+    pem="${pem//\\n/$'\n'}"
+  fi
+  if [[ "$pem" != *"BEGIN CERTIFICATE"* ]]; then
+    die "GOLIATH_GATEWAY_CA_PEM does not contain a PEM certificate"
+  fi
+  mkdir -p "$(dirname "$dest")"
+  old_umask="$(umask)"
+  umask 022
+  printf '%s' "$pem" >"$dest"
+  if [[ "$pem" != *$'\n' ]]; then
+    printf '\n' >>"$dest"
+  fi
+  umask "$old_umask"
+  chmod 644 "$dest"
+}
+
+# Persist the gateway trust anchor and point requests/OpenSSL at a bundle that
+# still contains the system CAs. GOLIATH_GATEWAY_CA_PEM is the RunPod secret
+# (the PEM text). It is removed from the environment after the file is written.
+install_gateway_ca() {
+  local pem dest system bundle
+  pem="${GOLIATH_GATEWAY_CA_PEM:-}"
+  dest="${GOLIATH_GATEWAY_CA_FILE:-$ROOT/env/gateway-ca.pem}"
+  if [[ -n "$pem" ]]; then
+    write_gateway_ca_pem "$dest" "$pem"
+    unset GOLIATH_GATEWAY_CA_PEM
+    export GOLIATH_GATEWAY_CA_FILE="$dest"
+  elif [[ -n "${GOLIATH_GATEWAY_CA_FILE:-}" && -f "$GOLIATH_GATEWAY_CA_FILE" ]]; then
+    dest="$GOLIATH_GATEWAY_CA_FILE"
+  elif [[ -f "$ROOT/env/gateway-ca.pem" ]]; then
+    dest="$ROOT/env/gateway-ca.pem"
+    export GOLIATH_GATEWAY_CA_FILE="$dest"
+  else
+    return 0
+  fi
+  export GOLIATH_GATEWAY_CA_FILE="$dest"
+  bundle="$ROOT/env/requests-ca-bundle.pem"
+  system="$(system_ca_bundle || true)"
+  if [[ -n "$system" ]]; then
+    {
+      cat "$system"
+      [[ "$(tail -c 1 "$system" 2>/dev/null || true)" == $'\n' ]] || printf '\n'
+      cat "$dest"
+    } >"$bundle"
+    chmod 644 "$bundle"
+    if [[ -z "${REQUESTS_CA_BUNDLE:-}" ]]; then
+      export REQUESTS_CA_BUNDLE="$bundle"
+    fi
+    if [[ -z "${SSL_CERT_FILE:-}" ]]; then
+      export SSL_CERT_FILE="$bundle"
+    fi
+    log "gateway CA file ${dest}; requests bundle ${REQUESTS_CA_BUNDLE}"
+  else
+    log "gateway CA file ${dest}; system CA bundle not found, so REQUESTS_CA_BUNDLE was left unset"
+  fi
+}
+
 write_worker_env() {
   local dest="$ROOT/env/worker.env"
   local old_umask tmp owned
@@ -227,7 +304,7 @@ write_worker_env() {
   local long_endpoint="${LONGTERM_ENDPOINT:-${GOLIATH_LONGTERM_ENDPOINT:-}}"
   # promote_release.sh already wrote extractor, Parabricks, PATH, CAAS, and
   # HBM settings. Refresh only the storage and API keys this script owns.
-  owned='WORKER_API_BASE|GOLIATH_ENV|GOLIATH_SHARED_PROVIDER|GOLIATH_SHARED_BUCKET|AWS_ENDPOINT_URL|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GOLIATH_LONGTERM_PROVIDER|GOLIATH_LONGTERM_BUCKET|GOLIATH_LONGTERM_ENDPOINT|GOLIATH_LONGTERM_HOST|GOLIATH_LONGTERM_SHARE|GOLIATH_LONGTERM_ACCESS_KEY_ID|GOLIATH_LONGTERM_SECRET_ACCESS_KEY|WORKER_CAPABILITY|POSTGRES_HOST|POSTGRES_DB|POSTGRES_USER|POSTGRES_SSLMODE|POSTGRES_CHANNEL_BINDING|POSTGRES_PASSWORD'
+  owned='WORKER_API_BASE|GOLIATH_ENV|GOLIATH_SHARED_PROVIDER|GOLIATH_SHARED_BUCKET|AWS_ENDPOINT_URL|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GOLIATH_LONGTERM_PROVIDER|GOLIATH_LONGTERM_BUCKET|GOLIATH_LONGTERM_ENDPOINT|GOLIATH_LONGTERM_HOST|GOLIATH_LONGTERM_SHARE|GOLIATH_LONGTERM_ACCESS_KEY_ID|GOLIATH_LONGTERM_SECRET_ACCESS_KEY|WORKER_CAPABILITY|POSTGRES_HOST|POSTGRES_DB|POSTGRES_USER|POSTGRES_SSLMODE|POSTGRES_CHANNEL_BINDING|POSTGRES_PASSWORD|GOLIATH_GATEWAY_CA_FILE|REQUESTS_CA_BUNDLE|SSL_CERT_FILE'
   mkdir -p "$ROOT/env"
   old_umask="$(umask)"
   umask 077
@@ -240,6 +317,9 @@ write_worker_env() {
   fi
   append_kv "$tmp" WORKER_API_BASE "${WORKER_API_BASE:-}"
   append_kv "$tmp" GOLIATH_ENV "$GOLIATH_ENV"
+  append_kv "$tmp" GOLIATH_GATEWAY_CA_FILE "${GOLIATH_GATEWAY_CA_FILE:-}"
+  append_kv "$tmp" REQUESTS_CA_BUNDLE "${REQUESTS_CA_BUNDLE:-}"
+  append_kv "$tmp" SSL_CERT_FILE "${SSL_CERT_FILE:-}"
   append_kv "$tmp" GOLIATH_SHARED_PROVIDER "b2"
   append_kv "$tmp" GOLIATH_SHARED_BUCKET "$b2_bucket"
   append_kv "$tmp" AWS_ENDPOINT_URL "$b2_endpoint"
@@ -511,6 +591,7 @@ main() {
   maybe_reexec "$@"
   [[ -n "${WORKER_API_BASE:-}" ]] || die "WORKER_API_BASE is required (profile public_base_url, for example https://45.76.21.8/v1)"
   detect_gpu
+  install_gateway_ca
   HOST_SHORT="$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo unknown)"
   restore_or_write_token
   write_worker_env

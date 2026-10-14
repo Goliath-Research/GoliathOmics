@@ -151,6 +151,7 @@ else
     scripts/deploy_workflow_definitions.sh
     scripts/install_worker_systemd.sh
     scripts/install_gateway_systemd.sh
+    scripts/setup_gateway_nginx.sh
     scripts/provision_gateway_node.sh
     scripts/provision_worker_node.sh
     scripts/register_worker.sh

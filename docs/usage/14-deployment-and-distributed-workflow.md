@@ -75,7 +75,7 @@ Use this ordered checklist once per environment (detail: [production-platform.md
 
 1. [ ] Deploy database schema + Python populate on a **privileged host** (`deploy_azure.sh` twins, then `bootstrap_distributed_workers.sh`)
 2. [ ] Install the gateway on a **gateway VM local disk** (`provision_gateway_node.sh` — no `/work` mount)
-3. [ ] Enable nginx TLS; set `GATEWAY_REQUIRE_ARC_ATTEST=1`; `https://<fqdn>/v1/health` returns 200
+3. [ ] Gateway deploy installs nginx. With no domain, TLS is a self-signed certificate for the public IP (`scripts/setup_gateway_nginx.sh`). Optional: `gateway.tls.mode` `letsencrypt` plus a domain. Set `GATEWAY_REQUIRE_ARC_ATTEST=1`. `https://<host>/v1/` answers through nginx.
 4. [ ] Portal-preregister each GPU public IP
 5. [ ] First GPU worker seeds shared `/work` (layout, release, extractor, one Parabricks pull), then enrolls
 6. [ ] Later GPU workers: VM-local host/Docker, then enroll (`provision_worker_node.sh`)
@@ -162,7 +162,7 @@ Copy and edit an example env file:
 | PostgreSQL | [`deploy/env/gateway.postgres.env.example`](../../deploy/env/gateway.postgres.env.example) |
 | Azure SQL | [`deploy/env/gateway.mssql.env.example`](../../deploy/env/gateway.mssql.env.example) |
 
-Install systemd + nginx with [`scripts/provision_gateway_node.sh`](../../scripts/provision_gateway_node.sh) (`--root /opt/methyl-gateway`, not `/work`). Unit template: [`deploy/systemd/methyl-gateway.service`](../../deploy/systemd/methyl-gateway.service). Nginx: [`deploy/nginx/methyl-gateway.conf`](../../deploy/nginx/methyl-gateway.conf).
+Install systemd + nginx with [`scripts/provision_gateway_node.sh`](../../scripts/provision_gateway_node.sh) (`--root /opt/methyl-gateway`, not `/work`). `scripts/deploy_target.sh` runs the same nginx step. Unit template: [`deploy/systemd/methyl-gateway.service`](../../deploy/systemd/methyl-gateway.service). Nginx: [`deploy/nginx/methyl-gateway.conf`](../../deploy/nginx/methyl-gateway.conf). A public IP uses a self-signed certificate stored once under `/etc/ssl/methyl-gateway/`. A DNS name can use `gateway.tls.mode` `letsencrypt`.
 
 Key variables (see `workflow_engine/rest/connection.py`):
 

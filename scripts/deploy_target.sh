@@ -8,6 +8,11 @@
 # deploy_target.sh prints how those pods boot themselves. The pod start
 # script is deploy/runpod/goliath-worker-start.sh.
 #
+# The gateway component also installs nginx and TLS
+# (scripts/setup_gateway_nginx.sh). The default certificate is self-signed
+# for the public IP and is created once on the host. gateway.tls.mode
+# letsencrypt is optional and needs a domain.
+#
 # SSH and scp read host keys from ~/.ssh/known_hosts. The release-deploy
 # workflow writes the GOLIATH_GATEWAY_KNOWN_HOSTS secret there before it
 # calls this script. This script does not run ssh-keyscan and does not
@@ -135,6 +140,18 @@ jq_get() {
   jq -r "$1" "$PROFILE"
 }
 
+gateway_public_host() {
+  local host="$1"
+  host="${host#*://}"
+  host="${host%%/*}"
+  host="${host%%\?*}"
+  host="${host##*@}"
+  if [[ "$host" == *:* ]]; then
+    host="${host%%:*}"
+  fi
+  printf '%s' "$host"
+}
+
 export GOLIATH_ENV
 GOLIATH_ENV="$(jq_get '.rollouts_environment')"
 [[ -n "$GOLIATH_ENV" && "$GOLIATH_ENV" != "null" ]] || die "rollouts_environment is required"
@@ -150,6 +167,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   info "secret names (values are not read):"
   secret_names | sed 's/^/  /'
   info "gateway hosts: $(jq_get '[.gateway.hosts[]?.ssh] | join(", ")')"
+  info "gateway public_base_url=$(jq_get '.gateway.public_base_url // ""') tls=$(jq_get '.gateway.tls.mode // "self-signed"')"
   info "workers: $(jq_get '[.workers[]? | if .self_provision == true then "\(.name) self_provision \(.provider // "unknown") \(.arch) \(.template // "")" else "\(.name) \(.ssh // "") \(.arch) \(.capability // "")" end] | join("; ")')"
   info "database host: $(jq_get '.database.host') schema_host=$(jq_get '.database.schema_host // ""') kind=$(jq_get '.database.kind') channel_binding=$(jq_get '.database.channel_binding // ""')"
   info "shared storage: $(jq_get '.shared_storage.provider // "none"') $(jq_get '.shared_storage.endpoint // ""') bucket=$(jq_get '.shared_storage.bucket // ""')"
@@ -454,6 +472,8 @@ install_remote_tree() {
     scripts/rollouts_hook.sh \
     scripts/install_gateway_systemd.sh \
     scripts/install_gateway_venv.sh \
+    scripts/setup_gateway_nginx.sh \
+    scripts/provision_gateway_node.sh \
     scripts/install_worker_systemd.sh \
     scripts/install_reclaim_leases_timer.sh \
     scripts/promote_release.sh \
@@ -506,7 +526,32 @@ run_gateway() {
   done <<<"$gateway_wheel_meta"
   [[ -n "$gateway_wheel_path" && -f "$gateway_wheel_path" ]] || die "gateway wheel discovery did not return a file under $GOLIATH_RELEASE_SRC"
   info "gateway console script wheel: $gateway_wheel_path"
-  local i dest envfile remote_env root user port bind release_remote
+  local tls_mode tls_domain tls_email tls_san
+  tls_mode="$(jq_get '.gateway.tls.mode // "self-signed"')"
+  if [[ -z "$tls_mode" || "$tls_mode" == "null" ]]; then
+    tls_mode="self-signed"
+  fi
+  case "$tls_mode" in
+    self-signed|letsencrypt) ;;
+    *) die "gateway.tls.mode must be self-signed or letsencrypt" ;;
+  esac
+  tls_domain="$(jq_get '.gateway.tls.domain // empty')"
+  tls_email="$(jq_get '.gateway.tls.email // empty')"
+  tls_san="$(jq_get '.gateway.tls.san_ip // empty')"
+  if [[ "$tls_domain" == "null" ]]; then
+    tls_domain=""
+  fi
+  if [[ "$tls_email" == "null" ]]; then
+    tls_email=""
+  fi
+  if [[ "$tls_san" == "null" ]]; then
+    tls_san=""
+  fi
+  if [[ "$tls_mode" == "letsencrypt" ]]; then
+    [[ -n "$tls_domain" ]] || die "gateway.tls.mode=letsencrypt requires gateway.tls.domain"
+    [[ -n "$tls_email" ]] || die "gateway.tls.mode=letsencrypt requires gateway.tls.email"
+  fi
+  local i dest envfile remote_env root user port bind release_remote public_host
   root="$(jq_get '.gateway.install_root // "/opt/methyl-gateway"')"
   user="$(jq_get '.gateway.user // "goliath"')"
   port="$(jq_get '.gateway.port // 8080')"
@@ -574,7 +619,28 @@ run_gateway() {
     fi
     # install_gateway_systemd.sh creates venv-<arch> and installs the wheel
     # before systemctl enable/restart. The reclaim timer uses that venv too.
+    # nginx then publishes https://<public host>/v1. The certificate step is
+    # idempotent: a self-signed key already on the host is kept.
+    public_host="$(gateway_public_host "$gateway_url")"
+    if [[ -z "$public_host" || "$public_host" == "null" ]]; then
+      public_host="${dest##*@}"
+    fi
+    assert_remote_literal "gateway public host" "$public_host"
+    assert_remote_literal "gateway tls mode" "$tls_mode"
+    assert_remote_literal "gateway bind" "$bind"
+    assert_remote_literal "gateway port" "$port"
+    info "gateway tls mode=${tls_mode} public_host=${public_host}"
     gw_env_cmd+=" && rm -f /tmp/goliath-gateway.env && sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_gateway_systemd.sh --root '$root' --release '$release_remote'"
+    gw_env_cmd+=" && sudo bash /tmp/goliath-deploy/scripts/setup_gateway_nginx.sh --public-host '$public_host' --tls '$tls_mode' --bind '$bind' --port '$port'"
+    if [[ -n "$tls_san" ]]; then
+      assert_remote_literal "gateway tls san" "$tls_san"
+      gw_env_cmd+=" --san-ip '$tls_san'"
+    fi
+    if [[ "$tls_mode" == "letsencrypt" ]]; then
+      assert_remote_literal "gateway tls domain" "$tls_domain"
+      assert_remote_literal "gateway tls email" "$tls_email"
+      gw_env_cmd+=" --domain '$tls_domain' --email '$tls_email'"
+    fi
     if ssh_cmd "$dest" "$gw_env_cmd"; then
       report_component succeeded goliath-gateway "gateway ${dest}"
       report_component succeeded goliath-reclaim-leases "reclaim-leases ${dest}"

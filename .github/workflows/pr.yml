@@ -27,6 +27,9 @@ jobs:
             scripts/install_release.sh \
             scripts/install_gateway_systemd.sh \
             scripts/install_gateway_venv.sh \
+            scripts/setup_gateway_nginx.sh \
+            scripts/provision_gateway_node.sh \
+            scripts/test_setup_gateway_nginx.sh \
             scripts/install_worker_systemd.sh \
             scripts/install_reclaim_leases_timer.sh \
             scripts/bootstrap_goliath.sh \

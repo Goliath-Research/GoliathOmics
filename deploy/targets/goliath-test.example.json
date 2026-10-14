@@ -8,6 +8,9 @@
     "bind_host": "127.0.0.1",
     "port": 8080,
     "public_base_url": "https://gateway.example.com/v1",
+    "tls": {
+      "mode": "self-signed"
+    },
     "hosts": [
       {
         "name": "goliath-gateway",

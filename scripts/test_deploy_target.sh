@@ -259,6 +259,7 @@ env -u NEON_TEST_PASSWORD -u B2_ACCESS_KEY_ID -u B2_SECRET_ACCESS_KEY \
 grep -q 'secret:GOLIATH_DEPLOY_SSH_KEY' "$out" || fail "dry-run should list the ssh key secret name"
 grep -q 'secret:NEON_TEST_PASSWORD' "$out" || fail "dry-run should list the neon secret"
 grep -q '45.76.21.8' "$out" || fail "dry-run should show the gateway address"
+grep -q 'tls=self-signed' "$out" || fail "dry-run should show self-signed TLS"
 grep -q 'ep-wandering-pine-a5l8s690-pooler.us-east-2.aws.neon.tech' "$out" || fail "dry-run should show the pooled host"
 grep -q 'schema_host=ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech' "$out" || fail "dry-run should show schema_host"
 grep -q 'channel_binding=require' "$out" || fail "dry-run should show channel_binding"
@@ -318,8 +319,9 @@ fixture_dir="$(mktemp -d)"
 all_fixture="$ROOT/deploy/targets/self-provision-ci.json"
 schema_fixture="$ROOT/deploy/targets/schema-host-ci.json"
 ssh_fixture="$ROOT/deploy/targets/ssh-key-ci.json"
+le_fixture="$ROOT/deploy/targets/tls-le-ci.json"
 cleanup_fixtures() {
-  rm -f "$all_fixture" "$schema_fixture" "$ssh_fixture"
+  rm -f "$all_fixture" "$schema_fixture" "$ssh_fixture" "$le_fixture"
   restore_real_profile
   if [[ -n "${supervisor_pid:-}" ]]; then
     local pgid
@@ -525,6 +527,52 @@ grep -q "install_gateway_systemd.sh --root '/opt/methyl-gateway' --release '/opt
   || fail "gateway deploy should install the venv from the staged release before enabling the service"
 grep -q 'scripts/install_gateway_venv.sh' "$ROOT/scripts/deploy_target.sh" \
   || fail "gateway bundle must ship install_gateway_venv.sh"
+grep -q 'scripts/setup_gateway_nginx.sh' "$ROOT/scripts/deploy_target.sh" \
+  || fail "gateway bundle must ship setup_gateway_nginx.sh"
+grep -q "setup_gateway_nginx.sh --public-host '127.0.0.1' --tls 'self-signed' --bind '127.0.0.1' --port '8080'" "$ssh_log" \
+  || fail "gateway deploy should install nginx for the SSH host when public_base_url is unset"
+
+: >"$ssh_log"
+env NEON_TEST_PASSWORD='neon-secret-value' GOLIATH_DEPLOY_SSH_KEY="$fake_key" \
+  GOLIATH_RELEASE_SRC="$release_src" PATH="$ssh_dir:$PATH" \
+  bash "$ROOT/scripts/deploy_target.sh" --target goliath-test --component gateway >"$out" 2>"$err"
+grep -q "setup_gateway_nginx.sh --public-host '45.76.21.8' --tls 'self-signed' --bind '127.0.0.1' --port '8080' --san-ip '45.76.21.8'" "$ssh_log" \
+  || fail "goliath-test gateway deploy should install nginx for the public IP"
+if grep -q 'neon-secret-value' "$out" "$err" "$ssh_log"; then
+  fail "goliath-test gateway deploy printed the database password"
+fi
+
+cat >"$le_fixture" <<'EOF'
+{
+  "name": "tls-le-ci",
+  "rollouts_environment": "goliath-test",
+  "database": {
+    "kind": "neon",
+    "host": "pooler.example",
+    "dbname": "neondb",
+    "user": "neondb_owner",
+    "password": "secret:NEON_TEST_PASSWORD"
+  },
+  "schema": {"apply": "none"},
+  "gateway": {
+    "public_base_url": "https://10.0.0.8/v1",
+    "tls": {"mode": "letsencrypt"},
+    "hosts": [{"name": "goliath-gateway", "ssh": "linuxuser@10.0.0.8"}]
+  }
+}
+EOF
+: >"$ssh_log"
+set +e
+env NEON_TEST_PASSWORD='neon-secret-value' GOLIATH_RELEASE_SRC="$release_src" PATH="$ssh_dir:$PATH" \
+  bash "$ROOT/scripts/deploy_target.sh" --target tls-le-ci --component gateway >"$out" 2>"$err"
+status=$?
+set -e
+rm -f "$le_fixture"
+[[ "$status" -ne 0 ]] || fail "letsencrypt without a domain must fail"
+grep -q 'gateway.tls.domain' "$err" || fail "letsencrypt refusal should name gateway.tls.domain"
+if [[ -s "$ssh_log" ]]; then
+  fail "letsencrypt without a domain should fail before SSH"
+fi
 rm -rf "$release_src"
 
 workflow="$ROOT/.github/workflows/release-deploy.yml"
@@ -547,7 +595,11 @@ awk '
 ' "$workflow" || fail "known hosts step must run before deploy SSH"
 
 command -v shellcheck >/dev/null 2>&1 || fail "shellcheck is required"
-shellcheck -S warning -e SC1091 "$start_script"
+shellcheck -S warning -e SC1091 \
+  "$start_script" \
+  "$ROOT/scripts/setup_gateway_nginx.sh" \
+  "$ROOT/scripts/provision_gateway_node.sh" \
+  "$ROOT/scripts/test_setup_gateway_nginx.sh"
 
 work_root="$(mktemp -d)"
 token_file="$work_root/worker-token"
@@ -581,6 +633,9 @@ if [[ -n "$dump" && ! -f "$dump" ]]; then
     printf 'METHYL_PARABRICKS_IMAGE=%s\n' "${METHYL_PARABRICKS_IMAGE-}"
     printf 'METHYL_SAMPLE_CAAS_ENABLED=%s\n' "${METHYL_SAMPLE_CAAS_ENABLED-}"
     printf 'PATH=%s\n' "${PATH-}"
+    printf 'GOLIATH_GATEWAY_CA_FILE=%s\n' "${GOLIATH_GATEWAY_CA_FILE-}"
+    printf 'REQUESTS_CA_BUNDLE=%s\n' "${REQUESTS_CA_BUNDLE-}"
+    printf 'SSL_CERT_FILE=%s\n' "${SSL_CERT_FILE-}"
   } >"$dump"
 fi
 sleep 300
@@ -599,6 +654,7 @@ METHYL_GPU_HBM_FREE_FRACTION=0.90
 POSTGRES_PASSWORD=old-neon
 EOF
 chmod 600 "$work_root/goliath/env/worker.env"
+printf 'system-ca\n' >"$work_root/system-ca.pem"
 
 run_start() {
   env -u GH_TOKEN -u GITHUB_TOKEN -u GOLIATH_RELEASE_URL \
@@ -615,6 +671,8 @@ run_start() {
     B2_SECRET_ACCESS_KEY="b2-sekret" \
     CURSOR_API_KEY="cursor-sekret" \
     NEON_TEST_PASSWORD="neon-sekret" \
+    GOLIATH_GATEWAY_CA_PEM=$'-----BEGIN CERTIFICATE-----\nPINNED-CA-MARKER\n-----END CERTIFICATE-----\n' \
+    GOLIATH_SYSTEM_CA_BUNDLE="$work_root/system-ca.pem" \
     METHYL_WORKER_ENV_DUMP="$work_root/methyl-worker-env" \
     PATH="$work_root:$PATH" \
     bash "$start_script" >"$out" 2>"$err"
@@ -689,6 +747,28 @@ grep -q '^METHYL_SAMPLE_CAAS_ENABLED=0$' "$seen" \
   || fail "supervisor did not load METHYL_SAMPLE_CAAS_ENABLED"
 grep -q '^PATH=/opt/goliath/venv/bin:/usr/bin$' "$seen" \
   || fail "supervisor did not load PATH from worker.env"
+ca_file="$work_root/goliath/env/gateway-ca.pem"
+bundle_file="$work_root/goliath/env/requests-ca-bundle.pem"
+[[ -f "$ca_file" ]] || fail "start script should write the gateway CA"
+grep -q 'PINNED-CA-MARKER' "$ca_file" || fail "gateway CA file should contain the PEM"
+grep -q 'BEGIN CERTIFICATE' "$ca_file" || fail "gateway CA file should be PEM"
+[[ "$(stat -c %a "$ca_file")" == "644" ]] || fail "gateway CA file must be mode 644"
+[[ -f "$bundle_file" ]] || fail "start script should write a requests CA bundle"
+grep -q 'system-ca' "$bundle_file" || fail "requests bundle should include the system CAs"
+grep -q 'PINNED-CA-MARKER' "$bundle_file" || fail "requests bundle should include the gateway certificate"
+grep -q "^GOLIATH_GATEWAY_CA_FILE=\"${ca_file}\"\$" "$worker_env" \
+  || fail "worker.env should point GOLIATH_GATEWAY_CA_FILE at the PEM file"
+grep -q "^REQUESTS_CA_BUNDLE=\"${bundle_file}\"\$" "$worker_env" \
+  || fail "worker.env should point REQUESTS_CA_BUNDLE at the combined bundle"
+grep -q "^SSL_CERT_FILE=\"${bundle_file}\"\$" "$worker_env" \
+  || fail "worker.env should point SSL_CERT_FILE at the combined bundle"
+if grep -q 'PINNED-CA-MARKER' "$worker_env" "$out" "$err" "$report_log" "$prov_log"; then
+  fail "start script stored or printed the gateway PEM outside the CA file"
+fi
+grep -q "^GOLIATH_GATEWAY_CA_FILE=${ca_file}\$" "$seen" \
+  || fail "supervisor did not load GOLIATH_GATEWAY_CA_FILE"
+grep -q "^REQUESTS_CA_BUNDLE=${bundle_file}\$" "$seen" \
+  || fail "supervisor did not load REQUESTS_CA_BUNDLE"
 
 empty_root="$(mktemp -d)"
 set +e
@@ -727,5 +807,6 @@ fi
 grep -q 'methyl_worker' "$out" || fail "dry-run join should still enroll"
 
 rm -rf "$fixture_dir"
+bash "$ROOT/scripts/test_setup_gateway_nginx.sh"
 bash "$ROOT/scripts/test_install_gateway_venv.sh"
 echo "test_deploy_target ok"
