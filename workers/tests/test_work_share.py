@@ -119,6 +119,123 @@ def test_share_work_path_still_opens_mode_600(tmp_path: Path) -> None:
     assert f.stat().st_mode & 0o006 == 0o006
 
 
+def test_publisher_id_prefers_goliath_node_id(monkeypatch) -> None:
+    from methyl_worker.work_share import publisher_id
+
+    monkeypatch.setenv("GOLIATH_NODE_ID", "lambda-node-1")
+    monkeypatch.setenv("RUNPOD_POD_ID", "pod-should-not-leak")
+    assert publisher_id() == "lambda-node-1"
+
+
+def test_publisher_id_does_not_read_runpod_pod_id(monkeypatch) -> None:
+    from methyl_worker.work_share import publisher_id
+
+    monkeypatch.delenv("GOLIATH_NODE_ID", raising=False)
+    monkeypatch.setenv("RUNPOD_POD_ID", "pod-should-not-leak")
+    assert "pod-should-not-leak" not in publisher_id()
+
+
+def test_publish_to_work_renames_when_already_on_dest_filesystem(tmp_path: Path, monkeypatch) -> None:
+    from methyl_worker.work_share import completion_marker, publish_to_work
+
+    def fail_copy(*_args, **_kwargs):
+        raise AssertionError("publish must not copy within one filesystem")
+
+    monkeypatch.setattr("methyl_worker.work_share.shutil.copy2", fail_copy)
+    monkeypatch.setattr("methyl_worker.work_share.shutil.copytree", fail_copy)
+    monkeypatch.setattr("methyl_worker.work_share.shutil.copyfile", fail_copy)
+    src = tmp_path / "scratch.bam"
+    src.write_bytes(b"BAM-BYTES")
+    dest = tmp_path / "S1.bam"
+    publish_to_work(src, dest, task="fq2bam")
+    assert dest.read_bytes() == b"BAM-BYTES"
+    assert not src.exists()
+    assert not list(tmp_path.glob("S1.bam.tmp-*"))
+    marker = completion_marker(dest)
+    assert marker.is_file()
+    assert marker.read_text(encoding="utf-8").startswith("S1.bam")
+
+
+def test_publish_to_work_copies_once_from_another_filesystem(tmp_path: Path, monkeypatch) -> None:
+    import shutil
+
+    from methyl_worker.work_share import completion_marker, publish_to_work
+
+    src = tmp_path / "local.bam"
+    src.write_bytes(b"FROM-SCRATCH")
+    dest = tmp_path / "S1.bam"
+    copies: list[tuple[str, str]] = []
+    real_copyfile = shutil.copyfile
+
+    def counting_copyfile(source, target, *args, **kwargs):
+        copies.append((str(source), str(target)))
+        return real_copyfile(source, target, *args, **kwargs)
+
+    real_stat = Path.stat
+
+    class _Dev:
+        def __init__(self, dev: int, mode: int) -> None:
+            self.st_dev = dev
+            self.st_mode = mode
+
+    def fake_stat(self, *args, **kwargs):
+        result = real_stat(self, *args, **kwargs)
+        dev = 2 if self == src else result.st_dev
+        return _Dev(dev, result.st_mode)
+
+    monkeypatch.setattr("methyl_worker.work_share.shutil.copyfile", counting_copyfile)
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    publish_to_work(src, dest, task="fq2bam")
+    assert len(copies) == 1
+    assert copies[0][0] == str(src)
+    assert ".tmp-" in Path(copies[0][1]).name
+    assert Path(copies[0][1]).parent == dest.parent
+    assert dest.read_bytes() == b"FROM-SCRATCH"
+    assert src.exists()
+    assert completion_marker(dest).is_file()
+    assert dest.stat().st_mode & 0o004 == 0o004
+
+
+def test_publish_to_work_directory_survives_chmod_rejection(tmp_path: Path, monkeypatch) -> None:
+    from methyl_worker.work_share import completion_marker, publish_to_work
+
+    src = tmp_path / "local-out"
+    (src / "nested").mkdir(parents=True)
+    (src / "nested" / "calls.vcf").write_bytes(b"VCF")
+    dest = tmp_path / "published"
+    real_stat = Path.stat
+
+    class _Dev:
+        def __init__(self, dev: int, mode: int) -> None:
+            self.st_dev = dev
+            self.st_mode = mode
+
+    def fake_stat(self, *args, **kwargs):
+        result = real_stat(self, *args, **kwargs)
+        dev = 2 if self == src else result.st_dev
+        return _Dev(dev, result.st_mode)
+
+    def reject_chmod(self, mode):  # noqa: ARG001
+        raise OSError("Operation not permitted")
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    monkeypatch.setattr(Path, "chmod", reject_chmod)
+    monkeypatch.setattr(
+        "methyl_worker.work_share._share_work_path_via_docker",
+        lambda _path: False,
+    )
+    monkeypatch.setattr(
+        "methyl_worker.work_share._share_tree_via_docker",
+        lambda _root: False,
+    )
+    publish_to_work(src, dest, task="call")
+    assert (dest / "nested" / "calls.vcf").read_bytes() == b"VCF"
+    assert src.is_dir()
+    assert not list(tmp_path.glob("published.tmp-*"))
+    assert completion_marker(dest).is_file()
+    assert (dest / "nested" / "calls.vcf").stat().st_mode & 0o004 == 0o004
+
+
 def test_docker_umask_wraps_pbrun() -> None:
     prefix = docker_umask_prefix()
     suffix = docker_umask_suffix("pbrun", "fq2bam_meth", "--gpusort")

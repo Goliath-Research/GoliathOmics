@@ -1,0 +1,983 @@
+#!/usr/bin/env bash
+# Provider-neutral shared-worker start. start_shared_worker
+#
+# Every cluster mounts shared read/write storage at /work (override with
+# GOLIATH_WORK_MOUNT). New data uses B2_* (S3 protocol). Long-term objects
+# use LONGTERM_* (S3 protocol, myQNAPcloud on the current cluster). Those
+# names are the inputs. This script does not know which cloud provided the
+# machine. A provider adapter (deploy/runpod/) may set GOLIATH_NODE_ID and
+# GOLIATH_START_KEEPALIVE before exec.
+#
+# Required: WORKER_API_BASE (the gateway URL). Secrets stay on local disk
+# at mode 0600. Files on /work are created world-readable (umask 0022,
+# directories 0755, files 0644). When GOLIATH_SHARED_GROUP names a group
+# that exists here, directories are 2775, files are 0664, and umask is 0002.
+# chmod and chgrp are attempted. If the filesystem rejects them, this script
+# warns and continues. A local secret that cannot be mode 0600 is fatal.
+#
+# GOLIATH_NODE_ID names this machine's directory under /work/goliath/nodes.
+# When it is unset, the hostname is used, then /etc/machine-id.
+# GOLIATH_START_KEEPALIVE, when set to an executable, is exec'd after the
+# worker is up and also after a fatal error. When it is unset, success exits
+# 0 (systemd or the supervisor already holds the worker) and failure exits 1.
+# GOLIATH_START_NO_EXEC=1 makes failures exit 1 instead of running a keepalive.
+#
+# Secrets are read only from the environment. This script never prints them.
+# Do not run it under set -x.
+
+set +x
+set -euo pipefail
+set -E
+
+ROOT="${GOLIATH_ROOT:-/work/goliath}"
+WORK_MOUNT="${GOLIATH_WORK_MOUNT:-/work}"
+ARCH="${GOLIATH_WORKER_ARCH:-amd64}"
+LOG_DIR="${GOLIATH_LOG_DIR:-}"
+PRIVATE_DIR=""
+PROMOTE_LOCK=""
+export METHYL_WORKER_TOKEN_FILE="${METHYL_WORKER_TOKEN_FILE:-/etc/methyl/worker-token}"
+export GOLIATH_ENV="${GOLIATH_ENV:-goliath-test}"
+
+GPU_DESC=""
+HOST_SHORT=""
+
+log() { printf '[start-shared-worker] %s\n' "$*"; }
+
+exec_keepalive() {
+  local keepalive="${GOLIATH_START_KEEPALIVE:-}"
+  [[ -n "$keepalive" ]] || return 1
+  if [[ -x "$keepalive" ]]; then
+    log "exec ${keepalive}"
+    if [[ "$#" -gt 0 ]]; then
+      exec "$keepalive" "$@"
+    fi
+    exec "$keepalive"
+  fi
+  log "warning: keepalive ${keepalive} is not executable"
+  return 1
+}
+
+die() {
+  release_promote_lock
+  trap - ERR
+  printf '[start-shared-worker] ERROR: %s\n' "$*" >&2
+  if [[ "${GOLIATH_START_NO_EXEC:-}" == "1" ]]; then
+    exit 1
+  fi
+  if [[ -n "${GOLIATH_START_KEEPALIVE:-}" ]]; then
+    printf '[start-shared-worker] keeping the process alive\n' >&2
+    exec_keepalive || true
+  fi
+  exit 1
+}
+
+on_err() {
+  local rc=$?
+  release_promote_lock
+  trap - ERR
+  printf '[start-shared-worker] ERROR: command failed at line %s (exit %s)\n' "$1" "$rc" >&2
+  if [[ "${GOLIATH_START_NO_EXEC:-}" == "1" ]]; then
+    exit 1
+  fi
+  if [[ -n "${GOLIATH_START_KEEPALIVE:-}" ]]; then
+    printf '[start-shared-worker] keeping the process alive\n' >&2
+    exec_keepalive || true
+  fi
+  exit 1
+}
+trap 'on_err "${BASH_LINENO[0]}"' ERR
+
+wait_for_work() {
+  local i
+  for ((i = 1; i <= 90; i++)); do
+    if [[ -d "$WORK_MOUNT" && -w "$WORK_MOUNT" ]]; then
+      return 0
+    fi
+    sleep 2
+  done
+  die "persistent volume ${WORK_MOUNT} is not mounted and writable"
+}
+
+node_id() {
+  local id="${GOLIATH_NODE_ID:-}"
+  if [[ "$id" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    printf '%s' "$id"
+    return 0
+  fi
+  local host mid
+  host="$(hostname -s 2>/dev/null || hostname 2>/dev/null || true)"
+  if [[ "$host" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    printf '%s' "$host"
+    return 0
+  fi
+  if [[ -r /etc/machine-id ]]; then
+    mid="$(tr -cd 'A-Za-z0-9._-' </etc/machine-id | head -c 32)"
+    if [[ -n "$mid" ]]; then
+      printf '%s' "$mid"
+      return 0
+    fi
+  fi
+  printf '%s' "unknown-node"
+}
+
+node_root() {
+  printf '%s/nodes/%s' "$ROOT" "$(node_id)"
+}
+
+# A named group that exists on this machine. Absent group: world-readable
+# modes. Present group: setgid directories and group-writable files.
+shared_group() {
+  local group="${GOLIATH_SHARED_GROUP:-}"
+  [[ -n "$group" ]] || return 1
+  getent group "$group" >/dev/null 2>&1
+}
+
+apply_work_umask() {
+  if shared_group; then
+    umask 002
+  else
+    umask 022
+  fi
+}
+
+work_dir_mode() {
+  if shared_group; then
+    printf '2775'
+  else
+    printf '0755'
+  fi
+}
+
+work_file_mode() {
+  if shared_group; then
+    printf '0664'
+  else
+    printf '0644'
+  fi
+}
+
+path_on_work() {
+  local path="$1"
+  local mount="${WORK_MOUNT%/}"
+  [[ "$path" == "$mount" || "$path" == "$mount"/* ]]
+}
+
+chmod_work() {
+  local mode="$1"
+  shift
+  local path group="${GOLIATH_SHARED_GROUP:-}"
+  for path in "$@"; do
+    [[ -e "$path" ]] || continue
+    if ! chmod "$mode" "$path" 2>/dev/null; then
+      log "warning: chmod ${mode} ${path} was not applied; continuing"
+    fi
+    if shared_group; then
+      if ! chgrp "$group" "$path" 2>/dev/null; then
+        log "warning: chgrp ${group} ${path} was not applied; continuing"
+      fi
+    fi
+  done
+}
+
+private_dir() {
+  if [[ -n "$PRIVATE_DIR" && -d "$PRIVATE_DIR" ]]; then
+    printf '%s' "$PRIVATE_DIR"
+    return 0
+  fi
+  local base="${GOLIATH_PRIVATE_DIR:-}"
+  if [[ -z "$base" ]]; then
+    if [[ -d /run && -w /run ]]; then
+      base="/run/goliath"
+    else
+      base="/tmp/goliath-private"
+    fi
+  fi
+  if path_on_work "$base"; then
+    die "private dir ${base} must not be on ${WORK_MOUNT}"
+  fi
+  local old
+  old="$(umask)"
+  umask 077
+  mkdir -p "$base"
+  umask "$old"
+  if ! chmod 700 "$base"; then
+    die "cannot protect ${base}"
+  fi
+  PRIVATE_DIR="$base"
+  printf '%s' "$PRIVATE_DIR"
+}
+
+release_promote_lock() {
+  if [[ -n "$PROMOTE_LOCK" ]]; then
+    rm -rf "$PROMOTE_LOCK"
+    PROMOTE_LOCK=""
+  fi
+}
+
+# mkdir is the only create that is atomic on a typical filesystem. Some shared
+# volumes (a Runpod global volume, some NFS exports) do not support file
+# locking, so a crashed holder is stolen after 30 minutes.
+acquire_promote_lock() {
+  local lock="$ROOT/locks/release-promote"
+  local i now mtime
+  mkdir -p "$ROOT/locks"
+  for ((i = 1; i <= 60; i++)); do
+    if mkdir "$lock" 2>/dev/null; then
+      printf '%s\n' "$(node_id)" >"$lock/owner"
+      PROMOTE_LOCK="$lock"
+      log "acquired release promote lock ${lock}"
+      return 0
+    fi
+    if [[ -f "$lock/owner" ]]; then
+      now="$(date +%s)"
+      mtime="$(stat -c %Y "$lock/owner" 2>/dev/null || echo 0)"
+      if [[ "$((now - mtime))" -gt 1800 ]]; then
+        log "warning: removing stale promote lock ${lock}"
+        rm -rf "$lock"
+        continue
+      fi
+    fi
+    sleep 2
+  done
+  die "timed out waiting for ${lock}"
+}
+
+resolve_tool() {
+  local override="$1"
+  local name="$2"
+  local candidate
+  if [[ -n "$override" ]]; then
+    [[ -f "$override" ]] || die "missing ${name} at ${override}"
+    printf '%s' "$override"
+    return 0
+  fi
+  for candidate in \
+    "$ROOT/current/runtime-bundle/scripts/$name" \
+    "$ROOT/current/scripts/$name"
+  do
+    if [[ -f "$candidate" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+curl_download() {
+  local url="$1"
+  local dest="$2"
+  local token="$3"
+  local accept="${4:-}"
+  local header="" old_umask rc=0
+  local -a args=(-fsSL --retry 3 --retry-delay 2)
+  if [[ -n "$token" ]]; then
+    header="$(private_dir)/github.headers"
+    old_umask="$(umask)"
+    umask 077
+    printf 'Authorization: Bearer %s\n' "$token" >"$header"
+    umask "$old_umask"
+    if ! chmod 600 "$header"; then
+      die "cannot protect the GitHub auth header"
+    fi
+    args+=(-H "@${header}")
+  fi
+  if [[ -n "$accept" ]]; then
+    args+=(-H "Accept: ${accept}")
+  fi
+  args+=(-o "$dest" "$url")
+  curl "${args[@]}" || rc=$?
+  if [[ -n "$header" ]]; then
+    rm -f "$header"
+  fi
+  [[ "$rc" -eq 0 ]] || die "release download failed"
+}
+
+download_latest_release() {
+  local repo="$1"
+  local token="$2"
+  local dest="$3"
+  local api meta asset_spec asset_id asset_name asset_url
+  if [[ -n "${GOLIATH_RELEASE_TAG:-}" ]]; then
+    api="https://api.github.com/repos/${repo}/releases/tags/${GOLIATH_RELEASE_TAG}"
+  else
+    api="https://api.github.com/repos/${repo}/releases/latest"
+  fi
+  meta="$(node_root)/tmp/release.json"
+  mkdir -p "$(node_root)/tmp"
+  curl_download "$api" "$meta" "$token" "application/vnd.github+json"
+  asset_spec="$(python3 -c 'import json,sys
+rel=json.load(open(sys.argv[1], encoding="utf-8"))
+for asset in rel.get("assets") or []:
+    name=asset.get("name") or ""
+    if name.startswith("goliathomics-release-") and name.endswith(".tar.gz"):
+        print(asset["id"])
+        print(name)
+        break
+' "$meta")"
+  rm -f "$meta"
+  [[ -n "$asset_spec" ]] || die "GitHub release has no goliathomics-release-*.tar.gz asset"
+  asset_id="${asset_spec%%$'\n'*}"
+  asset_name="${asset_spec#*$'\n'}"
+  [[ "$asset_id" =~ ^[0-9]+$ ]] || die "release asset id was not numeric"
+  log "downloading ${asset_name}"
+  asset_url="https://api.github.com/repos/${repo}/releases/assets/${asset_id}"
+  curl_download "$asset_url" "$dest" "$token" "application/octet-stream"
+}
+
+ensure_current() {
+  if [[ -L "$ROOT/current" && ! -e "$ROOT/current" ]]; then
+    die "$ROOT/current is a broken symlink"
+  fi
+  if [[ -e "$ROOT/current" ]]; then
+    log "using existing $ROOT/current"
+    return 0
+  fi
+  local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+  local url="${GOLIATH_RELEASE_URL:-}"
+  local repo="${GOLIATH_GITHUB_REPO:-Goliath-Research/GoliathOmics}"
+  if [[ -z "$url" && -z "$token" ]]; then
+    die "$ROOT/current does not exist and neither GH_TOKEN/GITHUB_TOKEN nor GOLIATH_RELEASE_URL is set; cannot bootstrap a release bundle"
+  fi
+  command -v python3 >/dev/null 2>&1 || die "python3 is required to read the release manifest"
+  command -v curl >/dev/null 2>&1 || die "curl is required to download the release bundle"
+  # One pod publishes the shared release. Others wait, then use current.
+  # The lock is advisory: this volume does not support file locking.
+  acquire_promote_lock
+  if [[ -e "$ROOT/current" ]]; then
+    log "using existing $ROOT/current"
+    release_promote_lock
+    return 0
+  fi
+  apply_work_umask
+  mkdir -p "$ROOT/releases" "$(node_root)/tmp"
+  local tarball partial dest ver promote
+  tarball="$(node_root)/tmp/goliathomics-release.tar.gz"
+  if [[ -n "$url" ]]; then
+    log "bootstrapping release from GOLIATH_RELEASE_URL"
+    curl_download "$url" "$tarball" "$token"
+  else
+    log "bootstrapping the latest GitHub release for ${repo}"
+    download_latest_release "$repo" "$token" "$tarball"
+  fi
+  partial="$ROOT/releases/.partial-$(node_id)"
+  rm -rf "$partial"
+  mkdir -p "$partial"
+  tar -xzf "$tarball" -C "$partial"
+  rm -f "$tarball"
+  [[ -f "$partial/manifest.json" ]] || die "release bundle has no manifest.json"
+  ver="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("version",""))' "$partial/manifest.json")"
+  [[ "$ver" =~ ^[A-Za-z0-9._+-]+$ ]] || die "release manifest version is missing or not a safe path component"
+  dest="$ROOT/releases/$ver"
+  if [[ ! -d "$dest" ]]; then
+    # Same-filesystem rename. Not atomic on every shared volume (a Runpod
+    # global volume is one that does not provide it). current.ready is the
+    # commit point, written after promote returns.
+    if ! mv "$partial" "$dest"; then
+      if [[ ! -d "$dest" ]]; then
+        die "could not publish ${dest}"
+      fi
+      log "release ${ver} appeared while publishing; using the existing tree"
+      rm -rf "$partial"
+    fi
+  else
+    log "release ${ver} is already on the volume"
+    rm -rf "$partial"
+  fi
+  promote="$dest/runtime-bundle/scripts/promote_release.sh"
+  [[ -f "$promote" ]] || die "release bundle has no runtime-bundle/scripts/promote_release.sh"
+  local -a promote_args=(--root "$ROOT" --release "$dest" --arch "$ARCH" --skip-docker-pull)
+  if [[ -n "${WORKER_API_BASE:-}" ]]; then
+    promote_args+=(--worker-api-base "$WORKER_API_BASE")
+  fi
+  log "promoting ${dest}"
+  export GOLIATH_SHARED_WORK=1
+  bash "$promote" "${promote_args[@]}"
+  [[ -e "$ROOT/current" ]] || die "promote did not create $ROOT/current"
+  printf '%s\n' "$dest" >"$ROOT/.current.ready.$$"
+  mv -f "$ROOT/.current.ready.$$" "$ROOT/current.ready"
+  release_promote_lock
+}
+
+# Shared trees (samples, genomes, site, releases, image cache) stay on the
+# volume. Per-node logs and scratch are under nodes/<id>. Docker overlay
+# storage cannot live on this network filesystem.
+ensure_work_layout() {
+  local work_root init
+  work_root="$(dirname "$ROOT")"
+  init=""
+  if init="$(resolve_tool "" init_work_layout.sh)"; then
+    log "ensuring work layout under ${work_root}"
+    bash "$init" --work "$work_root" || die "init_work_layout.sh failed"
+  else
+    log "init_work_layout.sh not in the release; creating samples, genomes, and goliath directories"
+    mkdir -p \
+      "$work_root/samples" \
+      "$work_root/projects" \
+      "$work_root/cache" \
+      "$work_root/genomes" \
+      "$work_root/site" \
+      "$ROOT/bin" \
+      "$ROOT/env" \
+      "$ROOT/logs" \
+      "$ROOT/tmp" \
+      "$ROOT/releases"
+    chmod_work "$(work_dir_mode)" \
+      "$work_root/samples" "$work_root/projects" "$work_root/cache" \
+      "$work_root/genomes" "$work_root/site" "$ROOT"
+  fi
+  apply_work_umask
+  mkdir -p "$ROOT/images" "$ROOT/bin" "$(node_root)/logs" "$(node_root)/tmp" "$(node_root)/scratch" "$(node_root)/status" "$(node_root)/env"
+  chmod_work "$(work_dir_mode)" \
+    "$ROOT/images" "$ROOT/bin" "$ROOT/locks" \
+    "$(node_root)" "$(node_root)/logs" "$(node_root)/tmp" \
+    "$(node_root)/scratch" "$(node_root)/status" "$(node_root)/env"
+  warn_docker_storage
+}
+
+warn_docker_storage() {
+  local data_root="" daemon="/etc/docker/daemon.json"
+  log "Docker overlay data-root stays on container-local disk (/var/lib/docker). ${ROOT}/images is a shared image cache. Overlay layers do not work on the shared mount ${WORK_MOUNT}."
+  if [[ -f "$daemon" ]] && command -v python3 >/dev/null 2>&1; then
+    data_root="$(python3 -c 'import json,sys
+try:
+    data=json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    data={}
+print(data.get("data-root") or "")' "$daemon" 2>/dev/null || true)"
+  fi
+  if [[ -z "$data_root" ]]; then
+    data_root="${DOCKER_DATA_ROOT:-}"
+  fi
+  if [[ -n "$data_root" ]] && path_on_work "$data_root"; then
+    log "WARNING: configured Docker data-root ${data_root} is on ${WORK_MOUNT}. Use /var/lib/docker for the runtime and ${ROOT}/images for a shared image cache."
+  fi
+}
+
+maybe_reexec() {
+  # A provider adapter sets GOLIATH_BUNDLED_START to its copy inside the
+  # release bundle. After current exists, switch to that adapter once.
+  [[ "${GOLIATH_START_REEXECED:-}" == "1" ]] && return 0
+  local bundled="${GOLIATH_BUNDLED_START:-}"
+  [[ -n "$bundled" && -f "$bundled" ]] || return 0
+  local self target
+  self="$(readlink -f "${GOLIATH_ADAPTER_SCRIPT:-$0}" 2>/dev/null || printf '%s' "${GOLIATH_ADAPTER_SCRIPT:-$0}")"
+  target="$(readlink -f "$bundled" 2>/dev/null || printf '%s' "$bundled")"
+  [[ "$self" == "$target" ]] && return 0
+  log "reexec bundled start adapter ${target}"
+  export GOLIATH_START_REEXECED=1
+  exec bash "$target" "$@"
+}
+
+detect_gpu() {
+  if ! command -v nvidia-smi >/dev/null 2>&1; then
+    die "nvidia-smi is not installed; goliath-worker requires a GPU"
+  fi
+  local raw
+  raw="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || true)"
+  raw="${raw%%$'\n'*}"
+  raw="$(printf '%s' "$raw" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  if [[ -z "$raw" ]]; then
+    die "nvidia-smi did not report a GPU; goliath-worker requires a GPU (RTX 6000 Ada)"
+  fi
+  GPU_DESC="$raw"
+  log "GPU detected via nvidia-smi: ${GPU_DESC}"
+}
+
+append_kv() {
+  local dest="$1"
+  local key="$2"
+  local val="$3"
+  [[ -n "$val" ]] || return 0
+  val="${val//\\/\\\\}"
+  val="${val//\"/\\\"}"
+  val="${val//$'\n'/}"
+  printf '%s="%s"\n' "$key" "$val" >>"$dest"
+}
+
+system_ca_bundle() {
+  local candidate
+  if [[ -n "${GOLIATH_SYSTEM_CA_BUNDLE:-}" && -f "${GOLIATH_SYSTEM_CA_BUNDLE}" ]]; then
+    printf '%s' "${GOLIATH_SYSTEM_CA_BUNDLE}"
+    return 0
+  fi
+  for candidate in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt /etc/ssl/cert.pem; do
+    if [[ -f "$candidate" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+write_gateway_ca_pem() {
+  local dest="$1"
+  local pem="$2"
+  local old_umask
+  if [[ "$pem" != *$'\n'* && "$pem" == *'\n'* ]]; then
+    pem="${pem//\\n/$'\n'}"
+  fi
+  if [[ "$pem" != *"BEGIN CERTIFICATE"* ]]; then
+    die "GOLIATH_GATEWAY_CA_PEM does not contain a PEM certificate"
+  fi
+  mkdir -p "$(dirname "$dest")"
+  old_umask="$(umask)"
+  apply_work_umask
+  printf '%s' "$pem" >"$dest"
+  if [[ "$pem" != *$'\n' ]]; then
+    printf '\n' >>"$dest"
+  fi
+  umask "$old_umask"
+  chmod_work "$(work_file_mode)" "$dest"
+}
+
+# Persist the gateway trust anchor and point requests/OpenSSL at a bundle that
+# still contains the system CAs. GOLIATH_GATEWAY_CA_PEM is the PEM text from
+# the environment. It is removed from the environment after the file is written.
+install_gateway_ca() {
+  local pem dest system bundle
+  pem="${GOLIATH_GATEWAY_CA_PEM:-}"
+  dest="${GOLIATH_GATEWAY_CA_FILE:-$ROOT/env/gateway-ca.pem}"
+  if [[ -n "$pem" ]]; then
+    write_gateway_ca_pem "$dest" "$pem"
+    unset GOLIATH_GATEWAY_CA_PEM
+    export GOLIATH_GATEWAY_CA_FILE="$dest"
+  elif [[ -n "${GOLIATH_GATEWAY_CA_FILE:-}" && -f "$GOLIATH_GATEWAY_CA_FILE" ]]; then
+    dest="$GOLIATH_GATEWAY_CA_FILE"
+  elif [[ -f "$ROOT/env/gateway-ca.pem" ]]; then
+    dest="$ROOT/env/gateway-ca.pem"
+    export GOLIATH_GATEWAY_CA_FILE="$dest"
+  else
+    return 0
+  fi
+  export GOLIATH_GATEWAY_CA_FILE="$dest"
+  bundle="$ROOT/env/requests-ca-bundle.pem"
+  system="$(system_ca_bundle || true)"
+  if [[ -n "$system" ]]; then
+    {
+      cat "$system"
+      [[ "$(tail -c 1 "$system" 2>/dev/null || true)" == $'\n' ]] || printf '\n'
+      cat "$dest"
+    } >"$bundle"
+    chmod_work "$(work_file_mode)" "$bundle"
+    if [[ -z "${REQUESTS_CA_BUNDLE:-}" ]]; then
+      export REQUESTS_CA_BUNDLE="$bundle"
+    fi
+    if [[ -z "${SSL_CERT_FILE:-}" ]]; then
+      export SSL_CERT_FILE="$bundle"
+    fi
+    log "gateway CA file ${dest}; requests bundle ${REQUESTS_CA_BUNDLE}"
+  else
+    log "gateway CA file ${dest}; system CA bundle not found, so REQUESTS_CA_BUNDLE was left unset"
+  fi
+}
+
+secret_env_key() {
+  case "$1" in
+    *PASSWORD*|*SECRET*|*TOKEN*|*ACCESS_KEY*|*PRIVATE_KEY*|*CREDENTIAL*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Older files used AWS_* and GOLIATH_LONGTERM_* for both stores. Drop them
+# so one store's settings are not reused under the other store's names.
+storage_alias_key() {
+  case "$1" in
+    AWS_*|GOLIATH_LONGTERM_*|GOLIATH_SHARED_PROVIDER|GOLIATH_SHARED_BUCKET) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+write_worker_env() {
+  local shared="$ROOT/env/worker.env"
+  local dest pod_env secrets old_umask tmp owned line key
+  pod_env="$(node_root)/env/worker.env"
+  secrets="$(private_dir)/secrets.env"
+  dest="$pod_env"
+  local b2_key="${B2_ACCESS_KEY_ID:-}"
+  local b2_secret="${B2_SECRET_ACCESS_KEY:-}"
+  local b2_endpoint="${B2_ENDPOINT:-}"
+  local b2_bucket="${B2_BUCKET:-}"
+  local long_key="${LONGTERM_ACCESS_KEY_ID:-}"
+  local long_secret="${LONGTERM_SECRET_ACCESS_KEY:-}"
+  local long_endpoint="${LONGTERM_ENDPOINT:-}"
+  local long_bucket="${LONGTERM_BUCKET:-}"
+  local long_host="${LONGTERM_HOST:-}"
+  local long_share="${LONGTERM_SHARE:-}"
+  # promote_release.sh already wrote extractor, Parabricks, PATH, CAAS, and
+  # HBM settings. Refresh only the storage and API keys this script owns.
+  owned='WORKER_API_BASE|GOLIATH_ENV|B2_BUCKET|B2_ENDPOINT|LONGTERM_BUCKET|LONGTERM_ENDPOINT|LONGTERM_HOST|LONGTERM_SHARE|WORKER_CAPABILITY|POSTGRES_HOST|POSTGRES_DB|POSTGRES_USER|POSTGRES_SSLMODE|POSTGRES_CHANNEL_BINDING|POSTGRES_PASSWORD|GOLIATH_GATEWAY_CA_FILE|REQUESTS_CA_BUNDLE|SSL_CERT_FILE'
+  mkdir -p "$(dirname "$pod_env")" "$ROOT/env"
+  old_umask="$(umask)"
+  apply_work_umask
+  tmp="$(mktemp "${pod_env}.XXXXXX")"
+  if [[ -f "$shared" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      case "$line" in
+        ''|\#*) printf '%s\n' "$line" >>"$tmp"; continue ;;
+      esac
+      key="${line%%=*}"
+      if secret_env_key "$key" || storage_alias_key "$key"; then
+        continue
+      fi
+      if [[ "$key" =~ ^(${owned})$ ]]; then
+        continue
+      fi
+      printf '%s\n' "$line" >>"$tmp"
+    done <"$shared"
+  fi
+  if [[ -s "$tmp" && "$(tail -c 1 "$tmp" || true)" != $'\n' ]]; then
+    printf '\n' >>"$tmp"
+  fi
+  append_kv "$tmp" WORKER_API_BASE "${WORKER_API_BASE:-}"
+  append_kv "$tmp" GOLIATH_ENV "$GOLIATH_ENV"
+  append_kv "$tmp" GOLIATH_GATEWAY_CA_FILE "${GOLIATH_GATEWAY_CA_FILE:-}"
+  append_kv "$tmp" REQUESTS_CA_BUNDLE "${REQUESTS_CA_BUNDLE:-}"
+  append_kv "$tmp" SSL_CERT_FILE "${SSL_CERT_FILE:-}"
+  append_kv "$tmp" B2_BUCKET "$b2_bucket"
+  append_kv "$tmp" B2_ENDPOINT "$b2_endpoint"
+  append_kv "$tmp" DOCKER_DATA_ROOT "/var/lib/docker"
+  append_kv "$tmp" GOLIATH_IMAGE_CACHE "$ROOT/images"
+  append_kv "$tmp" LONGTERM_BUCKET "$long_bucket"
+  append_kv "$tmp" LONGTERM_ENDPOINT "$long_endpoint"
+  append_kv "$tmp" LONGTERM_HOST "$long_host"
+  append_kv "$tmp" LONGTERM_SHARE "$long_share"
+  append_kv "$tmp" GOLIATH_NODE_ID "$(node_id)"
+  append_kv "$tmp" GOLIATH_SHARED_GROUP "${GOLIATH_SHARED_GROUP:-}"
+  if [[ -n "${GOLIATH_WORKER_CAPABILITY:-}" ]]; then
+    append_kv "$tmp" WORKER_CAPABILITY "$GOLIATH_WORKER_CAPABILITY"
+  fi
+  # The worker talks to the gateway. The database password stays off this
+  # node unless an operator sets GOLIATH_WORKER_NEEDS_DATABASE=1.
+  if [[ "${GOLIATH_WORKER_NEEDS_DATABASE:-}" == "1" ]]; then
+    append_kv "$tmp" POSTGRES_HOST "${POSTGRES_HOST:-}"
+    append_kv "$tmp" POSTGRES_DB "${POSTGRES_DB:-}"
+    append_kv "$tmp" POSTGRES_USER "${POSTGRES_USER:-}"
+    append_kv "$tmp" POSTGRES_SSLMODE "${POSTGRES_SSLMODE:-require}"
+    append_kv "$tmp" POSTGRES_CHANNEL_BINDING "${POSTGRES_CHANNEL_BINDING:-require}"
+  fi
+  mv -f "$tmp" "$pod_env"
+  umask "$old_umask"
+  chmod_work "$(work_file_mode)" "$pod_env"
+  if [[ -f "$shared" ]]; then
+    local stripped
+    apply_work_umask
+    stripped="$(mktemp "${shared}.XXXXXX")"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      case "$line" in
+        ''|\#*) printf '%s\n' "$line" >>"$stripped"; continue ;;
+      esac
+      key="${line%%=*}"
+      if secret_env_key "$key" || storage_alias_key "$key"; then
+        continue
+      fi
+      printf '%s\n' "$line" >>"$stripped"
+    done <"$shared"
+    mv -f "$stripped" "$shared"
+    umask "$old_umask"
+    chmod_work "$(work_file_mode)" "$shared"
+  fi
+  umask 077
+  tmp="$(mktemp "${secrets}.XXXXXX")"
+  append_kv "$tmp" B2_ACCESS_KEY_ID "$b2_key"
+  append_kv "$tmp" B2_SECRET_ACCESS_KEY "$b2_secret"
+  append_kv "$tmp" LONGTERM_ACCESS_KEY_ID "$long_key"
+  append_kv "$tmp" LONGTERM_SECRET_ACCESS_KEY "$long_secret"
+  if [[ "${GOLIATH_WORKER_NEEDS_DATABASE:-}" == "1" ]]; then
+    append_kv "$tmp" POSTGRES_PASSWORD "${NEON_TEST_PASSWORD:-${POSTGRES_PASSWORD:-}}"
+  fi
+  mv -f "$tmp" "$secrets"
+  umask "$old_umask"
+  if ! chmod 600 "$secrets"; then
+    die "cannot protect ${secrets}"
+  fi
+  log "wrote ${pod_env} and secrets ${secrets}"
+}
+
+write_token_file() {
+  local dest="$1"
+  local value="$2"
+  local old_umask
+  if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
+    die "GOLIATH_WORKER_TOKEN contains a newline"
+  fi
+  if path_on_work "$dest"; then
+    die "refusing to write the worker token on ${WORK_MOUNT}"
+  fi
+  mkdir -p "$(dirname "$dest")"
+  old_umask="$(umask)"
+  umask 077
+  case "$value" in
+    WORKER_ID=*|WORKER_TOKEN=*)
+      printf '%s\n' "$value" >"$dest"
+      ;;
+    *)
+      if [[ -n "${WORKER_ID:-}" ]]; then
+        printf 'WORKER_ID=%s\nWORKER_TOKEN=%s\n' "$WORKER_ID" "$value" >"$dest"
+      else
+        printf 'WORKER_TOKEN=%s\n' "$value" >"$dest"
+      fi
+      ;;
+  esac
+  umask "$old_umask"
+  if ! chmod 600 "$dest"; then
+    die "cannot protect ${dest}"
+  fi
+}
+
+restore_or_write_token() {
+  local dest="$METHYL_WORKER_TOKEN_FILE"
+  if path_on_work "$dest"; then
+    die "refusing to write the worker token on ${WORK_MOUNT}"
+  fi
+  if [[ -f "$dest" ]]; then
+    log "using worker token ${dest}"
+    return 0
+  fi
+  if [[ -z "${GOLIATH_WORKER_TOKEN:-}" ]]; then
+    log "no worker token yet; enroll will write ${dest}"
+    return 0
+  fi
+  write_token_file "$dest" "$GOLIATH_WORKER_TOKEN"
+  log "wrote worker token to ${dest}"
+}
+
+persist_token() {
+  local dest="$METHYL_WORKER_TOKEN_FILE"
+  [[ -f "$dest" ]] || die "worker token file ${dest} was not written"
+  if path_on_work "$dest"; then
+    die "worker token ${dest} is on ${WORK_MOUNT}"
+  fi
+}
+
+stamp_payload() {
+  local current
+  current="$(readlink -f "$ROOT/current" 2>/dev/null || printf '%s' "$ROOT/current")"
+  printf 'api=%s\narch=%s\ncurrent=%s\n' "$WORKER_API_BASE" "$ARCH" "$current"
+}
+
+already_joined() {
+  local stamp="$1"
+  local token="$2"
+  local expected
+  [[ -f "$stamp" && -f "$token" ]] || return 1
+  expected="$(stamp_payload)"
+  [[ "$(cat "$stamp")" == "$expected" ]] || return 1
+  grep -q '^WORKER_ID=' "$token" || return 1
+  grep -q '^WORKER_TOKEN=' "$token" || return 1
+}
+
+run_provision() {
+  local provision
+  provision="$(resolve_tool "${GOLIATH_PROVISION_SCRIPT:-}" provision_worker_node.sh)" \
+    || die "provision_worker_node.sh not found under $ROOT/current"
+  local -a args=(
+    --join-mode join
+    --arch "$ARCH"
+    --root "$ROOT"
+    --cluster "${CLUSTER_KEY:-goliath}"
+    --gpu
+    --enroll-worker
+    --skip-preflight
+    --skip-host-setup
+    --skip-verify
+  )
+  if [[ -n "${GOLIATH_WORKER_CAPABILITY:-}" ]]; then
+    args+=(--capability "$GOLIATH_WORKER_CAPABILITY")
+  fi
+  log "provision_worker_node.sh --join-mode join --arch ${ARCH} --gpu (nvidia-smi probe; catalog capability only if GOLIATH_WORKER_CAPABILITY is set)"
+  bash "$provision" "${args[@]}"
+}
+
+report_worker() {
+  local action="$1"
+  local reporter msg
+  msg="node=$(node_id) host=${HOST_SHORT} arch=${ARCH} GPU=${GPU_DESC}"
+  reporter="$(resolve_tool "${GOLIATH_REPORT_SCRIPT:-}" report_deploy.sh)" \
+    || die "report_deploy.sh not found under $ROOT/current"
+  bash "$reporter" "$action" \
+    --service goliath-worker \
+    --env "$GOLIATH_ENV" \
+    --message "$msg" || true
+}
+
+systemd_running() {
+  command -v systemctl >/dev/null 2>&1 || return 1
+  [[ -d /run/systemd/system ]] || return 1
+  systemctl show-environment >/dev/null 2>&1
+}
+
+worker_bin() {
+  local candidate
+  for candidate in "$ROOT/venv-${ARCH}/bin/methyl-worker" "$ROOT/venv/bin/methyl-worker"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  if command -v methyl-worker >/dev/null 2>&1; then
+    command -v methyl-worker
+    return 0
+  fi
+  return 1
+}
+
+load_token_env() {
+  local file="$1"
+  local line key val
+  [[ -f "$file" ]] || die "missing worker token file ${file}"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      ''|\#*) continue ;;
+    esac
+    key="${line%%=*}"
+    val="${line#*=}"
+    case "$key" in
+      WORKER_ID) WORKER_ID="$val"; export WORKER_ID ;;
+      WORKER_TOKEN) WORKER_TOKEN="$val"; export WORKER_TOKEN ;;
+      *) ;;
+    esac
+  done <"$file"
+}
+
+start_supervisor() {
+  local bin pidfile token_file
+  bin="$(worker_bin)" || {
+    log "methyl-worker not found under $ROOT/venv-${ARCH} or $ROOT/venv"
+    return 1
+  }
+  mkdir -p "$LOG_DIR"
+  # worker.env sets TMPDIR=/var/tmp/methyl-samtools. The systemd unit creates
+  # that directory in ExecStartPre. Without systemd, tempfile calls fail on
+  # the first job unless the supervisor creates it too.
+  mkdir -p /var/tmp/methyl-samtools
+  chmod 1777 /var/tmp/methyl-samtools 2>/dev/null || true
+  pidfile="$LOG_DIR/methyl-worker.supervisor.pid"
+  if [[ -f "$pidfile" ]]; then
+    local old
+    old="$(cat "$pidfile" 2>/dev/null || true)"
+    if [[ -n "$old" ]] && kill -0 "$old" 2>/dev/null; then
+      log "methyl-worker supervisor already running pid=${old}"
+      return 0
+    fi
+  fi
+  token_file="$METHYL_WORKER_TOKEN_FILE"
+  # Monitor mode puts this background loop in its own process group so a
+  # later stop (kill -- -pid) also stops methyl-worker.
+  set -m
+  (
+    # Load the same worker.env EnvironmentFile the unit would, then the
+    # token so WORKER_ID / WORKER_TOKEN win.
+    local env_pod secrets_env
+    env_pod="$(node_root)/env/worker.env"
+    secrets_env="$(private_dir)/secrets.env"
+    if [[ -f "$ROOT/env/worker.env" ]]; then
+      set -a
+      # shellcheck disable=SC1091
+      source "$ROOT/env/worker.env"
+      set +a
+    fi
+    if [[ -f "$env_pod" ]]; then
+      set -a
+      # shellcheck disable=SC1090,SC1091
+      source "$env_pod"
+      set +a
+    fi
+    if [[ -f "$secrets_env" ]]; then
+      set -a
+      # shellcheck disable=SC1090,SC1091
+      source "$secrets_env"
+      set +a
+    fi
+    load_token_env "$token_file"
+    while true; do
+      "$bin" --api-base "$WORKER_API_BASE" >>"$LOG_DIR/methyl-worker.log" 2>&1 || true
+      sleep 5
+    done
+  ) &
+  set +m
+  printf '%s\n' "$!" >"$pidfile"
+  log "methyl-worker supervisor pid=$(cat "$pidfile") logs=${LOG_DIR}/methyl-worker.log"
+}
+
+start_worker() {
+  local installer=""
+  if systemd_running; then
+    installer="$(resolve_tool "" install_worker_systemd.sh)" || installer=""
+    if [[ -n "$installer" ]]; then
+      local -a sd_args=(--root "$ROOT" --arch "$ARCH")
+      if [[ -n "${GOLIATH_WORKER_CAPABILITY:-}" ]]; then
+        sd_args+=(--capability "$GOLIATH_WORKER_CAPABILITY")
+      else
+        sd_args+=(--detect-capabilities)
+      fi
+      if GOLIATH_ROLLOUTS_EXTERNAL=1 bash "$installer" "${sd_args[@]}"; then
+        log "started methyl-worker via systemd"
+        return 0
+      fi
+      log "systemd unit install failed; falling back to a supervisor"
+    else
+      log "install_worker_systemd.sh not found; falling back to a supervisor"
+    fi
+  else
+    log "systemd is not running; starting methyl-worker under a supervisor"
+  fi
+  start_supervisor
+}
+
+finish_exec() {
+  if [[ "${GOLIATH_START_NO_EXEC:-}" == "1" ]]; then
+    log "GOLIATH_START_NO_EXEC set; not execing a keepalive"
+    exit 0
+  fi
+  if [[ -z "${GOLIATH_START_KEEPALIVE:-}" ]]; then
+    log "worker is running; no keepalive command set"
+    exit 0
+  fi
+  printf '[start-shared-worker] keeping the process alive\n' >&2
+  exec_keepalive "$@" || exit 1
+}
+
+main() {
+  wait_for_work
+  export GOLIATH_SHARED_WORK=1
+  GOLIATH_NODE_ID="$(node_id)"
+  export GOLIATH_NODE_ID
+  apply_work_umask
+  mkdir -p "$ROOT" "$(node_root)/tmp" "$(node_root)/logs" "$(node_root)/status"
+  chmod_work "$(work_dir_mode)" "$ROOT" "$ROOT/nodes" "$(node_root)" "$(node_root)/tmp" "$(node_root)/logs" "$(node_root)/status"
+  if [[ -z "$LOG_DIR" ]]; then
+    LOG_DIR="$(node_root)/logs"
+  fi
+  mkdir -p "$LOG_DIR"
+  ensure_current
+  maybe_reexec "$@"
+  ensure_work_layout
+  [[ -n "${WORKER_API_BASE:-}" ]] || die "WORKER_API_BASE is required (profile public_base_url, for example https://45.76.21.8/v1)"
+  detect_gpu
+  install_gateway_ca
+  HOST_SHORT="$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo unknown)"
+  restore_or_write_token
+  write_worker_env
+  local state stamp
+  state="$(node_root)/status"
+  stamp="$state/joined"
+  mkdir -p "$state"
+  if already_joined "$stamp" "$METHYL_WORKER_TOKEN_FILE"; then
+    log "already joined this release; skipping provision_worker_node.sh"
+  else
+    run_provision
+    persist_token
+    apply_work_umask
+    stamp_payload >"$stamp"
+    chmod_work "$(work_file_mode)" "$stamp"
+  fi
+  report_worker start
+  if ! start_worker; then
+    report_worker failed
+    die "worker failed to start"
+  fi
+  report_worker succeeded
+  finish_exec "$@"
+}
+
+main "$@"

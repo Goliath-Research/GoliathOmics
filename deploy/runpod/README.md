@@ -1,10 +1,50 @@
 # RunPod worker template (`goliath-worker`)
 
-`deploy/targets/goliath-test.json` does not SSH to workers. The pool boots itself from a RunPod template cloned from `runpod-torch-v280`. The container start command is one line (`deploy/runpod/template-start-command.sh`). That line downloads `deploy/runpod/goliath-worker-bootstrap.sh` from the newest non-draft `goliathomics-*` release and runs it. On an empty `/work` the bootstrap creates `/work/goliath/bin`, downloads `goliath-worker-start.sh` from that release tag, and runs it.
+This directory is the RunPod adapter. The worker itself is provider-neutral: [`scripts/start_shared_worker.sh`](../../scripts/start_shared_worker.sh). How Lambda, Nebius, and a local disk call that script is [deploy/README.md](../README.md).
 
-`goliath-worker-start.sh` waits for the `/work` volume, creates the shared layout (`samples`, `projects`, `cache`, `genomes`, `site`) and `/work/goliath/docker`, uses `/work/goliath/current` when that tree is already there, otherwise downloads the latest GitHub release bundle, runs `provision_worker_node.sh` in join mode, reports `goliath-worker` to Rollouts, starts `methyl-worker`, and execs the image's `/start.sh` so Jupyter (port 8888) and SSH (port 22) keep working.
+`deploy/targets/goliath-test.json` does not SSH to workers. The pool boots itself from a RunPod template cloned from `runpod-torch-v280`. The container start command is one line (`deploy/runpod/template-start-command.sh`). That line downloads `deploy/runpod/goliath-worker-bootstrap.sh` from the newest non-draft `goliathomics-*` release and runs it. On an empty `/work` the bootstrap creates `/work/goliath/bin`, downloads the RunPod adapter, `scripts/start_shared_worker.sh`, and `keepalive.sh` from that release tag, and runs the adapter.
 
-`/work` is the network volume. It persists across pod restarts. The container disk does not. The enrollment token is copied to `/work/goliath/runpod/<RUNPOD_POD_ID>/worker-token` (mode 600) and restored to `/etc/methyl/worker-token` on the next boot. A restart of the same pod skips enroll when that token and the join stamp still match the release and `WORKER_API_BASE`.
+The adapter sets `GOLIATH_NODE_ID` from `RUNPOD_POD_ID` and `GOLIATH_START_KEEPALIVE` to `keepalive.sh` (which execs the image's `/start.sh`). It then execs `start_shared_worker.sh`. That script waits for `/work`, creates the shared layout (`samples`, `projects`, `cache`, `genomes`, `site`) and the shared image cache `/work/goliath/images`, uses `/work/goliath/current` when that tree is already there, otherwise downloads the latest GitHub release bundle, runs `provision_worker_node.sh` in join mode, reports `goliath-worker` to Rollouts, and starts `methyl-worker`. The keepalive then holds Jupyter (port 8888) and SSH (port 22). `/start.sh` is not used on any other cloud.
+
+`/work` on this template is one Runpod global volume mounted read-write by every pod (`goliath-worker-1`, `goliath-worker-2`, …). Global volumes do not support permission bits, file locking, hard links, or atomic rename ([Runpod global volume limitations](https://docs.runpod.io/storage/globalvolume/overview)). `chmod` and `chown` return `Operation not permitted`. The scripts still request the shared modes (`0755` directories, `0644` files, or `2775` / `0664` when `GOLIATH_SHARED_GROUP` exists). A rejected change is a warning. Files are created with umask `0022` (or `0002` with that group) so other pods can read them anyway. Other filesystems, including Lambda NFS and a local disk, honor the same `chmod`.
+
+## Shared volume layout
+
+Shared by every pod:
+
+| Path | Contents |
+| --- | --- |
+| `/work/samples`, `/work/projects`, `/work/cache` | Task inputs and outputs |
+| `/work/genomes`, `/work/site` | References and the site manifest |
+| `/work/goliath/releases`, `/work/goliath/current` | Release trees and the current symlink |
+| `/work/goliath/images` | Shared image cache |
+| `/work/goliath/bin/goliath-worker-start.sh` | Start script, run with `bash` |
+
+Per-node, still on `/work` and world-readable, under `/work/goliath/nodes/$GOLIATH_NODE_ID`. On RunPod the adapter sets `GOLIATH_NODE_ID` from `RUNPOD_POD_ID`. Other clouds use the hostname, then `/etc/machine-id`:
+
+| Path | Contents |
+| --- | --- |
+| `logs/` | `methyl-worker` logs and the supervisor pid |
+| `tmp/`, `scratch/` | Downloads and scratch that are not secrets |
+| `env/worker.env` | Non-secret worker settings (paths, images, endpoints) |
+| `status/joined` | Join stamp for this pod and release |
+
+Secrets never go on `/work`. The GitHub auth header, `secrets.env` (storage keys and the database password), and `/etc/methyl/worker-token` live on container-local disk (`/run/goliath`, or `/tmp/goliath-private` when `/run` is not writable) with umask `077`. The container disk does not survive a pod restart, so a new container enrolls again. A restart inside the same container skips enroll when the local token and `status/joined` still match.
+
+Two pods must not publish the same release at once. The downloader extracts into `/work/goliath/releases/.partial-<pod>`, renames that directory onto `/work/goliath/releases/<version>`, then runs `promote_release.sh`. A `mkdir` lock at `/work/goliath/locks/release-promote` serializes that critical section. Global volumes do not actually lock files, so the lock is advisory and a holder older than 30 minutes is removed. `current.ready` is written after the `current` symlink is updated. Readers should treat `current.ready` as the commit point, because rename on this volume is not atomic.
+
+Docker overlay storage does not work on the volume. The runtime data-root stays at `/var/lib/docker` on the container disk. `/work/goliath/images` is only a shared image cache. The start script logs a warning when `daemon.json` or `DOCKER_DATA_ROOT` points at `/work`.
+
+Container-local disk (the pod scratch / NVMe, about 30 GB on this template) is for secrets and for a workflow step's temporary compute. It is too small for shared results and it disappears when the container is replaced. `/work` is the shared result volume.
+
+Publishing a result is a workflow-step action, not something the pod boot scripts do. `methyl_worker.work_share.publish_to_work(local_src, dest)` is the helper a step calls after it finishes computing:
+
+1. If `local_src` is on container scratch, copy it once to the sibling `<dest>.tmp-<pod>-<task>` on `/work`.
+2. `rename` that sibling onto `dest` (no second copy once the bytes are on `/work`).
+3. Write `<dest>.complete` after the rename returns. Runpod global volumes do not support atomic rename, so other pods should read `dest` only after that marker exists.
+4. The copy is created with umask `0022` (`0002` when `GOLIATH_SHARED_GROUP` exists) and does not copy the source mode bits. `chmod` then sets `0644`/`0664` or `0755`/`2775`. A volume that ignores mode bits does not fail the publish.
+
+The workflow engine that decides when a step stages inputs locally and when it calls `publish_to_work` lives in [GoliathApp](https://github.com/Goliath-Research/GoliathApp). This repository does not change those step definitions. Follow-up there: call `publish_to_work` from the task runtime when a step's output must land on the shared volume, and keep partial bytes off the final path.
 
 A fresh volume does not need a manual copy of the start script. If the template line, the bootstrap, or the start script fails, the error is logged and `/start.sh` still runs, so the pod stays up for debugging instead of restart-looping.
 
@@ -26,13 +66,13 @@ The cloned template's default command runs `/start.sh` directly. Replace the con
 
 `GOLIATH_RELEASE_TAG` selects the git tag when it is set. Otherwise the line lists releases and uses the newest tag that starts with `goliathomics-`, skipping drafts and prereleases. It downloads `deploy/runpod/goliath-worker-bootstrap.sh` from that tag through the contents API (`GET /repos/{owner}/{repo}/contents/deploy/runpod/goliath-worker-bootstrap.sh?ref={tag}`). `gh release create` in `.github/workflows/release-assemble.yml` tags the repository checkout, and that workflow refuses to publish when this file is missing, so the path is on the tag. `GOLIATH_GITHUB_REPO` defaults to `Goliath-Research/GoliathOmics`. Leave `GOLIATH_GITHUB_API` unset; it defaults to `https://api.github.com`.
 
-The downloaded bootstrap waits until `/work` is writable, creates `/work/goliath/{bin,tmp,logs,env}`, and then:
+The downloaded bootstrap waits until `/work` is writable, creates `/work/goliath/{bin,releases,nodes}`, and then:
 
 1. Installs `/work/goliath/current/runtime-bundle/deploy/runpod/goliath-worker-start.sh` when that file is already on the volume.
 2. Otherwise runs `/work/goliath/bin/goliath-worker-start.sh` when that file is already installed.
-3. Otherwise uses `GH_TOKEN` to read the GitHub release list, selects `GOLIATH_RELEASE_TAG` or the newest non-draft `goliathomics-*` tag, downloads `deploy/runpod/goliath-worker-start.sh` from that git tag through the contents API, and installs it mode 755.
+3. Otherwise uses `GH_TOKEN` to read the GitHub release list, selects `GOLIATH_RELEASE_TAG` or the newest non-draft `goliathomics-*` tag, downloads `deploy/runpod/goliath-worker-start.sh` from that git tag through the contents API, and installs it. It also installs `scripts/start_shared_worker.sh` and `deploy/runpod/keepalive.sh` from that tag when a token is available. `chmod 0755` is attempted. A volume that rejects it logs a warning. The script is run with `bash`.
 
-The bootstrap sends its token with a mode 600 header file and removes the file. It does not print the token.
+The bootstrap sends its token with a mode 600 header file on container-local disk and removes the file. It does not print the token.
 
 If the download or the bootstrap fails, the line prints `goliath-stub-failed` and execs `/start.sh`. `GOLIATH_START_KEEPALIVE` overrides that path; leave it unset on the template. sshd on port 22 and Jupyter on port 8888 stay up, and the container does not exit, so RunPod does not restart-loop. A stop signal still ends the pod.
 
@@ -55,9 +95,9 @@ Set plain values in the template. Reference RunPod secrets as `{{ RUNPOD_SECRET_
 | `GOLIATH_ENV` | `goliath-test` |
 | `GOLIATH_GITHUB_REPO` | `Goliath-Research/GoliathOmics` |
 | `CLUSTER_KEY` | `goliath` |
-| `B2_BUCKET` | `goliath-omics` |
+| `B2_BUCKET` | `goliath-omics` (new data; S3 protocol) |
 | `B2_ENDPOINT` | `https://s3.us-east-005.backblazeb2.com` |
-| `LONGTERM_BUCKET` | `goliath-omics` |
+| `LONGTERM_BUCKET` | `goliath-omics` (long-term storage; S3 protocol) |
 | `LONGTERM_ENDPOINT` | `https://s3.us-east-1.myqnapcloud.io` |
 | `LONGTERM_HOST` | `s3.us-east-1.myqnapcloud.io` |
 | `LONGTERM_SHARE` | `goliath-omics` |
@@ -69,11 +109,13 @@ Set plain values in the template. Reference RunPod secrets as `{{ RUNPOD_SECRET_
 | `LONGTERM_SECRET_ACCESS_KEY` | `{{ RUNPOD_SECRET_LONGTERM_SECRET_ACCESS_KEY }}` |
 | `GH_TOKEN` | `{{ RUNPOD_SECRET_GH_TOKEN }}` (Contents read on `GOLIATH_GITHUB_REPO`. Required on every boot to fetch the bootstrap, to fetch the start script onto a fresh volume, and to download the release bundle when `/work/goliath/current` is missing) |
 
+`B2_*` is the new-data store and `LONGTERM_*` is the long-term store. Both speak S3. The pod keeps those names. Bucket and endpoint land in the per-node `worker.env`. Access keys land only in local `secrets.env` mode `0600`. The start script does not copy either store into `AWS_*` or `GOLIATH_LONGTERM_*`. A tool that needs `AWS_ACCESS_KEY_ID` for one call takes it from the store that call uses, inside that process.
+
 `NEON_TEST_PASSWORD` is not required on the worker. Set `GOLIATH_WORKER_NEEDS_DATABASE=1` and `NEON_TEST_PASSWORD={{ RUNPOD_SECRET_NEON_TEST_PASSWORD }}` only if this pod must open the database itself. The gateway holds the database password.
 
 `GOLIATH_WORKER_CAPABILITY` is optional. Leave it unset so `methyl-worker enroll` probes the GPU host (that probe uses `nvidia-smi`). Set it only to pin a catalog capability such as `parabricks.fq2bam`. The Rollouts message always includes the GPU name `nvidia-smi` printed, plus `RUNPOD_POD_ID`, the hostname, and `arch`.
 
-`RUNPOD_POD_ID` is injected by RunPod. Do not set it.
+`RUNPOD_POD_ID` is injected by RunPod. Do not set it. The adapter copies it into `GOLIATH_NODE_ID`. The shared start script does not read `RUNPOD_*`.
 
 ## Gateway certificate
 
@@ -87,7 +129,7 @@ ssh -i <deploy-key> linuxuser@45.76.21.8 sudo cat /etc/ssl/methyl-gateway/ca.pem
 
 Create a RunPod secret named `GOLIATH_GATEWAY_CA_PEM` whose value is that PEM, including the `BEGIN CERTIFICATE` and `END CERTIFICATE` lines. In the template, set `GOLIATH_GATEWAY_CA_PEM` to `{{ RUNPOD_SECRET_GOLIATH_GATEWAY_CA_PEM }}`.
 
-On boot the start script writes the PEM to `/work/goliath/env/gateway-ca.pem` (mode 644) and does not print it. When a system CA bundle is present it also writes `/work/goliath/env/requests-ca-bundle.pem` (the system bundle plus the gateway certificate) and exports `REQUESTS_CA_BUNDLE` and `SSL_CERT_FILE` to that file. `GOLIATH_GATEWAY_CA_FILE` points at the gateway certificate alone. `methyl-worker` adds `GOLIATH_GATEWAY_CA_FILE` to the default trust store for gateway HTTPS. `requests` uses `REQUESTS_CA_BUNDLE`, which still contains the system CAs, so other HTTPS calls keep working.
+On boot the start script writes the PEM to `/work/goliath/env/gateway-ca.pem` (world-readable; `chmod 644` is best-effort) and does not print it. When a system CA bundle is present it also writes `/work/goliath/env/requests-ca-bundle.pem` (the system bundle plus the gateway certificate) and exports `REQUESTS_CA_BUNDLE` and `SSL_CERT_FILE` to that file. `GOLIATH_GATEWAY_CA_FILE` points at the gateway certificate alone. `methyl-worker` adds `GOLIATH_GATEWAY_CA_FILE` to the default trust store for gateway HTTPS. `requests` uses `REQUESTS_CA_BUNDLE`, which still contains the system CAs, so other HTTPS calls keep working. The certificate is public. Storage keys and the worker token are not written beside it.
 
 Restart the pod after the secret is set. A pod that was already joined still rewrites `worker.env` on boot. If you rotate the gateway certificate, delete `/etc/ssl/methyl-gateway` on the gateway, deploy again, and replace the RunPod secret with the new `ca.pem`.
 
@@ -98,11 +140,11 @@ Optional: `GOLIATH_RELEASE_URL` is a direct tarball URL. `GOLIATH_RELEASE_TAG` s
 ## What the pod does on boot
 
 1. The template command downloads `goliath-worker-bootstrap.sh` from the release tag and runs it. The bootstrap waits until `/work` is mounted and writable, installs `goliath-worker-start.sh` under `/work/goliath/bin` (from the current bundle, the existing bin copy, or the release tag), and runs it. A failure here logs and execs `/start.sh`.
-2. The start script creates the shared directories when they are missing (`samples`, `projects`, `cache`, `genomes`, `site`, and `/work/goliath/docker`). When the release bundle includes `init_work_layout.sh`, that script does this and writes a default site manifest only if `/work/site/methyl_site.json` is absent.
-3. If `/work/goliath/current` exists, use it. Otherwise download the release bundle (`GH_TOKEN` / `GITHUB_TOKEN`, or `GOLIATH_RELEASE_URL`) and run `promote_release.sh --skip-docker-pull`. Parabricks is not pulled on this path. If neither current nor a token/URL is available, the script logs the error and execs `/start.sh` so Jupyter and SSH stay up.
-4. Run `provision_worker_node.sh --join-mode join --arch amd64 --gpu` so enroll can probe GPU capability via `nvidia-smi`. Host apt setup and the VM e2e verifier are skipped: this image already has the CUDA stack, and those checks are for SSH-managed VMs. Re-running the same pod with the same release and `WORKER_API_BASE` skips enroll.
-5. Report service `goliath-worker` through `report_deploy.sh`. The message looks like `RUNPOD_POD_ID=<id> host=<hostname> arch=amd64 GPU=<nvidia-smi name>`.
-6. Start `methyl-worker`. If systemd is running, install the unit. Otherwise a supervisor restarts `methyl-worker` and appends logs to `/work/goliath/logs/methyl-worker.log`.
-7. `exec /start.sh`.
+2. The shared start creates the shared directories when they are missing (`samples`, `projects`, `cache`, `genomes`, `site`, and `/work/goliath/images`) and the per-node directory `/work/goliath/nodes/$GOLIATH_NODE_ID`. When the release bundle includes `init_work_layout.sh`, that script creates the shared roots and writes a default site manifest only if `/work/site/methyl_site.json` is absent. It chmods directories to `0775` (or `2775` with `GOLIATH_SHARED_GROUP`). A rejected chmod is a warning.
+3. If `/work/goliath/current` exists, use it. Otherwise take the promote lock, download the release bundle (`GH_TOKEN` / `GITHUB_TOKEN`, or `GOLIATH_RELEASE_URL`) into the node tmp dir, rename it onto `/work/goliath/releases/<version>`, and run `promote_release.sh --skip-docker-pull`. Parabricks is not pulled on this path. `current.ready` is written last. If neither current nor a token/URL is available, the script logs the error and the RunPod keepalive execs `/start.sh` so Jupyter and SSH stay up.
+4. Run `provision_worker_node.sh --join-mode join --arch amd64 --gpu` so enroll can probe GPU capability via `nvidia-smi`. Host apt setup and the VM e2e verifier are skipped: this image already has the CUDA stack, and those checks are for SSH-managed VMs. Re-running inside the same container with the same release and `WORKER_API_BASE` skips enroll. The worker token stays on container-local disk.
+5. Report service `goliath-worker` through `report_deploy.sh`. The message looks like `node=<id> host=<hostname> arch=amd64 GPU=<nvidia-smi name>`.
+6. Start `methyl-worker`. If systemd is running, install the unit. Otherwise a supervisor restarts `methyl-worker` and appends logs to `/work/goliath/nodes/$GOLIATH_NODE_ID/logs/methyl-worker.log`. The supervisor loads the shared non-secret `worker.env`, the per-node `worker.env`, and the local `secrets.env`.
+7. The RunPod adapter execs `keepalive.sh`, which execs `/start.sh`. Other providers leave `GOLIATH_START_KEEPALIVE` unset and this step does not run.
 
 The script is safe to run again on the same pod. It does not print secret values. Genome files are not downloaded at boot; `genomes/` is only the shared directory (and the default site manifest, once the release bundle is present).

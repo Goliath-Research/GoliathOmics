@@ -129,8 +129,16 @@ pull_parabricks() {
 
 flip_current() {
   local link="$ROOT/current"
+  local marker="$ROOT/current.ready"
+  local tmp="$ROOT/.current.ready.$$"
+  # ln -sfn replaces the symlink by renaming a temporary link in this directory.
+  # Some shared volumes do not support atomic rename (a Runpod global volume
+  # is one). Readers must wait for current.ready, written after the symlink
+  # update returns.
   ln -sfn "$RELEASE_DIR" "$link"
-  info "Updated $link -> $RELEASE_DIR"
+  printf '%s\n' "$RELEASE_DIR" >"$tmp"
+  mv -f "$tmp" "$marker"
+  info "Updated $link -> $RELEASE_DIR (commit marker $marker)"
 }
 
 write_env() {
