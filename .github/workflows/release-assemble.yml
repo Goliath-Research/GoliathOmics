@@ -67,6 +67,8 @@ jobs:
           # reads these paths from that git tag through the contents API.
           test -s deploy/runpod/goliath-worker-bootstrap.sh
           test -s deploy/runpod/goliath-worker-start.sh
+          test -s deploy/runpod/keepalive.sh
+          test -s scripts/start_shared_worker.sh
 
       - name: Publish goliathomics GitHub Release
         env:

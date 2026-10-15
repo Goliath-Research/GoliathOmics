@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 # Initialize four-layer /work shared-storage roots and access modes.
 #
-# Worker-writable (0777 + default ACL when available):
-#   samples/   — FASTQ/BAM/H5 scratch shared by every worker (incl. Docker root)
+# Worker-writable directories:
+#   samples/   — FASTQ/BAM/H5 scratch shared by every worker
 #   projects/  — study outputs
 #   cache/     — mapper / enricher caches
+#   Mode 0775, or 2775 when GOLIATH_SHARED_GROUP names a group on this machine
+#   (setgid, so new children inherit that group). A default ACL is also applied
+#   when setfacl works, which is how Lambda NFS lets Docker-as-root children
+#   stay writable. chmod/chgrp failures are warnings.
 #
-# Worker-readable (0755, not other-writable):
+# Worker-readable (0755):
 #   genomes/   — reference inventory (ops / provision-assets write)
 #   site/      — methyl_site.json (default written once; an existing file is kept)
-#   goliath/ — releases, venvs, env, docker data-root (promote host writes)
+#   goliath/ — releases, venvs, env (promote host writes)
 #
 # Creates missing roots only. Does not recurse into existing trees.
 #
@@ -51,9 +55,13 @@ run() {
   fi
 }
 
-# 0777 — any worker uid (and Docker-as-root) can create sample / study / cache dirs.
-WRITABLE_MODE=0777
-# 0755 — workers read; owner (ops / promote) writes. Not world-writable.
+# 2775 when the shared group exists; otherwise 0775 (group-writable, world-readable).
+if [[ -n "${GOLIATH_SHARED_GROUP:-}" ]] && getent group "$GOLIATH_SHARED_GROUP" >/dev/null 2>&1; then
+  WRITABLE_MODE=2775
+else
+  WRITABLE_MODE=0775
+fi
+# 0755 — workers read; owner (ops / promote) writes.
 READONLY_MODE=0755
 
 WRITABLE_DIRS=(samples projects cache)
@@ -70,7 +78,12 @@ ensure_dir() {
     return 0
   fi
   if ! chmod "$mode" "$path" 2>/dev/null; then
-    warn "Could not chmod $mode $path (not owner?); current $(stat -c '%a' "$path" 2>/dev/null || echo unknown)"
+    warn "Could not chmod $mode $path (not owner, or this volume ignores permissions); current $(stat -c '%a' "$path" 2>/dev/null || echo unknown)"
+  fi
+  if [[ -n "${GOLIATH_SHARED_GROUP:-}" ]] && getent group "$GOLIATH_SHARED_GROUP" >/dev/null 2>&1; then
+    if ! chgrp "$GOLIATH_SHARED_GROUP" "$path" 2>/dev/null; then
+      warn "Could not chgrp $GOLIATH_SHARED_GROUP $path; continuing"
+    fi
   fi
 }
 
@@ -121,7 +134,9 @@ elif [[ "$DRY_RUN" -eq 1 ]]; then
   echo "[DRY-RUN] write default $SITE_JSON from $DEFAULT_SITE"
 else
   sed "s|__WORK__|$WORK|g" "$DEFAULT_SITE" > "$SITE_JSON"
-  chmod 0644 "$SITE_JSON"
+  if ! chmod 0644 "$SITE_JSON" 2>/dev/null; then
+    warn "Could not chmod 0644 $SITE_JSON (volume may ignore permissions)"
+  fi
   info "Wrote default site manifest $SITE_JSON (edit pins before provisioning genomes)"
 fi
 

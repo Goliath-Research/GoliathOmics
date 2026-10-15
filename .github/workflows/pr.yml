@@ -38,6 +38,7 @@ jobs:
             scripts/verify_setup.sh \
             scripts/verify_e2e_node.sh \
             scripts/init_work_layout.sh \
+            scripts/start_shared_worker.sh \
             scripts/install_methyl_extractor_tarball.sh \
             scripts/provision_worker_node.sh \
             scripts/test_report_deploy.sh \
@@ -49,6 +50,7 @@ jobs:
             scripts/test_gateway_wheel_release.sh \
             deploy/runpod/goliath-worker-bootstrap.sh \
             deploy/runpod/goliath-worker-start.sh \
+            deploy/runpod/keepalive.sh \
             deploy/runpod/template-start-command.sh \
             workflow_engine/sql_pg/deploy_test_bed.sh
 

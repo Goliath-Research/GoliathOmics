@@ -703,8 +703,8 @@ describe_self_provision_worker() {
   info "  provider=${provider} arch=${arch} template=${template}"
   info "  image=${image}"
   info "  gpu=${gpu} vcpu=${vcpu} memory_gb=${ram} volume=${mount} install_root=${root}"
-  info "  boot: template start command fetches deploy/runpod/goliath-worker-bootstrap.sh, which installs deploy/runpod/goliath-worker-start.sh onto an empty /work"
-  info "  the pod enrolls with WORKER_API_BASE and reports goliath-worker (RUNPOD_POD_ID, host, arch, GPU)"
+  info "  boot: template start command fetches deploy/runpod/goliath-worker-bootstrap.sh, which installs deploy/runpod/goliath-worker-start.sh and scripts/start_shared_worker.sh onto an empty /work"
+  info "  the node enrolls with WORKER_API_BASE and reports goliath-worker (node id, host, arch, GPU). The RunPod adapter sets the node id from RUNPOD_POD_ID."
 }
 
 run_workers() {

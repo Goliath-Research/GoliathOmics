@@ -163,6 +163,7 @@ build_runtime_bundle() {
            install_reclaim_leases_timer.sh provision_gateway_node.sh \
            setup_gateway_nginx.sh \
            provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh \
+           start_shared_worker.sh \
            install_methyl_extractor_tarball.sh \
            deploy_workflow_definitions.sh deploy_mc_workflow_definitions.sh \
            deploy_process_pack_catalog.sh deploy_target.sh \

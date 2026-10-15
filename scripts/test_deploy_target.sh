@@ -611,6 +611,8 @@ awk '
 command -v shellcheck >/dev/null 2>&1 || fail "shellcheck is required"
 shellcheck -S warning -e SC1091 \
   "$start_script" \
+  "$ROOT/scripts/start_shared_worker.sh" \
+  "$ROOT/deploy/runpod/keepalive.sh" \
   "$ROOT/deploy/runpod/goliath-worker-bootstrap.sh" \
   "$ROOT/deploy/runpod/template-start-command.sh" \
   "$ROOT/scripts/setup_gateway_nginx.sh" \
@@ -618,7 +620,8 @@ shellcheck -S warning -e SC1091 \
   "$ROOT/scripts/test_setup_gateway_nginx.sh"
 
 work_root="$(mktemp -d)"
-token_file="$work_root/worker-token"
+private_root="$(mktemp -d)"
+token_file="$private_root/worker-token"
 prov_log="$(mktemp)"
 report_log="$(mktemp)"
 cat >"$work_root/provision" <<EOF
@@ -681,6 +684,7 @@ run_start() {
     GOLIATH_PROVISION_SCRIPT="$work_root/provision" \
     GOLIATH_REPORT_SCRIPT="$work_root/report" \
     METHYL_WORKER_TOKEN_FILE="$token_file" \
+    GOLIATH_PRIVATE_DIR="$private_root" \
     WORKER_API_BASE="https://45.76.21.8/v1" \
     RUNPOD_POD_ID="pod-test-1" \
     GOLIATH_WORKER_TOKEN="sekret-token" \
@@ -702,7 +706,7 @@ grep -q -- '--gpu' "$prov_log" || fail "start script should pass --gpu"
 if grep -q -- '--capability' "$prov_log"; then
   fail "start script should let enroll probe GPU capability instead of passing the product string"
 fi
-grep -q 'RUNPOD_POD_ID=pod-test-1' "$report_log" || fail "report should include RUNPOD_POD_ID"
+grep -q 'node=pod-test-1' "$report_log" || fail "report should include the node id"
 grep -q 'arch=amd64' "$report_log" || fail "report should include arch"
 grep -q 'GPU=NVIDIA RTX 6000 Ada Generation' "$report_log" || fail "report should include the nvidia-smi GPU name"
 grep -q 'host=' "$report_log" || fail "report should include host"
@@ -728,11 +732,19 @@ if grep -q 'neon-sekret' "$out" "$err"; then
   fail "start script printed the Neon password"
 fi
 # The worker does not need the database password unless asked.
-if grep -q 'POSTGRES_PASSWORD' "$work_root/goliath/env/worker.env"; then
+if grep -q 'POSTGRES_PASSWORD' "$work_root/goliath/env/worker.env" \
+  "$work_root/goliath/nodes/pod-test-1/env/worker.env"; then
   fail "worker.env should not contain the Neon password by default"
 fi
-worker_env="$work_root/goliath/env/worker.env"
-[[ "$(stat -c %a "$worker_env")" == "600" ]] || fail "worker.env must be mode 600"
+worker_env="$work_root/goliath/nodes/pod-test-1/env/worker.env"
+secrets_env="$private_root/secrets.env"
+[[ "$(stat -c %a "$worker_env")" == "644" ]] || fail "node worker.env must be world-readable"
+grep -q '^GOLIATH_NODE_ID="pod-test-1"$' "$worker_env" \
+  || fail "node worker.env should record GOLIATH_NODE_ID"
+[[ "$(stat -c %a "$secrets_env")" == "600" ]] || fail "secrets env must be mode 600"
+if grep -q 'b2-sekret' "$work_root/goliath/env/worker.env" "$worker_env"; then
+  fail "storage secret was written on the shared volume"
+fi
 grep -q '^METHYL_EXTRACTOR_BIN=/work/goliath/methyl-extractor-amd64/bin/MethylExtractor$' "$worker_env" \
   || fail "promote METHYL_EXTRACTOR_BIN was dropped from worker.env"
 grep -q '^METHYL_PARABRICKS_IMAGE=nvcr.io/nvidia/clara-parabricks:4.5.1$' "$worker_env" \
@@ -747,8 +759,8 @@ grep -q '^HDF5_PLUGIN_PATH=/work/goliath/methyl-extractor-amd64/lib/hdf5_zstd_pl
   || fail "promote HDF5_PLUGIN_PATH was dropped from worker.env"
 extractor_lines="$(grep -c '^METHYL_EXTRACTOR_BIN=' "$worker_env" || true)"
 [[ "$extractor_lines" == "1" ]] || fail "METHYL_EXTRACTOR_BIN should appear once"
-grep -q '^AWS_SECRET_ACCESS_KEY="b2-sekret"$' "$worker_env" \
-  || fail "worker.env should still receive storage keys"
+grep -q '^AWS_SECRET_ACCESS_KEY="b2-sekret"$' "$secrets_env" \
+  || fail "secrets env should receive storage keys"
 seen="$work_root/methyl-worker-env"
 for ((i = 0; i < 50; i++)); do
   [[ -s "$seen" ]] && break
@@ -788,7 +800,65 @@ grep -q "^REQUESTS_CA_BUNDLE=${bundle_file}\$" "$seen" \
 for layout_name in samples projects cache genomes site; do
   [[ -d "$work_root/$layout_name" ]] || fail "start script should create ${layout_name} on an empty layout"
 done
-[[ -d "$work_root/goliath/docker" ]] || fail "start script should create the docker data root"
+[[ -d "$work_root/goliath/images" ]] || fail "start script should create the shared image cache"
+grep -q 'container-local disk' "$out" || fail "start script should warn that Docker overlay stays off the network volume"
+
+deny_root="$(mktemp -d)"
+mkdir -p "$deny_root/bin" "$deny_root/work/goliath/current" "$deny_root/work/goliath/venv-amd64/bin" \
+  "$deny_root/work/goliath/env" "$deny_root/private"
+cat >"$deny_root/bin/chmod" <<EOF
+#!/bin/bash
+for arg in "\$@"; do
+  case "\$arg" in
+    "$deny_root/work"|"$deny_root/work"/*)
+      echo "cannot change permissions of \$arg: Operation not permitted" >&2
+      exit 1
+      ;;
+  esac
+done
+exec /bin/chmod "\$@"
+EOF
+chmod +x "$deny_root/bin/chmod"
+cp "$work_root/goliath/venv-amd64/bin/methyl-worker" "$deny_root/work/goliath/venv-amd64/bin/methyl-worker"
+cp "$work_root/goliath/env/worker.env" "$deny_root/work/goliath/env/worker.env"
+chmod +x "$deny_root/work/goliath/venv-amd64/bin/methyl-worker"
+env -u GH_TOKEN -u GITHUB_TOKEN -u GOLIATH_RELEASE_URL \
+  GOLIATH_ROOT="$deny_root/work/goliath" \
+  GOLIATH_WORK_MOUNT="$deny_root/work" \
+  GOLIATH_PRIVATE_DIR="$deny_root/private" \
+  GOLIATH_START_NO_EXEC=1 \
+  GOLIATH_PROVISION_SCRIPT="$work_root/provision" \
+  GOLIATH_REPORT_SCRIPT="$work_root/report" \
+  METHYL_WORKER_TOKEN_FILE="$deny_root/private/worker-token" \
+  WORKER_API_BASE="https://45.76.21.8/v1" \
+  RUNPOD_POD_ID="pod-chmod" \
+  GOLIATH_WORKER_TOKEN="sekret-token" \
+  B2_SECRET_ACCESS_KEY="b2-sekret" \
+  PATH="$deny_root/bin:$work_root:$PATH" \
+  bash "$start_script" >"$out" 2>"$err"
+grep -q 'was not applied' "$out" || fail "chmod failure on /work should warn and continue"
+if grep -q 'cannot create' "$err"; then
+  fail "mkdir on a chmod-rejecting volume should still create the work tree"
+fi
+[[ -d "$deny_root/work/goliath/nodes/pod-chmod/logs" ]] || fail "per-node logs dir should exist when chmod fails"
+[[ -f "$deny_root/private/secrets.env" ]] || fail "secrets stay on local disk when /work rejects chmod"
+[[ "$(stat -c %a "$deny_root/private/secrets.env")" == "600" ]] || fail "local secrets file must be mode 600"
+if grep -R -q 'b2-sekret' "$deny_root/work"; then
+  fail "chmod-rejecting /work must not contain the storage secret"
+fi
+if [[ -f "$deny_root/work/goliath/logs/methyl-worker.supervisor.pid" ]]; then
+  kill "$(cat "$deny_root/work/goliath/logs/methyl-worker.supervisor.pid")" >/dev/null 2>&1 || true
+fi
+pod_pid="$deny_root/work/goliath/nodes/pod-chmod/logs/methyl-worker.supervisor.pid"
+if [[ -f "$pod_pid" ]]; then
+  kill "$(cat "$pod_pid")" >/dev/null 2>&1 || true
+fi
+if [[ -d "$work_root/goliath/runpod" ]]; then
+  fail "worker identity must not be stored under goliath/runpod"
+fi
+if grep -q 'b2-sekret' "$work_root/goliath/nodes/pod-test-1/status/joined" 2>/dev/null; then
+  fail "join stamp must not contain the storage secret"
+fi
 
 empty_root="$(mktemp -d)"
 set +e
@@ -828,7 +898,7 @@ set -e
 [[ "$status" -eq 0 ]] || fail "start failure should exec the keepalive command (status $status)"
 grep -q 'kept-alive' "$keep_marker" || fail "start failure should keep the pod alive"
 grep -q 'GOLIATH_RELEASE_URL' "$err" || fail "keepalive path should still log why startup failed"
-grep -q 'keeping the pod alive' "$err" || fail "keepalive path should say the pod stays up"
+grep -q 'keeping the process alive' "$err" || fail "keepalive path should say the process stays up"
 if grep -q 'sekret-token' "$out" "$err"; then
   fail "keepalive path printed the worker token"
 fi
@@ -1018,6 +1088,12 @@ case "\$url" in
   *"/contents/deploy/runpod/goliath-worker-start.sh?ref="*)
     cp "$boot_contents" "\$out"
     ;;
+  *"/contents/scripts/start_shared_worker.sh?ref="*)
+    python3 -c 'import base64,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); b=b"#!/usr/bin/env bash\n# start_shared_worker\n"; p.write_text(json.dumps({"encoding":"base64","content":base64.b64encode(b).decode()}))' "\$out"
+    ;;
+  *"/contents/deploy/runpod/keepalive.sh?ref="*)
+    python3 -c 'import base64,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); b=b"#!/usr/bin/env bash\n# goliath-runpod\n"; p.write_text(json.dumps({"encoding":"base64","content":base64.b64encode(b).decode()}))' "\$out"
+    ;;
   *)
     printf 'unexpected url\n' >&2
     exit 1
@@ -1050,7 +1126,7 @@ grep -q '/releases?per_page=' "$curl_urls" || fail "bootstrap should list releas
   || fail "installed start script must be mode 755"
 cmp -s "$boot_stub" "$boot_mount/goliath/bin/goliath-worker-start.sh" \
   || fail "installed start script should match the release contents"
-if find "$boot_mount/goliath/tmp" -type f | grep -q .; then
+if find "$boot_mount/goliath/tmp" -type f 2>/dev/null | grep -q .; then
   fail "bootstrap left a GitHub header or download in tmp"
 fi
 if grep -q 'gh-sekret-token' "$out" "$err" "$curl_args" "$curl_urls"; then
@@ -1180,11 +1256,55 @@ if find "$boot_mount/fresh/goliath/tmp" -type f 2>/dev/null | grep -q .; then
   fail "rejected tag left a header file behind"
 fi
 
+boot_deny="$(mktemp -d)"
+mkdir -p "$boot_deny/bin" "$boot_deny/work" "$boot_deny/private"
+cat >"$boot_deny/bin/chmod" <<EOF
+#!/bin/bash
+for arg in "\$@"; do
+  case "\$arg" in
+    "$boot_deny/work"|"$boot_deny/work"/*)
+      echo "cannot change permissions of \$arg: Operation not permitted" >&2
+      exit 1
+      ;;
+  esac
+done
+exec /bin/chmod "\$@"
+EOF
+chmod +x "$boot_deny/bin/chmod"
+: >"$curl_urls"
+env -u GITHUB_TOKEN \
+  GOLIATH_WORK_MOUNT="$boot_deny/work" \
+  GOLIATH_ROOT="$boot_deny/work/goliath" \
+  GOLIATH_PRIVATE_DIR="$boot_deny/private" \
+  GH_TOKEN="gh-sekret-token" \
+  GOLIATH_GITHUB_REPO="Goliath-Research/GoliathOmics" \
+  PATH="$boot_deny/bin:$boot_bin:$PATH" \
+  bash "$boot" >"$out" 2>"$err"
+grep -q 'stub-ran' "$out" || fail "bootstrap should run the start script when chmod fails on /work"
+grep -q 'was not applied' "$out" || fail "bootstrap should warn when chmod on /work fails"
+if grep -q 'cannot create' "$err"; then
+  fail "bootstrap should not treat a chmod failure as a missing directory"
+fi
+[[ -f "$boot_deny/work/goliath/bin/goliath-worker-start.sh" ]] \
+  || fail "bootstrap should still install the start script when chmod fails"
+[[ -f "$boot_deny/private/github.headers" ]] && fail "GitHub header should be removed"
+if find "$boot_deny/work" -type f -print0 | xargs -0 grep -q 'gh-sekret-token' 2>/dev/null; then
+  fail "GitHub token was stored on the chmod-rejecting volume"
+fi
+
 assemble="$ROOT/.github/workflows/release-assemble.yml"
 grep -q 'test -s deploy/runpod/goliath-worker-bootstrap.sh' "$assemble" \
   || fail "release assemble should require the bootstrap script on the tagged commit"
 grep -q 'test -s deploy/runpod/goliath-worker-start.sh' "$assemble" \
   || fail "release assemble should require the start script on the tagged commit"
+grep -q 'test -s scripts/start_shared_worker.sh' "$assemble" \
+  || fail "release assemble should require the shared worker start on the tagged commit"
+if grep -q 'RUNPOD_' "$ROOT/scripts/start_shared_worker.sh"; then
+  fail "shared worker start must not reference RUNPOD_ variables"
+fi
+if grep -q '/start.sh' "$ROOT/scripts/start_shared_worker.sh"; then
+  fail "shared worker start must not reference /start.sh"
+fi
 
 # The template line fetches the bootstrap from a GitHub-shaped API, then the
 # bootstrap fetches the start script with curl. Serve both from this host.

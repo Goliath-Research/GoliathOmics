@@ -20,9 +20,12 @@ Helpers here cover both sides:
 
 from __future__ import annotations
 
+import grp
 import logging
 import os
+import re
 import shutil
+import socket
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
@@ -106,6 +109,192 @@ def docker_umask_suffix(*container_argv: str, umask: str = "000") -> list[str]:
     if not container_argv:
         raise ValueError("docker_umask_suffix requires a command to exec")
     return ["-c", f"umask {umask}; exec \"$@\"", "sh", *container_argv]
+
+
+def _safe_component(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-.")
+    return cleaned or "x"
+
+
+def _machine_id() -> str:
+    try:
+        text = Path("/etc/machine-id").read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    return _safe_component(text.strip()[:32])
+
+
+def _shared_group() -> str:
+    """Group name when ``GOLIATH_SHARED_GROUP`` exists on this machine."""
+    group = (os.environ.get("GOLIATH_SHARED_GROUP") or "").strip()
+    if not group:
+        return ""
+    try:
+        grp.getgrnam(group)
+    except KeyError:
+        return ""
+    return group
+
+
+def publisher_id() -> str:
+    """Node id used in staging directory names.
+
+    ``GOLIATH_NODE_ID`` is the provider-neutral name. A RunPod adapter sets
+    it from ``RUNPOD_POD_ID`` before the worker starts. Otherwise the
+    hostname is used, then ``/etc/machine-id``.
+    """
+    raw = (os.environ.get("GOLIATH_NODE_ID") or "").strip()
+    if not raw:
+        raw = socket.gethostname().split(".")[0]
+    cleaned = _safe_component(raw) if raw else ""
+    if cleaned and cleaned != "x":
+        return cleaned
+    return _machine_id() or "node"
+
+
+def _work_umask() -> int:
+    """``0002`` with a shared group, otherwise ``0022``."""
+    if _shared_group():
+        return 0o002
+    return 0o022
+
+
+def _explicit_mode(path: Path) -> int:
+    """Directory 2775/0755 or file 0664/0644, matching the shell start."""
+    if path.is_dir():
+        return 0o2775 if _shared_group() else 0o0755
+    return 0o0664 if _shared_group() else 0o0644
+
+
+def completion_marker(dest: Path | str) -> Path:
+    """Sibling ``<name>.complete`` written after the output rename returns."""
+    path = Path(dest)
+    return path.parent / f"{path.name}.complete"
+
+
+def _device(path: Path) -> int:
+    return path.stat().st_dev
+
+
+def _clear_path(path: Path) -> None:
+    if not path.exists():
+        return
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
+def _rename_over(src: Path, dest: Path) -> None:
+    """Same-filesystem rename. Replaces an existing file or directory."""
+    if dest.exists() and dest.is_dir():
+        displaced = dest.with_name(f"{dest.name}.replacing-{os.getpid()}")
+        os.rename(dest, displaced)
+        try:
+            os.rename(src, dest)
+        except OSError:
+            os.rename(displaced, dest)
+            raise
+        shutil.rmtree(displaced, ignore_errors=True)
+        return
+    os.rename(src, dest)
+
+
+def _copy_readable(src: Path, dst: Path) -> None:
+    """Copy bytes without copying mode bits.
+
+    ``shutil.copy2`` finishes with ``copystat``. On a volume that rejects
+    ``chmod`` (a Runpod global volume does) that raises and the copy aborts
+    after the bytes are already written. Callers set a world-readable umask
+    so the new files stay readable when the mode cannot be changed later.
+    """
+    if src.is_dir():
+        dst.mkdir()
+        for child in src.iterdir():
+            _copy_readable(child, dst / child.name)
+        return
+    shutil.copyfile(src, dst)
+
+
+def _write_completion_marker(dest: Path) -> Path:
+    """Commit point after rename.
+
+    Some shared volumes do not support atomic rename. A Runpod global volume
+    is one (https://docs.runpod.io/storage/globalvolume/overview); POSIX
+    filesystems and many NFS servers do. Readers on a non-atomic volume wait
+    for this marker. It is a small file in ``dest``'s directory, written only
+    after ``os.rename`` returns.
+    """
+    marker = completion_marker(dest)
+    tmp = dest.parent / f".{dest.name}.complete.tmp-{os.getpid()}"
+    tmp.write_text(dest.name + "\n", encoding="utf-8")
+    os.rename(tmp, marker)
+    try:
+        share_work_path(marker)
+    except OSError as exc:
+        logger.warning("completion marker chmod failed for %s: %s", marker, exc)
+    return marker
+
+
+def publish_to_work(local_src: Path | str, dest: Path | str, *, task: str = "task") -> Path:
+    """Publish a workflow output onto ``/work`` so every pod can read it.
+
+    Workflow steps may compute on local scratch and then call this. The one
+    copy from local scratch lands in the sibling ``<dest>.tmp-<node>-<task>``
+    on ``dest``'s filesystem. ``os.rename`` then publishes ``dest``. A
+    ``<dest>.complete`` marker is written last because some shared volumes
+    do not provide atomic rename.
+
+    A source that is already on ``dest``'s filesystem is renamed, not copied
+    again. The cross-filesystem copy uses umask ``0022`` (``0002`` when
+    ``GOLIATH_SHARED_GROUP`` exists) and does not copy mode bits. ``chmod``
+    to 0644/0664 or 0755/2775 is then attempted. A volume that rejects chmod
+    logs a warning and still returns ``dest``.
+    """
+    src_p = Path(local_src)
+    dest_p = Path(dest)
+    if not src_p.exists():
+        raise FileNotFoundError(src_p)
+    dest_p.parent.mkdir(parents=True, exist_ok=True)
+    staging = dest_p.with_name(
+        f"{dest_p.name}.tmp-{publisher_id()}-{_safe_component(task)}"
+    )
+    if staging.resolve() == src_p.resolve():
+        raise RuntimeError(f"refusing to publish {src_p} onto itself")
+    _clear_path(staging)
+    same_fs = _device(src_p) == _device(dest_p.parent)
+    if same_fs:
+        os.rename(src_p, staging)
+    else:
+        previous_umask = os.umask(_work_umask())
+        try:
+            _copy_readable(src_p, staging)
+        finally:
+            os.umask(previous_umask)
+    try:
+        _rename_over(staging, dest_p)
+    except Exception:
+        if same_fs and staging.exists() and not src_p.exists():
+            try:
+                os.rename(staging, src_p)
+            except OSError:
+                logger.warning("could not restore %s after a failed publish", src_p)
+        else:
+            _clear_path(staging)
+        raise
+    _write_completion_marker(dest_p)
+    try:
+        dest_p.chmod(_explicit_mode(dest_p))
+    except OSError as exc:
+        logger.warning("post-publish chmod failed for %s: %s", dest_p, exc)
+    try:
+        if dest_p.is_dir():
+            share_work_tree(dest_p)
+        else:
+            share_work_path(dest_p)
+    except OSError as exc:
+        logger.warning("post-publish share failed for %s: %s", dest_p, exc)
+    return dest_p
 
 
 def _share_work_path_via_docker(path: Path) -> bool:
