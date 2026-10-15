@@ -2,10 +2,11 @@
 # Provider-neutral shared-worker start. start_shared_worker
 #
 # Every cluster mounts shared read/write storage at /work (override with
-# GOLIATH_WORK_MOUNT) and reaches long-term objects through S3-compatible
-# settings (AWS_* / GOLIATH_LONGTERM_*). This script does not know which
-# cloud provided the machine. A provider adapter (deploy/runpod/) may set
-# GOLIATH_NODE_ID and GOLIATH_START_KEEPALIVE before exec.
+# GOLIATH_WORK_MOUNT). New data uses B2_* (S3 protocol). Long-term objects
+# use LONGTERM_* (S3 protocol, myQNAPcloud on the current cluster). Those
+# names are the inputs. This script does not know which cloud provided the
+# machine. A provider adapter (deploy/runpod/) may set GOLIATH_NODE_ID and
+# GOLIATH_START_KEEPALIVE before exec.
 #
 # Required: WORKER_API_BASE (the gateway URL). Secrets stay on local disk
 # at mode 0600. Files on /work are created world-readable (umask 0022,
@@ -577,22 +578,34 @@ secret_env_key() {
   esac
 }
 
+# Older files used AWS_* and GOLIATH_LONGTERM_* for both stores. Drop them
+# so one store's settings are not reused under the other store's names.
+storage_alias_key() {
+  case "$1" in
+    AWS_*|GOLIATH_LONGTERM_*|GOLIATH_SHARED_PROVIDER|GOLIATH_SHARED_BUCKET) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 write_worker_env() {
   local shared="$ROOT/env/worker.env"
   local dest pod_env secrets old_umask tmp owned line key
   pod_env="$(node_root)/env/worker.env"
   secrets="$(private_dir)/secrets.env"
   dest="$pod_env"
-  local b2_key="${B2_ACCESS_KEY_ID:-${AWS_ACCESS_KEY_ID:-}}"
-  local b2_secret="${B2_SECRET_ACCESS_KEY:-${AWS_SECRET_ACCESS_KEY:-}}"
-  local b2_endpoint="${B2_ENDPOINT:-${AWS_ENDPOINT_URL:-}}"
-  local b2_bucket="${B2_BUCKET:-${GOLIATH_SHARED_BUCKET:-}}"
-  local long_key="${LONGTERM_ACCESS_KEY_ID:-${GOLIATH_LONGTERM_ACCESS_KEY_ID:-}}"
-  local long_secret="${LONGTERM_SECRET_ACCESS_KEY:-${GOLIATH_LONGTERM_SECRET_ACCESS_KEY:-}}"
-  local long_endpoint="${LONGTERM_ENDPOINT:-${GOLIATH_LONGTERM_ENDPOINT:-}}"
+  local b2_key="${B2_ACCESS_KEY_ID:-}"
+  local b2_secret="${B2_SECRET_ACCESS_KEY:-}"
+  local b2_endpoint="${B2_ENDPOINT:-}"
+  local b2_bucket="${B2_BUCKET:-}"
+  local long_key="${LONGTERM_ACCESS_KEY_ID:-}"
+  local long_secret="${LONGTERM_SECRET_ACCESS_KEY:-}"
+  local long_endpoint="${LONGTERM_ENDPOINT:-}"
+  local long_bucket="${LONGTERM_BUCKET:-}"
+  local long_host="${LONGTERM_HOST:-}"
+  local long_share="${LONGTERM_SHARE:-}"
   # promote_release.sh already wrote extractor, Parabricks, PATH, CAAS, and
   # HBM settings. Refresh only the storage and API keys this script owns.
-  owned='WORKER_API_BASE|GOLIATH_ENV|GOLIATH_SHARED_PROVIDER|GOLIATH_SHARED_BUCKET|AWS_ENDPOINT_URL|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GOLIATH_LONGTERM_PROVIDER|GOLIATH_LONGTERM_BUCKET|GOLIATH_LONGTERM_ENDPOINT|GOLIATH_LONGTERM_HOST|GOLIATH_LONGTERM_SHARE|GOLIATH_LONGTERM_ACCESS_KEY_ID|GOLIATH_LONGTERM_SECRET_ACCESS_KEY|WORKER_CAPABILITY|POSTGRES_HOST|POSTGRES_DB|POSTGRES_USER|POSTGRES_SSLMODE|POSTGRES_CHANNEL_BINDING|POSTGRES_PASSWORD|GOLIATH_GATEWAY_CA_FILE|REQUESTS_CA_BUNDLE|SSL_CERT_FILE'
+  owned='WORKER_API_BASE|GOLIATH_ENV|B2_BUCKET|B2_ENDPOINT|LONGTERM_BUCKET|LONGTERM_ENDPOINT|LONGTERM_HOST|LONGTERM_SHARE|WORKER_CAPABILITY|POSTGRES_HOST|POSTGRES_DB|POSTGRES_USER|POSTGRES_SSLMODE|POSTGRES_CHANNEL_BINDING|POSTGRES_PASSWORD|GOLIATH_GATEWAY_CA_FILE|REQUESTS_CA_BUNDLE|SSL_CERT_FILE'
   mkdir -p "$(dirname "$pod_env")" "$ROOT/env"
   old_umask="$(umask)"
   apply_work_umask
@@ -603,7 +616,7 @@ write_worker_env() {
         ''|\#*) printf '%s\n' "$line" >>"$tmp"; continue ;;
       esac
       key="${line%%=*}"
-      if secret_env_key "$key"; then
+      if secret_env_key "$key" || storage_alias_key "$key"; then
         continue
       fi
       if [[ "$key" =~ ^(${owned})$ ]]; then
@@ -620,16 +633,14 @@ write_worker_env() {
   append_kv "$tmp" GOLIATH_GATEWAY_CA_FILE "${GOLIATH_GATEWAY_CA_FILE:-}"
   append_kv "$tmp" REQUESTS_CA_BUNDLE "${REQUESTS_CA_BUNDLE:-}"
   append_kv "$tmp" SSL_CERT_FILE "${SSL_CERT_FILE:-}"
-  append_kv "$tmp" GOLIATH_SHARED_PROVIDER "b2"
-  append_kv "$tmp" GOLIATH_SHARED_BUCKET "$b2_bucket"
-  append_kv "$tmp" AWS_ENDPOINT_URL "$b2_endpoint"
+  append_kv "$tmp" B2_BUCKET "$b2_bucket"
+  append_kv "$tmp" B2_ENDPOINT "$b2_endpoint"
   append_kv "$tmp" DOCKER_DATA_ROOT "/var/lib/docker"
   append_kv "$tmp" GOLIATH_IMAGE_CACHE "$ROOT/images"
-  append_kv "$tmp" GOLIATH_LONGTERM_PROVIDER "myqnapcloud"
-  append_kv "$tmp" GOLIATH_LONGTERM_BUCKET "${LONGTERM_BUCKET:-${GOLIATH_LONGTERM_BUCKET:-}}"
-  append_kv "$tmp" GOLIATH_LONGTERM_ENDPOINT "$long_endpoint"
-  append_kv "$tmp" GOLIATH_LONGTERM_HOST "${LONGTERM_HOST:-${GOLIATH_LONGTERM_HOST:-}}"
-  append_kv "$tmp" GOLIATH_LONGTERM_SHARE "${LONGTERM_SHARE:-${GOLIATH_LONGTERM_SHARE:-}}"
+  append_kv "$tmp" LONGTERM_BUCKET "$long_bucket"
+  append_kv "$tmp" LONGTERM_ENDPOINT "$long_endpoint"
+  append_kv "$tmp" LONGTERM_HOST "$long_host"
+  append_kv "$tmp" LONGTERM_SHARE "$long_share"
   append_kv "$tmp" GOLIATH_NODE_ID "$(node_id)"
   append_kv "$tmp" GOLIATH_SHARED_GROUP "${GOLIATH_SHARED_GROUP:-}"
   if [[ -n "${GOLIATH_WORKER_CAPABILITY:-}" ]]; then
@@ -656,7 +667,7 @@ write_worker_env() {
         ''|\#*) printf '%s\n' "$line" >>"$stripped"; continue ;;
       esac
       key="${line%%=*}"
-      if secret_env_key "$key"; then
+      if secret_env_key "$key" || storage_alias_key "$key"; then
         continue
       fi
       printf '%s\n' "$line" >>"$stripped"
@@ -667,10 +678,10 @@ write_worker_env() {
   fi
   umask 077
   tmp="$(mktemp "${secrets}.XXXXXX")"
-  append_kv "$tmp" AWS_ACCESS_KEY_ID "$b2_key"
-  append_kv "$tmp" AWS_SECRET_ACCESS_KEY "$b2_secret"
-  append_kv "$tmp" GOLIATH_LONGTERM_ACCESS_KEY_ID "$long_key"
-  append_kv "$tmp" GOLIATH_LONGTERM_SECRET_ACCESS_KEY "$long_secret"
+  append_kv "$tmp" B2_ACCESS_KEY_ID "$b2_key"
+  append_kv "$tmp" B2_SECRET_ACCESS_KEY "$b2_secret"
+  append_kv "$tmp" LONGTERM_ACCESS_KEY_ID "$long_key"
+  append_kv "$tmp" LONGTERM_SECRET_ACCESS_KEY "$long_secret"
   if [[ "${GOLIATH_WORKER_NEEDS_DATABASE:-}" == "1" ]]; then
     append_kv "$tmp" POSTGRES_PASSWORD "${NEON_TEST_PASSWORD:-${POSTGRES_PASSWORD:-}}"
   fi

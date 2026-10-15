@@ -95,9 +95,9 @@ Set plain values in the template. Reference RunPod secrets as `{{ RUNPOD_SECRET_
 | `GOLIATH_ENV` | `goliath-test` |
 | `GOLIATH_GITHUB_REPO` | `Goliath-Research/GoliathOmics` |
 | `CLUSTER_KEY` | `goliath` |
-| `B2_BUCKET` | `goliath-omics` |
+| `B2_BUCKET` | `goliath-omics` (new data; S3 protocol) |
 | `B2_ENDPOINT` | `https://s3.us-east-005.backblazeb2.com` |
-| `LONGTERM_BUCKET` | `goliath-omics` |
+| `LONGTERM_BUCKET` | `goliath-omics` (long-term storage; S3 protocol) |
 | `LONGTERM_ENDPOINT` | `https://s3.us-east-1.myqnapcloud.io` |
 | `LONGTERM_HOST` | `s3.us-east-1.myqnapcloud.io` |
 | `LONGTERM_SHARE` | `goliath-omics` |
@@ -108,6 +108,8 @@ Set plain values in the template. Reference RunPod secrets as `{{ RUNPOD_SECRET_
 | `LONGTERM_ACCESS_KEY_ID` | `{{ RUNPOD_SECRET_LONGTERM_ACCESS_KEY_ID }}` |
 | `LONGTERM_SECRET_ACCESS_KEY` | `{{ RUNPOD_SECRET_LONGTERM_SECRET_ACCESS_KEY }}` |
 | `GH_TOKEN` | `{{ RUNPOD_SECRET_GH_TOKEN }}` (Contents read on `GOLIATH_GITHUB_REPO`. Required on every boot to fetch the bootstrap, to fetch the start script onto a fresh volume, and to download the release bundle when `/work/goliath/current` is missing) |
+
+`B2_*` is the new-data store and `LONGTERM_*` is the long-term store. Both speak S3. The pod keeps those names. Bucket and endpoint land in the per-node `worker.env`. Access keys land only in local `secrets.env` mode `0600`. The start script does not copy either store into `AWS_*` or `GOLIATH_LONGTERM_*`. A tool that needs `AWS_ACCESS_KEY_ID` for one call takes it from the store that call uses, inside that process.
 
 `NEON_TEST_PASSWORD` is not required on the worker. Set `GOLIATH_WORKER_NEEDS_DATABASE=1` and `NEON_TEST_PASSWORD={{ RUNPOD_SECRET_NEON_TEST_PASSWORD }}` only if this pod must open the database itself. The gateway holds the database password.
 

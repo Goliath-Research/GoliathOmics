@@ -655,6 +655,12 @@ if [[ -n "$dump" && ! -f "$dump" ]]; then
     printf 'GOLIATH_GATEWAY_CA_FILE=%s\n' "${GOLIATH_GATEWAY_CA_FILE-}"
     printf 'REQUESTS_CA_BUNDLE=%s\n' "${REQUESTS_CA_BUNDLE-}"
     printf 'SSL_CERT_FILE=%s\n' "${SSL_CERT_FILE-}"
+    printf 'B2_BUCKET=%s\n' "${B2_BUCKET-}"
+    printf 'B2_ENDPOINT=%s\n' "${B2_ENDPOINT-}"
+    printf 'LONGTERM_BUCKET=%s\n' "${LONGTERM_BUCKET-}"
+    printf 'LONGTERM_ENDPOINT=%s\n' "${LONGTERM_ENDPOINT-}"
+    printf 'LONGTERM_HOST=%s\n' "${LONGTERM_HOST-}"
+    printf 'LONGTERM_SHARE=%s\n' "${LONGTERM_SHARE-}"
   } >"$dump"
 fi
 sleep 300
@@ -671,12 +677,23 @@ METHYL_PARABRICKS_IMAGE=nvcr.io/nvidia/clara-parabricks:4.5.1
 METHYL_SAMPLE_CAAS_ENABLED=0
 METHYL_GPU_HBM_FREE_FRACTION=0.90
 POSTGRES_PASSWORD=old-neon
+AWS_ENDPOINT_URL=https://stale-aws.example
+AWS_SECRET_ACCESS_KEY=stale-aws-sekret
+GOLIATH_LONGTERM_BUCKET=stale-longterm-bucket
+GOLIATH_LONGTERM_SECRET_ACCESS_KEY=stale-lt-sekret
 EOF
 chmod 600 "$work_root/goliath/env/worker.env"
 printf 'system-ca\n' >"$work_root/system-ca.pem"
 
 run_start() {
   env -u GH_TOKEN -u GITHUB_TOKEN -u GOLIATH_RELEASE_URL \
+    -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_ENDPOINT_URL \
+    -u AWS_DEFAULT_REGION -u AWS_SESSION_TOKEN \
+    -u GOLIATH_SHARED_BUCKET -u GOLIATH_SHARED_PROVIDER \
+    -u GOLIATH_LONGTERM_ACCESS_KEY_ID -u GOLIATH_LONGTERM_SECRET_ACCESS_KEY \
+    -u GOLIATH_LONGTERM_BUCKET -u GOLIATH_LONGTERM_ENDPOINT \
+    -u GOLIATH_LONGTERM_HOST -u GOLIATH_LONGTERM_SHARE \
+    -u GOLIATH_LONGTERM_PROVIDER \
     GOLIATH_ROOT="$work_root/goliath" \
     GOLIATH_WORK_MOUNT="$work_root" \
     GOLIATH_LOG_DIR="$work_root/goliath/logs" \
@@ -688,7 +705,16 @@ run_start() {
     WORKER_API_BASE="https://45.76.21.8/v1" \
     RUNPOD_POD_ID="pod-test-1" \
     GOLIATH_WORKER_TOKEN="sekret-token" \
+    B2_BUCKET="goliath-omics" \
+    B2_ENDPOINT="https://s3.us-east-005.backblazeb2.com" \
+    B2_ACCESS_KEY_ID="b2-key" \
     B2_SECRET_ACCESS_KEY="b2-sekret" \
+    LONGTERM_BUCKET="goliath-omics" \
+    LONGTERM_ENDPOINT="https://s3.us-east-1.myqnapcloud.io" \
+    LONGTERM_HOST="s3.us-east-1.myqnapcloud.io" \
+    LONGTERM_SHARE="goliath-omics" \
+    LONGTERM_ACCESS_KEY_ID="lt-key" \
+    LONGTERM_SECRET_ACCESS_KEY="lt-sekret" \
     CURSOR_API_KEY="cursor-sekret" \
     NEON_TEST_PASSWORD="neon-sekret" \
     GOLIATH_GATEWAY_CA_PEM=$'-----BEGIN CERTIFICATE-----\nPINNED-CA-MARKER\n-----END CERTIFICATE-----\n' \
@@ -742,8 +768,25 @@ secrets_env="$private_root/secrets.env"
 grep -q '^GOLIATH_NODE_ID="pod-test-1"$' "$worker_env" \
   || fail "node worker.env should record GOLIATH_NODE_ID"
 [[ "$(stat -c %a "$secrets_env")" == "600" ]] || fail "secrets env must be mode 600"
-if grep -q 'b2-sekret' "$work_root/goliath/env/worker.env" "$worker_env"; then
+if grep -q 'b2-sekret\|lt-sekret\|stale-aws-sekret\|stale-lt-sekret' \
+  "$work_root/goliath/env/worker.env" "$worker_env"; then
   fail "storage secret was written on the shared volume"
+fi
+grep -q '^B2_BUCKET="goliath-omics"$' "$worker_env" \
+  || fail "node worker.env should record B2_BUCKET"
+grep -q '^B2_ENDPOINT="https://s3.us-east-005.backblazeb2.com"$' "$worker_env" \
+  || fail "node worker.env should record B2_ENDPOINT"
+grep -q '^LONGTERM_BUCKET="goliath-omics"$' "$worker_env" \
+  || fail "node worker.env should record LONGTERM_BUCKET"
+grep -q '^LONGTERM_ENDPOINT="https://s3.us-east-1.myqnapcloud.io"$' "$worker_env" \
+  || fail "node worker.env should record LONGTERM_ENDPOINT"
+grep -q '^LONGTERM_HOST="s3.us-east-1.myqnapcloud.io"$' "$worker_env" \
+  || fail "node worker.env should record LONGTERM_HOST"
+grep -q '^LONGTERM_SHARE="goliath-omics"$' "$worker_env" \
+  || fail "node worker.env should record LONGTERM_SHARE"
+if grep -E -q '^(AWS_|GOLIATH_LONGTERM_|GOLIATH_SHARED_PROVIDER=|GOLIATH_SHARED_BUCKET=)' \
+  "$worker_env" "$work_root/goliath/env/worker.env" "$secrets_env"; then
+  fail "boot should not persist AWS_* or GOLIATH_LONGTERM_* storage names"
 fi
 grep -q '^METHYL_EXTRACTOR_BIN=/work/goliath/methyl-extractor-amd64/bin/MethylExtractor$' "$worker_env" \
   || fail "promote METHYL_EXTRACTOR_BIN was dropped from worker.env"
@@ -759,8 +802,20 @@ grep -q '^HDF5_PLUGIN_PATH=/work/goliath/methyl-extractor-amd64/lib/hdf5_zstd_pl
   || fail "promote HDF5_PLUGIN_PATH was dropped from worker.env"
 extractor_lines="$(grep -c '^METHYL_EXTRACTOR_BIN=' "$worker_env" || true)"
 [[ "$extractor_lines" == "1" ]] || fail "METHYL_EXTRACTOR_BIN should appear once"
-grep -q '^AWS_SECRET_ACCESS_KEY="b2-sekret"$' "$secrets_env" \
-  || fail "secrets env should receive storage keys"
+grep -q '^B2_ACCESS_KEY_ID="b2-key"$' "$secrets_env" \
+  || fail "secrets env should keep the B2 access key under B2_ACCESS_KEY_ID"
+grep -q '^B2_SECRET_ACCESS_KEY="b2-sekret"$' "$secrets_env" \
+  || fail "secrets env should keep the B2 secret under B2_SECRET_ACCESS_KEY"
+grep -q '^LONGTERM_ACCESS_KEY_ID="lt-key"$' "$secrets_env" \
+  || fail "secrets env should keep the long-term access key under LONGTERM_ACCESS_KEY_ID"
+grep -q '^LONGTERM_SECRET_ACCESS_KEY="lt-sekret"$' "$secrets_env" \
+  || fail "secrets env should keep the long-term secret under LONGTERM_SECRET_ACCESS_KEY"
+if grep '^LONGTERM_' "$secrets_env" | grep -q 'b2-sekret'; then
+  fail "B2 secret leaked into a LONGTERM_ secret"
+fi
+if grep '^B2_' "$secrets_env" | grep -q 'lt-sekret'; then
+  fail "long-term secret leaked into a B2_ secret"
+fi
 seen="$work_root/methyl-worker-env"
 for ((i = 0; i < 50; i++)); do
   [[ -s "$seen" ]] && break
@@ -775,6 +830,13 @@ grep -q '^METHYL_SAMPLE_CAAS_ENABLED=0$' "$seen" \
   || fail "supervisor did not load METHYL_SAMPLE_CAAS_ENABLED"
 grep -q '^PATH=/opt/goliath/venv/bin:/usr/bin$' "$seen" \
   || fail "supervisor did not load PATH from worker.env"
+grep -q '^B2_BUCKET=goliath-omics$' "$seen" \
+  || fail "supervisor did not load B2_BUCKET"
+grep -q '^LONGTERM_ENDPOINT=https://s3.us-east-1.myqnapcloud.io$' "$seen" \
+  || fail "supervisor did not load LONGTERM_ENDPOINT"
+if grep -q 'b2-sekret\|lt-sekret\|b2-key\|lt-key' "$seen"; then
+  fail "supervisor dump must not record storage keys"
+fi
 ca_file="$work_root/goliath/env/gateway-ca.pem"
 bundle_file="$work_root/goliath/env/requests-ca-bundle.pem"
 [[ -f "$ca_file" ]] || fail "start script should write the gateway CA"
