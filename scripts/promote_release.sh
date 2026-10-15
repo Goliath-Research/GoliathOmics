@@ -129,16 +129,20 @@ pull_parabricks() {
 
 flip_current() {
   local link="$ROOT/current"
-  local marker="$ROOT/current.ready"
-  local tmp="$ROOT/.current.ready.$$"
   # ln -sfn replaces the symlink by renaming a temporary link in this directory.
   # Some shared volumes do not support atomic rename (a Runpod global volume
-  # is one). Readers must wait for current.ready, written after the symlink
-  # update returns.
+  # is one). Readers must wait for current.ready, written after worker.env,
+  # instead of following current as soon as this link exists.
   ln -sfn "$RELEASE_DIR" "$link"
+  info "Updated $link -> $RELEASE_DIR"
+}
+
+commit_current() {
+  local marker="$ROOT/current.ready"
+  local tmp="$ROOT/.current.ready.$$"
   printf '%s\n' "$RELEASE_DIR" >"$tmp"
   mv -f "$tmp" "$marker"
-  info "Updated $link -> $RELEASE_DIR (commit marker $marker)"
+  info "Commit marker $marker -> $RELEASE_DIR"
 }
 
 write_env() {
@@ -160,6 +164,7 @@ install_venv
 pull_parabricks
 flip_current
 write_env
+commit_current
 
 rollouts_set_message "promoted $(basename "$RELEASE_DIR") arch=${ARCH} current=$ROOT/current"
 info "Promoted release ${RELEASE_VERSION:-unknown} for arch=$ARCH"

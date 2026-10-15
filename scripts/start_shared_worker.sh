@@ -216,26 +216,34 @@ release_promote_lock() {
 
 # mkdir is the only create that is atomic on a typical filesystem. Some shared
 # volumes (a Runpod global volume, some NFS exports) do not support file
-# locking, so a crashed holder is stolen after 30 minutes.
+# locking, so a crashed holder is stolen after 30 minutes. Waiters use that
+# same window: download, extract, and the venv install take longer than a
+# couple of minutes, and a live publisher is not stale while it holds the lock.
 acquire_promote_lock() {
   local lock="$ROOT/locks/release-promote"
-  local i now mtime
+  local now mtime start elapsed
+  local stale=1800
   mkdir -p "$ROOT/locks"
-  for ((i = 1; i <= 60; i++)); do
+  start="$(date +%s)"
+  while true; do
     if mkdir "$lock" 2>/dev/null; then
       printf '%s\n' "$(node_id)" >"$lock/owner"
       PROMOTE_LOCK="$lock"
       log "acquired release promote lock ${lock}"
       return 0
     fi
+    now="$(date +%s)"
     if [[ -f "$lock/owner" ]]; then
-      now="$(date +%s)"
       mtime="$(stat -c %Y "$lock/owner" 2>/dev/null || echo 0)"
-      if [[ "$((now - mtime))" -gt 1800 ]]; then
+      if [[ "$((now - mtime))" -gt "$stale" ]]; then
         log "warning: removing stale promote lock ${lock}"
         rm -rf "$lock"
         continue
       fi
+    fi
+    elapsed="$((now - start))"
+    if [[ "$elapsed" -gt "$stale" ]]; then
+      break
     fi
     sleep 2
   done
@@ -324,30 +332,84 @@ for asset in rel.get("assets") or []:
   curl_download "$asset_url" "$dest" "$token" "application/octet-stream"
 }
 
-ensure_current() {
-  if [[ -L "$ROOT/current" && ! -e "$ROOT/current" ]]; then
-    die "$ROOT/current is a broken symlink"
+# First line of current.ready, without a trailing CR. Empty or missing fails.
+current_marker_target() {
+  local ready
+  [[ -f "$ROOT/current.ready" ]] || return 1
+  IFS= read -r ready <"$ROOT/current.ready" || true
+  ready="${ready//$'\r'/}"
+  [[ -n "$ready" ]] || return 1
+  printf '%s' "$ready"
+}
+
+# current.ready names the release directory the symlink must point at.
+current_marker_matches() {
+  local link="$ROOT/current" ready target resolved_link resolved_ready
+  ready="$(current_marker_target)" || return 1
+  [[ -e "$link" ]] || return 1
+  if [[ -L "$link" ]]; then
+    target="$(readlink "$link" 2>/dev/null || true)"
+    [[ "$target" == "$ready" ]] && return 0
   fi
-  if [[ -e "$ROOT/current" ]]; then
+  resolved_link="$(readlink -f "$link" 2>/dev/null || true)"
+  resolved_ready="$(readlink -f "$ready" 2>/dev/null || true)"
+  [[ -n "$resolved_link" && -n "$resolved_ready" && "$resolved_link" == "$resolved_ready" ]]
+}
+
+# current.ready is the commit point. ln -sfn is not atomic on some shared
+# volumes, so current can be missing or dangling while promote is still
+# flipping it or writing worker.env. A tree with no marker and no other
+# pod's promote lock is a finished publish from before the marker existed.
+current_is_usable() {
+  local link="$ROOT/current"
+  if [[ -L "$link" && ! -e "$link" ]]; then
+    return 1
+  fi
+  [[ -e "$link" ]] || return 1
+  if [[ -f "$ROOT/current.ready" ]]; then
+    current_marker_matches || return 1
+    return 0
+  fi
+  if [[ -d "$ROOT/locks/release-promote" && "$PROMOTE_LOCK" != "$ROOT/locks/release-promote" ]]; then
+    return 1
+  fi
+  return 0
+}
+
+ensure_current() {
+  if current_is_usable; then
     log "using existing $ROOT/current"
     return 0
   fi
-  local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
-  local url="${GOLIATH_RELEASE_URL:-}"
-  local repo="${GOLIATH_GITHUB_REPO:-Goliath-Research/GoliathOmics}"
-  if [[ -z "$url" && -z "$token" ]]; then
+  local token url repo in_progress
+  token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+  url="${GOLIATH_RELEASE_URL:-}"
+  repo="${GOLIATH_GITHUB_REPO:-Goliath-Research/GoliathOmics}"
+  in_progress=0
+  if [[ -e "$ROOT/current" || -L "$ROOT/current" || -f "$ROOT/current.ready" || -d "$ROOT/locks/release-promote" ]]; then
+    in_progress=1
+  fi
+  if [[ "$in_progress" -eq 0 && -z "$url" && -z "$token" ]]; then
     die "$ROOT/current does not exist and neither GH_TOKEN/GITHUB_TOKEN nor GOLIATH_RELEASE_URL is set; cannot bootstrap a release bundle"
   fi
-  command -v python3 >/dev/null 2>&1 || die "python3 is required to read the release manifest"
-  command -v curl >/dev/null 2>&1 || die "curl is required to download the release bundle"
-  # One pod publishes the shared release. Others wait, then use current.
-  # The lock is advisory: this volume does not support file locking.
+  # One pod publishes the shared release. Others wait until current.ready
+  # matches current, then use it. The lock is advisory: this volume does not
+  # support file locking. A dangling current is an in-progress rename, not
+  # a fatal boot error.
+  if [[ "$in_progress" -eq 1 ]]; then
+    log "waiting for $ROOT/current.ready"
+  fi
   acquire_promote_lock
-  if [[ -e "$ROOT/current" ]]; then
+  if current_is_usable; then
     log "using existing $ROOT/current"
     release_promote_lock
     return 0
   fi
+  if [[ -z "$url" && -z "$token" ]]; then
+    die "timed out waiting for $ROOT/current.ready"
+  fi
+  command -v python3 >/dev/null 2>&1 || die "python3 is required to read the release manifest"
+  command -v curl >/dev/null 2>&1 || die "curl is required to download the release bundle"
   apply_work_umask
   mkdir -p "$ROOT/releases" "$(node_root)/tmp"
   local tarball partial dest ver promote
@@ -910,7 +972,14 @@ start_worker() {
       else
         sd_args+=(--detect-capabilities)
       fi
-      if GOLIATH_ROLLOUTS_EXTERNAL=1 bash "$installer" "${sd_args[@]}"; then
+      # The unit loads the shared worker.env. Also pass this node's worker.env
+      # and the local secrets file so B2_*, LONGTERM_*, and the gateway CA
+      # paths reach a systemd worker. The token file stays last.
+      if env \
+        GOLIATH_ROLLOUTS_EXTERNAL=1 \
+        GOLIATH_NODE_WORKER_ENV="$(node_root)/env/worker.env" \
+        GOLIATH_SECRETS_ENV="$(private_dir)/secrets.env" \
+        bash "$installer" "${sd_args[@]}"; then
         log "started methyl-worker via systemd"
         return 0
       fi

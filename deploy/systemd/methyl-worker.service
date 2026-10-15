@@ -8,10 +8,14 @@ Wants=azure-arc-agent.service
 
 [Service]
 Type=simple
-# Shared non-secret env first; per-VM /etc/methyl/worker-token LAST so WORKER_ID /
-# WORKER_TOKEN from enroll win (never put credentials in shared worker.env).
+# Shared non-secret env first, then this node's worker.env and local secrets.env
+# (install_worker_systemd.sh fills those paths; omitted when unset).
+# /etc/methyl/worker-token LAST so WORKER_ID / WORKER_TOKEN from enroll win
+# (never put credentials in shared worker.env).
 EnvironmentFile=-/work/goliath/env/worker.env
 EnvironmentFile=-/work/goliath/env/parabricks.env
+EnvironmentFile=-__GOLIATH_NODE_ENV__
+EnvironmentFile=-__GOLIATH_SECRETS_ENV__
 EnvironmentFile=-/etc/methyl/worker-token
 # EnvironmentFile does not expand $PATH; set a literal PATH after env files.
 Environment=PATH=__GOLIATH_VENV__/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

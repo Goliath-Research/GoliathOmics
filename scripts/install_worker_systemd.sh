@@ -66,11 +66,58 @@ SCRATCH="${METHYL_SAMTOOLS_TMPDIR:-/var/tmp/methyl-samtools}"
 mkdir -p "$SCRATCH"
 chmod 1777 "$SCRATCH" 2>/dev/null || true
 
+# systemd treats % as a specifier and does not unquote a leading - path.
+# Node ids and the private dir are single path tokens; reject a path that
+# would split the unit line.
+_systemd_environment_file() {
+  local path="$1"
+  case "$path" in
+    *[[:space:]]*|*'#'*)
+      echo "EnvironmentFile path must be one token: $path" >&2
+      return 1
+      ;;
+  esac
+  path="${path//%/%%}"
+  printf 'EnvironmentFile=-%s' "$path"
+}
+
 _render_unit() {
   local src="$1" dest="$2"
+  local node="${GOLIATH_NODE_WORKER_ENV:-}"
+  local secrets="${GOLIATH_SECRETS_ENV:-}"
+  local rendered line out node_line="" secrets_line=""
+  rendered="$(mktemp)"
+  out="$(mktemp)"
   sed -e "s|__GOLIATH_ROOT__|$ROOT|g" \
       -e "s|__GOLIATH_VENV__|$VENV|g" \
-      "$src" >"$dest"
+      "$src" >"$rendered"
+  if [[ -n "$node" ]]; then
+    if ! node_line="$(_systemd_environment_file "$node")"; then
+      rm -f "$rendered" "$out"
+      return 1
+    fi
+  fi
+  if [[ -n "$secrets" ]]; then
+    if ! secrets_line="$(_systemd_environment_file "$secrets")"; then
+      rm -f "$rendered" "$out"
+      return 1
+    fi
+  fi
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      EnvironmentFile=-__GOLIATH_NODE_ENV__)
+        [[ -n "$node_line" ]] && printf '%s\n' "$node_line" >>"$out"
+        ;;
+      EnvironmentFile=-__GOLIATH_SECRETS_ENV__)
+        [[ -n "$secrets_line" ]] && printf '%s\n' "$secrets_line" >>"$out"
+        ;;
+      *)
+        printf '%s\n' "$line" >>"$out"
+        ;;
+    esac
+  done <"$rendered"
+  mv -f "$out" "$dest"
+  rm -f "$rendered"
 }
 
 _detect_capabilities() {
