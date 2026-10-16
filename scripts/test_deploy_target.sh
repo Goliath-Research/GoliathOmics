@@ -540,7 +540,7 @@ fi
 if grep -q 'neon-secret-value' "$out" "$err" "$ssh_log"; then
   fail "deploy printed the database password"
 fi
-grep -q "install_gateway_systemd.sh --root '/opt/methyl-gateway' --release '/opt/methyl-gateway/release'" "$ssh_log" \
+grep -q "install_gateway_systemd.sh --root '/opt/methyl-gateway' --release '/opt/methyl-gateway/gateway-dist'" "$ssh_log" \
   || fail "gateway deploy should install the venv from the staged release before enabling the service"
 grep -q 'scripts/install_gateway_venv.sh' "$ROOT/scripts/deploy_target.sh" \
   || fail "gateway bundle must ship install_gateway_venv.sh"

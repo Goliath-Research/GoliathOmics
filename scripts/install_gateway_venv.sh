@@ -210,7 +210,7 @@ esac
 VENV="$ROOT/venv-$ARCH"
 
 if [[ -z "$RELEASE" ]]; then
-  for candidate in "$ROOT/release" "$ROOT/current" "${GOLIATH_RELEASE_SRC:-}"; do
+  for candidate in "$ROOT/gateway-dist" "$ROOT/release" "$ROOT/current" "${GOLIATH_RELEASE_SRC:-}"; do
     if [[ -n "$candidate" && -d "$candidate" ]]; then
       RELEASE="$candidate"
       break
