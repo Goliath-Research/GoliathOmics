@@ -70,8 +70,10 @@ if [[ "$RUNTIME_MODE" -eq 1 ]]; then
   RUNTIME="$CURRENT/runtime-bundle"
   # shellcheck source=detect_platform.sh
   source "$SCRIPT_DIR/detect_platform.sh"
+  # shellcheck source=worker_venv_local.sh
+  source "$SCRIPT_DIR/worker_venv_local.sh"
   ARCH="$(platform_arch_key "$(detect_uname_arch)")"
-  VENV="$GOLIATH_ROOT/venv-${ARCH}"
+  VENV="$(worker_venv_local_dir "$ARCH")"
 
   require_dir "$CURRENT" "current release symlink/dir"
   require_dir "$RUNTIME" "runtime-bundle"
@@ -96,17 +98,17 @@ if [[ "$RUNTIME_MODE" -eq 1 ]]; then
   require_file "$CURRENT/requirements-worker.lock" "requirements-worker.lock"
 
   if [[ -x "$VENV/bin/methyl-worker" ]]; then
-    pass "methyl-worker in venv-$ARCH"
+    pass "methyl-worker in $VENV"
   else
-    fail "methyl-worker missing in $VENV (run install_release.sh)"
+    fail "methyl-worker missing in $VENV (run worker_venv_local.sh --release $CURRENT)"
   fi
   if [[ -x "$VENV/bin/methyl-gateway" ]]; then
-    pass "methyl-gateway in venv-$ARCH"
+    pass "methyl-gateway in $VENV"
   else
     fail "methyl-gateway missing in $VENV (run install_release.sh)"
   fi
   if [[ -x "$VENV/bin/methyl-study-start" ]]; then
-    pass "methyl-study-start in venv-$ARCH"
+    pass "methyl-study-start in $VENV"
   else
     fail "methyl-study-start missing in $VENV"
   fi

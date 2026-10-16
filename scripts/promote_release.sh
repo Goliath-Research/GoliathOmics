@@ -1,5 +1,7 @@
 #!/bin/bash
-# Promote a release on shared storage: verify MethylExtractor (local extract), install venv, docker pull, flip current.
+# Promote a release on shared storage: verify MethylExtractor (local extract),
+# install the worker venv on local disk, docker pull, flip current.
+# Nothing executable is written under the shared root.
 
 set -euo pipefail
 
@@ -14,9 +16,10 @@ Options:
   --arch KEY            aarch64 or amd64 (default: detect)
   --pull-parabricks     docker pull into shared data-root (once per release)
   --skip-docker-pull    Do not pull Parabricks
-  --skip-venv           Skip venv install
+  --skip-venv           Skip the local worker venv install (start_shared_worker.sh
+                        installs it on every pod boot instead)
   --skip-extractor      Skip MethylExtractor verify + local extract
-  --recreate-venv       Pass through to install_release.sh
+  --recreate-venv       Rebuild the local venv even when its stamp matches
   --worker-api-base URL WORKER_API_BASE for worker.env
   -h, --help            Show this help
 EOF
@@ -29,6 +32,8 @@ source "$SCRIPT_DIR/detect_platform.sh"
 source "$SCRIPT_DIR/rollouts_hook.sh"
 # shellcheck source=methyl_extractor_local.sh
 source "$SCRIPT_DIR/methyl_extractor_local.sh"
+# shellcheck source=worker_venv_local.sh
+source "$SCRIPT_DIR/worker_venv_local.sh"
 
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 RELEASE_DIR=""
@@ -111,13 +116,21 @@ install_extractor() {
   info "MethylExtractor installed: $METHYL_EXTRACTOR_BIN"
 }
 
+# The worker venv is executables (bin/python, entry points), so it is built on
+# local disk (worker_venv_local.sh), never under $ROOT on a shared volume.
+# start_shared_worker.sh passes --skip-venv and installs it on every boot.
 install_venv() {
+  # Older releases built $ROOT/venv-<arch>; on a shared volume it cannot run.
+  if [[ -d "$ROOT/venv-${ARCH}" ]] && _wvl_on_work "$ROOT/venv-${ARCH}"; then
+    rm -rf "$ROOT/venv-${ARCH}" 2>/dev/null \
+      || echo "[WARN] could not remove stale $ROOT/venv-${ARCH}; ignoring it" >&2
+  fi
   [[ "$SKIP_VENV" -eq 1 ]] && return 0
-  local install_script="$RELEASE_DIR/runtime-bundle/scripts/install_release.sh"
-  [[ -x "$install_script" ]] || install_script="$SCRIPT_DIR/install_release.sh"
-  local args=(--release-dir "$RELEASE_DIR" --venv "$ROOT/venv-${ARCH}")
-  [[ "$RECREATE_VENV" -eq 1 ]] && args+=(--recreate-venv)
-  bash "$install_script" "${args[@]}"
+  local recreate=""
+  [[ "$RECREATE_VENV" -eq 1 ]] && recreate="--recreate"
+  install_worker_venv_local "$RELEASE_DIR" "$ARCH" "$recreate" \
+    || die "local worker venv install failed"
+  info "Worker venv on local disk: $GOLIATH_WORKER_VENV"
 }
 
 pull_parabricks() {

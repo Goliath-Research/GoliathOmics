@@ -65,7 +65,8 @@ Use a dedicated MC config and a work directory on shared storage if many trials.
 
 ```bash
 set -a && source /work/goliath/current/env/worker.env && set +a
-export PATH=/work/goliath/venv-aarch64/bin:$PATH
+# The worker venv is on each node's local disk, never on /work.
+export PATH=/opt/goliath/venv-aarch64/bin:$PATH
 methyl-hyperparam-search \
   --config /work/experiments/my_mc_config.json \
   --work-dir /work/experiments/hp_run1 \

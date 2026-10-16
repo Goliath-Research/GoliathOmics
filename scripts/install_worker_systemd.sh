@@ -20,6 +20,8 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
+# shellcheck source=worker_venv_local.sh
+source "$SCRIPT_DIR/worker_venv_local.sh"
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
 
@@ -51,13 +53,14 @@ fi
 ARCH="${ARCH:-$(platform_arch_key "$(detect_uname_arch)")}"
 _rollouts_host="$(hostname -s 2>/dev/null || hostname)"
 rollouts_begin goliath-worker "host=${_rollouts_host} arch=${ARCH} capability=${CAPABILITY:-unspecified}"
-VENV="$ROOT/venv-${ARCH}"
+# Pod-local venv (worker_venv_local.sh); never on the shared volume.
+VENV="$(worker_venv_local_dir "$ARCH")"
 RUNTIME="${RUNTIME:-$(readlink -f "$ROOT/current/runtime-bundle" 2>/dev/null || echo "$SCRIPT_DIR/..")}"
 DEPLOY="$RUNTIME/deploy/systemd"
 [[ -d "$DEPLOY" ]] || DEPLOY="$SCRIPT_DIR/../deploy/systemd"
 
 WORKER_BIN="$VENV/bin/methyl-worker"
-[[ -x "$WORKER_BIN" ]] || WORKER_BIN="$ROOT/venv/bin/methyl-worker"
+[[ -x "$WORKER_BIN" ]] || echo "[WARN] $WORKER_BIN is missing; build the local venv with worker_venv_local.sh --release <release>" >&2
 
 # shellcheck disable=SC2034 # rendered units set PATH; kept from upstream
 PATH_LINE="$VENV/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

@@ -39,6 +39,8 @@ jobs:
             scripts/verify_e2e_node.sh \
             scripts/init_work_layout.sh \
             scripts/start_shared_worker.sh \
+            scripts/worker_venv_local.sh \
+            scripts/test_worker_venv_local.sh \
             scripts/install_methyl_extractor_tarball.sh \
             scripts/provision_worker_node.sh \
             scripts/test_report_deploy.sh \
@@ -59,6 +61,7 @@ jobs:
           bash scripts/test_report_deploy.sh
           bash scripts/test_deploy_target.sh
           bash scripts/test_gateway_wheel_release.sh
+          bash scripts/test_worker_venv_local.sh
 
   pr:
     runs-on: ubuntu-latest

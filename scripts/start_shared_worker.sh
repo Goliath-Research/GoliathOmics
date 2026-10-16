@@ -56,6 +56,12 @@ exec_keepalive() {
     fi
     exec "$keepalive"
   fi
+  # The shared volume drops exec bits; run a keepalive script stored there
+  # with bash instead of exec'ing it.
+  if [[ -f "$keepalive" && "$keepalive" == *.sh ]]; then
+    log "exec bash ${keepalive}"
+    exec bash "$keepalive" "$@"
+  fi
   log "warning: keepalive ${keepalive} is not executable"
   return 1
 }
@@ -459,7 +465,9 @@ ensure_current() {
   fi
   promote="$dest/runtime-bundle/scripts/promote_release.sh"
   [[ -f "$promote" ]] || die "release bundle has no runtime-bundle/scripts/promote_release.sh"
-  local -a promote_args=(--root "$ROOT" --release "$dest" --arch "$ARCH" --skip-docker-pull)
+  # --skip-venv: the venv is pod-local and install_local_venv builds it on
+  # every boot. Promotion writes nothing executable onto the volume.
+  local -a promote_args=(--root "$ROOT" --release "$dest" --arch "$ARCH" --skip-docker-pull --skip-venv)
   if [[ -n "${WORKER_API_BASE:-}" ]]; then
     promote_args+=(--worker-api-base "$WORKER_API_BASE")
   fi
@@ -505,6 +513,38 @@ install_local_extractor() {
   install_methyl_extractor_local "$release/$tar_name" "$ARCH" "$sha" \
     || die "local MethylExtractor install from ${release}/${tar_name} failed"
   log "MethylExtractor on local disk: ${METHYL_EXTRACTOR_BIN}"
+}
+
+# The worker venv (bin/python, methyl-worker) cannot run from the shared
+# volume either. Every pod boot builds it on local disk from the release's
+# wheels/ and requirements-worker.lock, copied off the volume and verified
+# first. Default ${GOLIATH_LOCAL_ROOT:-/opt/goliath}/venv-<arch>; a location
+# on the work mount falls back to /tmp/goliath. A stamp with the release
+# version and lock sha256 skips an unchanged install.
+LOCAL_VENV_READY=0
+install_local_venv() {
+  local helper="" candidate release
+  for candidate in "$START_SCRIPT_DIR/worker_venv_local.sh" \
+    "$ROOT/current/runtime-bundle/scripts/worker_venv_local.sh"; do
+    if [[ -f "$candidate" ]]; then
+      helper="$candidate"
+      break
+    fi
+  done
+  [[ -n "$helper" ]] || die "worker_venv_local.sh not found next to this script or in the release bundle"
+  # shellcheck source=worker_venv_local.sh
+  source "$helper"
+  release="$(readlink -f "$ROOT/current" 2>/dev/null || printf '%s' "$ROOT/current")"
+  if [[ -z "$(worker_venv_release_lock "$release")" ]]; then
+    GOLIATH_WORKER_VENV="$(worker_venv_local_dir "$ARCH")"
+    export GOLIATH_WORKER_VENV
+    log "no requirements-worker.lock in ${release}; using existing venv ${GOLIATH_WORKER_VENV}"
+    return 0
+  fi
+  install_worker_venv_local "$release" "$ARCH" \
+    || die "local worker venv install from ${release} failed"
+  LOCAL_VENV_READY=1
+  log "worker venv on local disk: ${GOLIATH_WORKER_VENV}"
 }
 
 # Shared trees (samples, genomes, site, releases, image cache) stay on the
@@ -716,6 +756,11 @@ write_worker_env() {
   # settings. Refresh the storage and API keys this script owns, plus the
   # extractor paths when this pod installed MethylExtractor locally.
   owned='WORKER_API_BASE|GOLIATH_ENV|B2_BUCKET|B2_ENDPOINT|LONGTERM_BUCKET|LONGTERM_ENDPOINT|LONGTERM_HOST|LONGTERM_SHARE|WORKER_CAPABILITY|POSTGRES_HOST|POSTGRES_DB|POSTGRES_USER|POSTGRES_SSLMODE|POSTGRES_CHANNEL_BINDING|POSTGRES_PASSWORD|GOLIATH_GATEWAY_CA_FILE|REQUESTS_CA_BUNDLE|SSL_CERT_FILE'
+  local have_local_venv=0
+  if [[ "$LOCAL_VENV_READY" -eq 1 && -n "${GOLIATH_WORKER_VENV:-}" ]]; then
+    have_local_venv=1
+    owned="PATH|GOLIATH_WORKER_VENV|${owned}"
+  fi
   local have_local_extractor=0
   if [[ -n "${METHYL_EXTRACTOR_HOME:-}" && -x "${METHYL_EXTRACTOR_BIN:-}" ]]; then
     have_local_extractor=1
@@ -749,6 +794,15 @@ write_worker_env() {
     append_kv "$tmp" HDF5_PLUGIN_PATH "$HDF5_PLUGIN_PATH"
     # libhts.so.3 ships in the tarball's lib/; worker.env is literal.
     append_kv "$tmp" LD_LIBRARY_PATH "${LD_LIBRARY_PATH:-$METHYL_EXTRACTOR_HOME/lib}"
+  fi
+  if [[ "$have_local_venv" -eq 1 ]]; then
+    # This pod's venv may have fallen back to /tmp; worker.env is literal.
+    local venv_path="$GOLIATH_WORKER_VENV/bin"
+    if [[ "$have_local_extractor" -eq 1 ]]; then
+      venv_path="$venv_path:$METHYL_EXTRACTOR_HOME/bin"
+    fi
+    append_kv "$tmp" GOLIATH_WORKER_VENV "$GOLIATH_WORKER_VENV"
+    append_kv "$tmp" PATH "$venv_path:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   fi
   append_kv "$tmp" WORKER_API_BASE "${WORKER_API_BASE:-}"
   append_kv "$tmp" GOLIATH_ENV "$GOLIATH_ENV"
@@ -930,12 +984,14 @@ systemd_running() {
 
 worker_bin() {
   local candidate
-  for candidate in "$ROOT/venv-${ARCH}/bin/methyl-worker" "$ROOT/venv/bin/methyl-worker"; do
+  # Only the pod-local venv: nothing under $ROOT on the volume can execute.
+  if [[ -n "${GOLIATH_WORKER_VENV:-}" ]]; then
+    candidate="$GOLIATH_WORKER_VENV/bin/methyl-worker"
     if [[ -x "$candidate" ]]; then
       printf '%s' "$candidate"
       return 0
     fi
-  done
+  fi
   if command -v methyl-worker >/dev/null 2>&1; then
     command -v methyl-worker
     return 0
@@ -964,7 +1020,7 @@ load_token_env() {
 start_supervisor() {
   local bin pidfile token_file
   bin="$(worker_bin)" || {
-    log "methyl-worker not found under $ROOT/venv-${ARCH} or $ROOT/venv"
+    log "methyl-worker not found under ${GOLIATH_WORKER_VENV:-the local venv} or on PATH"
     return 1
   }
   mkdir -p "$LOG_DIR"
@@ -1075,6 +1131,7 @@ main() {
   maybe_reexec "$@"
   ensure_work_layout
   install_local_extractor
+  install_local_venv
   [[ -n "${WORKER_API_BASE:-}" ]] || die "WORKER_API_BASE is required (profile public_base_url, for example https://45.76.21.8/v1)"
   detect_gpu
   install_gateway_ca
