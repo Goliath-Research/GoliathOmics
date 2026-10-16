@@ -51,6 +51,60 @@ done
 info() { echo "[INFO] $*"; }
 die() { echo "[ERROR] $*" >&2; exit 1; }
 
+# Extract a tarball into DEST without asking DEST's filesystem to preserve
+# owner, mode or mtime. Shared volumes (a Runpod global network volume,
+# root-squashed NFS) reject chown/chmod/utime and GNU tar turns each rejection
+# into exit 2. Extract into a local staging dir (never under the work mount),
+# copy with plain cp -R (no -p/-a), then set modes warn-and-continue:
+# dirs 0755 / files 0644 (2775 / 0664 with GOLIATH_SHARED_GROUP), executables
+# stay executable (0755 / 0775). Corrupt or truncated archives still fail.
+safe_extract_tarball() {
+  local tarball="$1"
+  local dest="$2"
+  local work_mount="${GOLIATH_WORK_MOUNT:-/work}"
+  local stage_base="${GOLIATH_STAGE_DIR:-${TMPDIR:-/tmp}}"
+  local stage dmode fmode xmode path failed=0 group="${GOLIATH_SHARED_GROUP:-}"
+  local shared=0
+  if [[ -n "$group" ]] && getent group "$group" >/dev/null 2>&1; then
+    shared=1
+  fi
+  case "$stage_base" in
+    "${work_mount%/}"|"${work_mount%/}"/*) stage_base="/tmp" ;;
+  esac
+  mkdir -p "$stage_base"
+  stage="$(mktemp -d "${stage_base%/}/goliath-extract.XXXXXX")"
+  if ! tar --no-same-owner --no-same-permissions -m -xzf "$tarball" -C "$stage"; then
+    rm -rf "$stage"
+    die "could not extract ${tarball} (corrupt or truncated archive?)"
+  fi
+  mkdir -p "$dest"
+  if ! cp -R "$stage/." "$dest/"; then
+    rm -rf "$stage"
+    die "could not copy ${tarball} contents into ${dest}"
+  fi
+  rm -rf "$stage"
+  if [[ "$shared" -eq 1 ]]; then
+    dmode=2775; fmode=0664; xmode=0775
+  else
+    dmode=0755; fmode=0644; xmode=0755
+  fi
+  while IFS= read -r -d '' path; do
+    chmod "$dmode" "$path" 2>/dev/null || failed=$((failed + 1))
+    if [[ "$shared" -eq 1 ]]; then chgrp "$group" "$path" 2>/dev/null || failed=$((failed + 1)); fi
+  done < <(find "$dest" -type d -print0)
+  while IFS= read -r -d '' path; do
+    if [[ -x "$path" ]]; then
+      chmod "$xmode" "$path" 2>/dev/null || failed=$((failed + 1))
+    else
+      chmod "$fmode" "$path" 2>/dev/null || failed=$((failed + 1))
+    fi
+    if [[ "$shared" -eq 1 ]]; then chgrp "$group" "$path" 2>/dev/null || failed=$((failed + 1)); fi
+  done < <(find "$dest" -type f -print0)
+  if [[ "$failed" -gt 0 ]]; then
+    echo "[WARN] ${failed} chmod/chgrp operations under ${dest} were not applied (filesystem rejects them); continuing" >&2
+  fi
+}
+
 [[ -n "$TARBALL" ]] || die "--tarball is required"
 [[ -f "$TARBALL" ]] || die "Tarball not found: $TARBALL"
 
@@ -80,7 +134,11 @@ if [[ -d "$DEST/bin" ]]; then
   info "Removing previous install under $DEST"
   $SUDO rm -rf "$DEST/bin" "$DEST/lib" "$DEST/VERSION.txt" "$DEST/env.sh" 2>/dev/null || true
 fi
-$SUDO tar -xzf "$TARBALL" -C "$DEST"
+if [[ -n "$SUDO" ]]; then
+  $SUDO tar --no-same-owner --no-same-permissions -m -xzf "$TARBALL" -C "$DEST"
+else
+  safe_extract_tarball "$TARBALL" "$DEST"
+fi
 $SUDO chown -R "$(id -un)":"$(id -gn)" "$DEST" 2>/dev/null || true
 [[ -x "$DEST/bin/MethylExtractor" ]] || die "Expected $DEST/bin/MethylExtractor after extract"
 
