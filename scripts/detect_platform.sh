@@ -124,6 +124,50 @@ require_release_version() {
   fi
 }
 
+# Print the release directory ROOT/current points at, or nothing (exit 1)
+# when it is missing, empty or invalid. Shared /work volumes cannot store
+# symlinks (ln -s left a 0-byte regular file), so current is a pointer file
+# holding the release path; a symlink or a real directory (older layouts) is
+# still accepted.
+goliath_current_dir() {
+  local root="${1%/}" cur target=""
+  cur="$root/current"
+  if [[ -d "$cur" ]]; then
+    target="$(cd "$cur" 2>/dev/null && pwd -P)" || return 1
+  elif [[ -f "$cur" && -s "$cur" ]]; then
+    target="$(head -n 1 "$cur" 2>/dev/null | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    [[ -z "$target" || "$target" == /* ]] || target="$root/$target"
+  fi
+  [[ -n "$target" && -d "$target" ]] || return 1
+  printf '%s\n' "$target"
+}
+
+# Point ROOT/current at RELEASE_DIR with a pointer file (works on volumes
+# without symlink support). Replaces a symlink or an empty/invalid file;
+# refuses a real directory. Verifies the result reads back.
+goliath_write_current() {
+  local root="${1%/}" release="$2" cur tmp
+  cur="$root/current"
+  tmp="$root/.current.$$"
+  [[ -d "$release" ]] || { echo "[ERROR] release directory not found: $release" >&2; return 1; }
+  release="$(cd "$release" && pwd -P)"
+  if [[ -L "$cur" ]]; then
+    rm -f "$cur"
+  elif [[ -d "$cur" ]]; then
+    echo "[ERROR] $cur is a directory; move it aside before promoting" >&2
+    return 1
+  fi
+  printf '%s\n' "$release" >"$tmp" || { rm -f "$tmp"; return 1; }
+  if ! mv -f "$tmp" "$cur" 2>/dev/null; then
+    rm -f "$tmp"
+    printf '%s\n' "$release" >"$cur" || return 1
+  fi
+  [[ "$(goliath_current_dir "$root")" == "$release" ]] || {
+    echo "[ERROR] $cur does not read back as $release" >&2
+    return 1
+  }
+}
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   echo "uname: $(detect_uname_arch)"
   echo "arch_key: $(platform_arch_key)"

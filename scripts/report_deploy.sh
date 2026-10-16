@@ -130,13 +130,31 @@ manifest_sha() {
   return 1
 }
 
+# Print the release directory ROOT/current points at, or nothing (exit 1)
+# when it is missing, empty or invalid. Shared /work volumes cannot store
+# symlinks (ln -s left a 0-byte regular file), so current is a pointer file
+# holding the release path; a symlink or a real directory (older layouts) is
+# still accepted.
+goliath_current_dir() {
+  local root="${1%/}" cur target=""
+  cur="$root/current"
+  if [[ -d "$cur" ]]; then
+    target="$(cd "$cur" 2>/dev/null && pwd -P)" || return 1
+  elif [[ -f "$cur" && -s "$cur" ]]; then
+    target="$(head -n 1 "$cur" 2>/dev/null | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    [[ -z "$target" || "$target" == /* ]] || target="$root/$target"
+  fi
+  [[ -n "$target" && -d "$target" ]] || return 1
+  printf '%s\n' "$target"
+}
+
 if [[ -z "$VERSION" ]]; then
   sha=""
   for manifest in \
     "${GOLIATH_MANIFEST:-}" \
-    "${GOLIATH_ROOT:-}/current/manifest.json" \
-    "${ROOT:-}/current/manifest.json" \
-    "/work/goliath/current/manifest.json"
+    "$(goliath_current_dir "${GOLIATH_ROOT:-/nonexistent}" 2>/dev/null)/manifest.json" \
+    "$(goliath_current_dir "${ROOT:-/nonexistent}" 2>/dev/null)/manifest.json" \
+    "$(goliath_current_dir /work/goliath 2>/dev/null)/manifest.json"
   do
     [[ -n "$manifest" ]] || continue
     if sha="$(manifest_sha "$manifest")"; then

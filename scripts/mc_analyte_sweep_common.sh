@@ -28,8 +28,10 @@ mc_sweep_defaults() {
   : "${METHYL_PROFILE:=mc_dmp_gene_fc}"
   : "${METHYL_SITE_CONFIG:=/work/site/methyl_site.json}"
   if [[ -z "${METHYL_PROFILE_DIR:-}" ]]; then
-    if [[ -d /work/goliath/current/runtime-bundle/domain/profiles ]]; then
-      METHYL_PROFILE_DIR=/work/goliath/current/runtime-bundle/domain/profiles
+    _cur="$(head -n 1 /work/goliath/current 2>/dev/null | tr -d '[:space:]' || true)"
+    [[ -d /work/goliath/current ]] && _cur=/work/goliath/current
+    if [[ -n "$_cur" && -d "$_cur/runtime-bundle/domain/profiles" ]]; then
+      METHYL_PROFILE_DIR="$_cur/runtime-bundle/domain/profiles"
     else
       METHYL_PROFILE_DIR="$repo_root/workflow_engine/domain/profiles"
     fi

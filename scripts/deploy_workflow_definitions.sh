@@ -42,7 +42,25 @@ if [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
   PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
 fi
 
-RUNTIME_DOMAIN="${METHYL_RUNTIME_ROOT:-${GOLIATH_ROOT:-/work/goliath}/current/runtime-bundle}/domain"
+# Print the release directory ROOT/current points at, or nothing (exit 1)
+# when it is missing, empty or invalid. Shared /work volumes cannot store
+# symlinks (ln -s left a 0-byte regular file), so current is a pointer file
+# holding the release path; a symlink or a real directory (older layouts) is
+# still accepted.
+goliath_current_dir() {
+  local root="${1%/}" cur target=""
+  cur="$root/current"
+  if [[ -d "$cur" ]]; then
+    target="$(cd "$cur" 2>/dev/null && pwd -P)" || return 1
+  elif [[ -f "$cur" && -s "$cur" ]]; then
+    target="$(head -n 1 "$cur" 2>/dev/null | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    [[ -z "$target" || "$target" == /* ]] || target="$root/$target"
+  fi
+  [[ -n "$target" && -d "$target" ]] || return 1
+  printf '%s\n' "$target"
+}
+_cur="$(goliath_current_dir "${GOLIATH_ROOT:-/work/goliath}" 2>/dev/null || echo "${GOLIATH_ROOT:-/work/goliath}/current")"
+RUNTIME_DOMAIN="${METHYL_RUNTIME_ROOT:-$_cur/runtime-bundle}/domain"
 REPO_FIXTURES="$REPO_ROOT/workflow_engine/domain/fixtures"
 if [[ -f "$RUNTIME_DOMAIN/fixtures/sample_prep.program.json" ]]; then
   FIXTURES="$RUNTIME_DOMAIN/fixtures"

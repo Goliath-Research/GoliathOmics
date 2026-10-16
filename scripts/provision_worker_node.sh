@@ -138,8 +138,9 @@ if [[ "$FINISH_ENROLL" -eq 1 ]]; then
 fi
 
 ARCH="${ARCH:-$(platform_arch_key "$(detect_uname_arch)")}"
-RELEASE_DIR="${RELEASE_DIR:-$ROOT/current}"
-MANIFEST="$ROOT/current/manifest.json"
+CURRENT_DIR="$(goliath_current_dir "$ROOT" 2>/dev/null || true)"
+RELEASE_DIR="${RELEASE_DIR:-${CURRENT_DIR:-$ROOT/current}}"
+MANIFEST="${CURRENT_DIR:-$ROOT/current}/manifest.json"
 
 if [[ "$JOIN_MODE" == "auto" ]]; then
   if [[ -f "$MANIFEST" ]]; then
@@ -151,7 +152,7 @@ if [[ "$JOIN_MODE" == "auto" ]]; then
 fi
 
 RUNTIME="$(readlink -f "$RELEASE_DIR/runtime-bundle" 2>/dev/null || true)"
-[[ -d "${RUNTIME:-}" ]] || RUNTIME="$(readlink -f "$ROOT/current/runtime-bundle" 2>/dev/null || true)"
+[[ -d "${RUNTIME:-}" ]] || RUNTIME="$(readlink -f "${CURRENT_DIR:-$ROOT/current}/runtime-bundle" 2>/dev/null || true)"
 [[ -d "${RUNTIME:-}" ]] || RUNTIME="$REPO_ROOT"
 SCRIPTS="$RUNTIME/scripts"
 [[ -d "$SCRIPTS" ]] || SCRIPTS="$SCRIPT_DIR"
@@ -192,9 +193,75 @@ do_enroll() {
   if [[ -n "$CAPABILITY" ]]; then
     enroll_args+=(--capabilities-json "[\"$CAPABILITY\"]")
   fi
-  run env PYTHONPATH="${REPO_ROOT}/workers${PYTHONPATH:+:$PYTHONPATH}" \
-    WORKER_API_BASE="$live_api_base" \
-    "$venv_py" -m methyl_worker "${enroll_args[@]}"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    run "$venv_py" -m methyl_worker "${enroll_args[@]}"
+    return 0
+  fi
+  # A missing portal preregistration is expected on a fresh pod: wait for
+  # the operator instead of exiting. GOLIATH_ENROLL_RETRY_SECS (default 60)
+  # sets the interval, GOLIATH_ENROLL_MAX_WAIT_SECS (default 0 = unlimited)
+  # the limit. Any other enroll error still fails.
+  local retry="${GOLIATH_ENROLL_RETRY_SECS:-60}" max_wait="${GOLIATH_ENROLL_MAX_WAIT_SECS:-0}"
+  local out waited=0 announced=0 rc
+  [[ "$retry" =~ ^[0-9]+$ && "$retry" -ge 1 ]] || retry=60
+  [[ "$max_wait" =~ ^[0-9]+$ ]] || max_wait=0
+  out="$(mktemp)"
+  while :; do
+    set +e
+    env PYTHONPATH="${REPO_ROOT}/workers${PYTHONPATH:+:$PYTHONPATH}" \
+      WORKER_API_BASE="$live_api_base" \
+      "$venv_py" -m methyl_worker "${enroll_args[@]}" >"$out" 2>&1
+    rc=$?
+    set -e
+    cat "$out"
+    if [[ "$rc" -eq 0 ]]; then
+      [[ "$announced" -eq 1 ]] && echo "[enroll] portal registration found after ${waited}s; enrolled"
+      rm -f "$out"
+      return 0
+    fi
+    if ! grep -qi 'not preregistered' "$out"; then
+      rm -f "$out"
+      die "methyl-worker enroll failed (exit ${rc})"
+    fi
+    if [[ "$announced" -eq 0 ]]; then
+      local pub_ip
+      pub_ip="$(enroll_public_ip)"
+      echo "[enroll] waiting for portal registration: cluster=${CLUSTER} key=${worker_key} public_ip=${pub_ip}"
+      enroll_registration_sql "$CLUSTER" "$pub_ip" "$worker_key"
+      announced=1
+    fi
+    if [[ "$max_wait" -gt 0 && "$waited" -ge "$max_wait" ]]; then
+      rm -f "$out"
+      die "[enroll] no portal registration after ${waited}s (GOLIATH_ENROLL_MAX_WAIT_SECS=${max_wait})"
+    fi
+    sleep "$retry"
+    waited=$((waited + retry))
+  done
+}
+
+# Ready-to-run preregistration for an operator (no secrets: connection
+# details come from the operator's own environment). The proc takes only
+# cluster_key, public_ip and external_worker_key; arch/GPU/node are context.
+enroll_registration_sql() {
+  local c k ip
+  c="${1//\'/\'\'}"; ip="${2//\'/\'\'}"; k="${3//\'/\'\'}"
+  local gpu
+  gpu="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n 1 || true)"
+  echo "[enroll] context: node=${GOLIATH_NODE_ID:-${RUNPOD_POD_ID:-$(hostname -s 2>/dev/null || hostname)}} arch=${ARCH:-?} capability=${CAPABILITY:-unspecified} gpu=${gpu:-unknown}"
+  echo "[enroll] preregister with (PostgreSQL/Neon):"
+  echo "  psql \"\$DATABASE_URL\" -c \"SELECT * FROM portal.sp_upsert_worker_enrollment('${c}', '${ip}', '${k}');\""
+  echo "[enroll] or (Azure SQL): EXEC portal.sp_upsert_worker_enrollment @cluster_key = N'${c}', @public_ip = N'${ip}', @external_worker_key = N'${k}';"
+  echo "[enroll] retrying every ${GOLIATH_ENROLL_RETRY_SECS:-60}s"
+}
+
+# Public IP as the gateway sees it, for the waiting message only.
+enroll_public_ip() {
+  local ip="${GOLIATH_PUBLIC_IP:-${RUNPOD_PUBLIC_IP:-}}"
+  if [[ -z "$ip" ]] && command -v curl >/dev/null 2>&1; then
+    ip="$(curl -fsS --max-time 5 "${GOLIATH_PUBLIC_IP_URL:-https://api.ipify.org}" 2>/dev/null || true)"
+  fi
+  [[ "$ip" =~ ^[0-9a-fA-F.:]+$ ]] || ip="unknown"
+  printf '%s' "$ip"
 }
 
 do_systemd() {

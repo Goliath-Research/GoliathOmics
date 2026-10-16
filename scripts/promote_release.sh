@@ -151,14 +151,14 @@ flip_current() {
   local link="$ROOT/current"
   local marker="$ROOT/current.ready"
   local tmp="$ROOT/.current.ready.$$"
-  # ln -sfn replaces the symlink by renaming a temporary link in this directory.
-  # Some shared volumes do not support atomic rename (a Runpod global volume
-  # is one). Readers must wait for current.ready, written after the symlink
-  # update returns.
-  ln -sfn "$RELEASE_DIR" "$link"
+  # current is a pointer file holding the release path: shared volumes (a
+  # Runpod global volume) cannot store symlinks, and ln -sfn left an empty
+  # regular file there. Some volumes do not support atomic rename either, so
+  # readers wait for current.ready, written after the pointer reads back.
+  goliath_write_current "$ROOT" "$RELEASE_DIR" || die "cannot point $link at $RELEASE_DIR"
   printf '%s\n' "$RELEASE_DIR" >"$tmp"
   mv -f "$tmp" "$marker"
-  info "Updated $link -> $RELEASE_DIR (commit marker $marker)"
+  info "Updated $link (pointer) -> $RELEASE_DIR (commit marker $marker)"
 }
 
 write_env() {

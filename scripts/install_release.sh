@@ -56,7 +56,7 @@ info() { echo "[INFO] $*"; }
 die() { echo "[ERROR] $*" >&2; exit 1; }
 
 ARCH_KEY="$(platform_arch_key "$(detect_uname_arch)")"
-RELEASE_DIR="${RELEASE_DIR:-/work/goliath/current}"
+RELEASE_DIR="${RELEASE_DIR:-$(goliath_current_dir /work/goliath 2>/dev/null || echo /work/goliath/current)}"
 VENV_DIR="${VENV_DIR:-$(worker_venv_local_dir "$ARCH_KEY")}"
 # A venv on the shared volume cannot run: exec bits are ignored, and
 # ensurepip fails on the first file it writes and reads back.
@@ -129,5 +129,46 @@ else
   info "Installing from $LOCK_FILE into $VENV_DIR (offline, wheels/ only)"
 fi
 pip install "${PIP_ARGS[@]}"
+
+# First-party wheels (methyl-worker, methylutils, ...). Releases list them in
+# first-party-wheels.txt; older ones are derived as the wheels/ entries the
+# lock does not pin (their locks only covered requirements-pipeline.txt, so
+# the venv had no methyl_worker). Pinned by version, from wheels/.
+FIRST_PARTY="$(python3 - "$RELEASE_DIR" "$CLEAN_LOCK" <<'PY'
+import re, sys
+from pathlib import Path
+release, lock = Path(sys.argv[1]), Path(sys.argv[2])
+norm = lambda n: re.sub(r"[-_.]+", "-", n).lower()
+listed = release / "first-party-wheels.txt"
+if listed.is_file():
+    pins = [l.strip() for l in listed.read_text().splitlines() if l.strip() and not l.startswith("#")]
+else:
+    locked = set()
+    for line in lock.read_text().splitlines():
+        m = re.match(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*==", line)
+        if m:
+            locked.add(norm(m.group(1)))
+    pins = []
+    for whl in sorted((release / "wheels").glob("*.whl")):
+        parts = whl.name[:-4].split("-")
+        if len(parts) >= 5 and norm(parts[0]) not in locked:
+            pins.append(f"{parts[0]}=={parts[1]}")
+print("\n".join(pins))
+PY
+)"
+if [[ -n "$FIRST_PARTY" ]]; then
+  FP_ARGS=()
+  if [[ -n "$INDEX_URL" ]]; then
+    FP_ARGS+=(--index-url "$INDEX_URL")
+    for _u in "${EXTRA_INDEX_URLS[@]}"; do FP_ARGS+=(--extra-index-url "$_u"); done
+  else
+    FP_ARGS+=(--no-index)
+  fi
+  [[ -d "$WHEELS_DIR" ]] && FP_ARGS+=(--find-links "$WHEELS_DIR")
+  # shellcheck disable=SC2086
+  info "Installing first-party wheels: $(echo $FIRST_PARTY)"
+  # shellcheck disable=SC2086
+  pip install "${FP_ARGS[@]}" $FIRST_PARTY
+fi
 
 info "Release install complete: $VENV_DIR"

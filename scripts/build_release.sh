@@ -117,12 +117,32 @@ build_wheels() {
   bash "$SCRIPT_DIR/check_gateway_wheel.sh" "$WHEELS_DIR"
 }
 
+# name==version for every wheel built from this repo (wheels/ holds only
+# first-party wheels at this point; third-party ones are downloaded later).
+write_first_party_list() {
+  local whl
+  : >"$OUTPUT/first-party-wheels.txt"
+  for whl in "$WHEELS_DIR"/*.whl; do
+    [[ -f "$whl" ]] || continue
+    basename "$whl" | awk -F- '{print $1 "==" $2}' >>"$OUTPUT/first-party-wheels.txt"
+  done
+  sort -u -o "$OUTPUT/first-party-wheels.txt" "$OUTPUT/first-party-wheels.txt"
+  info "first-party wheels: $(wc -l <"$OUTPUT/first-party-wheels.txt")"
+}
+
 write_lockfile() {
   local req_combined="$OUTPUT/requirements-worker.in"
   cat "$REPO_ROOT/requirements-pipeline.txt" >"$req_combined"
   if [[ "$WITH_GPU" -eq 1 && -f "$REPO_ROOT/requirements-gpu-cuda12.txt" ]]; then
     echo "" >>"$req_combined"
     cat "$REPO_ROOT/requirements-gpu-cuda12.txt" >>"$req_combined"
+  fi
+  # First-party wheels (built above into wheels/) are not in
+  # requirements-pipeline.txt. Pin them by version so the lock carries them
+  # and their dependencies; without this the worker venv had no methyl_worker.
+  write_first_party_list
+  if [[ -s "$OUTPUT/first-party-wheels.txt" ]]; then
+    { echo ""; echo "# first-party wheels from wheels/"; cat "$OUTPUT/first-party-wheels.txt"; } >>"$req_combined"
   fi
   info "Compiling requirements-worker.lock"
   # --find-links is needed to resolve the first-party wheels, but must not be

@@ -66,16 +66,17 @@ echo ""
 
 if [[ "$RUNTIME_MODE" -eq 1 ]]; then
   echo "Mode: runtime-bundle ($GOLIATH_ROOT)"
-  CURRENT="$GOLIATH_ROOT/current"
-  RUNTIME="$CURRENT/runtime-bundle"
   # shellcheck source=detect_platform.sh
   source "$SCRIPT_DIR/detect_platform.sh"
+  # current may be a pointer file (volumes without symlinks), a symlink or a dir.
+  CURRENT="$(goliath_current_dir "$GOLIATH_ROOT" 2>/dev/null || echo "$GOLIATH_ROOT/current")"
+  RUNTIME="$CURRENT/runtime-bundle"
   # shellcheck source=worker_venv_local.sh
   source "$SCRIPT_DIR/worker_venv_local.sh"
   ARCH="$(platform_arch_key "$(detect_uname_arch)")"
   VENV="$(worker_venv_local_dir "$ARCH")"
 
-  require_dir "$CURRENT" "current release symlink/dir"
+  require_dir "$CURRENT" "current release (pointer, symlink or dir)"
   require_dir "$RUNTIME" "runtime-bundle"
   require_dir "$RUNTIME/domain/profiles" "domain/profiles"
   require_file "$RUNTIME/domain/profiles/samd_research.profile.json" "samd_research profile"

@@ -55,7 +55,8 @@ _rollouts_host="$(hostname -s 2>/dev/null || hostname)"
 rollouts_begin goliath-worker "host=${_rollouts_host} arch=${ARCH} capability=${CAPABILITY:-unspecified}"
 # Pod-local venv (worker_venv_local.sh); never on the shared volume.
 VENV="$(worker_venv_local_dir "$ARCH")"
-RUNTIME="${RUNTIME:-$(readlink -f "$ROOT/current/runtime-bundle" 2>/dev/null || echo "$SCRIPT_DIR/..")}"
+_cur="$(goliath_current_dir "$ROOT" 2>/dev/null || true)"
+RUNTIME="${RUNTIME:-$(readlink -f "${_cur:-$ROOT/current}/runtime-bundle" 2>/dev/null || echo "$SCRIPT_DIR/..")}"
 DEPLOY="$RUNTIME/deploy/systemd"
 [[ -d "$DEPLOY" ]] || DEPLOY="$SCRIPT_DIR/../deploy/systemd"
 

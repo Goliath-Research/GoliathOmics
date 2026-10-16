@@ -51,7 +51,7 @@ printf 'goliath-fake-worker==1.0.0\n' >"$release/requirements-worker.lock"
 run_install() {
   env GOLIATH_WORK_MOUNT="$mount" GOLIATH_LOCAL_ROOT="$local_root" \
     GOLIATH_VENV_UPGRADE_PIP=0 PIP_NO_INDEX=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHON_BIN=python3 \
+    PYTHON_BIN=python3 GOLIATH_WORKER_IMPORT_CHECK="${IMPORT_CHECK-goliath_fake_worker}" \
     bash "$ROOT/scripts/worker_venv_local.sh" --release "$release" --arch amd64 --print-dir "$@"
 }
 
@@ -134,7 +134,7 @@ printf '<a href="annotated_types-0.8.0-py3-none-any.whl">annotated_types-0.8.0-p
 printf 'goliath-fake-worker==1.0.0\nannotated-types==0.8.0\n' >"$release/requirements-worker.lock"
 run_fallback() {
   env GOLIATH_WORK_MOUNT="$mount" GOLIATH_LOCAL_ROOT="$local_root" \
-    GOLIATH_VENV_UPGRADE_PIP=0 PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHON_BIN=python3 \
+    GOLIATH_VENV_UPGRADE_PIP=0 PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHON_BIN=python3 GOLIATH_WORKER_IMPORT_CHECK=goliath_fake_worker \
     GOLIATH_PIP_INDEX_URL="file://$index" GOLIATH_PIP_EXTRA_INDEX_URLS="file://$extra" "$@" \
     bash "$ROOT/scripts/worker_venv_local.sh" --release "$release" --arch amd64 --recreate
 }
@@ -221,6 +221,41 @@ printf 'odd @ file:///home/runner/x/odd.tar.gz\n' >"$work/badlock"
 if python3 "$ROOT/scripts/sanitize_lock.py" "$work/badlock" 2>/dev/null; then
   fail "unrewritable file:// requirement must fail"
 fi
+
+# First-party wheels the lock does not pin (older releases compiled the lock
+# from requirements-pipeline.txt only) are still installed from wheels/.
+make_wheel "$release/wheels" goliath_fake_extra 2.0.0
+printf 'goliath-fake-worker==1.0.0\n' >"$release/requirements-worker.lock"
+run_install --recreate >/dev/null 2>"$work/err12" || { cat "$work/err12" >&2; fail "first-party install failed"; }
+grep -q 'Installing first-party wheels: goliath_fake_extra==2.0.0' "$work/err12" \
+  || { cat "$work/err12" >&2; fail "unpinned first-party wheel should be installed by version"; }
+"$venv/bin/python" -c 'import goliath_fake_extra' || fail "goliath_fake_extra missing from the venv"
+# first-party-wheels.txt from the build is used when present.
+printf '# changed\ngoliath-fake-worker==1.0.0\n' >"$release/requirements-worker.lock"
+printf 'goliath_fake_extra==2.0.0\n' >"$release/first-party-wheels.txt"
+run_install --recreate >/dev/null 2>"$work/err13" || { cat "$work/err13" >&2; fail "listed first-party install failed"; }
+grep -q 'Installing first-party wheels: goliath_fake_extra==2.0.0' "$work/err13" || fail "first-party-wheels.txt should drive the install"
+rm -f "$release/first-party-wheels.txt" "$release/wheels/goliath_fake_extra-2.0.0-py3-none-any.whl"
+
+# The import check fails loudly and drops the stamp; a stamped venv that
+# cannot import the worker package is rebuilt instead of skipped.
+printf 'goliath-fake-worker==1.0.0\n' >"$release/requirements-worker.lock"
+run_install --recreate >/dev/null 2>&1 || fail "baseline install failed"
+[[ -f "$venv/.goliath-venv-stamp" ]] || fail "stamp expected"
+set +e
+IMPORT_CHECK="no_such_worker_module" run_install --recreate >/dev/null 2>"$work/err14"
+status=$?
+set -e
+[[ "$status" -ne 0 ]] || fail "missing worker module must fail the install"
+grep -q 'missing first-party packages (no_such_worker_module)' "$work/err14" || { cat "$work/err14" >&2; fail "import failure should be explicit"; }
+[[ ! -f "$venv/.goliath-venv-stamp" ]] || fail "failed import check must invalidate the stamp"
+run_install >/dev/null 2>&1 || fail "reinstall failed"
+"$venv/bin/pip" uninstall -y -q goliath-fake-worker >/dev/null 2>&1
+run_install >/dev/null 2>"$work/err15" || { cat "$work/err15" >&2; fail "rebuild of a venv missing the worker failed"; }
+if grep -q 'already matches release' "$work/err15"; then fail "stamped venv without the worker must be rebuilt"; fi
+"$venv/bin/python" -c 'import goliath_fake_worker' || fail "rebuild did not restore the worker"
+grep -q 'GOLIATH_WORKER_IMPORT_CHECK-methyl_worker' "$ROOT/scripts/worker_venv_local.sh" || fail "default import check is methyl_worker"
+grep -q 'first-party-wheels.txt' "$ROOT/scripts/build_release.sh" || fail "build must record first-party wheels"
 
 # promote_release.sh no longer builds a venv under the root.
 grep -q -- '--skip-venv' "$ROOT/scripts/start_shared_worker.sh" || fail "pod boot promote must pass --skip-venv"
