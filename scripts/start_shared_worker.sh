@@ -259,6 +259,62 @@ acquire_promote_lock() {
   die "timed out waiting for ${lock}"
 }
 
+# Print the release directory ROOT/current points at, or nothing (exit 1)
+# when it is missing, empty or invalid. Shared /work volumes cannot store
+# symlinks (ln -s left a 0-byte regular file), so current is a pointer file
+# holding the release path; a symlink or a real directory (older layouts) is
+# still accepted.
+goliath_current_dir() {
+  local root="${1%/}" cur target=""
+  cur="$root/current"
+  if [[ -d "$cur" ]]; then
+    target="$(cd "$cur" 2>/dev/null && pwd -P)" || return 1
+  elif [[ -f "$cur" && -s "$cur" ]]; then
+    target="$(head -n 1 "$cur" 2>/dev/null | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    [[ -z "$target" || "$target" == /* ]] || target="$root/$target"
+  fi
+  [[ -n "$target" && -d "$target" ]] || return 1
+  printf '%s\n' "$target"
+}
+
+# Release dir behind $ROOT/current, or the literal path when unresolved.
+cur_dir() {
+  goliath_current_dir "$ROOT" 2>/dev/null || printf '%s\n' "$ROOT/current"
+}
+
+# Version from a manifest.json, or nothing.
+manifest_version() {
+  [[ -f "$1" ]] || return 0
+  python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("version") or "")' "$1" 2>/dev/null || true
+}
+
+# Release version the bootstrap resolved as newest (GOLIATH_RELEASE_TAG, else
+# $ROOT/bin/.release written by goliath-worker-bootstrap.sh), without the
+# goliathomics-/v prefix. Empty when unknown.
+wanted_release_version() {
+  local tag="${GOLIATH_RELEASE_TAG:-}"
+  if [[ -z "$tag" && -f "$ROOT/bin/.release" ]]; then
+    tag="$(head -n 1 "$ROOT/bin/.release" 2>/dev/null | tr -d '[:space:]' || true)"
+  fi
+  tag="${tag#goliathomics-}"
+  tag="${tag#v}"
+  [[ "$tag" =~ ^[A-Za-z0-9._+-]+$ ]] && printf '%s\n' "$tag"
+  return 0
+}
+
+# True when version $1 is older than $2 (numeric dotted compare).
+version_older() {
+  python3 - "$1" "$2" <<'PY'
+import re, sys
+def key(v):
+    return [int(x) if x.isdigit() else x for x in re.split(r"[.+-]", v)]
+try:
+    sys.exit(0 if key(sys.argv[1]) < key(sys.argv[2]) else 1)
+except TypeError:
+    sys.exit(1)
+PY
+}
+
 resolve_tool() {
   local override="$1"
   local name="$2"
@@ -269,8 +325,8 @@ resolve_tool() {
     return 0
   fi
   for candidate in \
-    "$ROOT/current/runtime-bundle/scripts/$name" \
-    "$ROOT/current/scripts/$name"
+    "$(cur_dir)/runtime-bundle/scripts/$name" \
+    "$(cur_dir)/scripts/$name"
   do
     if [[ -f "$candidate" ]]; then
       printf '%s' "$candidate"
@@ -404,27 +460,47 @@ extract_release() {
   apply_release_modes "$dest"
 }
 
+# Use the release behind $ROOT/current unless it is missing, empty/invalid
+# (a 0-byte file left by ln -s on a volume without symlinks), or older than
+# the release the bootstrap resolved as newest; then download and promote.
+current_is_usable() {
+  local have want
+  have="$(goliath_current_dir "$ROOT")" || return 1
+  want="$(wanted_release_version)"
+  [[ -z "$want" ]] && return 0
+  ! version_older "$(manifest_version "$have/manifest.json")" "$want"
+}
+
 ensure_current() {
-  if [[ -L "$ROOT/current" && ! -e "$ROOT/current" ]]; then
-    die "$ROOT/current is a broken symlink"
+  local have="" have_ver="" want
+  want="$(wanted_release_version)"
+  if have="$(goliath_current_dir "$ROOT")"; then
+    have_ver="$(manifest_version "$have/manifest.json")"
+  elif [[ -e "$ROOT/current" || -L "$ROOT/current" ]]; then
+    log "warning: $ROOT/current is empty or does not name a release directory; treating it as missing"
   fi
-  if [[ -e "$ROOT/current" ]]; then
-    log "using existing $ROOT/current"
+  if current_is_usable; then
+    log "using existing $ROOT/current -> ${have} (release ${have_ver:-unknown})"
     return 0
   fi
+  [[ -n "$have" ]] && log "current release ${have_ver:-unknown} is older than ${want}; refreshing"
   local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
   local url="${GOLIATH_RELEASE_URL:-}"
   local repo="${GOLIATH_GITHUB_REPO:-Goliath-Research/GoliathOmics}"
-  if [[ -z "$url" && -z "$token" ]]; then
-    die "$ROOT/current does not exist and neither GH_TOKEN/GITHUB_TOKEN nor GOLIATH_RELEASE_URL is set; cannot bootstrap a release bundle"
+  if [[ -z "$url" && -z "$token" && ! ( -n "$want" && -f "$ROOT/releases/$want/manifest.json" ) ]]; then
+    if [[ -n "$have" ]]; then
+      log "warning: no GH_TOKEN/GITHUB_TOKEN or GOLIATH_RELEASE_URL to fetch ${want}; staying on ${have_ver}"
+      return 0
+    fi
+    die "$ROOT/current is missing and neither GH_TOKEN/GITHUB_TOKEN nor GOLIATH_RELEASE_URL is set; cannot bootstrap a release bundle"
   fi
   command -v python3 >/dev/null 2>&1 || die "python3 is required to read the release manifest"
   command -v curl >/dev/null 2>&1 || die "curl is required to download the release bundle"
   # One pod publishes the shared release. Others wait, then use current.
   # The lock is advisory: this volume does not support file locking.
   acquire_promote_lock
-  if [[ -e "$ROOT/current" ]]; then
-    log "using existing $ROOT/current"
+  if current_is_usable; then
+    log "using existing $ROOT/current -> $(goliath_current_dir "$ROOT")"
     release_promote_lock
     return 0
   fi
@@ -432,17 +508,28 @@ ensure_current() {
   mkdir -p "$ROOT/releases" "$(node_root)/tmp"
   local tarball partial dest ver promote
   tarball="$(node_root)/tmp/goliathomics-release.tar.gz"
-  if [[ -n "$url" ]]; then
+  if [[ -n "$want" && -f "$ROOT/releases/$want/manifest.json" && -z "$url" ]]; then
+    log "release ${want} is already on the volume; promoting it"
+    : >"$tarball"
+  elif [[ -n "$url" ]]; then
     log "bootstrapping release from GOLIATH_RELEASE_URL"
     curl_download "$url" "$tarball" "$token"
   else
-    log "bootstrapping the latest GitHub release for ${repo}"
-    download_latest_release "$repo" "$token" "$tarball"
+    log "bootstrapping ${want:+goliathomics-${want} from }the GitHub releases of ${repo}"
+    GOLIATH_RELEASE_TAG="${GOLIATH_RELEASE_TAG:-${want:+goliathomics-${want}}}" \
+      download_latest_release "$repo" "$token" "$tarball"
   fi
   partial="$ROOT/releases/.partial-$(node_id)"
   rm -rf "$partial"
-  mkdir -p "$partial"
-  extract_release "$tarball" "$partial"
+  if [[ -s "$tarball" ]]; then
+    mkdir -p "$partial"
+    extract_release "$tarball" "$partial"
+  else
+    # The release tree is already published; only its manifest is needed to
+    # name it (the existing directory is reused below, nothing is copied).
+    mkdir -p "$partial"
+    cp "$ROOT/releases/$want/manifest.json" "$partial/"
+  fi
   rm -f "$tarball"
   [[ -f "$partial/manifest.json" ]] || die "release bundle has no manifest.json"
   ver="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("version",""))' "$partial/manifest.json")"
@@ -474,7 +561,18 @@ ensure_current() {
   log "promoting ${dest}"
   export GOLIATH_SHARED_WORK=1
   bash "$promote" "${promote_args[@]}"
-  [[ -e "$ROOT/current" ]] || die "promote did not create $ROOT/current"
+  local dest_abs
+  dest_abs="$(cd "$dest" && pwd -P)"
+  if [[ "$(goliath_current_dir "$ROOT" || true)" != "$dest_abs" ]]; then
+    # A release whose promote_release.sh predates the pointer file ran ln -s,
+    # which leaves an empty regular file on volumes without symlinks.
+    log "promote left $ROOT/current unresolved; writing the pointer file"
+    [[ -L "$ROOT/current" ]] && rm -f "$ROOT/current"
+    [[ -d "$ROOT/current" ]] && die "$ROOT/current is a directory; move it aside"
+    printf '%s\n' "$dest_abs" >"$ROOT/current"
+    [[ "$(goliath_current_dir "$ROOT" || true)" == "$dest_abs" ]] \
+      || die "cannot point $ROOT/current at ${dest}"
+  fi
   printf '%s\n' "$dest" >"$ROOT/.current.ready.$$"
   mv -f "$ROOT/.current.ready.$$" "$ROOT/current.ready"
   release_promote_lock
@@ -488,13 +586,14 @@ ensure_current() {
 # ${GOLIATH_LOCAL_ROOT:-/opt/goliath}/methyl-extractor-<arch> (never under
 # the work mount). Unchanged tarballs are skipped.
 install_local_extractor() {
-  local manifest="$ROOT/current/manifest.json" helper="" candidate tar_name sha release
+  local manifest helper="" candidate tar_name sha release
+  manifest="$(cur_dir)/manifest.json"
   if [[ ! -f "$manifest" ]]; then
     log "no ${manifest}; skipping local MethylExtractor install"
     return 0
   fi
   for candidate in "$START_SCRIPT_DIR/methyl_extractor_local.sh" \
-    "$ROOT/current/runtime-bundle/scripts/methyl_extractor_local.sh"; do
+    "$(cur_dir)/runtime-bundle/scripts/methyl_extractor_local.sh"; do
     if [[ -f "$candidate" ]]; then
       helper="$candidate"
       break
@@ -503,7 +602,7 @@ install_local_extractor() {
   [[ -n "$helper" ]] || die "methyl_extractor_local.sh not found next to this script or in the release bundle"
   # shellcheck source=methyl_extractor_local.sh
   source "$helper"
-  release="$(readlink -f "$ROOT/current" 2>/dev/null || printf '%s' "$ROOT/current")"
+  release="$(cur_dir)"
   tar_name="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); print(m.get("artifacts",{}).get(sys.argv[2],{}).get("methyl_extractor",""))' "$manifest" "$ARCH")"
   sha="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); print(m.get("artifacts",{}).get(sys.argv[2],{}).get("sha256",""))' "$manifest" "$ARCH")"
   if [[ -z "$tar_name" ]]; then
@@ -525,7 +624,7 @@ LOCAL_VENV_READY=0
 install_local_venv() {
   local helper="" candidate release
   for candidate in "$START_SCRIPT_DIR/worker_venv_local.sh" \
-    "$ROOT/current/runtime-bundle/scripts/worker_venv_local.sh"; do
+    "$(cur_dir)/runtime-bundle/scripts/worker_venv_local.sh"; do
     if [[ -f "$candidate" ]]; then
       helper="$candidate"
       break
@@ -534,7 +633,7 @@ install_local_venv() {
   [[ -n "$helper" ]] || die "worker_venv_local.sh not found next to this script or in the release bundle"
   # shellcheck source=worker_venv_local.sh
   source "$helper"
-  release="$(readlink -f "$ROOT/current" 2>/dev/null || printf '%s' "$ROOT/current")"
+  release="$(cur_dir)"
   if [[ -z "$(worker_venv_release_lock "$release")" ]]; then
     GOLIATH_WORKER_VENV="$(worker_venv_local_dir "$ARCH")"
     export GOLIATH_WORKER_VENV
@@ -927,7 +1026,7 @@ persist_token() {
 
 stamp_payload() {
   local current
-  current="$(readlink -f "$ROOT/current" 2>/dev/null || printf '%s' "$ROOT/current")"
+  current="$(cur_dir)"
   printf 'api=%s\narch=%s\ncurrent=%s\n' "$WORKER_API_BASE" "$ARCH" "$current"
 }
 

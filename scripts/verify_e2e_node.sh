@@ -48,7 +48,8 @@ run_check() {
 }
 
 VERIFY_SETUP_ARGS=()
-if [[ -d "$GOLIATH_ROOT/current/runtime-bundle" ]]; then
+_cur="$(goliath_current_dir "$GOLIATH_ROOT" 2>/dev/null || true)"
+if [[ -n "$_cur" && -d "$_cur/runtime-bundle" ]]; then
   VERIFY_SETUP_ARGS=(--runtime-bundle)
   export GOLIATH_ROOT
 fi

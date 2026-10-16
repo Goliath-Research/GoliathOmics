@@ -99,7 +99,8 @@ cleanup_worker_env_snapshot() {
 }
 
 ARCH="${ARCH:-$(platform_arch_key "$(detect_uname_arch)")}"
-MANIFEST="${MANIFEST:-$ROOT/current/manifest.json}"
+CURRENT_DIR="$(goliath_current_dir "$ROOT" 2>/dev/null || true)"
+MANIFEST="${MANIFEST:-${CURRENT_DIR:-$ROOT/current}/manifest.json}"
 [[ -f "$MANIFEST" ]] || die "Manifest not found: $MANIFEST"
 
 read_manifest() {
@@ -199,7 +200,7 @@ METHYL_EXTRACTOR_BIN=$ME_BIN
 HDF5_PLUGIN_PATH=$PLUGIN_DIR
 LD_LIBRARY_PATH=$ME_LD_PATH
 PATH=$WORKER_PATH
-METHYL_PROFILE_DIR=$ROOT/current/runtime-bundle/domain/profiles
+METHYL_PROFILE_DIR=$(dirname "$(readlink -f "$MANIFEST" 2>/dev/null || printf %s "$MANIFEST")")/runtime-bundle/domain/profiles
 TMPDIR=/var/tmp/methyl-samtools
 # Sample CAAS is a ledger (in-place FASTQ/BAM). =0 stops older worker wheels
 # from shutil.move-ing multi-GB products into .caas/ on NFS.

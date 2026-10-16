@@ -144,9 +144,33 @@ record_release() {
   log "recorded release ${tag} in ${marker}"
 }
 
+# Print the release directory ROOT/current points at, or nothing (exit 1)
+# when it is missing, empty or invalid. Shared /work volumes cannot store
+# symlinks (ln -s left a 0-byte regular file), so current is a pointer file
+# holding the release path; a symlink or a real directory (older layouts) is
+# still accepted.
+goliath_current_dir() {
+  local root="${1%/}" cur target=""
+  cur="$root/current"
+  if [[ -d "$cur" ]]; then
+    target="$(cd "$cur" 2>/dev/null && pwd -P)" || return 1
+  elif [[ -f "$cur" && -s "$cur" ]]; then
+    target="$(head -n 1 "$cur" 2>/dev/null | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    [[ -z "$target" || "$target" == /* ]] || target="$root/$target"
+  fi
+  [[ -n "$target" && -d "$target" ]] || return 1
+  printf '%s\n' "$target"
+}
+
+# Release dir behind $ROOT/current, or the literal path when unresolved.
+cur_dir() {
+  goliath_current_dir "$ROOT" 2>/dev/null || printf '%s\n' "$ROOT/current"
+}
+
 # Tag matching $ROOT/current, from its manifest version (goliathomics-<ver>).
 bundle_release() {
-  local manifest="$ROOT/current/manifest.json"
+  local manifest
+  manifest="$(cur_dir)/manifest.json"
   [[ -f "$manifest" ]] || return 0
   python3 -c 'import json,sys
 v=json.load(open(sys.argv[1], encoding="utf-8")).get("version") or ""
@@ -297,15 +321,19 @@ if isinstance(raw, dict):
     raw = [raw]
 if not isinstance(raw, list):
     sys.exit(0)
-for rel in raw:
-    if not isinstance(rel, dict):
-        continue
-    if rel.get("draft") or rel.get("prerelease"):
-        continue
-    name = rel.get("tag_name") or ""
-    if name.startswith("goliathomics-"):
-        sys.stdout.write(name)
-        break
+# The API lists releases by creation date, not version: an older tag can
+# come first (2026.10.9 was picked over 2026.10.12). Take the highest version.
+import re
+def key(tag):
+    return [int(p) if p.isdigit() else -1 for p in re.split(r"[.+-]", tag[len("goliathomics-"):])]
+tags = [
+    rel.get("tag_name") or ""
+    for rel in raw
+    if isinstance(rel, dict) and not rel.get("draft") and not rel.get("prerelease")
+]
+tags = [t for t in tags if t.startswith("goliathomics-")]
+if tags:
+    sys.stdout.write(max(tags, key=key))
 PY
 )" || {
     rm -f "$META_FILE"
@@ -395,7 +423,8 @@ fetch_start_script() {
 }
 
 install_start_script() {
-  local bundled="$ROOT/current/runtime-bundle/deploy/runpod/goliath-worker-start.sh"
+  local bundled
+  bundled="$(cur_dir)/runtime-bundle/deploy/runpod/goliath-worker-start.sh"
   local dest="$ROOT/bin/goliath-worker-start.sh"
   local b=0 e=0
   script_ok "$bundled" && b=1
@@ -423,7 +452,8 @@ install_start_script() {
 install_companion() {
   local repo_path="$1"
   local marker="$2"
-  local bundled="$ROOT/current/runtime-bundle/${repo_path}"
+  local bundled
+  bundled="$(cur_dir)/runtime-bundle/${repo_path}"
   local dest
   dest="$ROOT/bin/$(basename "$repo_path")"
   local b=0 e=0

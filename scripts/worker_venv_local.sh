@@ -117,6 +117,19 @@ _wvl_venv_works() {
   "$venv/bin/python" -c 'import sys' >/dev/null 2>&1
 }
 
+# Modules the worker venv must import (space-separated). The release lock
+# once omitted the first-party wheels and enroll then failed with "No module
+# named methyl_worker". GOLIATH_WORKER_IMPORT_CHECK="" disables the check.
+_wvl_imports_ok() {
+  local venv="$1" mods="${GOLIATH_WORKER_IMPORT_CHECK-methyl_worker}" m
+  for m in $mods; do
+    if ! "$venv/bin/python" -c "import $m" >/dev/null 2>&1; then
+      _wvl_warn "${venv}/bin/python cannot import ${m}"
+      return 1
+    fi
+  done
+}
+
 # install_worker_venv_local RELEASE_DIR ARCH [--recreate]
 # Sets and exports GOLIATH_WORKER_VENV to the ready venv.
 install_worker_venv_local() {
@@ -140,12 +153,17 @@ install_worker_venv_local() {
   stamp="$venv/.goliath-venv-stamp"
   expected="$(printf 'version=%s\narch=%s\nlock_sha256=%s\n' "$ver" "$arch" "$lock_sha")"
   if [[ "$recreate" != "--recreate" && -f "$stamp" && "$(cat "$stamp" 2>/dev/null)" == "$expected" ]] \
-    && _wvl_venv_works "$venv"; then
+    && _wvl_venv_works "$venv" && _wvl_imports_ok "$venv"; then
     rm -rf "$stage"
     _wvl_info "worker venv ${venv} already matches release ${ver}"
     GOLIATH_WORKER_VENV="$venv"
     export GOLIATH_WORKER_VENV
     return 0
+  fi
+  if [[ -f "$release/first-party-wheels.txt" ]] \
+    && ! _wvl_copy_verified "$release/first-party-wheels.txt" "$stage/first-party-wheels.txt"; then
+    rm -rf "$stage"
+    return 1
   fi
   if [[ -d "$release/wheels" ]]; then
     for f in "$release"/wheels/*; do
@@ -185,7 +203,12 @@ install_worker_venv_local() {
     fi
   fi
   rm -rf "$stage"
-  _wvl_venv_works "$venv" || { _wvl_die "${venv}/bin/python does not run"; return 1; }
+  _wvl_venv_works "$venv" || { rm -f "$stamp"; _wvl_die "${venv}/bin/python does not run"; return 1; }
+  if ! _wvl_imports_ok "$venv"; then
+    rm -f "$stamp"
+    _wvl_die "worker venv ${venv} is missing first-party packages (${GOLIATH_WORKER_IMPORT_CHECK-methyl_worker}); release ${ver} wheels/ or lock is incomplete"
+    return 1
+  fi
   printf '%s\n' "$expected" >"$stamp"
   GOLIATH_WORKER_VENV="$venv"
   export GOLIATH_WORKER_VENV
