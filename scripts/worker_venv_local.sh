@@ -14,6 +14,12 @@
 # A location under GOLIATH_WORK_MOUNT (default /work), or one whose parent
 # cannot be created or written, falls back to /tmp/goliath/venv-<arch>.
 #
+# Install is offline first (release wheels/ only). If that fails, a warning
+# is logged and the install is retried with a package index allowed
+# (GOLIATH_PIP_INDEX_URL, default https://pypi.org/simple), still pinned by
+# the lock and hash-checked when the lock carries hashes. Set
+# GOLIATH_WORKER_VENV_ALLOW_INDEX=0 to forbid the online retry.
+#
 # Idempotent: <venv>/.goliath-venv-stamp records the release version, arch
 # and requirements lock sha256. A matching stamp and a working interpreter
 # skip the install.
@@ -160,9 +166,19 @@ install_worker_venv_local() {
   _wvl_info "installing worker venv ${venv} from release ${ver} (verified local copy of wheels + lock)"
   if ! GOLIATH_WORK_MOUNT="${GOLIATH_WORK_MOUNT:-/work}" \
     bash "$installer" --release-dir "$stage" --venv "$venv" --recreate-venv >&2; then
-    rm -rf "$stage"
-    _wvl_die "worker venv install into ${venv} failed"
-    return 1
+    local index="${GOLIATH_PIP_INDEX_URL:-https://pypi.org/simple}"
+    if [[ "${GOLIATH_WORKER_VENV_ALLOW_INDEX:-1}" != "1" ]]; then
+      rm -rf "$stage"
+      _wvl_die "offline worker venv install into ${venv} failed (release wheels/ incomplete?) and GOLIATH_WORKER_VENV_ALLOW_INDEX=0"
+      return 1
+    fi
+    _wvl_warn "offline install from release wheels/ failed; retrying with package index ${index} (lock pins still enforced)"
+    if ! GOLIATH_WORK_MOUNT="${GOLIATH_WORK_MOUNT:-/work}" \
+      bash "$installer" --release-dir "$stage" --venv "$venv" --recreate-venv --index-url "$index" >&2; then
+      rm -rf "$stage"
+      _wvl_die "worker venv install into ${venv} failed (offline and via ${index})"
+      return 1
+    fi
   fi
   rm -rf "$stage"
   _wvl_venv_works "$venv" || { _wvl_die "${venv}/bin/python does not run"; return 1; }
@@ -181,7 +197,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
       --arch) _arch="${2:-}"; shift 2 ;;
       --recreate) _recreate="--recreate"; shift ;;
       --print-dir) _print=1; shift ;;
-      -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+      -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
       *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
   done

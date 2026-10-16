@@ -53,6 +53,13 @@ Release layout:
     methyl-extractor-linux-<arch>.tar.gz
 ```
 
+`wheels/` holds a wheel for every pin in `requirements-worker.lock`, including
+third-party dependencies, for linux x86_64 and aarch64 (manylinux, CPython
+3.12). `scripts/build_release.sh` downloads them and fails the release when any
+pin lacks a wheel for an arch (`scripts/verify_locked_wheels.py`). The lock
+records no find-links or index location; installers add the local `wheels/`
+directory themselves, so workers install offline.
+
 The release manifest records the deploy bundle version, component versions,
 Python version, Parabricks image digest, lockfile, runtime bundle path, native
 artifacts, and SHA256 checksums. Promotion verifies the manifest and checksums
