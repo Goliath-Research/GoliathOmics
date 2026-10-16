@@ -18,6 +18,7 @@ Options:
 Output layout inside tarball:
   bin/MethylExtractor
   lib/hdf5_zstd_plugin/
+  lib/libhts.so.3, libdeflate.so.0, libhtscodecs.so.2 (bundled; RUNPATH $ORIGIN/../lib)
   VERSION.txt
 
 Reference for MethylExtractor repo CI: MethylExtractor/.github/workflows/release.yml
@@ -102,11 +103,18 @@ cat >"$STAGING/env.sh" <<'ENVEOF'
 _ROOT="$(cd "$(dirname "$0")" && pwd)"
 export METHYL_EXTRACTOR_BIN="$_ROOT/bin/MethylExtractor"
 export HDF5_PLUGIN_PATH="$_ROOT/lib/hdf5_zstd_plugin"
+export LD_LIBRARY_PATH="$_ROOT/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export PATH="$_ROOT/bin:$PATH"
 ENVEOF
 chmod +x "$STAGING/env.sh"
 
 tar -czf "$OUTPUT" -C "$STAGING" bin lib VERSION.txt env.sh
+# Ship libhts.so.3 (+ libdeflate, libhtscodecs) in lib/ with RUNPATH $ORIGIN/../lib; the
+# worker image does not have them. Set METHYL_EXTRACTOR_BUNDLE_LIB_DIR to copy
+# from a local dir instead of the Ubuntu .debs.
+bundle_args=(--tarball "$OUTPUT" --arch "$ARCH_KEY")
+[[ -n "${METHYL_EXTRACTOR_BUNDLE_LIB_DIR:-}" ]] && bundle_args+=(--lib-dir "$METHYL_EXTRACTOR_BUNDLE_LIB_DIR")
+bash "$SCRIPT_DIR/bundle_methyl_extractor_libs.sh" "${bundle_args[@]}"
 SHA="$(sha256sum "$OUTPUT" | awk '{print $1}')"
 info "Wrote $OUTPUT (sha256=$SHA)"
 info "Add to manifest.json artifacts.$ARCH_KEY.sha256"

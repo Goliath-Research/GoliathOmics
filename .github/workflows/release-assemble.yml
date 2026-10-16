@@ -39,9 +39,13 @@ jobs:
           tar -xzf "${{ runner.temp }}/mp-dl"/methyl-pipeline-release-*.tar.gz \
             -C "${{ runner.temp }}/mp-release"
 
+      - name: Install patchelf (MethylExtractor libhts bundling)
+        run: sudo apt-get update && sudo apt-get install -y patchelf
+
       - name: Assemble GoliathOmics bundle
         env:
           GH_TOKEN: ${{ github.token }}
+          METHYL_EXTRACTOR_REQUIRE_PATCHELF: "1"
           GITHUB_ORG: https://github.com/${{ github.repository_owner }}
         run: |
           set -euo pipefail

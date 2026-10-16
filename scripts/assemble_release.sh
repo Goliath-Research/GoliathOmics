@@ -103,6 +103,12 @@ fi
 for arch in aarch64 amd64; do
   tb="$OUTPUT/methyl-extractor-linux-${arch}.tar.gz"
   [[ -f "$tb" ]] || die "Missing $tb"
+  # The MethylExtractor release tarball links libhts.so.3 but does not ship
+  # it, and the worker image lacks it. Bundle it (and libdeflate) into lib/
+  # before checksums go into manifest.json. No-op when already bundled.
+  bundle_args=(--tarball "$tb" --arch "$arch")
+  [[ "${METHYL_EXTRACTOR_REQUIRE_PATCHELF:-0}" == "1" ]] && bundle_args+=(--require-patchelf)
+  bash "$SCRIPT_DIR/bundle_methyl_extractor_libs.sh" "${bundle_args[@]}"
 done
 
 python3 - "$OUTPUT" "$RELEASE_VERSION" "$MP_VERSION" "$ME_VERSION" <<'PY'
