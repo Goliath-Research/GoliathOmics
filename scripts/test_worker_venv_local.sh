@@ -257,6 +257,60 @@ if grep -q 'already matches release' "$work/err15"; then fail "stamped venv with
 grep -q 'GOLIATH_WORKER_IMPORT_CHECK-methyl_worker' "$ROOT/scripts/worker_venv_local.sh" || fail "default import check is methyl_worker"
 grep -q 'first-party-wheels.txt' "$ROOT/scripts/build_release.sh" || fail "build must record first-party wheels"
 
+# Poetry path dependencies: first-party wheels declare
+# "methylutils @ file:///<checkout>/packages/methylutils" and pip-compile pins
+# the source directory. fix_wheel_path_deps.py rewrites the wheel metadata;
+# sanitize_lock.py rewrites any remaining directory ref to the built wheel.
+pdir="$work/pathdeps"
+mkdir -p "$pdir"
+make_wheel "$pdir" methylutils 1.0.0
+python3 - "$pdir" <<'PY'
+import sys, zipfile, base64, hashlib
+from pathlib import Path
+d = Path(sys.argv[1]); di = "methyl_classifier-2.0.0.dist-info"
+meta = ("Metadata-Version: 2.1\nName: methyl-classifier\nVersion: 2.0.0\n"
+        "Requires-Dist: methylutils @ file:///home/runner/work/GoliathOmics/GoliathOmics/packages/methylutils\n"
+        "Requires-Dist: numpy (>=1.26)\n")
+h = lambda b: "sha256=" + base64.urlsafe_b64encode(hashlib.sha256(b).digest()).rstrip(b"=").decode()
+files = {"methyl_classifier/__init__.py": b"", f"{di}/METADATA": meta.encode(),
+         f"{di}/WHEEL": b"Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n"}
+rec = "".join(f"{p},{h(b)},{len(b)}\n" for p, b in files.items()) + f"{di}/RECORD,,\n"
+files[f"{di}/RECORD"] = rec.encode()
+with zipfile.ZipFile(d / "methyl_classifier-2.0.0-py3-none-any.whl", "w") as z:
+    for p, b in files.items():
+        z.writestr(p, b)
+PY
+python3 "$ROOT/scripts/fix_wheel_path_deps.py" "$pdir" >"$work/fix.log" || fail "fix_wheel_path_deps failed"
+meta="$(unzip -p "$pdir/methyl_classifier-2.0.0-py3-none-any.whl" methyl_classifier-2.0.0.dist-info/METADATA)"
+grep -q '^Requires-Dist: methylutils==1.0.0$' <<<"$meta" || fail "path dep should become methylutils==1.0.0: $meta"
+grep -q 'file://' <<<"$meta" && fail "wheel metadata still has file://"
+grep -q '^Requires-Dist: numpy (>=1.26)$' <<<"$meta" || fail "other deps must be untouched"
+python3 - "$pdir/methyl_classifier-2.0.0-py3-none-any.whl" <<'PY' || fail "RECORD hash must match rewritten METADATA"
+import sys, zipfile, base64, hashlib
+z = zipfile.ZipFile(sys.argv[1]); di = "methyl_classifier-2.0.0.dist-info"
+data = z.read(f"{di}/METADATA")
+want = "sha256=" + base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+row = [r for r in z.read(f"{di}/RECORD").decode().splitlines() if r.startswith(f"{di}/METADATA,")][0]
+assert row == f"{di}/METADATA,{want},{len(data)}", row
+PY
+cat >"$pdir/lock" <<'EOF'
+methyl-classifier @ file:///home/runner/work/GoliathOmics/GoliathOmics/packages/methylclassifier
+    # via -r requirements-worker.in
+methylutils @ file:///home/runner/work/GoliathOmics/GoliathOmics/packages/methylutils \
+    --hash=sha256:00
+EOF
+python3 "$ROOT/scripts/sanitize_lock.py" "$pdir/lock" --wheels-dir "$pdir" 2>"$work/san.err" \
+  || { cat "$work/san.err" "$pdir/lock" >&2; fail "directory refs with built wheels should sanitize"; }
+grep -q '^methyl-classifier==2.0.0$' "$pdir/lock" || fail "dir ref should become methyl-classifier==2.0.0"
+grep -q '^methylutils==1.0.0 \\$' "$pdir/lock" || fail "dir ref with hash should keep its continuation"
+grep -q 'file://' "$pdir/lock" && fail "lock still has file://"
+printf 'methyl-orphan @ file:///home/runner/work/GoliathOmics/GoliathOmics/packages/orphan\n' >"$pdir/lock2"
+if python3 "$ROOT/scripts/sanitize_lock.py" "$pdir/lock2" --wheels-dir "$pdir" 2>"$work/san2.err"; then
+  fail "a directory ref without a built wheel must fail"
+fi
+grep -q 'NO BUILT WHEEL for source reference: methyl-orphan' "$work/san2.err" || fail "missing wheel should be named"
+grep -q 'fix_wheel_path_deps.py' "$ROOT/scripts/build_release.sh" || fail "build must fix wheel path deps"
+
 # promote_release.sh no longer builds a venv under the root.
 grep -q -- '--skip-venv' "$ROOT/scripts/start_shared_worker.sh" || fail "pod boot promote must pass --skip-venv"
 if grep -n 'venv-\${ARCH}\|venv-amd64' "$ROOT/scripts/promote_release.sh" "$ROOT/scripts/write_worker_env.sh" \
