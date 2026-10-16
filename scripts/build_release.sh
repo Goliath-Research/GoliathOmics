@@ -157,7 +157,7 @@ build_runtime_bundle() {
   for s in install_release.sh promote_release.sh write_worker_env.sh setup_gpu_node.sh \
            verify_e2e_node.sh verify_setup.sh verify_host_tools.sh verify_parabricks.sh verify_methyl_extractor.sh \
            install_host_tools_gpu_vm.sh \
-           register_worker.sh build_release.sh package_methyl_extractor.sh \
+           register_worker.sh build_release.sh package_methyl_extractor.sh bundle_methyl_extractor_libs.sh \
            download_methyl_extractor_artifacts.sh assemble_release.sh bootstrap_goliath.sh \
            install_gateway_systemd.sh install_gateway_venv.sh install_worker_systemd.sh \
            install_reclaim_leases_timer.sh provision_gateway_node.sh \

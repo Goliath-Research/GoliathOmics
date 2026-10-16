@@ -59,7 +59,9 @@ _mel_check_exec() {
   [[ -f "$bin" ]] || { _mel_die "missing ${bin}"; return 1; }
   [[ -r "$bin" ]] || { _mel_die "cannot read ${bin}"; return 1; }
   [[ -x "$bin" ]] || { _mel_die "${bin} is not executable"; return 1; }
-  "$bin" --help >/dev/null 2>&1 </dev/null || rc=$?
+  # Bundled libs (libhts.so.3, libdeflate) live in <home>/lib.
+  LD_LIBRARY_PATH="$(dirname "$(dirname "$bin")")/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    "$bin" --help >/dev/null 2>&1 </dev/null || rc=$?
   if [[ "$rc" -eq 126 || "$rc" -eq 127 ]]; then
     _mel_die "${bin} does not run (exit ${rc})"
     return 1
@@ -69,7 +71,8 @@ _mel_check_exec() {
 
 # install_methyl_extractor_local TARBALL ARCH [EXPECTED_SHA256]
 # Prints nothing on stdout; sets METHYL_EXTRACTOR_HOME, METHYL_EXTRACTOR_BIN,
-# HDF5_PLUGIN_PATH in the caller (exported). Idempotent: skips extraction
+# HDF5_PLUGIN_PATH and LD_LIBRARY_PATH (prepends <home>/lib, where the
+# tarball bundles libhts.so.3) in the caller (exported). Idempotent: skips extraction
 # when the installed copy came from a tarball with the same sha256.
 install_methyl_extractor_local() {
   local tarball="$1" arch="$2" expected="${3:-}"
@@ -114,11 +117,16 @@ install_methyl_extractor_local() {
 export METHYL_EXTRACTOR_HOME="$home"
 export METHYL_EXTRACTOR_BIN="$bin"
 export HDF5_PLUGIN_PATH="$home/lib/hdf5_zstd_plugin"
+export LD_LIBRARY_PATH="$home/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
 export PATH="$home/bin:\$PATH"
 ENV
   export METHYL_EXTRACTOR_HOME="$home"
   export METHYL_EXTRACTOR_BIN="$bin"
   export HDF5_PLUGIN_PATH="$home/lib/hdf5_zstd_plugin"
+  case ":${LD_LIBRARY_PATH:-}:" in
+    *":$home/lib:"*) ;;
+    *) export LD_LIBRARY_PATH="$home/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ;;
+  esac
   _mel_info "MethylExtractor: ${bin}" >&2
 }
 

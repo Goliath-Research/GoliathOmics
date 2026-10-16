@@ -129,6 +129,13 @@ VENV_DIR="$ROOT/venv-${ARCH}"
 ME_ROOT="$(methyl_extractor_local_home "$ARCH")"
 ME_BIN="$ME_ROOT/bin/MethylExtractor"
 PLUGIN_DIR="$ME_ROOT/lib/hdf5_zstd_plugin"
+# The tarball bundles libhts.so.3 in lib/. EnvironmentFile= is literal, so
+# expand the current LD_LIBRARY_PATH now.
+ME_LD_PATH="$ME_ROOT/lib"
+case ":${LD_LIBRARY_PATH:-}:" in
+  *":$ME_LD_PATH:"*) ME_LD_PATH="${LD_LIBRARY_PATH}" ;;
+  *) ME_LD_PATH="$ME_LD_PATH${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ;;
+esac
 
 if [[ ! -x "$ME_BIN" ]]; then
   ME_BIN="${METHYL_EXTRACTOR_BIN:-MethylExtractor}"
@@ -187,6 +194,7 @@ ${GOLIATH_SHARED_WORK:+GOLIATH_IMAGE_CACHE=$ROOT/images}
 METHYL_EXTRACTOR_HOME=$ME_ROOT
 METHYL_EXTRACTOR_BIN=$ME_BIN
 HDF5_PLUGIN_PATH=$PLUGIN_DIR
+LD_LIBRARY_PATH=$ME_LD_PATH
 PATH=$WORKER_PATH
 METHYL_PROFILE_DIR=$ROOT/current/runtime-bundle/domain/profiles
 TMPDIR=/var/tmp/methyl-samtools

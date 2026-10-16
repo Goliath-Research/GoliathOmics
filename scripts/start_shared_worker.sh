@@ -719,7 +719,7 @@ write_worker_env() {
   local have_local_extractor=0
   if [[ -n "${METHYL_EXTRACTOR_HOME:-}" && -x "${METHYL_EXTRACTOR_BIN:-}" ]]; then
     have_local_extractor=1
-    owned="METHYL_EXTRACTOR_HOME|METHYL_EXTRACTOR_BIN|HDF5_PLUGIN_PATH|${owned}"
+    owned="METHYL_EXTRACTOR_HOME|METHYL_EXTRACTOR_BIN|HDF5_PLUGIN_PATH|LD_LIBRARY_PATH|${owned}"
   fi
   mkdir -p "$(dirname "$pod_env")" "$ROOT/env"
   old_umask="$(umask)"
@@ -747,6 +747,8 @@ write_worker_env() {
     append_kv "$tmp" METHYL_EXTRACTOR_HOME "$METHYL_EXTRACTOR_HOME"
     append_kv "$tmp" METHYL_EXTRACTOR_BIN "$METHYL_EXTRACTOR_BIN"
     append_kv "$tmp" HDF5_PLUGIN_PATH "$HDF5_PLUGIN_PATH"
+    # libhts.so.3 ships in the tarball's lib/; worker.env is literal.
+    append_kv "$tmp" LD_LIBRARY_PATH "${LD_LIBRARY_PATH:-$METHYL_EXTRACTOR_HOME/lib}"
   fi
   append_kv "$tmp" WORKER_API_BASE "${WORKER_API_BASE:-}"
   append_kv "$tmp" GOLIATH_ENV "$GOLIATH_ENV"

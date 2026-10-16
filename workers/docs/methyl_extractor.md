@@ -13,6 +13,8 @@ make deps && make && make install
 
 Production workers use the binary under `METHYL_EXTRACTOR_HOME` (default `/opt/goliath/methyl-extractor-<arch>/`, extracted on every boot by `scripts/methyl_extractor_local.sh`; the shared `/work` volume only holds the tarball because it cannot run binaries). `make install` also copies `MethylExtractor` to `/usr/local/bin/` for a machine image. That install is provisioning, not per-task JSON.
 
+Shared libraries: the binary needs `libhts.so.3` (htslib). Release tarballs carry it in `lib/` (with `libdeflate.so.0` and `libhtscodecs.so.2`), added at assemble time by `scripts/bundle_methyl_extractor_libs.sh` because the MethylExtractor release does not ship it; the binary's RUNPATH is `$ORIGIN/../lib`, and `methyl_extractor_local.sh`, the install's `env.sh` and `worker.env` add `METHYL_EXTRACTOR_HOME/lib` to `LD_LIBRARY_PATH`. If `ldd $METHYL_EXTRACTOR_BIN` shows `libhts.so.3 => not found`, the tarball predates bundling: re-run `scripts/bundle_methyl_extractor_libs.sh --tarball <tarball>` (and refresh the manifest sha256) or `apt install libhts3`.
+
 ## Production worker contract
 
 Workers consume **`--resolved-config` only** (Universal Action Input Contract). They do **not** re-read `project.json`, pipeline profiles, or `METHYL_*` env for tool parameters. `projectPath` on `input_json` is provenance/logging only.
