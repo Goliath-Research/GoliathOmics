@@ -163,6 +163,40 @@ python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/lock" "$vdir" --arch x86_
 python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/lock" "$vdir" 2>/dev/null || fail "both arches should verify"
 grep -q 'no-emit-find-links' "$ROOT/scripts/build_release.sh" || fail "build_release must not emit find-links into the lock"
 
+# pip-compile on locally built wheels writes first-party pins as direct
+# references to the runner path. sanitize_lock.py rewrites them to name==version
+# (hashes kept), scrubs comments, and the result verifies and installs offline.
+whl="$release/wheels/goliath_fake_worker-1.0.0-py3-none-any.whl"
+sha="$(sha256sum "$whl" | awk '{print $1}')"
+runner=/home/runner/work/_temp/release/wheels
+cat >"$release/requirements-worker.lock" <<EOF
+#
+# pip-compile --find-links=$runner --generate-hashes requirements-worker.in
+#
+--find-links $runner
+
+goliath-fake-worker @ file://$runner/goliath_fake_worker-1.0.0-py3-none-any.whl \\
+    --hash=sha256:$sha
+    # via -r requirements-worker.in
+    # from file://$runner/goliath_fake_worker-1.0.0-py3-none-any.whl
+EOF
+python3 "$ROOT/scripts/sanitize_lock.py" "$release/requirements-worker.lock" --wheels-dir "$runner" \
+  || { cat "$release/requirements-worker.lock" >&2; fail "sanitize_lock.py should clean a runner lock"; }
+if grep -q 'file://\|/home/runner' "$release/requirements-worker.lock"; then
+  cat "$release/requirements-worker.lock" >&2; fail "lock still names the runner path"
+fi
+grep -q '^goliath-fake-worker==1.0.0 \\$' "$release/requirements-worker.lock" || fail "direct ref should become name==version"
+grep -q -- "--hash=sha256:$sha" "$release/requirements-worker.lock" || fail "hash line must be kept"
+python3 "$ROOT/scripts/verify_locked_wheels.py" "$release/requirements-worker.lock" "$release/wheels" 2>/dev/null \
+  || fail "sanitized lock should verify against wheels/"
+run_install --recreate >/dev/null 2>"$work/err11" || { cat "$work/err11" >&2; fail "sanitized hashed lock should install offline"; }
+[[ "$("$venv/bin/methyl-worker")" == "worker-ok" ]] || fail "methyl-worker did not run after sanitized install"
+# A requirement line that cannot be rewritten fails loudly.
+printf 'odd @ file:///home/runner/x/odd.tar.gz\n' >"$work/badlock"
+if python3 "$ROOT/scripts/sanitize_lock.py" "$work/badlock" 2>/dev/null; then
+  fail "unrewritable file:// requirement must fail"
+fi
+
 # promote_release.sh no longer builds a venv under the root.
 grep -q -- '--skip-venv' "$ROOT/scripts/start_shared_worker.sh" || fail "pod boot promote must pass --skip-venv"
 if grep -n 'venv-\${ARCH}\|venv-amd64' "$ROOT/scripts/promote_release.sh" "$ROOT/scripts/write_worker_env.sh" \
