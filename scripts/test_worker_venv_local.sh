@@ -18,17 +18,22 @@ release="$mount/goliath/releases/9.9.9"
 mkdir -p "$release/wheels" "$local_root"
 printf '{"version": "9.9.9"}\n' >"$release/manifest.json"
 
-python3 - "$release/wheels" <<'PY'
+# make_wheel DEST NAME VERSION [ENTRY_POINT]
+make_wheel() {
+python3 - "$@" <<'PY'
 import base64, hashlib, sys, zipfile
 from pathlib import Path
 dest = Path(sys.argv[1])
-name, ver = "goliath_fake_worker", "1.0.0"
+name, ver = sys.argv[2], sys.argv[3]
+entry = sys.argv[4] if len(sys.argv) > 4 else ""
+dist = name.replace("_", "-")
 files = {
     f"{name}/__init__.py": "def main():\n    print('worker-ok')\n",
-    f"{name}-{ver}.dist-info/METADATA": f"Metadata-Version: 2.1\nName: goliath-fake-worker\nVersion: {ver}\n",
+    f"{name}-{ver}.dist-info/METADATA": f"Metadata-Version: 2.1\nName: {dist}\nVersion: {ver}\n",
     f"{name}-{ver}.dist-info/WHEEL": "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
-    f"{name}-{ver}.dist-info/entry_points.txt": f"[console_scripts]\nmethyl-worker = {name}:main\n",
 }
+if entry:
+    files[f"{name}-{ver}.dist-info/entry_points.txt"] = f"[console_scripts]\n{entry} = {name}:main\n"
 record = []
 for path, body in files.items():
     digest = base64.urlsafe_b64encode(hashlib.sha256(body.encode()).digest()).rstrip(b"=").decode()
@@ -39,6 +44,8 @@ with zipfile.ZipFile(dest / f"{name}-{ver}-py3-none-any.whl", "w") as zf:
     for path, body in files.items():
         zf.writestr(path, body)
 PY
+}
+make_wheel "$release/wheels" goliath_fake_worker 1.0.0 methyl-worker
 printf 'goliath-fake-worker==1.0.0\n' >"$release/requirements-worker.lock"
 
 run_install() {
@@ -100,6 +107,61 @@ if [[ ! -r "$unreadable" ]]; then
   grep -q 'cannot read' "$work/err6" || fail "unreadable wheel should be named"
 fi
 chmod 600 "$unreadable"
+
+rm -f "$unreadable"
+
+# A lock carrying a baked-in build-host find-links still installs offline from
+# the release wheels only, and pip lists the local wheels dir exactly once.
+printf -- '--find-links /home/runner/work/_temp/release/wheels\ngoliath-fake-worker==1.0.0\n' \
+  >"$release/requirements-worker.lock"
+run_install --recreate >/dev/null 2>"$work/err7" || { cat "$work/err7" >&2; fail "lock with runner find-links failed"; }
+if grep -q '/home/runner' "$work/err7"; then
+  cat "$work/err7" >&2; fail "runner find-links path must not reach pip"
+fi
+n="$(grep -o 'Looking in links: .*' "$work/err7" | head -1 | tr ',' '\n' | grep -c 'wheels' || true)"
+[[ "$n" -le 1 ]] || { cat "$work/err7" >&2; fail "wheels dir should be listed once in find-links, got $n"; }
+
+# A third-party pin missing from wheels/: offline fails, the warning is
+# logged, and the retry pulls it from the (local file) index, still pinned.
+index="$work/index"
+mkdir -p "$index/annotated-types"
+make_wheel "$index/annotated-types" annotated_types 0.8.0
+printf '<a href="annotated_types-0.8.0-py3-none-any.whl">annotated_types-0.8.0-py3-none-any.whl</a>\n' \
+  >"$index/annotated-types/index.html"
+printf 'goliath-fake-worker==1.0.0\nannotated-types==0.8.0\n' >"$release/requirements-worker.lock"
+run_fallback() {
+  env GOLIATH_WORK_MOUNT="$mount" GOLIATH_LOCAL_ROOT="$local_root" \
+    GOLIATH_VENV_UPGRADE_PIP=0 PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHON_BIN=python3 \
+    GOLIATH_PIP_INDEX_URL="file://$index" "$@" \
+    bash "$ROOT/scripts/worker_venv_local.sh" --release "$release" --arch amd64 --recreate
+}
+run_fallback >/dev/null 2>"$work/err8" || { cat "$work/err8" >&2; fail "index fallback install failed"; }
+grep -q 'offline install from release wheels/ failed; retrying' "$work/err8" || fail "fallback should warn"
+"$venv/bin/python" -c 'import annotated_types' || fail "fallback should install annotated-types"
+[[ ! -e "$mount/goliath/venv-amd64" ]] || fail "fallback must not build on the work mount"
+
+set +e
+run_fallback GOLIATH_WORKER_VENV_ALLOW_INDEX=0 >/dev/null 2>"$work/err9"
+status=$?
+set -e
+[[ "$status" -ne 0 ]] || fail "GOLIATH_WORKER_VENV_ALLOW_INDEX=0 must not go online"
+grep -q 'ALLOW_INDEX=0' "$work/err9" || fail "offline-only failure should say why"
+
+# verify_locked_wheels.py: pure wheels count for every arch, a missing pin fails.
+vdir="$work/verify"
+mkdir -p "$vdir"
+make_wheel "$vdir" goliath_fake_worker 1.0.0
+: >"$vdir/numpy-2.1.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+printf 'goliath-fake-worker==1.0.0 \\\n    --hash=sha256:00\nnumpy==2.1.0\n' >"$vdir/lock"
+if python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/lock" "$vdir" 2>"$work/err10"; then
+  fail "numpy without an aarch64 wheel should fail verification"
+fi
+grep -q 'MISSING numpy==2.1.0 for linux aarch64' "$work/err10" || { cat "$work/err10" >&2; fail "missing arch should be named"; }
+python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/lock" "$vdir" --arch x86_64 2>/dev/null \
+  || fail "x86_64 should verify"
+: >"$vdir/numpy-2.1.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
+python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/lock" "$vdir" 2>/dev/null || fail "both arches should verify"
+grep -q 'no-emit-find-links' "$ROOT/scripts/build_release.sh" || fail "build_release must not emit find-links into the lock"
 
 # promote_release.sh no longer builds a venv under the root.
 grep -q -- '--skip-venv' "$ROOT/scripts/start_shared_worker.sh" || fail "pod boot promote must pass --skip-venv"

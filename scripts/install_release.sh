@@ -13,7 +13,9 @@ Options:
   --venv PATH          Target virtualenv on local disk
                        (default: ${GOLIATH_LOCAL_ROOT:-/opt/goliath}/venv-<arch>; never under GOLIATH_WORK_MOUNT)
   --python BIN         Python interpreter for venv creation (default: python3.12)
-  --index-url URL      Optional package index. Omit to install from wheels/ in the release directory.
+  --index-url URL      Also allow this package index (e.g. https://pypi.org/simple).
+                       Omit to install offline from wheels/ in the release directory only.
+                       Either way the lock pins are honored (hashes enforced when present).
   --recreate-venv      Remove existing venv before install
   -h, --help           Show this help
 
@@ -93,19 +95,34 @@ if [[ "${GOLIATH_VENV_UPGRADE_PIP:-1}" == "1" ]]; then
   pip install -U pip wheel setuptools
 fi
 
-PIP_ARGS=(-r "$LOCK_FILE")
-if [[ -n "$INDEX_URL" ]]; then
-  PIP_ARGS=(--index-url "$INDEX_URL" "${PIP_ARGS[@]}")
-else
-  PIP_ARGS=(--no-index --find-links "$WHEELS_DIR" "${PIP_ARGS[@]}")
-fi
+# Older locks embedded the build host's --find-links (a GitHub runner path
+# such as /home/runner/work/_temp/release/wheels). Install from a copy with
+# every find-links/index option removed so only our own wheels dir is used.
+CLEAN_LOCK="$(mktemp "${TMPDIR:-/tmp}/goliath-lock.XXXXXX")"
+trap 'rm -f "$CLEAN_LOCK"' EXIT
+sed -E '/^[[:space:]]*(-f|--find-links|-i|--index-url|--extra-index-url|--trusted-host|--no-index)([[:space:]=]|$)/d' \
+  "$LOCK_FILE" >"$CLEAN_LOCK"
 
-info "Installing from $LOCK_FILE into $VENV_DIR"
-if [[ -z "$INDEX_URL" ]]; then
-  # Local wheels cover goliath packages only; third-party deps need PyPI or an index mirror.
-  pip install --find-links "$WHEELS_DIR" "${PIP_ARGS[@]}"
+PIP_ARGS=()
+if [[ -n "$INDEX_URL" ]]; then
+  PIP_ARGS+=(--index-url "$INDEX_URL")
 else
-  pip install "${PIP_ARGS[@]}"
+  PIP_ARGS+=(--no-index)
 fi
+# The local wheels dir is the only find-links location, listed once.
+if [[ -d "$WHEELS_DIR" ]]; then
+  PIP_ARGS+=(--find-links "$WHEELS_DIR")
+fi
+if grep -q -- '--hash=' "$CLEAN_LOCK"; then
+  PIP_ARGS+=(--require-hashes)
+fi
+PIP_ARGS+=(-r "$CLEAN_LOCK")
+
+if [[ -n "$INDEX_URL" ]]; then
+  info "Installing from $LOCK_FILE into $VENV_DIR (wheels/ + index $INDEX_URL)"
+else
+  info "Installing from $LOCK_FILE into $VENV_DIR (offline, wheels/ only)"
+fi
+pip install "${PIP_ARGS[@]}"
 
 info "Release install complete: $VENV_DIR"

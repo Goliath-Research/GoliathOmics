@@ -13,6 +13,10 @@ Options:
   --python BIN         Python for build/venv (default: python3.12)
   --skip-wheels        Only build runtime-bundle and manifest stub
   --with-gpu-reqs      Include GPU requirements in lockfile compile
+  --wheel-arches LIST  Linux arches to bundle third-party wheels for
+                       (default: "x86_64 aarch64"; env GOLIATH_WHEEL_ARCHES)
+  --skip-third-party   Do not download locked third-party wheels (dev only;
+                       the release then needs PyPI at install time)
   -h, --help           Show this help
 EOF
 }
@@ -27,6 +31,9 @@ OUTPUT=""
 PYTHON_BIN="${PYTHON_BIN:-python3.12}"
 SKIP_WHEELS=0
 WITH_GPU=0
+WHEEL_ARCHES="${GOLIATH_WHEEL_ARCHES:-x86_64 aarch64}"
+WORKER_PY_VERSION="${GOLIATH_WORKER_PYTHON_VERSION:-3.12}"
+SKIP_THIRD_PARTY=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -35,6 +42,8 @@ while [[ $# -gt 0 ]]; do
     --python) PYTHON_BIN="${2:-}"; shift 2 ;;
     --skip-wheels) SKIP_WHEELS=1; shift ;;
     --with-gpu-reqs) WITH_GPU=1; shift ;;
+    --wheel-arches) WHEEL_ARCHES="${2:-}"; shift 2 ;;
+    --skip-third-party) SKIP_THIRD_PARTY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
@@ -102,18 +111,41 @@ write_lockfile() {
     cat "$REPO_ROOT/requirements-gpu-cuda12.txt" >>"$req_combined"
   fi
   info "Compiling requirements-worker.lock"
+  # --find-links is needed to resolve the first-party wheels, but must not be
+  # written into the lock: pip-compile would emit the absolute build path
+  # (e.g. /home/runner/work/_temp/release/wheels) and every pod would then
+  # search that non-existent runner directory. Installers pass --find-links
+  # for their own local wheels dir.
   if "$PYTHON_BIN" -m pip install -q pip-tools 2>/dev/null; then
     "$PYTHON_BIN" -m piptools compile "$req_combined" \
       -o "$OUTPUT/requirements-worker.lock" \
       --find-links "$WHEELS_DIR" \
+      --no-emit-find-links \
+      --no-emit-index-url \
       --allow-unsafe \
       --strip-extras \
       --generate-hashes 2>/dev/null || \
     "$PYTHON_BIN" -m piptools compile "$req_combined" \
       -o "$OUTPUT/requirements-worker.lock" \
-      --find-links "$WHEELS_DIR"
+      --find-links "$WHEELS_DIR" \
+      --no-emit-find-links \
+      --no-emit-index-url
   else
     warn_fallback_lock "$req_combined"
+  fi
+  strip_lock_build_paths "$OUTPUT/requirements-worker.lock"
+}
+
+# Drop any pip option lines (-f/--find-links/--index-url/...) from the lock.
+# Where to find packages is the installer's business, never the build host's.
+strip_lock_build_paths() {
+  local lock="$1"
+  if grep -Eq '^[[:space:]]*(-f|--find-links|-i|--index-url|--extra-index-url|--trusted-host)([[:space:]=]|$)' "$lock"; then
+    info "Removing build-host find-links/index lines from $(basename "$lock")"
+    sed -E -i '/^[[:space:]]*(-f|--find-links|-i|--index-url|--extra-index-url|--trusted-host)([[:space:]=]|$)/d' "$lock"
+  fi
+  if grep -q "$WHEELS_DIR\|file://" "$lock"; then
+    die "requirements-worker.lock still references a build-host path ($WHEELS_DIR or file://)"
   fi
 }
 
@@ -123,13 +155,60 @@ warn_fallback_lock() {
   {
     cat "$req_in"
     echo ""
-    echo "# Local goliath wheels (install with --find-links wheels/)"
+    echo "# Local goliath wheels (installers pass --find-links <release>/wheels)"
     for whl in "$WHEELS_DIR"/*.whl; do
       [[ -f "$whl" ]] || continue
-      base="$(basename "$whl" | sed 's/-[0-9].*//')"
-      echo "${base} @ file://$(readlink -f "$whl")"
+      # name-version-... ; pin by version, never by build-host file:// path.
+      basename "$whl" | awk -F- '{print $1 "==" $2}'
     done
   } >"$OUTPUT/requirements-worker.lock"
+}
+
+# Download every locked third-party wheel for each worker arch (manylinux,
+# CPython $WORKER_PY_VERSION) so pods can install offline. Packages that only
+# publish an sdist are built here; that yields a usable wheel only when the
+# package is pure Python (py3-none-any). Anything still missing fails the build.
+download_locked_wheels() {
+  local lock="$OUTPUT/requirements-worker.lock" arch plat pyabi missing pin hash_args=()
+  [[ -f "$lock" ]] || die "missing $lock"
+  pyabi="cp${WORKER_PY_VERSION/./}"
+  grep -q -- '--hash=' "$lock" && hash_args=(--require-hashes)
+  for arch in $WHEEL_ARCHES; do
+    info "Downloading locked wheels for linux ${arch} ${pyabi}"
+    local plats=()
+    for plat in manylinux_2_17 manylinux2014 manylinux_2_28 manylinux_2_31 manylinux_2_34 manylinux_2_35; do
+      plats+=(--platform "${plat}_${arch}")
+    done
+    # One pip call per arch; --no-deps because the lock is already complete.
+    # A failure here usually means an sdist-only package; handled below.
+    "$PYTHON_BIN" -m pip download \
+      --dest "$WHEELS_DIR" \
+      --find-links "$WHEELS_DIR" \
+      --only-binary=:all: \
+      "${plats[@]}" \
+      --platform "linux_${arch}" \
+      --implementation cp \
+      --python-version "$WORKER_PY_VERSION" \
+      --abi "$pyabi" --abi abi3 --abi none \
+      --no-deps "${hash_args[@]}" \
+      -r "$lock" || info "  pip download for ${arch} was incomplete; checking which pins are missing"
+    missing="$("$PYTHON_BIN" "$SCRIPT_DIR/verify_locked_wheels.py" "$lock" "$WHEELS_DIR" \
+      --arch "$arch" --python-version "$WORKER_PY_VERSION" --list-missing || true)"
+    for pin in $missing; do
+      info "  no ${arch} wheel on the index for ${pin}; building from sdist"
+      "$PYTHON_BIN" -m pip wheel --no-deps --no-binary=:all: -w "$WHEELS_DIR" "$pin" \
+        || info "  could not build ${pin} from sdist"
+    done
+  done
+}
+
+verify_locked_wheels() {
+  local args=() arch
+  for arch in $WHEEL_ARCHES; do args+=(--arch "$arch"); done
+  info "Verifying every pin in requirements-worker.lock has a wheel for: $WHEEL_ARCHES"
+  "$PYTHON_BIN" "$SCRIPT_DIR/verify_locked_wheels.py" "$OUTPUT/requirements-worker.lock" "$WHEELS_DIR" \
+    "${args[@]}" --python-version "$WORKER_PY_VERSION" \
+    || die "release wheels/ is incomplete (see MISSING lines). A native package with no wheel for an arch must be built on that arch or dropped from the lock."
 }
 
 build_runtime_bundle() {
@@ -165,6 +244,7 @@ build_runtime_bundle() {
            provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh \
            start_shared_worker.sh \
            install_methyl_extractor_tarball.sh methyl_extractor_local.sh worker_venv_local.sh \
+           verify_locked_wheels.py \
            deploy_workflow_definitions.sh deploy_mc_workflow_definitions.sh \
            deploy_process_pack_catalog.sh deploy_target.sh \
            report_deploy.sh rollouts_hook.sh default_methyl_site.json; do
@@ -172,7 +252,7 @@ build_runtime_bundle() {
       cp -f "$REPO_ROOT/scripts/$s" "$RUNTIME_DIR/scripts/"
     fi
   done
-  chmod +x "$RUNTIME_DIR/scripts/"*.sh 2>/dev/null || true
+  chmod +x "$RUNTIME_DIR/scripts/"*.sh "$RUNTIME_DIR/scripts/"*.py 2>/dev/null || true
 }
 
 write_manifest_stub() {
@@ -215,6 +295,10 @@ EOF
 if [[ "$SKIP_WHEELS" -eq 0 ]]; then
   build_wheels
   write_lockfile
+  if [[ "$SKIP_THIRD_PARTY" -eq 0 ]]; then
+    download_locked_wheels
+    verify_locked_wheels
+  fi
 fi
 build_runtime_bundle
 write_manifest_stub

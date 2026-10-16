@@ -27,6 +27,8 @@ Nothing executable runs from `/work`. The volume ignores exec bits, rejects `chm
 | `/opt/goliath/venv-amd64` | Worker Python venv (`methyl-worker`, `methyl-*` CLIs), built from the release `wheels/` and `requirements-worker.lock` |
 | `/opt/goliath/methyl-extractor-amd64` | MethylExtractor binary and bundled libs |
 
+The venv install is offline first: `wheels/` carries every pin in `requirements-worker.lock` (first-party and third-party, manylinux cp312 for x86_64 and aarch64). If the offline install fails, `worker_venv_local.sh` logs a `[WARN]` and retries with a package index (`GOLIATH_PIP_INDEX_URL`, default `https://pypi.org/simple`), still pinned by the lock and hash-checked when the lock has hashes. `GOLIATH_WORKER_VENV_ALLOW_INDEX=0` forbids the online retry.
+
 `GOLIATH_LOCAL_ROOT` moves both (default `/opt/goliath`; `GOLIATH_WORKER_VENV` / `METHYL_EXTRACTOR_HOME` override each). A location on the work mount, or one that cannot be written, falls back to `/tmp/goliath`.
 
 Per-node, still on `/work` and world-readable, under `/work/goliath/nodes/$GOLIATH_NODE_ID`. On RunPod the adapter sets `GOLIATH_NODE_ID` from `RUNPOD_POD_ID`. Other clouds use the hostname, then `/etc/machine-id`:
