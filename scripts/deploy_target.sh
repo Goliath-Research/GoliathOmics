@@ -467,30 +467,48 @@ run_schema() {
   fi
 }
 
+# Scripts each host role needs in /tmp/goliath-deploy. The gateway is only the
+# REST API (workers -> DB): it gets the gateway installers, its systemd units
+# and the nginx site, never worker/runtime scripts.
 install_remote_tree() {
-  local dest="$1"
+  local dest="$1" role="${2:-node}"
   local bundle="$stage_dir/bundle.tgz"
-  tar -C "$REPO_ROOT" -czf "$bundle" \
-    scripts/report_deploy.sh \
-    scripts/rollouts_hook.sh \
-    scripts/install_gateway_systemd.sh \
-    scripts/install_gateway_venv.sh \
-    scripts/setup_gateway_nginx.sh \
-    scripts/provision_gateway_node.sh \
-    scripts/install_worker_systemd.sh \
-    scripts/install_reclaim_leases_timer.sh \
-    scripts/promote_release.sh \
-    scripts/install_release.sh \
-    scripts/write_worker_env.sh \
-    scripts/setup_gpu_node.sh \
-    scripts/verify_setup.sh \
-    scripts/verify_e2e_node.sh \
-    scripts/bootstrap_goliath.sh \
-    scripts/detect_platform.sh \
-    scripts/platform_matrix.env \
-    scripts/install_methyl_extractor_tarball.sh \
-    deploy/systemd \
-    deploy/nginx
+  local -a files
+  if [[ "$role" == "gateway" ]]; then
+    files=(
+      scripts/report_deploy.sh
+      scripts/rollouts_hook.sh
+      scripts/detect_platform.sh
+      scripts/platform_matrix.env
+      scripts/install_gateway_systemd.sh
+      scripts/install_gateway_venv.sh
+      scripts/install_reclaim_leases_timer.sh
+      scripts/setup_gateway_nginx.sh
+      deploy/systemd/methyl-gateway.service
+      deploy/systemd/methyl-reclaim-leases.service
+      deploy/systemd/methyl-reclaim-leases.timer
+      deploy/nginx
+    )
+  else
+    files=(
+      scripts/report_deploy.sh
+      scripts/rollouts_hook.sh
+      scripts/install_worker_systemd.sh
+      scripts/promote_release.sh
+      scripts/install_release.sh
+      scripts/worker_venv_local.sh
+      scripts/write_worker_env.sh
+      scripts/setup_gpu_node.sh
+      scripts/verify_setup.sh
+      scripts/verify_e2e_node.sh
+      scripts/bootstrap_goliath.sh
+      scripts/detect_platform.sh
+      scripts/platform_matrix.env
+      scripts/install_methyl_extractor_tarball.sh
+      deploy/systemd
+    )
+  fi
+  tar -C "$REPO_ROOT" -czf "$bundle" "${files[@]}"
   scp_to "$dest" "$bundle" /tmp/goliath-deploy-bundle.tgz
   ssh_cmd "$dest" "rm -rf /tmp/goliath-deploy && mkdir -p /tmp/goliath-deploy && tar --no-same-owner --no-same-permissions -m -xzf /tmp/goliath-deploy-bundle.tgz -C /tmp/goliath-deploy && rm -f /tmp/goliath-deploy-bundle.tgz"
 }
@@ -560,7 +578,7 @@ run_gateway() {
   port="$(jq_get '.gateway.port // 8080')"
   bind="$(jq_get '.gateway.bind_host // "127.0.0.1"')"
   remote_env="$(jq_get '.gateway.env_file // empty')"
-  release_remote="$root/release"
+  release_remote="$root/gateway-dist"
   for ((i = 0; i < count; i++)); do
     dest="$(jq_get ".gateway.hosts[$i].ssh")"
     assert_remote_literal "gateway ssh" "$dest"
@@ -605,8 +623,8 @@ run_gateway() {
       )
       write_kv_file "$envfile" "${gw_pairs[@]}"
     fi
-    install_remote_tree "$dest"
-    if ! stage_release_dir "$dest" "$release_remote"; then
+    install_remote_tree "$dest" gateway
+    if ! stage_gateway_release "$dest" "$root"; then
       report_component failed goliath-gateway "gateway ${dest} failed"
       report_component failed goliath-reclaim-leases "reclaim-leases ${dest} failed"
       return 1
@@ -787,6 +805,56 @@ stage_release_dir() {
     ssh_cmd "$dest" "rm -f /tmp/goliath-release.tgz" || true
     return 1
   fi
+}
+
+# The gateway host is only the REST API gateway (workers -> DB). It never gets
+# the release bundle: earlier code tarred the whole GOLIATH_RELEASE_SRC
+# (every worker wheel, ~1.7 GB of CUDA/RAPIDS) into <root>/release because
+# stage_release_dir was shared with the runtime path. Now it receives
+# <root>/gateway-dist with only the methyl-gateway / methyl-reclaim-leases
+# wheels, their dependency wheels from wheels/, and a requirements file
+# filtered to the gateway's own dependencies (gateway_release_subset.py).
+# The archive streams into root-owned tar, so nothing large lands in the SSH
+# user's /tmp. A legacy <root>/release tree is deleted.
+stage_gateway_release() {
+  local dest="$1" root="$2"
+  local src="${GOLIATH_RELEASE_SRC:-}" slim="$stage_dir/gateway-dist" bundle="$stage_dir/gateway-dist.tgz"
+  local need_kb remote
+  [[ -n "$src" ]] || return 0
+  [[ -d "$src" ]] || die "GOLIATH_RELEASE_SRC is not a directory: $src"
+  [[ -f "$src/manifest.json" ]] || die "GOLIATH_RELEASE_SRC has no manifest.json: $src"
+  rm -rf "$slim"
+  python3 "$REPO_ROOT/scripts/gateway_release_subset.py" "$src" "$slim" >&2 || return 1
+  tar -C "$slim" -czf "$bundle" . || return 1
+  # Extracted size plus 64 MiB headroom for the venv upgrade.
+  need_kb=$(( $(du -sk "$slim" | awk '{print $1}') + 65536 ))
+  rm -rf "$slim"
+  info "staging gateway wheels ($(du -h "$bundle" | awk '{print $1}') compressed) -> ${dest}:${root}/gateway-dist"
+  remote="set -e; R='$root'; NEED=$need_kb
+sudo mkdir -p \"\$R\"
+rm -f /tmp/goliath-release.tgz
+for old in \"\$R/release\" \"\$R/releases\" \"\$R/gateway-dist.incoming\"; do
+  if [ -e \"\$old\" ] || [ -L \"\$old\" ]; then echo \"[INFO] removing \$old (the gateway does not keep release bundles)\" >&2; sudo rm -rf \"\$old\"; fi
+done
+AVAIL=\$(df -Pk \"\$R\" | awk 'NR==2 {print \$4}')
+if [ \"\$AVAIL\" -lt \"\$NEED\" ]; then
+  echo \"[ERROR] not enough space on \$(hostname) for the gateway wheels: need \$((NEED / 1024)) MiB under \$R, \$((AVAIL / 1024)) MiB free\" >&2
+  exit 3
+fi
+sudo mkdir -p \"\$R/gateway-dist.incoming\"
+if ! sudo tar --no-same-owner --no-same-permissions -m -xzf - -C \"\$R/gateway-dist.incoming\"; then
+  sudo rm -rf \"\$R/gateway-dist.incoming\"
+  echo \"[ERROR] extracting the gateway wheels on \$(hostname) failed (disk space or quota under \$R?)\" >&2
+  exit 4
+fi
+sudo rm -rf \"\$R/gateway-dist\"
+sudo mv \"\$R/gateway-dist.incoming\" \"\$R/gateway-dist\""
+  if ! ssh_cmd "$dest" "$remote" <"$bundle"; then
+    rm -f "$bundle"
+    echo "[ERROR] staging the gateway wheels on ${dest} failed; see the remote message above (free space / quota)" >&2
+    return 1
+  fi
+  rm -f "$bundle"
 }
 
 run_runtime() {
