@@ -210,7 +210,8 @@ clone_or_update() {
       info "Seeding MethylPipeline from current checkout: $REPO_ROOT -> $dest"
       run mkdir -p "$(dirname "$dest")"
       if [[ ! -d "$dest" ]]; then
-        run cp -a "$REPO_ROOT" "$dest"
+        # Plain cp -R: shared /work volumes reject owner/mode/mtime preservation.
+        run cp -R "$REPO_ROOT" "$dest"
       fi
       return 0
     fi

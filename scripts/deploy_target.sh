@@ -492,7 +492,7 @@ install_remote_tree() {
     deploy/systemd \
     deploy/nginx
   scp_to "$dest" "$bundle" /tmp/goliath-deploy-bundle.tgz
-  ssh_cmd "$dest" "rm -rf /tmp/goliath-deploy && mkdir -p /tmp/goliath-deploy && tar -xzf /tmp/goliath-deploy-bundle.tgz -C /tmp/goliath-deploy && rm -f /tmp/goliath-deploy-bundle.tgz"
+  ssh_cmd "$dest" "rm -rf /tmp/goliath-deploy && mkdir -p /tmp/goliath-deploy && tar --no-same-owner --no-same-permissions -m -xzf /tmp/goliath-deploy-bundle.tgz -C /tmp/goliath-deploy && rm -f /tmp/goliath-deploy-bundle.tgz"
 }
 
 run_gateway() {
@@ -783,7 +783,7 @@ stage_release_dir() {
     return 1
   fi
   # Replace the tree so a previous release at this path cannot be promoted.
-  if ! ssh_cmd "$dest" "trap 'rm -f /tmp/goliath-release.tgz' EXIT; sudo mkdir -p '$remote_dir' && sudo find '$remote_dir' -mindepth 1 -maxdepth 1 -exec rm -rf {} + && sudo tar -xzf /tmp/goliath-release.tgz -C '$remote_dir'"; then
+  if ! ssh_cmd "$dest" "trap 'rm -f /tmp/goliath-release.tgz' EXIT; sudo mkdir -p '$remote_dir' && sudo find '$remote_dir' -mindepth 1 -maxdepth 1 -exec rm -rf {} + && sudo tar --no-same-owner --no-same-permissions -m -xzf /tmp/goliath-release.tgz -C '$remote_dir'"; then
     ssh_cmd "$dest" "rm -f /tmp/goliath-release.tgz" || true
     return 1
   fi

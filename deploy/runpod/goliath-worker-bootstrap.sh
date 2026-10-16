@@ -104,11 +104,102 @@ private_dir() {
   printf '%s' "$PRIVATE_DIR"
 }
 
+# Install a script atomically: copy to a per-process temp file next to the
+# destination (same filesystem), set the mode with the warn-and-continue
+# helper, then rename over the destination. Plain cp (no -p/-a) so no owner,
+# mode or mtime is preserved on volumes that reject chown/chmod/utime. Pods
+# booting at once each use their own temp file; the last rename wins.
 copy_script() {
   local src="$1"
   local dest="$2"
-  cp -f "$src" "$dest"
-  chmod_work 755 "$dest"
+  local tmp
+  tmp="$(dirname "$dest")/.$(basename "$dest").tmp.$$"
+  rm -f "$tmp"
+  cp -f "$src" "$tmp" || { rm -f "$tmp"; hold "cannot write ${tmp}"; }
+  chmod_work 755 "$tmp"
+  mv -f "$tmp" "$dest" || { rm -f "$tmp"; hold "cannot install ${dest}"; }
+}
+
+# Release tag the scripts in $ROOT/bin came from. Written last, atomically.
+release_marker() {
+  printf '%s' "$ROOT/bin/.release"
+}
+
+installed_release() {
+  local marker
+  marker="$(release_marker)"
+  [[ -f "$marker" ]] || return 0
+  head -n 1 "$marker" 2>/dev/null | tr -d '[:space:]' || true
+}
+
+record_release() {
+  local tag="$1"
+  local marker tmp
+  [[ -n "$tag" ]] || return 0
+  marker="$(release_marker)"
+  tmp="${marker}.tmp.$$"
+  printf '%s\n' "$tag" >"$tmp" || { rm -f "$tmp"; log "warning: cannot write ${tmp}; continuing"; return 0; }
+  chmod_work 644 "$tmp"
+  mv -f "$tmp" "$marker" || { rm -f "$tmp"; log "warning: cannot record ${marker}; continuing"; return 0; }
+  log "recorded release ${tag} in ${marker}"
+}
+
+# Tag matching $ROOT/current, from its manifest version (goliathomics-<ver>).
+bundle_release() {
+  local manifest="$ROOT/current/manifest.json"
+  [[ -f "$manifest" ]] || return 0
+  python3 -c 'import json,sys
+v=json.load(open(sys.argv[1], encoding="utf-8")).get("version") or ""
+if v:
+    print(v if v.startswith("goliathomics-") else "goliathomics-" + v)' "$manifest" 2>/dev/null || true
+}
+
+# WANTED_TAG is the release the scripts should come from. It is known when
+# GOLIATH_RELEASE_TAG is set or a token can resolve the newest release.
+# Unknown (no token, no pin) keeps the previous behaviour.
+WANTED_TAG=""
+STALE_SCRIPTS=0
+resolve_wanted_tag() {
+  local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+  local repo="${GOLIATH_GITHUB_REPO:-Goliath-Research/GoliathOmics}"
+  if [[ -n "${GOLIATH_RELEASE_TAG:-}" ]]; then
+    RELEASE_TAG="$GOLIATH_RELEASE_TAG"
+    require_tag "$RELEASE_TAG"
+    WANTED_TAG="$RELEASE_TAG"
+    return 0
+  fi
+  [[ -n "$token" ]] || return 0
+  require_repo "$repo"
+  if [[ -z "$HEADER_FILE" || ! -f "$HEADER_FILE" ]]; then
+    prepare_github_header "$token"
+  fi
+  if resolve_tag "$repo"; then
+    require_tag "$RELEASE_TAG"
+    WANTED_TAG="$RELEASE_TAG"
+  else
+    RELEASE_TAG=""
+    log "warning: could not resolve the latest goliathomics release; keeping scripts on the volume"
+  fi
+}
+
+# Where to take a script from: "bundle", "existing" or "fetch".
+script_source() {
+  local bundled_ok="$1"
+  local existing_ok="$2"
+  if [[ -z "$WANTED_TAG" ]]; then
+    if [[ "$bundled_ok" == 1 ]]; then echo bundle
+    elif [[ "$existing_ok" == 1 ]]; then echo existing
+    else echo fetch
+    fi
+    return 0
+  fi
+  if [[ "$bundled_ok" == 1 && "$(bundle_release)" == "$WANTED_TAG" ]]; then
+    echo bundle
+  elif [[ "$existing_ok" == 1 && "$(installed_release)" == "$WANTED_TAG" ]]; then
+    echo existing
+  else
+    echo fetch
+  fi
 }
 
 hold() {
@@ -195,7 +286,7 @@ resolve_tag() {
   if [[ -n "$RELEASE_TAG" ]]; then
     return 0
   fi
-  META_FILE="$(private_dir)/github-releases.json"
+  META_FILE="$(private_dir)/github-releases.$$.json"
   local api="https://api.github.com/repos/${repo}/releases?per_page=100"
   curl_auth "$api" "$META_FILE" "application/vnd.github+json" \
     || hold "could not list GitHub releases"
@@ -284,8 +375,8 @@ fetch_release_file() {
   fi
   log "downloading ${repo_path} from ${repo} ref ${RELEASE_TAG}"
   url="https://api.github.com/repos/${repo}/contents/${repo_path}?ref=${RELEASE_TAG}"
-  META_FILE="$(private_dir)/${name}.json"
-  DOWNLOAD_TMP="$(private_dir)/${name}.download"
+  META_FILE="$(private_dir)/${name}.$$.json"
+  DOWNLOAD_TMP="$(private_dir)/${name}.$$.download"
   curl_auth "$url" "$META_FILE" "application/vnd.github+json" \
     || hold "could not download ${repo_path} at ${RELEASE_TAG}"
   decode_contents || hold "GitHub contents response did not include ${name}"
@@ -306,15 +397,24 @@ fetch_start_script() {
 install_start_script() {
   local bundled="$ROOT/current/runtime-bundle/deploy/runpod/goliath-worker-start.sh"
   local dest="$ROOT/bin/goliath-worker-start.sh"
-  if script_ok "$bundled"; then
-    copy_script "$bundled" "$dest"
-    log "installed ${dest} from the current release bundle"
-  elif script_ok "$dest"; then
-    chmod_work 755 "$dest"
-    log "using existing ${dest}"
-  else
-    fetch_start_script "$dest"
-  fi
+  local b=0 e=0
+  script_ok "$bundled" && b=1
+  script_ok "$dest" && e=1
+  case "$(script_source "$b" "$e")" in
+    bundle)
+      copy_script "$bundled" "$dest"
+      log "installed ${dest} from the current release bundle" ;;
+    existing)
+      chmod_work 755 "$dest"
+      log "using existing ${dest} (release $(installed_release))" ;;
+    *)
+      if [[ -z "${GH_TOKEN:-${GITHUB_TOKEN:-}}" && "$e" == 1 ]]; then
+        STALE_SCRIPTS=1
+        log "warning: no token to update ${dest}; using the existing copy"
+      else
+        fetch_start_script "$dest"
+      fi ;;
+  esac
   script_ok "$dest" || hold "${dest} is missing after install"
 }
 
@@ -326,19 +426,27 @@ install_companion() {
   local bundled="$ROOT/current/runtime-bundle/${repo_path}"
   local dest
   dest="$ROOT/bin/$(basename "$repo_path")"
-  if [[ -f "$bundled" ]] && grep -q "$marker" "$bundled"; then
-    copy_script "$bundled" "$dest"
-    log "installed ${dest} from the current release bundle"
-    return 0
-  fi
-  if [[ -f "$dest" ]] && grep -q "$marker" "$dest"; then
-    chmod_work 755 "$dest"
-    log "using existing ${dest}"
-    return 0
-  fi
+  local b=0 e=0
+  [[ -f "$bundled" ]] && grep -q "$marker" "$bundled" && b=1
+  [[ -f "$dest" ]] && grep -q "$marker" "$dest" && e=1
+  case "$(script_source "$b" "$e")" in
+    bundle)
+      copy_script "$bundled" "$dest"
+      log "installed ${dest} from the current release bundle"
+      return 0 ;;
+    existing)
+      chmod_work 755 "$dest"
+      log "using existing ${dest} (release $(installed_release))"
+      return 0 ;;
+  esac
   local token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
   if [[ -z "$token" ]]; then
-    log "${dest} is not on the volume"
+    if [[ "$e" == 1 ]]; then
+      STALE_SCRIPTS=1
+      log "warning: no token to update ${dest}; using the existing copy"
+    else
+      log "${dest} is not on the volume"
+    fi
     return 0
   fi
   fetch_release_file "$repo_path" "$dest" "$marker"
@@ -381,9 +489,13 @@ main() {
   mkdir -p "$ROOT" "$ROOT/bin" "$ROOT/releases" "$ROOT/nodes" \
     || hold "cannot create ${ROOT}"
   chmod_work "$(work_dir_mode)" "$ROOT" "$ROOT/bin" "$ROOT/releases" "$ROOT/nodes"
+  resolve_wanted_tag
   install_start_script
   install_companion "scripts/start_shared_worker.sh" "start_shared_worker"
   install_companion "deploy/runpod/keepalive.sh" "goliath-runpod"
+  if [[ -n "$WANTED_TAG" && "$STALE_SCRIPTS" == 0 && "$(installed_release)" != "$WANTED_TAG" ]]; then
+    record_release "$WANTED_TAG"
+  fi
   clear_github_header
   run_start "$ROOT/bin/goliath-worker-start.sh" "$@"
 }
