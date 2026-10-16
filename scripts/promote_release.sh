@@ -1,5 +1,5 @@
 #!/bin/bash
-# Promote a release on shared storage: extract MethylExtractor, install venv, docker pull, flip current.
+# Promote a release on shared storage: verify MethylExtractor (local extract), install venv, docker pull, flip current.
 
 set -euo pipefail
 
@@ -15,7 +15,7 @@ Options:
   --pull-parabricks     docker pull into shared data-root (once per release)
   --skip-docker-pull    Do not pull Parabricks
   --skip-venv           Skip venv install
-  --skip-extractor      Skip MethylExtractor extract
+  --skip-extractor      Skip MethylExtractor verify + local extract
   --recreate-venv       Pass through to install_release.sh
   --worker-api-base URL WORKER_API_BASE for worker.env
   -h, --help            Show this help
@@ -27,6 +27,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/detect_platform.sh"
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
+# shellcheck source=methyl_extractor_local.sh
+source "$SCRIPT_DIR/methyl_extractor_local.sh"
 
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 RELEASE_DIR=""
@@ -90,72 +92,23 @@ verify_checksum() {
   info "Checksum OK: $TARBALL_NAME"
 }
 
-# Extract a tarball into DEST without asking DEST's filesystem to preserve
-# owner, mode or mtime. Shared volumes (a Runpod global network volume,
-# root-squashed NFS) reject chown/chmod/utime and GNU tar turns each rejection
-# into exit 2. Extract into a local staging dir (never under the work mount),
-# copy with plain cp -R (no -p/-a), then set modes warn-and-continue:
-# dirs 0755 / files 0644 (2775 / 0664 with GOLIATH_SHARED_GROUP), executables
-# stay executable (0755 / 0775). Corrupt or truncated archives still fail.
-safe_extract_tarball() {
-  local tarball="$1"
-  local dest="$2"
-  local work_mount="${GOLIATH_WORK_MOUNT:-/work}"
-  local stage_base="${GOLIATH_STAGE_DIR:-${TMPDIR:-/tmp}}"
-  local stage dmode fmode xmode path failed=0 group="${GOLIATH_SHARED_GROUP:-}"
-  local shared=0
-  if [[ -n "$group" ]] && getent group "$group" >/dev/null 2>&1; then
-    shared=1
-  fi
-  case "$stage_base" in
-    "${work_mount%/}"|"${work_mount%/}"/*) stage_base="/tmp" ;;
-  esac
-  mkdir -p "$stage_base"
-  stage="$(mktemp -d "${stage_base%/}/goliath-extract.XXXXXX")"
-  if ! tar --no-same-owner --no-same-permissions -m -xzf "$tarball" -C "$stage"; then
-    rm -rf "$stage"
-    die "could not extract ${tarball} (corrupt or truncated archive?)"
-  fi
-  mkdir -p "$dest"
-  if ! cp -R "$stage/." "$dest/"; then
-    rm -rf "$stage"
-    die "could not copy ${tarball} contents into ${dest}"
-  fi
-  rm -rf "$stage"
-  if [[ "$shared" -eq 1 ]]; then
-    dmode=2775; fmode=0664; xmode=0775
-  else
-    dmode=0755; fmode=0644; xmode=0755
-  fi
-  while IFS= read -r -d '' path; do
-    chmod "$dmode" "$path" 2>/dev/null || failed=$((failed + 1))
-    if [[ "$shared" -eq 1 ]]; then chgrp "$group" "$path" 2>/dev/null || failed=$((failed + 1)); fi
-  done < <(find "$dest" -type d -print0)
-  while IFS= read -r -d '' path; do
-    if [[ -x "$path" ]]; then
-      chmod "$xmode" "$path" 2>/dev/null || failed=$((failed + 1))
-    else
-      chmod "$fmode" "$path" 2>/dev/null || failed=$((failed + 1))
-    fi
-    if [[ "$shared" -eq 1 ]]; then chgrp "$group" "$path" 2>/dev/null || failed=$((failed + 1)); fi
-  done < <(find "$dest" -type f -print0)
-  if [[ "$failed" -gt 0 ]]; then
-    echo "[WARN] ${failed} chmod/chgrp operations under ${dest} were not applied (filesystem rejects them); continuing" >&2
-  fi
-}
-
+# MethylExtractor is native code. Shared volumes (a Runpod network volume)
+# ignore exec bits and cannot read back extracted binaries, so only the
+# verified tarball stays under the release dir. Each machine extracts it onto
+# local disk (methyl_extractor_local.sh); start_shared_worker.sh repeats that
+# on every pod boot.
 install_extractor() {
   [[ "$SKIP_EXTRACTOR" -eq 1 ]] && return 0
   [[ -f "$TARBALL_PATH" ]] || die "MethylExtractor tarball not found: $TARBALL_PATH"
   verify_checksum
-  local dest="$ROOT/methyl-extractor-${ARCH}"
-  info "Extracting MethylExtractor to $dest"
-  rm -rf "$dest"
-  mkdir -p "$dest"
-  safe_extract_tarball "$TARBALL_PATH" "$dest"
-  [[ -x "$dest/bin/MethylExtractor" ]] || die "Expected $dest/bin/MethylExtractor after extract"
-  chmod -R a-w "$dest" 2>/dev/null || true
-  info "MethylExtractor installed: $dest/bin/MethylExtractor"
+  # Older releases extracted onto $ROOT; that copy is unusable on a shared volume.
+  if [[ -d "$ROOT/methyl-extractor-${ARCH}" ]]; then
+    rm -rf "$ROOT/methyl-extractor-${ARCH}" 2>/dev/null \
+      || echo "[WARN] could not remove stale $ROOT/methyl-extractor-${ARCH}; ignoring it" >&2
+  fi
+  install_methyl_extractor_local "$TARBALL_PATH" "$ARCH" "$EXPECTED_SHA" \
+    || die "local MethylExtractor install failed"
+  info "MethylExtractor installed: $METHYL_EXTRACTOR_BIN"
 }
 
 install_venv() {

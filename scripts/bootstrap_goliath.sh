@@ -41,6 +41,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
+# shellcheck source=methyl_extractor_local.sh
+source "$SCRIPT_DIR/methyl_extractor_local.sh"
 
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 RELEASE_DIR=""
@@ -149,12 +151,19 @@ if [[ -n "$RELEASE_DIR" ]]; then
     run bash "$SCRIPTS_DIR/promote_release.sh" "${PROMOTE_ARGS[@]}"
   else
     run bash "$SCRIPTS_DIR/install_release.sh" --release-dir "$RELEASE_DIR" --venv "$VENV_DIR"
-    ME_BIN="$ROOT/methyl-extractor-${ARCH_KEY}/bin/MethylExtractor"
-    PLUGIN_DIR="$ROOT/methyl-extractor-${ARCH_KEY}/lib/hdf5_zstd_plugin"
+    # MethylExtractor runs from local disk; the tarball stays on shared storage.
+    ME_TARBALL="$(python3 -c "import json,sys; m=json.load(open(sys.argv[1])); print(m.get('artifacts',{}).get(sys.argv[2],{}).get('methyl_extractor',''))" "$RELEASE_DIR/manifest.json" "$ARCH_KEY" 2>/dev/null || true)"
+    if [[ -n "$ME_TARBALL" && -f "$RELEASE_DIR/$ME_TARBALL" ]]; then
+      install_methyl_extractor_local "$RELEASE_DIR/$ME_TARBALL" "$ARCH_KEY" \
+        || die "local MethylExtractor install failed"
+    fi
+    ME_HOME="$(methyl_extractor_local_home "$ARCH_KEY")"
+    ME_BIN="$ME_HOME/bin/MethylExtractor"
+    PLUGIN_DIR="$ME_HOME/lib/hdf5_zstd_plugin"
     if [[ ! -x "$ME_BIN" ]]; then
       ME_BIN="${METHYL_EXTRACTOR_BIN:-MethylExtractor}"
       PLUGIN_DIR="${HDF5_PLUGIN_PATH:-/usr/local/hdf5/lib/plugin}"
-      warn "MethylExtractor not at shared path; run promote_release.sh or extract tarball"
+      warn "MethylExtractor not at local path $ME_HOME; run promote_release.sh or install_methyl_extractor_tarball.sh"
     fi
     if [[ -n "${WORKER_API_BASE:-}" ]]; then
       run bash "$SCRIPTS_DIR/write_worker_env.sh" --root "$ROOT" --manifest "$RELEASE_DIR/manifest.json" \

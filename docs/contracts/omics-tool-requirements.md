@@ -27,7 +27,7 @@ Consumer: `workers/methyl_worker/methylgrapher_wgbs_runner.py` (`sample.methylgr
 
 Not used on the WGBS pangenome path. That path uses GoliathAlign MethylCall / MergeCpG.
 
-Binary layout: `/work/goliath/methyl-extractor-<arch>/`. `HDF5_PLUGIN_PATH` points at the zstd plugin shipped beside the binary. `GOLIATH_WORK_ROOT` (alias `METHYL_WORK_ROOT`) is the mount that holds that tree. Workflows that never extract do not need the mount.
+Binary layout: the release tarball stays on the shared volume (`/work/goliath/releases/<version>/methyl-extractor-linux-<arch>.tar.gz`); each machine extracts it onto local disk at `METHYL_EXTRACTOR_HOME` (default `/opt/goliath/methyl-extractor-<arch>/`, override root with `GOLIATH_LOCAL_ROOT`; never under the work mount, which ignores exec bits). `HDF5_PLUGIN_PATH` points at the zstd plugin shipped beside the binary. `GOLIATH_WORK_ROOT` (alias `METHYL_WORK_ROOT`) is the mount that holds the tarball. Workflows that never extract do not need the mount.
 
 Consumer: `workers/methyl_worker/extract_runner.py` (`sample.methyl_extract`) and `methylextractionqc`.
 

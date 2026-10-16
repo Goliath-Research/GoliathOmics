@@ -29,6 +29,7 @@ set +x
 set -euo pipefail
 set -E
 
+START_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 WORK_MOUNT="${GOLIATH_WORK_MOUNT:-/work}"
 ARCH="${GOLIATH_WORKER_ARCH:-amd64}"
@@ -471,6 +472,41 @@ ensure_current() {
   release_promote_lock
 }
 
+# MethylExtractor is native code and the shared volume cannot run binaries
+# extracted onto it (exec bits are ignored, extracted files do not read back).
+# Promotion happens once under the lock; this local install runs on every pod
+# boot. The verified tarball stays in the release dir on the volume; the
+# binary goes to METHYL_EXTRACTOR_HOME, default
+# ${GOLIATH_LOCAL_ROOT:-/opt/goliath}/methyl-extractor-<arch> (never under
+# the work mount). Unchanged tarballs are skipped.
+install_local_extractor() {
+  local manifest="$ROOT/current/manifest.json" helper="" candidate tar_name sha release
+  if [[ ! -f "$manifest" ]]; then
+    log "no ${manifest}; skipping local MethylExtractor install"
+    return 0
+  fi
+  for candidate in "$START_SCRIPT_DIR/methyl_extractor_local.sh" \
+    "$ROOT/current/runtime-bundle/scripts/methyl_extractor_local.sh"; do
+    if [[ -f "$candidate" ]]; then
+      helper="$candidate"
+      break
+    fi
+  done
+  [[ -n "$helper" ]] || die "methyl_extractor_local.sh not found next to this script or in the release bundle"
+  # shellcheck source=methyl_extractor_local.sh
+  source "$helper"
+  release="$(readlink -f "$ROOT/current" 2>/dev/null || printf '%s' "$ROOT/current")"
+  tar_name="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); print(m.get("artifacts",{}).get(sys.argv[2],{}).get("methyl_extractor",""))' "$manifest" "$ARCH")"
+  sha="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); print(m.get("artifacts",{}).get(sys.argv[2],{}).get("sha256",""))' "$manifest" "$ARCH")"
+  if [[ -z "$tar_name" ]]; then
+    log "release manifest has no MethylExtractor tarball for ${ARCH}; skipping local install"
+    return 0
+  fi
+  install_methyl_extractor_local "$release/$tar_name" "$ARCH" "$sha" \
+    || die "local MethylExtractor install from ${release}/${tar_name} failed"
+  log "MethylExtractor on local disk: ${METHYL_EXTRACTOR_BIN}"
+}
+
 # Shared trees (samples, genomes, site, releases, image cache) stay on the
 # volume. Per-node logs and scratch are under nodes/<id>. Docker overlay
 # storage cannot live on this network filesystem.
@@ -676,9 +712,15 @@ write_worker_env() {
   local long_bucket="${LONGTERM_BUCKET:-}"
   local long_host="${LONGTERM_HOST:-}"
   local long_share="${LONGTERM_SHARE:-}"
-  # promote_release.sh already wrote extractor, Parabricks, PATH, CAAS, and
-  # HBM settings. Refresh only the storage and API keys this script owns.
+  # promote_release.sh already wrote Parabricks, PATH, CAAS, and HBM
+  # settings. Refresh the storage and API keys this script owns, plus the
+  # extractor paths when this pod installed MethylExtractor locally.
   owned='WORKER_API_BASE|GOLIATH_ENV|B2_BUCKET|B2_ENDPOINT|LONGTERM_BUCKET|LONGTERM_ENDPOINT|LONGTERM_HOST|LONGTERM_SHARE|WORKER_CAPABILITY|POSTGRES_HOST|POSTGRES_DB|POSTGRES_USER|POSTGRES_SSLMODE|POSTGRES_CHANNEL_BINDING|POSTGRES_PASSWORD|GOLIATH_GATEWAY_CA_FILE|REQUESTS_CA_BUNDLE|SSL_CERT_FILE'
+  local have_local_extractor=0
+  if [[ -n "${METHYL_EXTRACTOR_HOME:-}" && -x "${METHYL_EXTRACTOR_BIN:-}" ]]; then
+    have_local_extractor=1
+    owned="METHYL_EXTRACTOR_HOME|METHYL_EXTRACTOR_BIN|HDF5_PLUGIN_PATH|${owned}"
+  fi
   mkdir -p "$(dirname "$pod_env")" "$ROOT/env"
   old_umask="$(umask)"
   apply_work_umask
@@ -700,6 +742,11 @@ write_worker_env() {
   fi
   if [[ -s "$tmp" && "$(tail -c 1 "$tmp" || true)" != $'\n' ]]; then
     printf '\n' >>"$tmp"
+  fi
+  if [[ "$have_local_extractor" -eq 1 ]]; then
+    append_kv "$tmp" METHYL_EXTRACTOR_HOME "$METHYL_EXTRACTOR_HOME"
+    append_kv "$tmp" METHYL_EXTRACTOR_BIN "$METHYL_EXTRACTOR_BIN"
+    append_kv "$tmp" HDF5_PLUGIN_PATH "$HDF5_PLUGIN_PATH"
   fi
   append_kv "$tmp" WORKER_API_BASE "${WORKER_API_BASE:-}"
   append_kv "$tmp" GOLIATH_ENV "$GOLIATH_ENV"
@@ -1025,6 +1072,7 @@ main() {
   ensure_current
   maybe_reexec "$@"
   ensure_work_layout
+  install_local_extractor
   [[ -n "${WORKER_API_BASE:-}" ]] || die "WORKER_API_BASE is required (profile public_base_url, for example https://45.76.21.8/v1)"
   detect_gpu
   install_gateway_ca

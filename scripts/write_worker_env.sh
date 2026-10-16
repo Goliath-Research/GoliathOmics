@@ -19,6 +19,8 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
+# shellcheck source=methyl_extractor_local.sh
+source "$SCRIPT_DIR/methyl_extractor_local.sh"
 
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 MANIFEST=""
@@ -123,7 +125,8 @@ fi
 RELEASE_VERSION="${_lines[2]:-unknown}"
 
 VENV_DIR="$ROOT/venv-${ARCH}"
-ME_ROOT="$ROOT/methyl-extractor-${ARCH}"
+# MethylExtractor runs from local disk, never from the shared volume.
+ME_ROOT="$(methyl_extractor_local_home "$ARCH")"
 ME_BIN="$ME_ROOT/bin/MethylExtractor"
 PLUGIN_DIR="$ME_ROOT/lib/hdf5_zstd_plugin"
 
@@ -135,6 +138,9 @@ fi
 ENV_DIR="$ROOT/env"
 mkdir -p "$ENV_DIR"
 WORKER_PATH="$(expand_worker_path "$VENV_DIR")"
+if [[ -x "$ME_ROOT/bin/MethylExtractor" && ":$WORKER_PATH:" != *":$ME_ROOT/bin:"* ]]; then
+  WORKER_PATH="$ME_ROOT/bin:$WORKER_PATH"
+fi
 
 if [[ -z "$WORKER_API_BASE" ]]; then
   WORKER_API_BASE="$(read_existing_worker_api_base "$ENV_DIR/worker.env")"
@@ -178,6 +184,7 @@ ${GOLIATH_SHARED_WORK:+GOLIATH_IMAGE_CACHE=$ROOT/images}
 # WORKER_ID=
 # WORKER_TOKEN=
 # WORKER_CAPABILITY=
+METHYL_EXTRACTOR_HOME=$ME_ROOT
 METHYL_EXTRACTOR_BIN=$ME_BIN
 HDF5_PLUGIN_PATH=$PLUGIN_DIR
 PATH=$WORKER_PATH
