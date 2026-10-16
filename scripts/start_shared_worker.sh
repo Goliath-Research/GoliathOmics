@@ -35,6 +35,8 @@ ARCH="${GOLIATH_WORKER_ARCH:-amd64}"
 LOG_DIR="${GOLIATH_LOG_DIR:-}"
 PRIVATE_DIR=""
 PROMOTE_LOCK=""
+CHMOD_WORK_QUIET=0
+CHMOD_WORK_FAILED=0
 export METHYL_WORKER_TOKEN_FILE="${METHYL_WORKER_TOKEN_FILE:-/etc/methyl/worker-token}"
 export GOLIATH_ENV="${GOLIATH_ENV:-goliath-test}"
 
@@ -169,11 +171,19 @@ chmod_work() {
   for path in "$@"; do
     [[ -e "$path" ]] || continue
     if ! chmod "$mode" "$path" 2>/dev/null; then
-      log "warning: chmod ${mode} ${path} was not applied; continuing"
+      if [[ "$CHMOD_WORK_QUIET" == "1" ]]; then
+        CHMOD_WORK_FAILED=$((CHMOD_WORK_FAILED + 1))
+      else
+        log "warning: chmod ${mode} ${path} was not applied; continuing"
+      fi
     fi
     if shared_group; then
       if ! chgrp "$group" "$path" 2>/dev/null; then
-        log "warning: chgrp ${group} ${path} was not applied; continuing"
+        if [[ "$CHMOD_WORK_QUIET" == "1" ]]; then
+          CHMOD_WORK_FAILED=$((CHMOD_WORK_FAILED + 1))
+        else
+          log "warning: chgrp ${group} ${path} was not applied; continuing"
+        fi
       fi
     fi
   done
@@ -324,6 +334,69 @@ for asset in rel.get("assets") or []:
   curl_download "$asset_url" "$dest" "$token" "application/octet-stream"
 }
 
+# Apply the intended /work modes to an unpacked release tree with chmod_work.
+# Directories get work_dir_mode, files get work_file_mode, and files that were
+# executable in the archive keep an execute bit (0755, or 0775 with a shared
+# group). Volumes that reject chmod/chgrp (a Runpod global network volume,
+# root-squashed NFS) produce one summary warning instead of one per file.
+apply_release_modes() {
+  local tree="$1"
+  local dir_mode file_mode exec_mode path
+  dir_mode="$(work_dir_mode)"
+  file_mode="$(work_file_mode)"
+  if shared_group; then
+    exec_mode="0775"
+  else
+    exec_mode="0755"
+  fi
+  CHMOD_WORK_QUIET=1
+  CHMOD_WORK_FAILED=0
+  while IFS= read -r -d '' path; do
+    chmod_work "$dir_mode" "$path"
+  done < <(find "$tree" -type d -print0)
+  while IFS= read -r -d '' path; do
+    if [[ -x "$path" ]]; then
+      chmod_work "$exec_mode" "$path"
+    else
+      chmod_work "$file_mode" "$path"
+    fi
+  done < <(find "$tree" -type f -print0)
+  CHMOD_WORK_QUIET=0
+  if [[ "$CHMOD_WORK_FAILED" -gt 0 ]]; then
+    log "warning: ${CHMOD_WORK_FAILED} chmod/chgrp operations under ${tree} were not applied (filesystem rejects them); continuing"
+  fi
+  CHMOD_WORK_FAILED=0
+}
+
+# Unpack a release tarball without asking the destination filesystem to
+# preserve owner, mode or mtime. Shared volumes such as a Runpod global
+# network volume (nobody:nogroup, mode 777) reject chown/chmod/utime, and GNU
+# tar turns each rejection into exit 2. We extract into a local staging
+# directory first (never on /work), then copy it with plain cp -R (no -p/-a,
+# so no owner or mtime is preserved). Real tar errors (corrupt or truncated
+# archive) still fail.
+extract_release() {
+  local tarball="$1"
+  local dest="$2"
+  local stage_base="${GOLIATH_STAGE_DIR:-${TMPDIR:-/tmp}}"
+  local stage
+  if path_on_work "$stage_base"; then
+    stage_base="/tmp"
+  fi
+  mkdir -p "$stage_base"
+  stage="$(mktemp -d "${stage_base%/}/goliath-release.XXXXXX")"
+  if ! tar --no-same-owner --no-same-permissions -m -xzf "$tarball" -C "$stage"; then
+    rm -rf "$stage"
+    die "could not extract release bundle ${tarball} (corrupt or truncated archive?)"
+  fi
+  if ! cp -R "$stage/." "$dest/"; then
+    rm -rf "$stage"
+    die "could not copy the release bundle into ${dest}"
+  fi
+  rm -rf "$stage"
+  apply_release_modes "$dest"
+}
+
 ensure_current() {
   if [[ -L "$ROOT/current" && ! -e "$ROOT/current" ]]; then
     die "$ROOT/current is a broken symlink"
@@ -362,7 +435,7 @@ ensure_current() {
   partial="$ROOT/releases/.partial-$(node_id)"
   rm -rf "$partial"
   mkdir -p "$partial"
-  tar -xzf "$tarball" -C "$partial"
+  extract_release "$tarball" "$partial"
   rm -f "$tarball"
   [[ -f "$partial/manifest.json" ]] || die "release bundle has no manifest.json"
   ver="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("version",""))' "$partial/manifest.json")"
