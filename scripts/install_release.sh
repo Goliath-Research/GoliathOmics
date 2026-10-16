@@ -1,5 +1,6 @@
 #!/bin/bash
-# Install production release wheels into a shared venv (non-editable).
+# Install production release wheels into a pod-local venv (non-editable).
+# The venv must not live on a shared volume (/work ignores exec bits).
 
 set -euo pipefail
 
@@ -9,20 +10,23 @@ Usage: scripts/install_release.sh [options]
 
 Options:
   --release-dir PATH   Release directory with wheels/ and requirements-worker.lock
-  --venv PATH          Target virtualenv (default: /work/goliath/venv-<arch>)
+  --venv PATH          Target virtualenv on local disk
+                       (default: ${GOLIATH_LOCAL_ROOT:-/opt/goliath}/venv-<arch>; never under GOLIATH_WORK_MOUNT)
   --python BIN         Python interpreter for venv creation (default: python3.12)
   --index-url URL      Optional package index. Omit to install from wheels/ in the release directory.
   --recreate-venv      Remove existing venv before install
   -h, --help           Show this help
 
 Examples:
-  scripts/install_release.sh --release-dir /work/goliath/releases/2026.6.1 --venv /work/goliath/venv-aarch64
+  scripts/install_release.sh --release-dir /work/goliath/releases/2026.6.1 --venv /opt/goliath/venv-aarch64
 EOF
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
+# shellcheck source=worker_venv_local.sh
+source "$SCRIPT_DIR/worker_venv_local.sh"
 
 RELEASE_DIR=""
 VENV_DIR=""
@@ -47,7 +51,12 @@ die() { echo "[ERROR] $*" >&2; exit 1; }
 
 ARCH_KEY="$(platform_arch_key "$(detect_uname_arch)")"
 RELEASE_DIR="${RELEASE_DIR:-/work/goliath/current}"
-VENV_DIR="${VENV_DIR:-/work/goliath/venv-${ARCH_KEY}}"
+VENV_DIR="${VENV_DIR:-$(worker_venv_local_dir "$ARCH_KEY")}"
+# A venv on the shared volume cannot run: exec bits are ignored, and
+# ensurepip fails on the first file it writes and reads back.
+if _wvl_on_work "$VENV_DIR"; then
+  die "venv ${VENV_DIR} is on the shared work mount ${GOLIATH_WORK_MOUNT:-/work}; use pod-local disk (GOLIATH_LOCAL_ROOT)"
+fi
 
 [[ -d "$RELEASE_DIR" ]] || die "Release directory not found: $RELEASE_DIR"
 
@@ -69,12 +78,20 @@ fi
 
 if [[ ! -x "$VENV_DIR/bin/python" ]]; then
   info "Creating venv: $VENV_DIR"
-  "$PYTHON_BIN" -m venv "$VENV_DIR"
+  mkdir -p "$(dirname "$VENV_DIR")"
+  if ! "$PYTHON_BIN" -m venv "$VENV_DIR"; then
+    rm -rf "$VENV_DIR"
+    command -v uv >/dev/null 2>&1 || die "$PYTHON_BIN -m venv $VENV_DIR failed (is the python venv/ensurepip package installed?)"
+    info "$PYTHON_BIN -m venv failed; retrying with uv venv --seed"
+    uv venv --seed --python "$PYTHON_BIN" "$VENV_DIR" || die "could not create venv $VENV_DIR"
+  fi
 fi
 
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
-pip install -U pip wheel setuptools
+if [[ "${GOLIATH_VENV_UPGRADE_PIP:-1}" == "1" ]]; then
+  pip install -U pip wheel setuptools
+fi
 
 PIP_ARGS=(-r "$LOCK_FILE")
 if [[ -n "$INDEX_URL" ]]; then

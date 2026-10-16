@@ -21,6 +21,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/detect_platform.sh"
 # shellcheck source=methyl_extractor_local.sh
 source "$SCRIPT_DIR/methyl_extractor_local.sh"
+# shellcheck source=worker_venv_local.sh
+source "$SCRIPT_DIR/worker_venv_local.sh"
 
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 MANIFEST=""
@@ -124,7 +126,8 @@ if [[ "${GOLIATH_SHARED_WORK:-}" == "1" ]]; then
 fi
 RELEASE_VERSION="${_lines[2]:-unknown}"
 
-VENV_DIR="$ROOT/venv-${ARCH}"
+# The worker venv is on local disk, never on the shared volume.
+VENV_DIR="$(worker_venv_local_dir "$ARCH")"
 # MethylExtractor runs from local disk, never from the shared volume.
 ME_ROOT="$(methyl_extractor_local_home "$ARCH")"
 ME_BIN="$ME_ROOT/bin/MethylExtractor"

@@ -54,6 +54,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
+# shellcheck source=worker_venv_local.sh
+source "$SCRIPT_DIR/worker_venv_local.sh"
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
 
@@ -156,12 +158,12 @@ SCRIPTS="$RUNTIME/scripts"
 
 resolve_venv_python() {
   local cand
-  for cand in "$ROOT/venv-$ARCH/bin/python" "$ROOT/venv/bin/python"; do
-    if [[ -x "$cand" ]]; then
-      echo "$cand"
-      return 0
-    fi
-  done
+  # Pod-local venv only; nothing on the shared volume can execute.
+  cand="$(worker_venv_local_dir "$ARCH")/bin/python"
+  if [[ -x "$cand" ]]; then
+    echo "$cand"
+    return 0
+  fi
   return 1
 }
 
@@ -173,7 +175,7 @@ do_enroll() {
   local live_api_base="${WORKER_API_BASE:-${METHYL_API_BASE:-}}"
   [[ -n "$live_api_base" ]] || die "WORKER_API_BASE (or METHYL_API_BASE) is required — no SQL register on GPU VMs"
   local venv_py=""
-  venv_py="$(resolve_venv_python)" || die "Worker venv python not found under $ROOT/venv-$ARCH (seed /work first)"
+  venv_py="$(resolve_venv_python)" || die "Worker venv python not found under $(worker_venv_local_dir "$ARCH") (run promote_release.sh or worker_venv_local.sh --release <release> first)"
   local worker_key
   worker_key="$(hostname -s)"
   echo "Enroll requires a portal preregistration for cluster ${CLUSTER}, key ${worker_key}, and this VM's public IP."

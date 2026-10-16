@@ -28,7 +28,9 @@ fi
 # including to another executable, keeps that command. GOLIATH_START_NO_EXEC
 # is honored by the shared start and skips the keepalive entirely.
 if [[ -z "${GOLIATH_START_KEEPALIVE:-}" ]]; then
-  if [[ -x "$HERE/keepalive.sh" ]]; then
+  # $HERE is on the shared volume, which drops exec bits. The shared start
+  # runs a *.sh keepalive with bash when it is not executable.
+  if [[ -f "$HERE/keepalive.sh" ]]; then
     export GOLIATH_START_KEEPALIVE="$HERE/keepalive.sh"
   elif [[ -x /start.sh ]]; then
     export GOLIATH_START_KEEPALIVE=/start.sh
@@ -55,9 +57,13 @@ find_core() {
 
 core="$(find_core)" || {
   printf '[goliath-worker-start] ERROR: start_shared_worker.sh was not found next to this adapter or under %s\n' "$ROOT" >&2
-  if [[ -n "${GOLIATH_START_KEEPALIVE:-}" && -x "${GOLIATH_START_KEEPALIVE}" && "${GOLIATH_START_NO_EXEC:-}" != "1" ]]; then
+  if [[ -n "${GOLIATH_START_KEEPALIVE:-}" && "${GOLIATH_START_NO_EXEC:-}" != "1" ]]; then
     printf '[goliath-worker-start] keeping the process alive\n' >&2
-    exec "${GOLIATH_START_KEEPALIVE}"
+    if [[ -x "${GOLIATH_START_KEEPALIVE}" ]]; then
+      exec "${GOLIATH_START_KEEPALIVE}"
+    elif [[ -f "${GOLIATH_START_KEEPALIVE}" && "${GOLIATH_START_KEEPALIVE}" == *.sh ]]; then
+      exec bash "${GOLIATH_START_KEEPALIVE}"
+    fi
   fi
   exit 1
 }

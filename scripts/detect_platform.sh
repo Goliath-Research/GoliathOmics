@@ -78,7 +78,7 @@ expand_worker_path() {
   local fallback="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   local venv_bin
   if command -v realpath >/dev/null 2>&1; then
-    venv_bin="$(realpath "$venv_dir")/bin"
+    venv_bin="$(realpath -m "$venv_dir")/bin"
   else
     venv_bin="$(cd "$venv_dir" && pwd)/bin"
   fi

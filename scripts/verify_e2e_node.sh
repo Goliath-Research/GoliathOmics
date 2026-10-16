@@ -6,6 +6,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
+# shellcheck source=worker_venv_local.sh
+source "$SCRIPT_DIR/worker_venv_local.sh"
 
 ENV_FILE="${GOLIATH_ENV_FILE:-/work/goliath/env/worker.env}"
 GOLIATH_ROOT="${GOLIATH_ROOT:-/work/goliath}"
@@ -18,12 +20,10 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-if [[ -f "$GOLIATH_ROOT/venv-${ARCH}/bin/activate" ]]; then
-  # shellcheck disable=SC1090
-  source "$GOLIATH_ROOT/venv-${ARCH}/bin/activate"
-elif [[ -f "$GOLIATH_ROOT/venv/bin/activate" ]]; then
-  # shellcheck disable=SC1090
-  source "$GOLIATH_ROOT/venv/bin/activate"
+LOCAL_VENV="$(worker_venv_local_dir "$ARCH")"
+if [[ -f "$LOCAL_VENV/bin/activate" ]]; then
+  # shellcheck disable=SC1090,SC1091
+  source "$LOCAL_VENV/bin/activate"
 elif [[ -f "$SCRIPT_DIR/../.venv/bin/activate" ]]; then
   # shellcheck disable=SC1090
   source "$SCRIPT_DIR/../.venv/bin/activate"

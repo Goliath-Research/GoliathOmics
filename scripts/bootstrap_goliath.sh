@@ -41,6 +41,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
+# shellcheck source=worker_venv_local.sh
+source "$SCRIPT_DIR/worker_venv_local.sh"
 # shellcheck source=methyl_extractor_local.sh
 source "$SCRIPT_DIR/methyl_extractor_local.sh"
 
@@ -104,7 +106,8 @@ PARABRICKS_IMAGE="${METHYL_PARABRICKS_IMAGE:-$(resolve_parabricks_image)}"
 REPOS="$ROOT/repos"
 PIPELINE_DIR="$REPOS/MethylPipeline"
 EXTRACTOR_DIR="$REPOS/MethylExtractor"
-VENV_DIR="$ROOT/venv-${ARCH_KEY}"
+# Executables live on local disk, never on the shared volume.
+VENV_DIR="$(worker_venv_local_dir "$ARCH_KEY")"
 ENV_DIR="$ROOT/env"
 DATA_DIR="$ROOT/data"
 RUNS_DIR="$ROOT/runs"
@@ -252,7 +255,7 @@ run mkdir -p "$REPOS"
 clone_or_update "$PIPELINE_URL" "$PIPELINE_DIR"
 clone_or_update "$EXTRACTOR_URL" "$EXTRACTOR_DIR"
 
-VENV_DIR="$ROOT/venv"
+VENV_DIR="$(GOLIATH_WORKER_VENV="${GOLIATH_WORKER_VENV:-${GOLIATH_LOCAL_ROOT:-/opt/goliath}/venv}" worker_venv_local_dir "$ARCH_KEY")"
 SETUP_ARGS=(--venv "$VENV_DIR")
 if [[ "$SYSTEM_DEPS" -eq 1 ]]; then
   SETUP_ARGS+=(--system-deps)
