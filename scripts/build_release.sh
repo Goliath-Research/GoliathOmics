@@ -114,6 +114,9 @@ build_wheels() {
     info "  wheel: $line ($pkg_path)"
     "$PYTHON_BIN" -m pip wheel "$pkg_path" -w "$WHEELS_DIR" --no-deps
   done < "$REPO_ROOT/scripts/packages.list"
+  # Poetry path dependencies end up as "name @ file:///<runner>/packages/x"
+  # in wheel metadata; pin them to the sibling wheel's version instead.
+  "$PYTHON_BIN" "$SCRIPT_DIR/fix_wheel_path_deps.py" "$WHEELS_DIR"
   bash "$SCRIPT_DIR/check_gateway_wheel.sh" "$WHEELS_DIR"
 }
 
@@ -283,7 +286,7 @@ build_runtime_bundle() {
            provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh \
            start_shared_worker.sh \
            install_methyl_extractor_tarball.sh methyl_extractor_local.sh worker_venv_local.sh \
-           verify_locked_wheels.py sanitize_lock.py \
+           verify_locked_wheels.py sanitize_lock.py fix_wheel_path_deps.py \
            deploy_workflow_definitions.sh deploy_mc_workflow_definitions.sh \
            deploy_process_pack_catalog.sh deploy_target.sh \
            report_deploy.sh rollouts_hook.sh default_methyl_site.json; do
