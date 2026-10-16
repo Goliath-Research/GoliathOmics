@@ -136,17 +136,14 @@ write_lockfile() {
   strip_lock_build_paths "$OUTPUT/requirements-worker.lock"
 }
 
-# Drop any pip option lines (-f/--find-links/--index-url/...) from the lock.
+# Make the lock build-host independent: drop find-links/index option lines,
+# rewrite first-party "name @ file:///<build>/wheels/x.whl" pins to
+# name==version (the wheels ship in wheels/), and scrub paths from comments.
 # Where to find packages is the installer's business, never the build host's.
 strip_lock_build_paths() {
   local lock="$1"
-  if grep -Eq '^[[:space:]]*(-f|--find-links|-i|--index-url|--extra-index-url|--trusted-host)([[:space:]=]|$)' "$lock"; then
-    info "Removing build-host find-links/index lines from $(basename "$lock")"
-    sed -E -i '/^[[:space:]]*(-f|--find-links|-i|--index-url|--extra-index-url|--trusted-host)([[:space:]=]|$)/d' "$lock"
-  fi
-  if grep -q "$WHEELS_DIR\|file://" "$lock"; then
-    die "requirements-worker.lock still references a build-host path ($WHEELS_DIR or file://)"
-  fi
+  "$PYTHON_BIN" "$SCRIPT_DIR/sanitize_lock.py" "$lock" --wheels-dir "$WHEELS_DIR" \
+    || die "requirements-worker.lock still references a build-host path ($WHEELS_DIR or file://); see BUILD-HOST PATH lines"
 }
 
 warn_fallback_lock() {
@@ -244,7 +241,7 @@ build_runtime_bundle() {
            provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh \
            start_shared_worker.sh \
            install_methyl_extractor_tarball.sh methyl_extractor_local.sh worker_venv_local.sh \
-           verify_locked_wheels.py \
+           verify_locked_wheels.py sanitize_lock.py \
            deploy_workflow_definitions.sh deploy_mc_workflow_definitions.sh \
            deploy_process_pack_catalog.sh deploy_target.sh \
            report_deploy.sh rollouts_hook.sh default_methyl_site.json; do
