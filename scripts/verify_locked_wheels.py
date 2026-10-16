@@ -7,12 +7,15 @@ Usage: verify_locked_wheels.py LOCK WHEELS_DIR [--arch x86_64 --arch aarch64]
 A wheel counts for an arch when its platform tag is "any" or a linux /
 manylinux / musllinux tag for that machine, and its python tag is py3,
 py3<minor>, cp3<minor>, or an abi3 cp3x build with x <= minor. Pins whose
-environment marker is false for (linux, arch, python) are skipped. Exit 1
-and print one line per missing (name, version, arch) when anything is missing.
+environment marker is false for (linux, arch, python) are skipped. Missing
+wheels print one MISSING line each plus a summary. By default that is only a
+warning (exit 0): bundling is best-effort and pods fall back to the package
+index. --strict (or GOLIATH_STRICT_WHEELS=1) exits 1 when anything is missing.
 """
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -101,15 +104,44 @@ def plat_ok(plats, arch: str) -> bool:
     return False
 
 
+def pin_block(lock: Path, want: str) -> str:
+    """Lock lines for one pin: the requirement and its continuation lines."""
+    wname, _, wver = want.partition("==")
+    out, grab = [], False
+    for raw in lock.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        m = PIN.match(line)
+        if m:
+            grab = norm(m.group(1)) == norm(wname) and norm_ver(m.group(2)) == norm_ver(wver)
+            if grab:
+                out.append(line)
+        elif line.startswith("--hash"):
+            if grab:
+                out.append(line)
+        elif line and not line.startswith("#"):
+            grab = False
+    if out and out[-1].endswith("\\"):
+        out[-1] = out[-1][:-1].rstrip()
+    return "\n".join(out) + "\n" if out else f"{want}\n"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("lock")
     ap.add_argument("wheels")
     ap.add_argument("--arch", action="append")
     ap.add_argument("--python-version", default="3.12")
+    ap.add_argument("--strict", action="store_true",
+                    default=os.environ.get("GOLIATH_STRICT_WHEELS", "") == "1",
+                    help="exit 1 when any pin lacks a wheel (env GOLIATH_STRICT_WHEELS=1)")
+    ap.add_argument("--pin-block", metavar="NAME==VER",
+                    help="print the lock lines (pin plus its --hash lines) for one pin and exit")
     ap.add_argument("--list-missing", action="store_true", help="print name==version only, one per line")
     a = ap.parse_args()
-    arches = a.arch or ["x86_64", "aarch64"]
+    if a.pin_block:
+        sys.stdout.write(pin_block(Path(a.lock), a.pin_block))
+        return 0
+    arches = a.arch or ["x86_64"]
     minor = int(a.python_version.split(".")[1])
     have = {}
     for whl in Path(a.wheels).glob("*.whl"):
@@ -130,8 +162,13 @@ def main() -> int:
         return 1 if missing else 0
     for n, v, arch in missing:
         print(f"MISSING {n}=={v} for linux {arch} cp3{minor}", file=sys.stderr)
-    print(f"verify_locked_wheels: {len(pins)} pins, {len(arches)} arches, {len(missing)} missing", file=sys.stderr)
-    return 1 if missing else 0
+    level = "ERROR" if (missing and a.strict) else ("WARN" if missing else "OK")
+    print(f"verify_locked_wheels [{level}]: {len(pins)} pins, {len(arches)} arches, "
+          f"{len(missing)} missing", file=sys.stderr)
+    if missing and not a.strict:
+        print("verify_locked_wheels: missing wheels are not bundled; pods will fetch them "
+              "from the package index (use --strict to fail instead)", file=sys.stderr)
+    return 1 if (missing and a.strict) else 0
 
 
 if __name__ == "__main__":

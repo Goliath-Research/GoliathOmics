@@ -16,6 +16,8 @@ Options:
   --index-url URL      Also allow this package index (e.g. https://pypi.org/simple).
                        Omit to install offline from wheels/ in the release directory only.
                        Either way the lock pins are honored (hashes enforced when present).
+  --extra-index-url U  Extra index used together with --index-url (repeatable),
+                       e.g. https://pypi.nvidia.com for cuda/rapids pins
   --recreate-venv      Remove existing venv before install
   -h, --help           Show this help
 
@@ -34,6 +36,7 @@ RELEASE_DIR=""
 VENV_DIR=""
 PYTHON_BIN="${PYTHON_BIN:-python3.12}"
 INDEX_URL=""
+EXTRA_INDEX_URLS=()
 RECREATE=0
 
 while [[ $# -gt 0 ]]; do
@@ -42,6 +45,7 @@ while [[ $# -gt 0 ]]; do
     --venv) VENV_DIR="${2:-}"; shift 2 ;;
     --python) PYTHON_BIN="${2:-}"; shift 2 ;;
     --index-url) INDEX_URL="${2:-}"; shift 2 ;;
+    --extra-index-url) [[ -n "${2:-}" ]] && EXTRA_INDEX_URLS+=("$2"); shift 2 ;;
     --recreate-venv) RECREATE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
@@ -106,6 +110,7 @@ sed -E '/^[[:space:]]*(-f|--find-links|-i|--index-url|--extra-index-url|--truste
 PIP_ARGS=()
 if [[ -n "$INDEX_URL" ]]; then
   PIP_ARGS+=(--index-url "$INDEX_URL")
+  for _u in "${EXTRA_INDEX_URLS[@]}"; do PIP_ARGS+=(--extra-index-url "$_u"); done
 else
   PIP_ARGS+=(--no-index)
 fi
@@ -119,7 +124,7 @@ fi
 PIP_ARGS+=(-r "$CLEAN_LOCK")
 
 if [[ -n "$INDEX_URL" ]]; then
-  info "Installing from $LOCK_FILE into $VENV_DIR (wheels/ + index $INDEX_URL)"
+  info "Installing from $LOCK_FILE into $VENV_DIR (wheels/ + index $INDEX_URL ${EXTRA_INDEX_URLS[*]})"
 else
   info "Installing from $LOCK_FILE into $VENV_DIR (offline, wheels/ only)"
 fi
