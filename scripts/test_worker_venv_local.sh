@@ -122,17 +122,20 @@ n="$(grep -o 'Looking in links: .*' "$work/err7" | head -1 | tr ',' '\n' | grep 
 [[ "$n" -le 1 ]] || { cat "$work/err7" >&2; fail "wheels dir should be listed once in find-links, got $n"; }
 
 # A third-party pin missing from wheels/: offline fails, the warning is
-# logged, and the retry pulls it from the (local file) index, still pinned.
+# logged, and the retry pulls it from the (local file) indexes, still pinned.
+# The pin lives only on the extra index (like the NVIDIA/RAPIDS pins on
+# pypi.nvidia.com), so the retry must pass GOLIATH_PIP_EXTRA_INDEX_URLS too.
 index="$work/index"
-mkdir -p "$index/annotated-types"
-make_wheel "$index/annotated-types" annotated_types 0.8.0
+extra="$work/extra-index"
+mkdir -p "$index" "$extra/annotated-types"
+make_wheel "$extra/annotated-types" annotated_types 0.8.0
 printf '<a href="annotated_types-0.8.0-py3-none-any.whl">annotated_types-0.8.0-py3-none-any.whl</a>\n' \
-  >"$index/annotated-types/index.html"
+  >"$extra/annotated-types/index.html"
 printf 'goliath-fake-worker==1.0.0\nannotated-types==0.8.0\n' >"$release/requirements-worker.lock"
 run_fallback() {
   env GOLIATH_WORK_MOUNT="$mount" GOLIATH_LOCAL_ROOT="$local_root" \
     GOLIATH_VENV_UPGRADE_PIP=0 PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHON_BIN=python3 \
-    GOLIATH_PIP_INDEX_URL="file://$index" "$@" \
+    GOLIATH_PIP_INDEX_URL="file://$index" GOLIATH_PIP_EXTRA_INDEX_URLS="file://$extra" "$@" \
     bash "$ROOT/scripts/worker_venv_local.sh" --release "$release" --arch amd64 --recreate
 }
 run_fallback >/dev/null 2>"$work/err8" || { cat "$work/err8" >&2; fail "index fallback install failed"; }
@@ -147,20 +150,42 @@ set -e
 [[ "$status" -ne 0 ]] || fail "GOLIATH_WORKER_VENV_ALLOW_INDEX=0 must not go online"
 grep -q 'ALLOW_INDEX=0' "$work/err9" || fail "offline-only failure should say why"
 
-# verify_locked_wheels.py: pure wheels count for every arch, a missing pin fails.
+set +e
+run_fallback GOLIATH_PIP_EXTRA_INDEX_URLS= >/dev/null 2>"$work/err9b"
+status=$?
+set -e
+[[ "$status" -ne 0 ]] || fail "without the extra index the pin should not resolve (extra index must be what found it)"
+
+# verify_locked_wheels.py: pure wheels count for every arch; a missing pin is a
+# warning by default and fails only with --strict / GOLIATH_STRICT_WHEELS=1.
 vdir="$work/verify"
 mkdir -p "$vdir"
 make_wheel "$vdir" goliath_fake_worker 1.0.0
 : >"$vdir/numpy-2.1.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
 printf 'goliath-fake-worker==1.0.0 \\\n    --hash=sha256:00\nnumpy==2.1.0\n' >"$vdir/lock"
-if python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/lock" "$vdir" 2>"$work/err10"; then
-  fail "numpy without an aarch64 wheel should fail verification"
-fi
+vlw() { python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/lock" "$vdir" "$@"; }
+vlw --arch x86_64 --arch aarch64 2>"$work/err10" || fail "missing wheels must only warn by default"
 grep -q 'MISSING numpy==2.1.0 for linux aarch64' "$work/err10" || { cat "$work/err10" >&2; fail "missing arch should be named"; }
-python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/lock" "$vdir" --arch x86_64 2>/dev/null \
-  || fail "x86_64 should verify"
+grep -q '\[WARN\].*1 missing' "$work/err10" || { cat "$work/err10" >&2; fail "summary should count missing as a warning"; }
+if vlw --arch x86_64 --arch aarch64 --strict 2>/dev/null; then fail "--strict must fail on a missing wheel"; fi
+if GOLIATH_STRICT_WHEELS=1 vlw --arch x86_64 --arch aarch64 2>/dev/null; then fail "GOLIATH_STRICT_WHEELS=1 must fail"; fi
+vlw --strict 2>"$work/err10b" || fail "default arch is x86_64 only, which is complete"
+grep -q '2 pins, 1 arches, 0 missing' "$work/err10b" || { cat "$work/err10b" >&2; fail "default should check x86_64 only"; }
 : >"$vdir/numpy-2.1.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
-python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/lock" "$vdir" 2>/dev/null || fail "both arches should verify"
+vlw --arch x86_64 --arch aarch64 --strict 2>/dev/null || fail "both arches should verify"
+grep -q 'WHEEL_ARCHES="${GOLIATH_WHEEL_ARCHES:-x86_64}"' "$ROOT/scripts/build_release.sh" \
+  || fail "build_release should bundle x86_64 only by default"
+# Third-party pins are binary wheels only; nothing is compiled on the runner.
+if grep -nE 'no-binary|pip wheel' "$ROOT/scripts/build_release.sh" | grep -v '^[0-9]*:[[:space:]]*#' \
+  | grep -v 'pip wheel "\$pkg_path"'; then
+  fail "build_release must not build third-party sdists"
+fi
+grep -q -- '--only-binary=:all:' "$ROOT/scripts/build_release.sh" || fail "downloads must be --only-binary=:all:"
+grep -q 'manylinux_2_27' "$ROOT/scripts/build_release.sh" || fail "manylinux_2_27 tag needed (nvidia-nccl-cu13)"
+# --pin-block returns one pin with its hashes, for the per-pin retry.
+printf 'foo==1.0 \\\n    --hash=sha256:aa \\\n    --hash=sha256:bb\n    # via x\nbar==2.0 \\\n    --hash=sha256:cc\n' >"$vdir/pb.lock"
+blk="$(python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/pb.lock" "$vdir" --pin-block foo==1.0)"
+[[ "$blk" == $'foo==1.0 \\\n--hash=sha256:aa \\\n--hash=sha256:bb' ]] || fail "pin block wrong: $blk"
 grep -q 'no-emit-find-links' "$ROOT/scripts/build_release.sh" || fail "build_release must not emit find-links into the lock"
 
 # pip-compile on locally built wheels writes first-party pins as direct

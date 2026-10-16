@@ -14,7 +14,12 @@ Options:
   --skip-wheels        Only build runtime-bundle and manifest stub
   --with-gpu-reqs      Include GPU requirements in lockfile compile
   --wheel-arches LIST  Linux arches to bundle third-party wheels for
-                       (default: "x86_64 aarch64"; env GOLIATH_WHEEL_ARCHES)
+                       (default: "x86_64"; add aarch64 to opt in; env GOLIATH_WHEEL_ARCHES)
+  --strict-wheels      Fail the release when a locked pin has no bundled wheel
+                       (default: warn; env GOLIATH_STRICT_WHEELS=1)
+  --extra-index-url U  Extra index for lock compile and wheel download; repeatable
+                       (default: https://pypi.nvidia.com; env
+                       GOLIATH_PIP_EXTRA_INDEX_URLS, space-separated, "" for none)
   --skip-third-party   Do not download locked third-party wheels (dev only;
                        the release then needs PyPI at install time)
   -h, --help           Show this help
@@ -31,7 +36,10 @@ OUTPUT=""
 PYTHON_BIN="${PYTHON_BIN:-python3.12}"
 SKIP_WHEELS=0
 WITH_GPU=0
-WHEEL_ARCHES="${GOLIATH_WHEEL_ARCHES:-x86_64 aarch64}"
+WHEEL_ARCHES="${GOLIATH_WHEEL_ARCHES:-x86_64}"
+STRICT_WHEELS="${GOLIATH_STRICT_WHEELS:-0}"
+EXTRA_INDEX_URLS="${GOLIATH_PIP_EXTRA_INDEX_URLS-https://pypi.nvidia.com}"
+_cli_extra_index=""
 WORKER_PY_VERSION="${GOLIATH_WORKER_PYTHON_VERSION:-3.12}"
 SKIP_THIRD_PARTY=0
 
@@ -44,6 +52,8 @@ while [[ $# -gt 0 ]]; do
     --with-gpu-reqs) WITH_GPU=1; shift ;;
     --wheel-arches) WHEEL_ARCHES="${2:-}"; shift 2 ;;
     --skip-third-party) SKIP_THIRD_PARTY=1; shift ;;
+    --strict-wheels) STRICT_WHEELS=1; shift ;;
+    --extra-index-url) _cli_extra_index="${_cli_extra_index} ${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
@@ -53,6 +63,10 @@ info() { echo "[INFO] $*"; }
 die() { echo "[ERROR] $*" >&2; exit 1; }
 
 [[ -n "$VERSION" ]] || die "--version is required"
+[[ -n "$_cli_extra_index" ]] && EXTRA_INDEX_URLS="$_cli_extra_index"
+# Same index config for lock compile and wheel download (NVIDIA/RAPIDS pins).
+EXTRA_INDEX_ARGS=()
+for _u in $EXTRA_INDEX_URLS; do EXTRA_INDEX_ARGS+=(--extra-index-url "$_u"); done
 VERSION="$(normalize_release_version "$VERSION")"
 require_release_version "$VERSION" "--version" || exit 1
 OUTPUT="${OUTPUT:-/work/goliath/releases/$VERSION}"
@@ -120,6 +134,7 @@ write_lockfile() {
     "$PYTHON_BIN" -m piptools compile "$req_combined" \
       -o "$OUTPUT/requirements-worker.lock" \
       --find-links "$WHEELS_DIR" \
+      "${EXTRA_INDEX_ARGS[@]}" \
       --no-emit-find-links \
       --no-emit-index-url \
       --allow-unsafe \
@@ -128,6 +143,7 @@ write_lockfile() {
     "$PYTHON_BIN" -m piptools compile "$req_combined" \
       -o "$OUTPUT/requirements-worker.lock" \
       --find-links "$WHEELS_DIR" \
+      "${EXTRA_INDEX_ARGS[@]}" \
       --no-emit-find-links \
       --no-emit-index-url
   else
@@ -161,51 +177,57 @@ warn_fallback_lock() {
   } >"$OUTPUT/requirements-worker.lock"
 }
 
-# Download every locked third-party wheel for each worker arch (manylinux,
-# CPython $WORKER_PY_VERSION) so pods can install offline. Packages that only
-# publish an sdist are built here; that yields a usable wheel only when the
-# package is pure Python (py3-none-any). Anything still missing fails the build.
+# Best-effort: download every locked third-party wheel for each arch in
+# WHEEL_ARCHES (manylinux, CPython $WORKER_PY_VERSION) so pods can install
+# offline. Prebuilt binary wheels only (--only-binary=:all:): nothing is ever
+# compiled on the runner. Building sdists here (the old fallback) compiled
+# even pure-Python pins, failed native ones on missing system libs, and put
+# locally built wheels into wheels/ whose sha256 no longer matched the lock
+# ("has bad hash"). pip download resolves a whole requirements file
+# atomically, so one unavailable pin used to leave the batch empty; after the
+# batch, each pin still missing is retried on its own, with its lock hashes.
+# Nothing here aborts the build; verify_locked_wheels reports what is missing.
 download_locked_wheels() {
-  local lock="$OUTPUT/requirements-worker.lock" arch plat pyabi missing pin hash_args=()
+  local lock="$OUTPUT/requirements-worker.lock" arch plat pyabi missing pin pin_req
+  local hash_args=() dl_args=()
   [[ -f "$lock" ]] || die "missing $lock"
   pyabi="cp${WORKER_PY_VERSION/./}"
   grep -q -- '--hash=' "$lock" && hash_args=(--require-hashes)
+  pin_req="$(mktemp)"
   for arch in $WHEEL_ARCHES; do
-    info "Downloading locked wheels for linux ${arch} ${pyabi}"
-    local plats=()
-    for plat in manylinux_2_17 manylinux2014 manylinux_2_28 manylinux_2_31 manylinux_2_34 manylinux_2_35; do
-      plats+=(--platform "${plat}_${arch}")
+    info "Downloading locked wheels for linux ${arch} ${pyabi} (binary wheels only)"
+    dl_args=(--dest "$WHEELS_DIR" --find-links "$WHEELS_DIR" "${EXTRA_INDEX_ARGS[@]}"
+      --only-binary=:all: --implementation cp --python-version "$WORKER_PY_VERSION"
+      --abi "$pyabi" --abi abi3 --abi none --platform any --platform "linux_${arch}" --no-deps)
+    # pip matches --platform tags exactly; list every manylinux level a
+    # glibc 2.17+ worker accepts (e.g. nvidia-nccl-cu13 ships only
+    # manylinux_2_27, scipy manylinux_2_27.manylinux_2_28).
+    for plat in manylinux1 manylinux2010 manylinux2014 manylinux_2_17 manylinux_2_24 manylinux_2_27 \
+                manylinux_2_28 manylinux_2_31 manylinux_2_34 manylinux_2_35; do
+      [[ "$arch" != x86_64 && "$plat" =~ ^manylinux(1|2010)$ ]] && continue
+      dl_args+=(--platform "${plat}_${arch}")
     done
-    # One pip call per arch; --no-deps because the lock is already complete.
-    # A failure here usually means an sdist-only package; handled below.
-    "$PYTHON_BIN" -m pip download \
-      --dest "$WHEELS_DIR" \
-      --find-links "$WHEELS_DIR" \
-      --only-binary=:all: \
-      "${plats[@]}" \
-      --platform "linux_${arch}" \
-      --implementation cp \
-      --python-version "$WORKER_PY_VERSION" \
-      --abi "$pyabi" --abi abi3 --abi none \
-      --no-deps "${hash_args[@]}" \
-      -r "$lock" || info "  pip download for ${arch} was incomplete; checking which pins are missing"
+    "$PYTHON_BIN" -m pip download "${dl_args[@]}" "${hash_args[@]}" -r "$lock" \
+      || info "  batch download for ${arch} incomplete; retrying missing pins one by one"
     missing="$("$PYTHON_BIN" "$SCRIPT_DIR/verify_locked_wheels.py" "$lock" "$WHEELS_DIR" \
-      --arch "$arch" --python-version "$WORKER_PY_VERSION" --list-missing || true)"
+      --arch "$arch" --python-version "$WORKER_PY_VERSION" --list-missing 2>/dev/null || true)"
     for pin in $missing; do
-      info "  no ${arch} wheel on the index for ${pin}; building from sdist"
-      "$PYTHON_BIN" -m pip wheel --no-deps --no-binary=:all: -w "$WHEELS_DIR" "$pin" \
-        || info "  could not build ${pin} from sdist"
+      "$PYTHON_BIN" "$SCRIPT_DIR/verify_locked_wheels.py" "$lock" "$WHEELS_DIR" --pin-block "$pin" >"$pin_req"
+      "$PYTHON_BIN" -m pip download -q "${dl_args[@]}" "${hash_args[@]}" -r "$pin_req" >/dev/null 2>&1 \
+        || info "  no ${arch} binary wheel available for ${pin}; pods will fetch it from the index"
     done
   done
+  rm -f "$pin_req"
 }
 
 verify_locked_wheels() {
   local args=() arch
   for arch in $WHEEL_ARCHES; do args+=(--arch "$arch"); done
-  info "Verifying every pin in requirements-worker.lock has a wheel for: $WHEEL_ARCHES"
+  [[ "$STRICT_WHEELS" == "1" ]] && args+=(--strict)
+  info "Verifying bundled wheels for: $WHEEL_ARCHES (strict=${STRICT_WHEELS})"
   "$PYTHON_BIN" "$SCRIPT_DIR/verify_locked_wheels.py" "$OUTPUT/requirements-worker.lock" "$WHEELS_DIR" \
     "${args[@]}" --python-version "$WORKER_PY_VERSION" \
-    || die "release wheels/ is incomplete (see MISSING lines). A native package with no wheel for an arch must be built on that arch or dropped from the lock."
+    || die "release wheels/ is incomplete (see MISSING lines) and --strict-wheels is set"
 }
 
 build_runtime_bundle() {

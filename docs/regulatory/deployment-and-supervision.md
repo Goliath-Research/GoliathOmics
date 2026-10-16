@@ -53,10 +53,13 @@ Release layout:
     methyl-extractor-linux-<arch>.tar.gz
 ```
 
-`wheels/` holds a wheel for every pin in `requirements-worker.lock`, including
-third-party dependencies, for linux x86_64 and aarch64 (manylinux, CPython
-3.12). `scripts/build_release.sh` downloads them and fails the release when any
-pin lacks a wheel for an arch (`scripts/verify_locked_wheels.py`). The lock
+`wheels/` holds, best-effort, a wheel for each pin in
+`requirements-worker.lock`, including third-party dependencies, for linux
+x86_64 (manylinux, CPython 3.12; aarch64 is opt-in with `--wheel-arches`).
+`scripts/build_release.sh` downloads them (PyPI plus `https://pypi.nvidia.com`)
+and `scripts/verify_locked_wheels.py` reports any pin left without a wheel as a
+warning; `--strict-wheels` / `GOLIATH_STRICT_WHEELS=1` fails the release
+instead. Pods install missing pins from the package index, still pinned. The lock
 records no find-links or index location; installers add the local `wheels/`
 directory themselves, so workers install offline.
 

@@ -17,7 +17,9 @@
 # Install is offline first (release wheels/ only). If that fails, a warning
 # is logged and the install is retried with a package index allowed
 # (GOLIATH_PIP_INDEX_URL, default https://pypi.org/simple), still pinned by
-# the lock and hash-checked when the lock carries hashes. Set
+# the lock and hash-checked when the lock carries hashes. Extra indexes for
+# cuda/rapids pins come from GOLIATH_PIP_EXTRA_INDEX_URLS (space-separated,
+# default https://pypi.nvidia.com; "" for none). Set
 # GOLIATH_WORKER_VENV_ALLOW_INDEX=0 to forbid the online retry.
 #
 # Idempotent: <venv>/.goliath-venv-stamp records the release version, arch
@@ -166,15 +168,17 @@ install_worker_venv_local() {
   _wvl_info "installing worker venv ${venv} from release ${ver} (verified local copy of wheels + lock)"
   if ! GOLIATH_WORK_MOUNT="${GOLIATH_WORK_MOUNT:-/work}" \
     bash "$installer" --release-dir "$stage" --venv "$venv" --recreate-venv >&2; then
-    local index="${GOLIATH_PIP_INDEX_URL:-https://pypi.org/simple}"
+    local index="${GOLIATH_PIP_INDEX_URL:-https://pypi.org/simple}" extra u extra_args=()
+    extra="${GOLIATH_PIP_EXTRA_INDEX_URLS-https://pypi.nvidia.com}"
+    for u in $extra; do extra_args+=(--extra-index-url "$u"); done
     if [[ "${GOLIATH_WORKER_VENV_ALLOW_INDEX:-1}" != "1" ]]; then
       rm -rf "$stage"
       _wvl_die "offline worker venv install into ${venv} failed (release wheels/ incomplete?) and GOLIATH_WORKER_VENV_ALLOW_INDEX=0"
       return 1
     fi
-    _wvl_warn "offline install from release wheels/ failed; retrying with package index ${index} (lock pins still enforced)"
+    _wvl_warn "offline install from release wheels/ failed; retrying with package index ${index} ${extra} (lock pins still enforced)"
     if ! GOLIATH_WORK_MOUNT="${GOLIATH_WORK_MOUNT:-/work}" \
-      bash "$installer" --release-dir "$stage" --venv "$venv" --recreate-venv --index-url "$index" >&2; then
+      bash "$installer" --release-dir "$stage" --venv "$venv" --recreate-venv --index-url "$index" "${extra_args[@]}" >&2; then
       rm -rf "$stage"
       _wvl_die "worker venv install into ${venv} failed (offline and via ${index})"
       return 1
@@ -197,7 +201,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
       --arch) _arch="${2:-}"; shift 2 ;;
       --recreate) _recreate="--recreate"; shift ;;
       --print-dir) _print=1; shift ;;
-      -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
+      -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
       *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
   done
