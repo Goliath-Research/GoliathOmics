@@ -4,14 +4,14 @@ Sample prep extraction (`sample.methyl_extract`) runs the **native MethylExtract
 
 ## Source and deploy
 
-MethylExtractor is maintained in the sibling [MethylExtractor](https://github.com/Goliath-Research/MethylExtractor) repository, not in GoliathApp. On each worker machine, build that checkout and install the binary (the production layout is `/work/goliath/methyl-extractor-<arch>/`):
+MethylExtractor is maintained in the sibling [MethylExtractor](https://github.com/Goliath-Research/MethylExtractor) repository, not in GoliathApp. On each worker machine, build that checkout and install the binary (production workers extract the release tarball to local disk at `/opt/goliath/methyl-extractor-<arch>/`):
 
 ```bash
 # From a MethylExtractor checkout (sibling of GoliathOmics)
 make deps && make && make install
 ```
 
-Production workers use the binary under `/work/goliath/methyl-extractor-<arch>/`. `make install` also copies `MethylExtractor` to `/usr/local/bin/` for a machine image. That install is provisioning, not per-task JSON.
+Production workers use the binary under `METHYL_EXTRACTOR_HOME` (default `/opt/goliath/methyl-extractor-<arch>/`, extracted on every boot by `scripts/methyl_extractor_local.sh`; the shared `/work` volume only holds the tarball because it cannot run binaries). `make install` also copies `MethylExtractor` to `/usr/local/bin/` for a machine image. That install is provisioning, not per-task JSON.
 
 ## Production worker contract
 

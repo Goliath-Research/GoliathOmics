@@ -722,10 +722,16 @@ def _extractor_bin(cfg: MethylExtractConfig) -> str:
     if Path(cfg.extractor_bin).is_file():
         return str(Path(cfg.extractor_bin).resolve())
     found = shutil.which(cfg.extractor_bin)
+    if found is None and cfg.extractor_bin == "MethylExtractor":
+        # Workers install the binary on local disk (METHYL_EXTRACTOR_HOME) and
+        # publish its path in worker.env; the shared volume cannot run it.
+        env_bin = os.environ.get("METHYL_EXTRACTOR_BIN", "").strip()
+        if env_bin and Path(env_bin).is_file():
+            return str(Path(env_bin).resolve())
     if found is None:
         raise RuntimeError(
             f"MethylExtractor binary not found: {cfg.extractor_bin!r}; "
-            "install from /home/ubuntu/MethylExtractor via make install"
+            "set METHYL_EXTRACTOR_BIN or run scripts/methyl_extractor_local.sh --tarball <release tarball>"
         )
     return found
 
