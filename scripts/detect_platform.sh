@@ -151,15 +151,20 @@ goliath_write_current() {
   tmp="$root/.current.$$"
   [[ -d "$release" ]] || { echo "[ERROR] release directory not found: $release" >&2; return 1; }
   release="$(cd "$release" && pwd -P)"
-  if [[ -L "$cur" ]]; then
-    rm -f "$cur"
-  elif [[ -d "$cur" ]]; then
+  if [[ -d "$cur" && ! -L "$cur" ]]; then
     echo "[ERROR] $cur is a directory; move it aside before promoting" >&2
     return 1
   fi
+  # Atomic flip: write a complete temp pointer next to current, then rename
+  # it over current (mv -T: rename(2), which also replaces a legacy symlink
+  # in one step). Readers see the old release or the new one, never a
+  # missing or half-written current. Only a volume that rejects rename falls
+  # back to an in-place write, and says so.
   printf '%s\n' "$release" >"$tmp" || { rm -f "$tmp"; return 1; }
-  if ! mv -f "$tmp" "$cur" 2>/dev/null; then
+  if ! mv -fT "$tmp" "$cur" 2>/dev/null; then
     rm -f "$tmp"
+    echo "[WARN] rename onto $cur failed; writing the pointer in place (not atomic)" >&2
+    [[ -L "$cur" ]] && rm -f "$cur"
     printf '%s\n' "$release" >"$cur" || return 1
   fi
   [[ "$(goliath_current_dir "$root")" == "$release" ]] || {

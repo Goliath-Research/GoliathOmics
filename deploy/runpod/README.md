@@ -31,11 +31,10 @@ The venv install is offline first: `wheels/` carries, best-effort, the pins in `
 
 `GOLIATH_LOCAL_ROOT` moves both (default `/opt/goliath`; `GOLIATH_WORKER_VENV` / `METHYL_EXTRACTOR_HOME` override each). A location on the work mount, or one that cannot be written, falls back to `/tmp/goliath`.
 
-Per-node, still on `/work` and world-readable, under `/work/goliath/nodes/$GOLIATH_NODE_ID`. On RunPod the adapter sets `GOLIATH_NODE_ID` from `RUNPOD_POD_ID`. Other clouds use the hostname, then `/etc/machine-id`:
+Per-node, still on `/work` and world-readable, under `/work/goliath/nodes/$GOLIATH_NODE_ID`. On RunPod the adapter sets `GOLIATH_NODE_ID` from `RUNPOD_POD_ID`. Other clouds use the hostname, then `/etc/machine-id`. Runtime logs and the supervisor pid are not here; they are on local disk under `GOLIATH_LOG_DIR` (default `/var/log/goliath`, size-rotated):
 
 | Path | Contents |
 | --- | --- |
-| `logs/` | `methyl-worker` logs and the supervisor pid |
 | `tmp/`, `scratch/` | Downloads and scratch that are not secrets |
 | `env/worker.env` | Non-secret worker settings (paths, images, endpoints) |
 | `status/joined` | Join stamp for this pod and release |
@@ -209,7 +208,7 @@ Optional: `GOLIATH_RELEASE_URL` is a direct tarball URL. `GOLIATH_RELEASE_TAG` s
 3a. Install MethylExtractor and the worker venv on container-local disk (`methyl_extractor_local.sh`, `worker_venv_local.sh`). The release wheels and lock are copied off `/work` and their size and sha256 checked before `pip` sees them. A stamp in the venv (`.goliath-venv-stamp`: release version, arch, lock sha256) skips an unchanged install; a new container always rebuilds. The per-node `worker.env` gets `GOLIATH_WORKER_VENV` and a `PATH` that starts with that venv.
 4. Run `provision_worker_node.sh --join-mode join --arch amd64 --gpu` so enroll can probe GPU capability via `nvidia-smi`. Host apt setup and the VM e2e verifier are skipped: this image already has the CUDA stack, and those checks are for SSH-managed VMs. Re-running inside the same container with the same release and `WORKER_API_BASE` skips enroll. The worker token stays on container-local disk.
 5. Report service `goliath-worker` through `report_deploy.sh`. The message looks like `node=<id> host=<hostname> arch=amd64 GPU=<nvidia-smi name>`.
-6. Start `methyl-worker`. If systemd is running, install the unit. Otherwise a supervisor restarts `methyl-worker` and appends logs to `/work/goliath/nodes/$GOLIATH_NODE_ID/logs/methyl-worker.log`. The supervisor loads the shared non-secret `worker.env`, the per-node `worker.env`, and the local `secrets.env`.
+6. Start `methyl-worker`. If systemd is running, install the unit. Otherwise a supervisor restarts `methyl-worker` and appends logs to the local `/var/log/goliath/methyl-worker.log` (rotated at `GOLIATH_LOG_MAX_BYTES`). The supervisor loads the shared non-secret `worker.env`, the per-node `worker.env`, and the local `secrets.env`.
 7. The RunPod adapter runs `keepalive.sh` with `bash` (the copy on `/work` has no exec bit), which execs `/start.sh`. Other providers leave `GOLIATH_START_KEEPALIVE` unset and this step does not run.
 
 The script is safe to run again on the same pod. It does not print secret values. Genome files are not downloaded at boot; `genomes/` is only the shared directory (and the default site manifest, once the release bundle is present).

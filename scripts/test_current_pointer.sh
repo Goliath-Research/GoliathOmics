@@ -70,4 +70,81 @@ printf '[{"tag_name":"goliathomics-2026.10.9"},{"tag_name":"v2026.10.12"},{"tag_
 got="$(python3 -c "$py" "$work/rel.json")"
 [[ "$got" == "goliathomics-2026.10.12" ]] || fail "bootstrap should pick goliathomics-2026.10.12, got $got"
 
+# Promote race (worker boot 2026-10-17): promoting 2026.10.17 left current
+# momentarily unresolved and the start adapter from the old 2026.10.15 bundle
+# was re-run. 1) The flip is an atomic rename: a reader never sees a missing
+# current. 2) The re-exec uses the release this boot promoted, by explicit
+# path, not the adapter path computed from the old current.
+for v in 2026.10.15 2026.10.17; do
+  mkdir -p "$g/releases/$v/runtime-bundle/deploy/runpod" "$g/releases/$v/runtime-bundle/scripts"
+  printf '{"version": "%s"}\n' "$v" >"$g/releases/$v/manifest.json"
+  printf '#!/bin/bash\n# goliath-worker-start\necho "adapter %s release_dir=${GOLIATH_RELEASE_DIR:-}"\n' "$v" \
+    >"$g/releases/$v/runtime-bundle/deploy/runpod/goliath-worker-start.sh"
+  printf '#!/bin/bash\n# start_shared_worker\necho "core %s bundled=${GOLIATH_BUNDLED_START:-}"\n' "$v" \
+    >"$g/releases/$v/runtime-bundle/scripts/start_shared_worker.sh"
+done
+grep -q 'mv -fT "\$tmp" "\$cur"' "$ROOT/scripts/detect_platform.sh" || fail "goliath_write_current must rename atomically"
+goliath_write_current "$g" "$g/releases/2026.10.15" || fail "write 10.15"
+( for _ in $(seq 1 300); do
+    goliath_current_dir "$g" >/dev/null || { echo unresolved >"$work/race"; exit 0; }
+  done ) &
+reader=$!
+for _ in $(seq 1 100); do
+  goliath_write_current "$g" "$g/releases/2026.10.17" >/dev/null || fail "flip to 10.17"
+  goliath_write_current "$g" "$g/releases/2026.10.15" >/dev/null || fail "flip to 10.15"
+done
+wait "$reader"
+[[ ! -e "$work/race" ]] || fail "current was momentarily unresolved during a promote"
+ls "$g"/.current.* >/dev/null 2>&1 && fail "temp pointer files left behind"
+# Legacy symlink is replaced in one rename, without an rm gap.
+rm -f "$g/current"; ln -s "$g/releases/2026.10.15" "$g/current"
+goliath_write_current "$g" "$g/releases/2026.10.17" || fail "flip over symlink"
+[[ ! -L "$g/current" && "$(goliath_current_dir "$g")" == "$g/releases/2026.10.17" ]] || fail "symlink not replaced"
+
+# start_shared_worker re-exec: GOLIATH_BUNDLED_START was computed by the old
+# adapter (current -> 2026.10.15) before this boot promoted 2026.10.17.
+eval "$(sed -n '/^target_bundled_start() {/,/^}/p' "$ROOT/scripts/start_shared_worker.sh")"
+eval "$(sed -n '/^maybe_reexec() {/,/^}/p' "$ROOT/scripts/start_shared_worker.sh")"
+log() { :; }
+goliath_write_current "$g" "$g/releases/2026.10.15" >/dev/null
+got="$(
+  unset GOLIATH_START_REEXECED GOLIATH_BUNDLED_START_REL
+  export GOLIATH_BUNDLED_START="$g/releases/2026.10.15/runtime-bundle/deploy/runpod/goliath-worker-start.sh"
+  export GOLIATH_ADAPTER_SCRIPT="$g/bin/goliath-worker-start.sh"
+  # shellcheck disable=SC2034  # read by maybe_reexec
+  TARGET_RELEASE="$g/releases/2026.10.17"
+  maybe_reexec
+)"
+[[ "$got" == "adapter 2026.10.17 release_dir=$g/releases/2026.10.17" ]] \
+  || fail "re-exec must run the promoted release's adapter, got: $got"
+# Also when the old adapter only knew the literal \$ROOT/current/... path.
+got="$(
+  unset GOLIATH_START_REEXECED
+  export GOLIATH_BUNDLED_START_REL=deploy/runpod/goliath-worker-start.sh
+  export GOLIATH_BUNDLED_START="$g/current/runtime-bundle/deploy/runpod/goliath-worker-start.sh"
+  export GOLIATH_ADAPTER_SCRIPT="$g/bin/goliath-worker-start.sh"
+  # shellcheck disable=SC2034  # read by maybe_reexec
+  TARGET_RELEASE="$g/releases/2026.10.17"
+  maybe_reexec
+)"
+[[ "$got" == adapter\ 2026.10.17* ]] || fail "re-exec via REL must use 10.17, got: $got"
+
+# The adapter honours the explicit GOLIATH_RELEASE_DIR over a stale current.
+got="$(env -u GOLIATH_BUNDLED_START -u GOLIATH_SHARED_WORKER_SCRIPT GOLIATH_ROOT="$g" \
+  GOLIATH_RELEASE_DIR="$g/releases/2026.10.17" GOLIATH_START_KEEPALIVE=/bin/true \
+  bash "$ROOT/deploy/runpod/goliath-worker-start.sh")"
+[[ "$got" == "core 2026.10.17 bundled=$g/releases/2026.10.17/runtime-bundle/deploy/runpod/goliath-worker-start.sh" ]] \
+  || fail "adapter must use GOLIATH_RELEASE_DIR, got: $got"
+
+# Bootstrap: scripts come from the wanted release's own directory.
+eval "$(sed -n '/^cur_dir() {/,/^}/p;/^bundle_dir() {/,/^}/p' "$ROOT/deploy/runpod/goliath-worker-bootstrap.sh")"
+ROOT_SAVE="$ROOT"; ROOT="$g"
+# shellcheck disable=SC2034  # read by bundle_dir
+WANTED_TAG=goliathomics-2026.10.17
+[[ "$(bundle_dir)" == "$g/releases/2026.10.17" ]] || fail "bootstrap must use releases/2026.10.17, not current (10.15)"
+# shellcheck disable=SC2034
+WANTED_TAG=""
+[[ "$(bundle_dir)" == "$g/releases/2026.10.15" ]] || fail "no wanted tag falls back to current"
+ROOT="$ROOT_SAVE"
+
 echo "test_current_pointer: OK"

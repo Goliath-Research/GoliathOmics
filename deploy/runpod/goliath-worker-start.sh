@@ -35,10 +35,21 @@ goliath_current_dir() {
   [[ -n "$target" && -d "$target" ]] || return 1
   printf '%s\n' "$target"
 }
-CURRENT_DIR="$(goliath_current_dir "$ROOT" 2>/dev/null || true)"
+# GOLIATH_RELEASE_DIR is the explicit release the caller (bootstrap or a
+# start re-exec) chose. It wins over $ROOT/current, which can be mid-flip or
+# still name the previous release during a promote.
+CURRENT_DIR=""
+if [[ -n "${GOLIATH_RELEASE_DIR:-}" && -f "${GOLIATH_RELEASE_DIR}/manifest.json" ]]; then
+  CURRENT_DIR="$GOLIATH_RELEASE_DIR"
+else
+  CURRENT_DIR="$(goliath_current_dir "$ROOT" 2>/dev/null || true)"
+fi
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export GOLIATH_ADAPTER_SCRIPT="${GOLIATH_ADAPTER_SCRIPT:-$HERE/$(basename "${BASH_SOURCE[0]}")}"
+# Path of this adapter inside a release bundle; start_shared_worker.sh joins
+# it with the release it actually runs before re-exec'ing.
+export GOLIATH_BUNDLED_START_REL="${GOLIATH_BUNDLED_START_REL:-deploy/runpod/goliath-worker-start.sh}"
 if [[ -z "${GOLIATH_BUNDLED_START:-}" ]]; then
   export GOLIATH_BUNDLED_START="${CURRENT_DIR:-$ROOT/current}/runtime-bundle/deploy/runpod/goliath-worker-start.sh"
 fi
