@@ -25,12 +25,15 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/deploy_target.sh --target NAME [--component gateway|workers|runtime|schema|all] [--dry-run]
+Usage: scripts/deploy_target.sh --target NAME [--component gateway|workers|runtime|schema|all] [--force-schema] [--dry-run]
 
 Options:
   --target NAME       Profile deploy/targets/<name>.json
                       (example profiles are allowed only with --dry-run)
   --component NAME    gateway, workers, runtime, schema, or all (default: all)
+  --force-schema      Apply the release's GoliathApp SQL even if
+                      wf.schema_release already records this release
+                      (also GOLIATH_SCHEMA_FORCE=1)
   --dry-run           Print hosts and secret *names*. Do not SSH or print values.
   -h, --help
 
@@ -41,6 +44,12 @@ Workers marked self_provision do not use SSH. --component workers and
 --component all print the pod template and return without opening a session.
 Schema apply uses database.schema_host when it is set (Neon direct host),
 and database.host otherwise (the pooled host the gateway keeps using).
+
+GoliathApp schema: the release (GOLIATH_RELEASE_SRC) carries GoliathApp's
+sql_pg scripts in goliathapp-sql/. --component schema, runtime and all apply
+them from this runner (never from pods or the gateway) once per release:
+wf.schema_release records the release and later deploys skip it. Profile
+field schema.goliathapp: per-release (default) or none.
 EOF
 }
 
@@ -52,12 +61,14 @@ source "$SCRIPT_DIR/rollouts_hook.sh"
 TARGET=""
 COMPONENT="all"
 DRY_RUN=0
+FORCE_SCHEMA="${GOLIATH_SCHEMA_FORCE:-0}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) TARGET="${2:-}"; shift 2 ;;
     --component) COMPONENT="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --force-schema) FORCE_SCHEMA=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
@@ -173,6 +184,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   info "gateway public_base_url=$(jq_get '.gateway.public_base_url // ""') tls=$(jq_get '.gateway.tls.mode // "self-signed"')"
   info "workers: $(jq_get '[.workers[]? | if .self_provision == true then "\(.name) self_provision \(.provider // "unknown") \(.arch) \(.template // "")" else "\(.name) \(.ssh // "") \(.arch) \(.capability // "")" end] | join("; ")')"
   info "database host: $(jq_get '.database.host') schema_host=$(jq_get '.database.schema_host // ""') kind=$(jq_get '.database.kind') channel_binding=$(jq_get '.database.channel_binding // ""')"
+  info "schema: goliathapp=$(jq_get '.schema.goliathapp // "per-release"') apply=$(jq_get '.schema.apply // "unset"') force=${FORCE_SCHEMA}"
   info "shared storage: $(jq_get '.shared_storage.provider // "none"') $(jq_get '.shared_storage.endpoint // ""') bucket=$(jq_get '.shared_storage.bucket // ""')"
   info "long-term storage: $(jq_get '.long_term_storage.provider // "none"') endpoint=$(jq_get '.long_term_storage.endpoint // ""') roles=$(jq_get '[.long_term_storage.roles[]?] | join(",")')"
   if jq -e '[.. | objects | .identity_file? // empty | select(. != "")] | length > 0' "$PROFILE" >/dev/null; then
@@ -434,35 +446,108 @@ report_component() {
   rollouts_report "$action" --service "$service" --env "$GOLIATH_ENV" --message "$message"
 }
 
-run_schema() {
-  local apply
-  apply="$(jq_get '.schema.apply // empty')"
-  if [[ -z "$apply" || "$apply" == "null" || "$apply" == "none" ]]; then
-    info "schema.apply=${apply:-unset}; skipping SQL"
-    return 0
-  fi
-  # deploy_test_bed.sh is a PostgreSQL psql script. Pointing it at Azure SQL
-  # fails the token guard or the client, and --component all stops there.
-  if [[ "$db_kind" == "mssql" ]]; then
-    info "database.kind=mssql; skipping PostgreSQL test-bed"
-    return 0
-  fi
-  load_db_password
-  report_component start goliath-db-schema "schema ${TARGET}"
+export_schema_pg_env() {
   # schema_host is the non-pooled Neon endpoint. The gateway keeps using host.
   # PGDATABASE is a libpq parameter, so the mixed-case name GoliathOmics is
   # passed as-is. Inside SQL that identifier must be double-quoted: "GoliathOmics".
-  info "schema apply host=${db_schema_host} (gateway host=${db_host})"
   export PGHOST="$db_schema_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user"
   export PGSSLMODE="$db_ssl" PGPASSWORD="$DB_PASSWORD"
   if [[ -n "$db_channel" ]]; then
     export PGCHANNELBINDING="$db_channel"
   fi
+}
+
+# GoliathApp's workflow_engine/sql_pg scripts travel inside the release
+# (goliathapp-sql/, bundled by build_release.sh from the same GoliathApp
+# commit as the methyl-gateway wheel). They are applied from this runner,
+# which holds the database secret; pods and the gateway never run SQL.
+# apply_goliathapp_schema.sh records each applied release in
+# wf.schema_release, so only the first deploy of a release upgrades the
+# database. Later deploys of the same release skip it unless --force-schema.
+GOLIATHAPP_SCHEMA_DONE=0
+
+# Status 0: apply (or check) now. Status 1: nothing to do; the reason is printed.
+goliathapp_schema_wanted() {
+  local mode
+  [[ "$GOLIATHAPP_SCHEMA_DONE" -eq 0 ]] || return 1
+  mode="$(jq_get '.schema.goliathapp // "per-release"')"
+  case "$mode" in
+    per-release) ;;
+    none)
+      info "schema.goliathapp=none; skipping GoliathApp SQL"
+      return 1
+      ;;
+    *) die "schema.goliathapp must be per-release or none" ;;
+  esac
+  if [[ "$db_kind" == "mssql" ]]; then
+    info "database.kind=mssql; skipping GoliathApp PostgreSQL scripts"
+    return 1
+  fi
+  if [[ -z "${GOLIATH_RELEASE_SRC:-}" ]]; then
+    info "GOLIATH_RELEASE_SRC is not set; skipping GoliathApp SQL (release-deploy sets it to the release bundle)"
+    return 1
+  fi
+  [[ -d "$GOLIATH_RELEASE_SRC" ]] || die "GOLIATH_RELEASE_SRC is not a directory: $GOLIATH_RELEASE_SRC"
+  [[ -f "$GOLIATH_RELEASE_SRC/manifest.json" ]] || die "GOLIATH_RELEASE_SRC has no manifest.json: $GOLIATH_RELEASE_SRC"
+  return 0
+}
+
+apply_goliathapp_schema() {
+  local -a args=(--release-dir "$GOLIATH_RELEASE_SRC")
+  GOLIATHAPP_SCHEMA_DONE=1
+  if [[ "$FORCE_SCHEMA" == "1" ]]; then
+    args+=(--force)
+  fi
+  info "GoliathApp schema host=${db_schema_host} db=${db_name} release=${GOLIATH_RELEASE_SRC}"
+  bash "$REPO_ROOT/scripts/apply_goliathapp_schema.sh" "${args[@]}"
+}
+
+run_schema() {
+  local apply want_app=0 want_bed=1
+  apply="$(jq_get '.schema.apply // empty')"
+  if goliathapp_schema_wanted; then
+    want_app=1
+  fi
+  if [[ -z "$apply" || "$apply" == "null" || "$apply" == "none" ]]; then
+    info "schema.apply=${apply:-unset}; skipping test-bed SQL"
+    want_bed=0
+  elif [[ "$db_kind" == "mssql" ]]; then
+    # deploy_test_bed.sh is a PostgreSQL psql script. Pointing it at Azure SQL
+    # fails the token guard or the client, and --component all stops there.
+    info "database.kind=mssql; skipping PostgreSQL test-bed"
+    want_bed=0
+  fi
+  if [[ "$want_app" -eq 0 && "$want_bed" -eq 0 ]]; then
+    return 0
+  fi
+  load_db_password
+  report_component start goliath-db-schema "schema ${TARGET}"
+  info "schema apply host=${db_schema_host} (gateway host=${db_host})"
+  export_schema_pg_env
   export GOLIATH_DEPLOY_TARGET="$TARGET"
-  if GOLIATH_ROLLOUTS_EXTERNAL=1 bash "$REPO_ROOT/workflow_engine/sql_pg/deploy_test_bed.sh"; then
-    report_component succeeded goliath-db-schema "schema ${TARGET}"
-  else
+  # Engine DDL first: the test-bed seeds use GoliathApp tables and functions.
+  if [[ "$want_app" -eq 1 ]] && ! apply_goliathapp_schema; then
+    report_component failed goliath-db-schema "schema ${TARGET} failed (GoliathApp SQL)"
+    return 1
+  fi
+  if [[ "$want_bed" -eq 1 ]] && ! GOLIATH_ROLLOUTS_EXTERNAL=1 bash "$REPO_ROOT/workflow_engine/sql_pg/deploy_test_bed.sh"; then
     report_component failed goliath-db-schema "schema ${TARGET} failed"
+    return 1
+  fi
+  report_component succeeded goliath-db-schema "schema ${TARGET}"
+}
+
+# --component runtime alone also stages a release. Upgrade the database first
+# (a no-op when the release is already recorded, or when all ran schema).
+run_runtime_schema() {
+  goliathapp_schema_wanted || return 0
+  load_db_password
+  report_component start goliath-db-schema "schema ${TARGET} (runtime)"
+  export_schema_pg_env
+  if apply_goliathapp_schema; then
+    report_component succeeded goliath-db-schema "schema ${TARGET} (runtime)"
+  else
+    report_component failed goliath-db-schema "schema ${TARGET} failed (GoliathApp SQL)"
     return 1
   fi
 }
@@ -870,6 +955,7 @@ run_runtime() {
     [[ -d "$GOLIATH_RELEASE_SRC" ]] || die "GOLIATH_RELEASE_SRC is not a directory: $GOLIATH_RELEASE_SRC"
     [[ -f "$GOLIATH_RELEASE_SRC/manifest.json" ]] || die "GOLIATH_RELEASE_SRC has no manifest.json: $GOLIATH_RELEASE_SRC"
   fi
+  run_runtime_schema || return 1
   if [[ "$(jq_get '.runtime.pull_parabricks // false')" == "true" ]]; then
     pull_flag="--pull-parabricks"
   else

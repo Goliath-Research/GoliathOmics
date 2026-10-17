@@ -275,6 +275,8 @@ grep -q 'tls=self-signed' "$out" || fail "dry-run should show self-signed TLS"
 grep -q 'ep-wandering-pine-a5l8s690-pooler.us-east-2.aws.neon.tech' "$out" || fail "dry-run should show the pooled host"
 grep -q 'schema_host=ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech' "$out" || fail "dry-run should show schema_host"
 grep -q 'channel_binding=require' "$out" || fail "dry-run should show channel_binding"
+grep -q 'schema: goliathapp=per-release apply=test-bed force=0' "$out" \
+  || fail "dry-run should show the GoliathApp schema mode"
 grep -q 'self_provision runpod amd64 runpod-torch-v280' "$out" || fail "dry-run should describe the RunPod pool"
 grep -q 'bucket=goliath-omics' "$out" || fail "dry-run should show the B2 bucket"
 grep -q 'https://s3.us-east-005.backblazeb2.com' "$out" || fail "dry-run should show the B2 endpoint"
@@ -602,6 +604,19 @@ grep -q 'GOLIATH_GATEWAY_KNOWN_HOSTS is empty' "$workflow" || fail "release-depl
 if grep -E '^[[:space:]]*ssh-keyscan([[:space:]]|$)' "$workflow" || grep -q 'StrictHostKeyChecking=no' "$workflow"; then
   fail "release-deploy must not scan hosts or disable host key checking"
 fi
+# GoliathApp SQL ships in the release and is applied once per release
+# (scripts/test_apply_goliathapp_schema.sh covers the apply itself).
+grep -q 'GOLIATH_SCHEMA_FORCE: \${{ inputs.forceSchema' "$workflow" \
+  || fail "release-deploy should pass the forceSchema input to deploy_target.sh"
+grep -q -- '--sql-out "\$OUTPUT/goliathapp-sql"' "$ROOT/scripts/build_release.sh" \
+  || fail "build_release.sh should bundle GoliathApp sql_pg into goliathapp-sql/"
+grep -q 'Require GoliathApp PostgreSQL scripts' "$ROOT/.github/workflows/release.yml" \
+  || fail "release.yml should require the GoliathApp SQL bundle"
+grep -q '"goliathapp_sql": mp_manifest.get("goliathapp_sql")' "$ROOT/scripts/assemble_release.sh" \
+  || fail "assemble_release.sh should keep goliathapp_sql in manifest.json"
+jq -e '.schema.goliathapp == "per-release"' "$real" >/dev/null \
+  || fail "goliath-test should apply GoliathApp SQL once per release"
+
 awk '
   /name: Install gateway SSH known hosts/ { seen_hosts = 1 }
   /name: Deploy target profile/ {

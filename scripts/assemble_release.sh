@@ -111,7 +111,17 @@ for arch in aarch64 amd64; do
   bash "$SCRIPT_DIR/bundle_methyl_extractor_libs.sh" "${bundle_args[@]}"
 done
 
-python3 - "$OUTPUT" "$RELEASE_VERSION" "$MP_VERSION" "$ME_VERSION" <<'PY'
+# The MethylPipeline release carries GoliathApp's sql_pg scripts
+# (goliathapp-sql/). Check them before they become part of the deploy bundle.
+if [[ -f "$OUTPUT/goliathapp-sql/manifest.sha256" ]]; then
+  (cd "$OUTPUT/goliathapp-sql" && sha256sum --check --quiet --strict manifest.sha256) \
+    || die "goliathapp-sql in $MP_DIR does not match its manifest.sha256"
+  info "  goliathapp_sql: $(wc -l <"$OUTPUT/goliathapp-sql/manifest.sha256") scripts"
+else
+  info "  goliathapp_sql: none in this MethylPipeline release (deploy will not apply GoliathApp SQL)"
+fi
+
+python3 - "$OUTPUT" "$RELEASE_VERSION" "$MP_VERSION" "$ME_VERSION" "$MP_DIR" <<'PY'
 import json
 import hashlib
 import sys
@@ -119,11 +129,17 @@ from pathlib import Path
 
 out = Path(sys.argv[1])
 release_ver, mp_ver, me_ver = sys.argv[2:5]
+mp_dir = Path(sys.argv[5])
 
 stub_path = out / "manifest.json"
 base = {}
 if stub_path.is_file():
     base = json.loads(stub_path.read_text(encoding="utf-8"))
+# The rsync above skips manifest.json, so build-time fields (gateway wheel
+# source, GoliathApp SQL bundle) come from the MethylPipeline release itself.
+mp_manifest = {}
+if (mp_dir / "manifest.json").is_file():
+    mp_manifest = json.loads((mp_dir / "manifest.json").read_text(encoding="utf-8"))
 
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
@@ -148,7 +164,8 @@ manifest = {
         "methyl_extractor": me_ver,
     },
     "python": base.get("python", "3.12"),
-    "gateway_source": base.get("gateway_source", ""),
+    "gateway_source": mp_manifest.get("gateway_source") or base.get("gateway_source", ""),
+    "goliathapp_sql": mp_manifest.get("goliathapp_sql") or base.get("goliathapp_sql"),
     "parabricks_image": base.get("parabricks_image", ""),
     "parabricks_image_digest": base.get("parabricks_image_digest", ""),
     "docker_data_root": base.get("docker_data_root", "/work/goliath/docker"),

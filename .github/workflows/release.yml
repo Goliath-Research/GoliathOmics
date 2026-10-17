@@ -41,6 +41,19 @@ jobs:
           set -euo pipefail
           bash scripts/check_gateway_wheel.sh "${{ runner.temp }}/release/wheels"
 
+      - name: Require GoliathApp PostgreSQL scripts
+        run: |
+          set -euo pipefail
+          # Deploy applies goliathapp-sql/ once per release
+          # (scripts/apply_goliathapp_schema.sh). A release without it would
+          # leave the database behind the gateway wheel.
+          SQL="${{ runner.temp }}/release/goliathapp-sql"
+          test -s "$SQL/manifest.sha256"
+          test -s "$SQL/source.json"
+          (cd "$SQL" && sha256sum --check --quiet --strict manifest.sha256)
+          jq -e '.goliathapp_sql.commit | length > 0' "${{ runner.temp }}/release/manifest.json" >/dev/null
+          echo "GoliathApp $(jq -r .commit "$SQL/source.json"): $(wc -l <"$SQL/manifest.sha256") sql_pg scripts"
+
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:

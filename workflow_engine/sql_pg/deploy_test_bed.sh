@@ -2,7 +2,10 @@
 # Deploy wf test-bed seeds (PostgreSQL) and optionally simulate a workflow.
 #
 # Engine DDL (00_schema.sql and the rest of deploy_azure.sh) lives in GoliathApp
-# and must already be applied. This script does not embed a database password.
+# and must already be applied. scripts/deploy_target.sh --component schema
+# applies it first, once per release, from the release's goliathapp-sql/
+# (scripts/apply_goliathapp_schema.sh). This script does not embed a database
+# password.
 #
 #   export PGHOST=... PGDATABASE=goliath PGUSER=... PGPASSWORD=... PGSSLMODE=require
 #   ./deploy_test_bed.sh
@@ -52,7 +55,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     -h|--help)
-      sed -n '2,12p' "$0"
+      sed -n '2,15p' "$0"
       exit 0
       ;;
     *)

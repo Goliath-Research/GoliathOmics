@@ -70,6 +70,7 @@
     "secret_access_key": "secret:LONGTERM_SECRET_ACCESS_KEY"
   },
   "schema": {
+    "goliathapp": "per-release",
     "apply": "test-bed"
   }
 }
