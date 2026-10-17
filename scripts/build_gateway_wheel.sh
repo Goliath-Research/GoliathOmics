@@ -8,6 +8,10 @@
 # and no pyproject, so a packages.list build of the science plugins never
 # produced the wheel. The wheel version is --version (the release tag),
 # not a fixed release number.
+#
+# --sql-out bundles GoliathApp's workflow_engine/sql_pg scripts from the same
+# checkout (scripts/bundle_goliathapp_sql.py), so the release carries the
+# database definition that matches its gateway wheel.
 
 set -euo pipefail
 
@@ -21,6 +25,8 @@ Options:
   --source DIR      workflow_engine tree to build (must contain pyproject.toml).
                     Default: clone GoliathApp (GOLIATH_APP_URL / GOLIATH_APP_REF).
   --sha-file PATH   Write the gateway source revision (git SHA, or local-source)
+  --sql-out DIR     Also bundle <source>/sql_pg (GoliathApp PostgreSQL scripts,
+                    deploy_azure.sh order) into DIR
   -h, --help
 EOF
 }
@@ -37,6 +43,7 @@ VERSION=""
 WHEELS=""
 SOURCE=""
 SHA_FILE=""
+SQL_OUT=""
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 while [[ $# -gt 0 ]]; do
@@ -45,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     --wheels) WHEELS="${2:-}"; shift 2 ;;
     --source) SOURCE="${2:-}"; shift 2 ;;
     --sha-file) SHA_FILE="${2:-}"; shift 2 ;;
+    --sql-out) SQL_OUT="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
@@ -83,6 +91,7 @@ fetch_goliath_app() {
 }
 
 SOURCE_SHA=""
+SQL_SRC=""
 if [[ -n "$SOURCE" ]]; then
   [[ -f "$SOURCE/pyproject.toml" ]] || die "--source has no pyproject.toml: $SOURCE"
   if git -C "$SOURCE" rev-parse HEAD >/dev/null 2>&1; then
@@ -91,6 +100,7 @@ if [[ -n "$SOURCE" ]]; then
     SOURCE_SHA="local-source"
   fi
   info "building methyl-gateway wheel from $SOURCE ($SOURCE_SHA)"
+  SQL_SRC="$SOURCE/sql_pg"
   cp -R "$SOURCE/." "$STAGE/"
 elif [[ -f "$REPO_ROOT/workflow_engine/pyproject.toml" ]]; then
   SOURCE_SHA="local-source"
@@ -98,13 +108,24 @@ elif [[ -f "$REPO_ROOT/workflow_engine/pyproject.toml" ]]; then
     SOURCE_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD)"
   fi
   info "building methyl-gateway wheel from $REPO_ROOT/workflow_engine ($SOURCE_SHA)"
+  SQL_SRC="$REPO_ROOT/workflow_engine/sql_pg"
   cp -R "$REPO_ROOT/workflow_engine/." "$STAGE/"
 else
   CLONE="$(mktemp -d)"
   fetch_goliath_app "$CLONE"
   SOURCE_SHA="$(git -C "$CLONE" rev-parse HEAD)"
   info "gateway source revision $SOURCE_SHA"
+  SQL_SRC="$CLONE/workflow_engine/sql_pg"
   cp -R "$CLONE/workflow_engine/." "$STAGE/"
+fi
+
+if [[ -n "$SQL_OUT" ]]; then
+  [[ -f "$SQL_SRC/deploy_azure.sh" ]] || die "no GoliathApp sql_pg/deploy_azure.sh under $SQL_SRC; cannot bundle the PostgreSQL scripts"
+  python3 "$SCRIPT_DIR/bundle_goliathapp_sql.py" \
+    --sql-dir "$SQL_SRC" \
+    --out "$SQL_OUT" \
+    --commit "$SOURCE_SHA" \
+    --repository "${GOLIATH_APP_URL:-https://github.com/Goliath-Research/GoliathApp.git}"
 fi
 
 # Reclaim and study CLIs live in this repo. GoliathApp declares the entry

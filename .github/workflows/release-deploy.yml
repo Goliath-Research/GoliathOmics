@@ -27,6 +27,11 @@ on:
         required: false
         type: string
         default: ""
+      forceSchema:
+        description: Re-apply the release's GoliathApp SQL even if wf.schema_release already records this release
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -166,6 +171,7 @@ jobs:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GOLIATH_ROLLOUTS_SKIP_SERVICES: goliathomics-runtime
           GOLIATH_RELEASE_SRC: ${{ runner.temp }}/bundle
+          GOLIATH_SCHEMA_FORCE: ${{ inputs.forceSchema && '1' || '0' }}
           NEON_TEST_PASSWORD: ${{ secrets.NEON_TEST_PASSWORD }}
           B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
           B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}

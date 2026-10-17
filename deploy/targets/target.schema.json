@@ -101,7 +101,13 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "apply": {"type": "string", "enum": ["test-bed", "none"]}
+        "apply": {"type": "string", "enum": ["test-bed", "none"]},
+        "goliathapp": {
+          "type": "string",
+          "enum": ["per-release", "none"],
+          "default": "per-release",
+          "description": "per-release: apply the release's GoliathApp sql_pg scripts (goliathapp-sql/) on the first deploy of each release, recorded in wf.schema_release. none: never apply them."
+        }
       }
     }
   },

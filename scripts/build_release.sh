@@ -107,7 +107,8 @@ build_wheels() {
       bash "$SCRIPT_DIR/build_gateway_wheel.sh" \
         --version "$VERSION" \
         --wheels "$WHEELS_DIR" \
-        --sha-file "$OUTPUT/.gateway-source-sha"
+        --sha-file "$OUTPUT/.gateway-source-sha" \
+        --sql-out "$OUTPUT/goliathapp-sql"
       continue
     fi
     pkg_path="$(_resolve_pkg_path "$line")" || die "Package not found for packages.list entry: $line"
@@ -289,6 +290,7 @@ build_runtime_bundle() {
            verify_locked_wheels.py sanitize_lock.py fix_wheel_path_deps.py \
            deploy_workflow_definitions.sh deploy_mc_workflow_definitions.sh \
            deploy_process_pack_catalog.sh deploy_target.sh \
+           apply_goliathapp_schema.sh bundle_goliathapp_sql.py \
            report_deploy.sh rollouts_hook.sh default_methyl_site.json; do
     if [[ -f "$REPO_ROOT/scripts/$s" ]]; then
       cp -f "$REPO_ROOT/scripts/$s" "$RUNTIME_DIR/scripts/"
@@ -298,7 +300,7 @@ build_runtime_bundle() {
 }
 
 write_manifest_stub() {
-  local py_minor gateway_sha=""
+  local py_minor gateway_sha="" sql_json="null"
   py_minor="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
   if [[ -f "$OUTPUT/.gateway-source-sha" ]]; then
     gateway_sha="$(tr -d '[:space:]' <"$OUTPUT/.gateway-source-sha")"
@@ -307,11 +309,22 @@ write_manifest_stub() {
   if [[ -n "$gateway_sha" && ! "$gateway_sha" =~ ^[A-Za-z0-9._-]+$ ]]; then
     die "gateway source revision is not safe to record: $gateway_sha"
   fi
+  # GoliathApp sql_pg bundle (build_gateway_wheel.sh --sql-out). Deploy
+  # applies it once per release (scripts/apply_goliathapp_schema.sh).
+  if [[ -f "$OUTPUT/goliathapp-sql/source.json" ]]; then
+    sql_json="$("$PYTHON_BIN" -c '
+import json, sys
+src = json.load(open(sys.argv[1], encoding="utf-8"))
+print(json.dumps({"path": "goliathapp-sql", "manifest": "goliathapp-sql/manifest.sha256",
+                  "commit": src.get("commit", ""), "scripts": src.get("scripts", 0)}))
+' "$OUTPUT/goliathapp-sql/source.json")"
+  fi
   cat >"$OUTPUT/manifest.json" <<EOF
 {
   "version": "$VERSION",
   "python": "$py_minor",
   "gateway_source": "$gateway_sha",
+  "goliathapp_sql": $sql_json,
   "parabricks_image": "${PARABRICKS_IMAGE:-}",
   "parabricks_image_digest": "",
   "docker_data_root": "/work/goliath/docker",
