@@ -1,0 +1,21 @@
+# External binaries the GoliathOmics worker needs on every worker host.
+# Single source of truth for scripts/install_system_deps.sh (install and
+# --check). Installed on the host's local disk by the OS package manager,
+# never on the shared /work volume.
+#
+# Columns: binary  apt-package  dnf/yum-package  apk-package
+# Use "-" when a package manager has no package (that manager then fails
+# loudly if the binary is missing).
+#
+# binary    apt        dnf        apk       # used by
+samtools    samtools   samtools   samtools  # methylgrapher align packaging, methyl-qc flagstat, extract_runner
+bedtools    bedtools   bedtools   bedtools  # methyl-mapper (bedtools intersect/closest)
+fastp       fastp      fastp      -         # fastq trim runner
+pigz        pigz       pigz       pigz      # parallel gunzip in methylgrapher_wgbs_runner (gzip fallback)
+gzip        gzip       gzip       gzip      # methylgrapher_wgbs_runner, release extraction
+setfacl     acl        acl        acl       # init_work_layout.sh default ACLs on /work
+curl        curl       curl       curl      # start_shared_worker.sh release download, gateway calls
+tar         tar        tar        tar       # start_shared_worker.sh release extraction
+python3     python3    python3    python3   # start_shared_worker.sh manifest parsing, bootstrap
+python3.12  python3.12 python3.12 -         # worker venv (release wheels are cp312); worker_venv_local.sh
+sha256sum   coreutils  coreutils  coreutils # worker_venv_local.sh checksum

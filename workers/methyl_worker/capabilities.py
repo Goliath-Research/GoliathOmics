@@ -37,7 +37,7 @@ GPU_REQUIRED_CAPABILITIES: FrozenSet[str] = frozenset(
     }
 )
 
-# Host OS packages (setup_host.sh --system-deps) — not on shared /work NFS.
+# Host OS packages (scripts/system_tools.list, installed by install_system_deps.sh at worker start) — not on shared /work NFS.
 # Align packaging calls samtools on the worker host after Mojo dual-map / QC.
 HOST_SAMTOOLS_CAPABILITIES: FrozenSet[str] = frozenset(
     {
@@ -167,13 +167,13 @@ def _host_tools_ok_for(capability: str) -> bool:
     """True when per-VM apt CLIs required by ``capability`` are on PATH."""
     if capability in HOST_SAMTOOLS_CAPABILITIES and not _cli_on_path("samtools"):
         logger.warning(
-            "Omitting %s: samtools not on PATH (run setup_host.sh --system-deps)",
+            "Omitting %s: samtools not on PATH (worker start installs it: scripts/install_system_deps.sh)",
             capability,
         )
         return False
     if capability in HOST_BEDTOOLS_CAPABILITIES and not _cli_on_path("bedtools"):
         logger.warning(
-            "Omitting %s: bedtools not on PATH (run setup_host.sh --system-deps)",
+            "Omitting %s: bedtools not on PATH (worker start installs it: scripts/install_system_deps.sh)",
             capability,
         )
         return False
@@ -305,13 +305,13 @@ def assert_node_can_serve_capability(capability: str) -> None:
     if capability in HOST_SAMTOOLS_CAPABILITIES and not _cli_on_path("samtools"):
         raise RuntimeError(
             f"Worker configured for capability {capability!r} but samtools is not on PATH. "
-            "Install per-VM host deps: setup_host.sh --system-deps (or "
-            "install_host_tools_gpu_vm.sh). Shared /work does not provide samtools."
+            "Install per-VM host deps: scripts/install_system_deps.sh "
+            "(run by worker start). Shared /work does not provide samtools."
         )
     if capability in HOST_BEDTOOLS_CAPABILITIES and not _cli_on_path("bedtools"):
         raise RuntimeError(
             f"Worker configured for capability {capability!r} but bedtools is not on PATH. "
-            "Install per-VM host deps: setup_host.sh --system-deps."
+            "Install per-VM host deps: scripts/install_system_deps.sh (run by worker start)."
         )
 
 
@@ -332,11 +332,11 @@ def assert_execute_host_tool_prereqs(capability: str, action_name: str) -> None:
     if capability in HOST_SAMTOOLS_CAPABILITIES and not _cli_on_path("samtools"):
         raise RuntimeError(
             f"Action {action_name!r} (capability {capability!r}) requires host samtools. "
-            "Install on this VM: bash …/install_host_tools_gpu_vm.sh "
-            "(setup_host.sh --system-deps). Shared /work does not ship samtools."
+            "Install on this VM: scripts/install_system_deps.sh "
+            "(run by worker start). Shared /work does not ship samtools."
         )
     if capability in HOST_BEDTOOLS_CAPABILITIES and not _cli_on_path("bedtools"):
         raise RuntimeError(
             f"Action {action_name!r} (capability {capability!r}) requires host bedtools. "
-            "Install on this VM: setup_host.sh --system-deps."
+            "Install on this VM: scripts/install_system_deps.sh (run by worker start)."
         )

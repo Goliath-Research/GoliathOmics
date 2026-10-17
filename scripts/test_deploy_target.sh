@@ -640,6 +640,11 @@ shellcheck -S warning -e SC1091 \
   "$ROOT/scripts/test_setup_gateway_nginx.sh"
 
 work_root="$(mktemp -d)"
+# The worker start installs system tools (install_system_deps.sh) before
+# anything else; these flows test the start itself, so stub the installer.
+# scripts/test_install_system_deps.sh covers the real one.
+printf '#!/usr/bin/env bash\necho stub-system-deps "$@" >>"%s/system-deps.calls"\n' "$work_root" >"$work_root/system-deps-stub.sh"
+export GOLIATH_SYSTEM_DEPS_SCRIPT="$work_root/system-deps-stub.sh"
 private_root="$(mktemp -d)"
 token_file="$private_root/worker-token"
 prov_log="$(mktemp)"

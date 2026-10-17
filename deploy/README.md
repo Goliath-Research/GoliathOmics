@@ -31,6 +31,23 @@ Permissions are applied with `chmod` and, when a shared group is set, `chgrp`. D
 
 Workflow steps publish task output with `methyl_worker.work_share.publish_to_work(local_src, dest)`. That helper copies once from local scratch onto a sibling on the destination filesystem, renames it into place, and writes `<dest>.complete`. The step definitions that call it live in [GoliathApp](https://github.com/Goliath-Research/GoliathApp). Follow-up there: call `publish_to_work` when a step's output must land on `/work`.
 
+## Worker system tools
+
+Every worker needs the external tools listed in [`scripts/system_tools.list`](../scripts/system_tools.list) (samtools, bedtools, fastp, pigz, setfacl from `acl`, python3.12, curl, tar, ...). That file is the only list. The installer and the check both read it, and `scripts/test_release_bundles.sh` fails when worker code looks up a tool that the list does not have.
+
+The shared start (`scripts/start_shared_worker.sh`) runs `scripts/install_system_deps.sh` after the release is in place and before anything else. This happens on every provider:
+
+1. Tools already on PATH are skipped. When every tool is present, nothing runs.
+2. The release carries offline `.deb` bundles in `system-deps/<os>-<version>-<arch>/` (for example `/work/goliath/releases/<release>/system-deps/ubuntu-24.04-amd64/`). When one matches this host, the start copies it to local disk (`/var/tmp`), checks it against `SHA256SUMS`, and installs only the packages the host lacks with `apt-get install --no-download`. Nothing is executed from `/work`, and packages land on the root filesystem.
+3. When there is no matching bundle, or the bundle cannot provide every tool, the start falls back to the online package manager (`apt-get`, else `dnf`/`yum`/`apk`). It retries and waits for the apt/dpkg lock.
+4. If a tool is still missing after that, the start fails and names the tool. A worker never starts in a state where it would skip pipeline steps.
+
+The installer needs root or passwordless sudo. Run `install_system_deps.sh --check` to only report what is missing.
+
+**Release side.** `scripts/build_release.sh` builds the bundles with `scripts/bundle_system_deps.sh` inside a clean `ubuntu:24.04` container, using docker or podman. The bundle is the exact `apt-get --download-only` dependency closure of the manifest packages: about 47 debs and 15 MB for `ubuntu-24.04-amd64`. On `runpod/pytorch` only about 11 of them, roughly 3 MB, are not already installed. Add more targets with `--system-deps-targets` (for example `ubuntu-24.04-arm64`, which needs qemu on an x86 runner). `.deb` bundles were chosen over static binaries or a conda-pack tarball for these reasons: they are small, they get distro security fixes, and they install with the same apt the fallback uses. A host on another OS uses the online fallback.
+
+The release also has to install the worker venv offline. `build_release.sh` builds a wheel for each pin that only exists as an sdist (for example `python-louvain==0.16`) with `scripts/bundle_sdist_wheels.py`, and adds that wheel's sha256 to the lock. It then fails the build unless `pip install --no-index --find-links wheels/ -r requirements-worker.lock` resolves for every bundled arch (`scripts/check_offline_wheels.sh`). Missing wheels are an error by default. `--allow-missing-wheels` is for development only.
+
 ## Plug in another provider
 
 Call `scripts/start_shared_worker.sh` from the machine's own service manager. Do not set `RUNPOD_*` and do not point the keepalive at `/start.sh` unless that image actually has it.

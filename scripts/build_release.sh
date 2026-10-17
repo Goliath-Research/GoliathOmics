@@ -15,8 +15,13 @@ Options:
   --with-gpu-reqs      Include GPU requirements in lockfile compile
   --wheel-arches LIST  Linux arches to bundle third-party wheels for
                        (default: "x86_64"; add aarch64 to opt in; env GOLIATH_WHEEL_ARCHES)
-  --strict-wheels      Fail the release when a locked pin has no bundled wheel
-                       (default: warn; env GOLIATH_STRICT_WHEELS=1)
+  --strict-wheels      (default, kept for compatibility) fail the release when a
+                       locked pin has no bundled wheel
+  --allow-missing-wheels  Dev only: warn instead of failing on missing wheels
+  --system-deps-targets LIST  OS targets to bundle system tools for as offline
+                       .deb sets (default: ubuntu-24.04-amd64; env
+                       GOLIATH_SYSTEM_DEPS_TARGETS); needs docker or podman
+  --skip-system-deps   Dev only: do not bundle system tools
   --extra-index-url U  Extra index for lock compile and wheel download; repeatable
                        (default: https://pypi.nvidia.com; env
                        GOLIATH_PIP_EXTRA_INDEX_URLS, space-separated, "" for none)
@@ -37,7 +42,9 @@ PYTHON_BIN="${PYTHON_BIN:-python3.12}"
 SKIP_WHEELS=0
 WITH_GPU=0
 WHEEL_ARCHES="${GOLIATH_WHEEL_ARCHES:-x86_64}"
-STRICT_WHEELS="${GOLIATH_STRICT_WHEELS:-0}"
+STRICT_WHEELS="${GOLIATH_STRICT_WHEELS:-1}"
+SYSTEM_DEPS_TARGETS="${GOLIATH_SYSTEM_DEPS_TARGETS:-ubuntu-24.04-amd64}"
+SKIP_SYSTEM_DEPS=0
 EXTRA_INDEX_URLS="${GOLIATH_PIP_EXTRA_INDEX_URLS-https://pypi.nvidia.com}"
 _cli_extra_index=""
 WORKER_PY_VERSION="${GOLIATH_WORKER_PYTHON_VERSION:-3.12}"
@@ -53,6 +60,9 @@ while [[ $# -gt 0 ]]; do
     --wheel-arches) WHEEL_ARCHES="${2:-}"; shift 2 ;;
     --skip-third-party) SKIP_THIRD_PARTY=1; shift ;;
     --strict-wheels) STRICT_WHEELS=1; shift ;;
+    --allow-missing-wheels) STRICT_WHEELS=0; shift ;;
+    --system-deps-targets) SYSTEM_DEPS_TARGETS="${2:-}"; shift 2 ;;
+    --skip-system-deps) SKIP_SYSTEM_DEPS=1; shift ;;
     --extra-index-url) _cli_extra_index="${_cli_extra_index} ${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
@@ -244,6 +254,38 @@ download_locked_wheels() {
   rm -f "$pin_req"
 }
 
+# Pins with no binary wheel on any index (python-louvain==0.16 ships only an
+# sdist) get a wheel built here from the hash-checked sdist; the built wheel's
+# sha256 is added to the lock so pods can still --require-hashes.
+build_sdist_wheels() {
+  local args=() arch
+  for arch in $WHEEL_ARCHES; do args+=(--arch "$arch"); done
+  info "Building wheels for sdist-only pins"
+  "$PYTHON_BIN" "$SCRIPT_DIR/bundle_sdist_wheels.py" "$OUTPUT/requirements-worker.lock" "$WHEELS_DIR" \
+    "${args[@]}" --python-version "$WORKER_PY_VERSION" --python "$PYTHON_BIN" -- "${EXTRA_INDEX_ARGS[@]}" \
+    || info "  some sdist-only pins could not be built (verify below decides)"
+}
+
+# Prove the worker venv installs offline (--no-index --find-links wheels/)
+# with the full lock, for every bundled arch.
+check_offline_wheels() {
+  local args=() arch
+  for arch in $WHEEL_ARCHES; do args+=(--arch "$arch"); done
+  bash "$SCRIPT_DIR/check_offline_wheels.sh" "$OUTPUT/requirements-worker.lock" "$WHEELS_DIR" \
+    "${args[@]}" --python-version "$WORKER_PY_VERSION" --python "$PYTHON_BIN" \
+    || die "release wheels/ cannot install the worker venv offline (see above)"
+}
+
+# System tools (scripts/system_tools.list) as offline .deb bundles under
+# system-deps/<target>/; pods install them with install_system_deps.sh --bundle.
+bundle_system_deps() {
+  local t
+  for t in $SYSTEM_DEPS_TARGETS; do
+    bash "$SCRIPT_DIR/bundle_system_deps.sh" --target "$t" --output "$OUTPUT/system-deps" \
+      || die "could not bundle system tools for $t"
+  done
+}
+
 verify_locked_wheels() {
   local args=() arch
   for arch in $WHEEL_ARCHES; do args+=(--arch "$arch"); done
@@ -285,7 +327,8 @@ build_runtime_bundle() {
            install_reclaim_leases_timer.sh provision_gateway_node.sh \
            setup_gateway_nginx.sh \
            provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh \
-           start_shared_worker.sh \
+           start_shared_worker.sh install_system_deps.sh system_tools.list bundle_system_deps.sh \
+           bundle_sdist_wheels.py check_offline_wheels.sh \
            install_methyl_extractor_tarball.sh methyl_extractor_local.sh worker_venv_local.sh \
            verify_locked_wheels.py sanitize_lock.py fix_wheel_path_deps.py \
            deploy_workflow_definitions.sh deploy_mc_workflow_definitions.sh \
@@ -331,6 +374,7 @@ print(json.dumps({"path": "goliathapp-sql", "manifest": "goliathapp-sql/manifest
   "min_driver_version": "",
   "requirements_lock": "requirements-worker.lock",
   "runtime_bundle": "runtime-bundle",
+  "system_deps": "system-deps",
   "artifacts": {
     "aarch64": {
       "methyl_extractor": "methyl-extractor-linux-aarch64.tar.gz",
@@ -352,8 +396,15 @@ if [[ "$SKIP_WHEELS" -eq 0 ]]; then
   write_lockfile
   if [[ "$SKIP_THIRD_PARTY" -eq 0 ]]; then
     download_locked_wheels
+    build_sdist_wheels
     verify_locked_wheels
+    if [[ "$STRICT_WHEELS" == "1" ]]; then
+      check_offline_wheels
+    fi
   fi
+fi
+if [[ "$SKIP_SYSTEM_DEPS" -eq 0 && -n "$SYSTEM_DEPS_TARGETS" ]]; then
+  bundle_system_deps
 fi
 build_runtime_bundle
 write_manifest_stub
