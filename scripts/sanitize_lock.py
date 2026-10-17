@@ -70,8 +70,7 @@ def sanitize(text: str, wheels_dir: str | None) -> tuple[str, list[str]]:
             line = f"{indent}{m.group('name')}=={parts[1]}{m.group('rest').rstrip()}"
             if line.endswith("\\") and not line.endswith(" \\"):
                 line = line[:-1].rstrip() + " \\"
-        elif DIR_REF.match(stripped):
-            d = DIR_REF.match(stripped)
+        elif (d := DIR_REF.match(stripped)) is not None:
             ver = versions.get(norm(d.group("name")))
             if ver:
                 indent = line[: len(line) - len(stripped)]
