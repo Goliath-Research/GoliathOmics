@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Contract tests for deploy/runpod/create_worker_pod.sh. No network: curl is a
+# Contract tests for the Runpod provider (deploy/workers/providers/runpod.sh),
+# run through the deploy/runpod/create_worker_pod.sh wrapper and directly via
+# create_worker.sh --provider runpod. No network: curl is a
 # PATH stub that answers the Runpod v2 API from fixtures.
 
 set -euo pipefail
@@ -182,4 +184,10 @@ grep -q '^DELETE' "$LOG/requests" && fail "must not terminate the pod automatica
 run dup --dry-run --name goliath-worker-1
 [[ "$(rc dup)" != 0 ]] || fail "duplicate name must fail"
 
-echo "PASS: create_worker_pod"
+# 10. The generic entry point gives the identical body.
+SCRIPT="$ROOT/deploy/workers/create_worker.sh"
+run generic --provider runpod --dry-run
+[[ "$(rc generic)" == 0 ]] || { cat "$TMP/generic.out"; fail "create_worker.sh --provider runpod should succeed"; }
+[[ "$(sed -n '/^{/,/^}/p' "$TMP/generic.out")" == "$body" ]] || fail "generic and wrapper bodies differ"
+
+echo "PASS: create_worker_pod (runpod provider)"
