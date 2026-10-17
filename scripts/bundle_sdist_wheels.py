@@ -21,7 +21,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import platform
-import re
 import subprocess
 import sys
 import tempfile
@@ -67,7 +66,8 @@ def add_hash(lock: Path, pin: str, digest: str) -> bool:
                 indent = "    "
                 hl = [l for l in block[1:] if "--hash=" in l]
                 if hl:
-                    indent = re.match(r"\s*", hl[-1]).group(0)
+                    last = hl[-1]
+                    indent = last[: len(last) - len(last.lstrip())]
                 if not block[-1].rstrip().endswith("\\"):
                     block[-1] = block[-1].rstrip() + " \\"
                 block.append(f"{indent}--hash=sha256:{digest}")
