@@ -2,7 +2,7 @@
 
 Each cluster has two storage systems:
 
-- Shared read/write storage mounted at `/work` (override `GOLIATH_WORK_MOUNT`). Genomes, samples, the release tree, and node logs live here. Every machine in the cluster can read what another machine writes.
+- Shared read/write storage mounted at `/work` (override `GOLIATH_WORK_MOUNT`). Genomes, samples, and the release tree live here. It is for sharing input and output data only: nothing executes from it and runtime logs are not written to it. Every machine in the cluster can read what another machine writes.
 - New data in an S3-compatible bucket. The inputs are `B2_BUCKET`, `B2_ENDPOINT`, `B2_ACCESS_KEY_ID`, and `B2_SECRET_ACCESS_KEY`. On the current cluster that bucket is Backblaze B2. S3 is the protocol.
 - Long-term objects in a second S3-compatible bucket. The inputs are `LONGTERM_BUCKET`, `LONGTERM_ENDPOINT`, `LONGTERM_HOST`, `LONGTERM_SHARE`, `LONGTERM_ACCESS_KEY_ID`, and `LONGTERM_SECRET_ACCESS_KEY`. On the current cluster that bucket is myQNAPcloud. The two stores keep separate keys.
 
@@ -10,7 +10,7 @@ The gateway URL is `WORKER_API_BASE`. The start script does not pick a cloud. A 
 
 ## Shared start
 
-`scripts/start_shared_worker.sh` waits for `/work`, publishes the release under `/work/goliath` when `current` is missing, joins the gateway, and starts `methyl-worker`. Systemd is used when it is running. Otherwise a supervisor restarts the worker and logs under `/work/goliath/nodes/<id>/`.
+`scripts/start_shared_worker.sh` waits for `/work`, publishes the release under `/work/goliath` when `current` is missing, joins the gateway, and starts `methyl-worker`. Systemd is used when it is running. Otherwise a supervisor restarts the worker and logs to local disk.
 
 | Variable | Role |
 | --- | --- |
@@ -26,8 +26,22 @@ The gateway URL is `WORKER_API_BASE`. The start script does not pick a cloud. A 
 | `LONGTERM_ACCESS_KEY_ID`, `LONGTERM_SECRET_ACCESS_KEY` | Long-term keys. Written only to local `secrets.env` mode `0600`. |
 | `GOLIATH_START_KEEPALIVE` | Executable to exec after the worker is up, and after a fatal error. Unset: success exits 0, failure exits 1. |
 | `GOLIATH_START_NO_EXEC` | Exit 1 on failure instead of running the keepalive. Tests set this. |
+| `GOLIATH_LOG_DIR` | Local log directory. Default `/var/log/goliath` (falls back to `/tmp/goliath-logs`). A path on `/work` is refused. |
+| `GOLIATH_LOG_MAX_BYTES`, `GOLIATH_LOG_KEEP` | Size rotation of `methyl-worker.log`: default 50 MiB per file, 3 rotated files. |
 
-Permissions are applied with `chmod` and, when a shared group is set, `chgrp`. Directories are `0755` (or `2775` with the group). Files are `0644` (or `0664`). If the filesystem rejects the change, the script logs a warning and continues. Create-time umask is `0022`, or `0002` with the group, so a volume that ignores mode bits still leaves world-readable files. Local secrets are mode `0600`. A failure to protect a secret is fatal.
+Permissions are applied with `chmod` and, when a shared group is set, `chgrp`. Directories are `0755` (or `2775` with the group). Files are `0644` (or `0664`). If the filesystem rejects the change (expected on a shared global volume), the script logs one `note:` line per boot and continues; it is not an error. Create-time umask is `0022`, or `0002` with the group, so a volume that ignores mode bits still leaves world-readable files. Local secrets are mode `0600`. A failure to protect a secret is fatal.
+
+### Releases and `current`
+
+Releases are `/work/goliath/releases/<version>`. `/work/goliath/current` is a pointer file holding the release path (shared volumes cannot store symlinks). Promotion writes a temp pointer next to it and renames it over `current` (`mv -T`, one `rename(2)`), so readers see the old or the new release, never a missing one. After promoting, the start re-execs the provider adapter from the release it just installed (explicit `releases/<version>` path, passed on as `GOLIATH_RELEASE_DIR`), never from a re-read of `current`.
+
+### What stays on `/work` per node
+
+`/work/goliath/nodes/<id>/` keeps only small state the next boot reads back: `status/joined` (skip re-provisioning), `env/worker.env` (non-secret EnvironmentFile for the worker), and `tmp/` (release download staging before it is published under `releases/`). Logs and the supervisor pid file are local (`GOLIATH_LOG_DIR`). Read a worker's log on that machine (`/var/log/goliath/methyl-worker.log`) or through `journalctl -u methyl-worker` under systemd.
+
+### Rollouts reporting
+
+`scripts/report_deploy.sh` reports deploys to Cursor Rollouts (key exchange at `api2.cursor.sh/auth/exchange_user_api_key`, then `factory.v1.DeploymentsService` on `api.cursor.com`). It never blocks or fails a boot: without `CURSOR_API_KEY` it logs one INFO line and skips. Each request is bounded (`REPORT_DEPLOY_CONNECT_TIMEOUT` 5 s, `REPORT_DEPLOY_MAX_TIME` 15 s, `REPORT_DEPLOY_ATTEMPTS` 2 on transport errors). These calls trust the OS CA bundle (`REPORT_DEPLOY_CA_BUNDLE` overrides) and ignore `CURL_CA_BUNDLE`/`SSL_CERT_FILE`, which the worker points at the gateway bundle. A failure with no HTTP response (`HTTP 000`) logs curl's exit code and message plus the CA inputs, never the key.
 
 Workflow steps publish task output with `methyl_worker.work_share.publish_to_work(local_src, dest)`. That helper copies once from local scratch onto a sibling on the destination filesystem, renames it into place, and writes `<dest>.complete`. The step definitions that call it live in [GoliathApp](https://github.com/Goliath-Research/GoliathApp). Follow-up there: call `publish_to_work` when a step's output must land on `/work`.
 

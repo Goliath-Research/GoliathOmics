@@ -38,6 +38,12 @@ PRIVATE_DIR=""
 PROMOTE_LOCK=""
 CHMOD_WORK_QUIET=0
 CHMOD_WORK_FAILED=0
+CHMOD_WORK_WARNED=0
+# Runtime logs (methyl-worker.log, supervisor pid) stay on local disk, never
+# on the shared work mount: /work carries input/output data only. The log is
+# rotated by size: GOLIATH_LOG_MAX_BYTES per file, GOLIATH_LOG_KEEP old files.
+GOLIATH_LOG_MAX_BYTES="${GOLIATH_LOG_MAX_BYTES:-52428800}"
+GOLIATH_LOG_KEEP="${GOLIATH_LOG_KEEP:-3}"
 export METHYL_WORKER_TOKEN_FILE="${METHYL_WORKER_TOKEN_FILE:-/etc/methyl/worker-token}"
 export GOLIATH_ENV="${GOLIATH_ENV:-goliath-test}"
 
@@ -178,18 +184,22 @@ chmod_work() {
   for path in "$@"; do
     [[ -e "$path" ]] || continue
     if ! chmod "$mode" "$path" 2>/dev/null; then
-      if [[ "$CHMOD_WORK_QUIET" == "1" ]]; then
+      if [[ "$CHMOD_WORK_QUIET" == "1" || "$CHMOD_WORK_WARNED" == "1" ]]; then
         CHMOD_WORK_FAILED=$((CHMOD_WORK_FAILED + 1))
       else
-        log "warning: chmod ${mode} ${path} was not applied; continuing"
+        # Expected on shared global volumes (fixed owner/mode). One line per
+        # boot; later rejections are only counted.
+        CHMOD_WORK_WARNED=1
+        log "note: chmod ${mode} ${path} was not applied (expected on a shared volume that fixes modes); continuing, further chmod/chgrp notices suppressed"
       fi
     fi
     if shared_group; then
       if ! chgrp "$group" "$path" 2>/dev/null; then
-        if [[ "$CHMOD_WORK_QUIET" == "1" ]]; then
+        if [[ "$CHMOD_WORK_QUIET" == "1" || "$CHMOD_WORK_WARNED" == "1" ]]; then
           CHMOD_WORK_FAILED=$((CHMOD_WORK_FAILED + 1))
         else
-          log "warning: chgrp ${group} ${path} was not applied; continuing"
+          CHMOD_WORK_WARNED=1
+          log "note: chgrp ${group} ${path} was not applied (expected on a shared volume); continuing, further chmod/chgrp notices suppressed"
         fi
       fi
     fi
@@ -471,6 +481,11 @@ current_is_usable() {
   ! version_older "$(manifest_version "$have/manifest.json")" "$want"
 }
 
+# Release directory this boot runs: set by ensure_current to the release it
+# kept or just promoted. Later steps (maybe_reexec) use this explicit path,
+# never a fresh read of $ROOT/current, which another pod may be flipping.
+TARGET_RELEASE=""
+
 ensure_current() {
   local have="" have_ver="" want
   want="$(wanted_release_version)"
@@ -481,6 +496,7 @@ ensure_current() {
   fi
   if current_is_usable; then
     log "using existing $ROOT/current -> ${have} (release ${have_ver:-unknown})"
+    TARGET_RELEASE="$have"
     return 0
   fi
   [[ -n "$have" ]] && log "current release ${have_ver:-unknown} is older than ${want}; refreshing"
@@ -490,6 +506,7 @@ ensure_current() {
   if [[ -z "$url" && -z "$token" && ! ( -n "$want" && -f "$ROOT/releases/$want/manifest.json" ) ]]; then
     if [[ -n "$have" ]]; then
       log "warning: no GH_TOKEN/GITHUB_TOKEN or GOLIATH_RELEASE_URL to fetch ${want}; staying on ${have_ver}"
+      TARGET_RELEASE="$have"
       return 0
     fi
     die "$ROOT/current is missing and neither GH_TOKEN/GITHUB_TOKEN nor GOLIATH_RELEASE_URL is set; cannot bootstrap a release bundle"
@@ -500,7 +517,8 @@ ensure_current() {
   # The lock is advisory: this volume does not support file locking.
   acquire_promote_lock
   if current_is_usable; then
-    log "using existing $ROOT/current -> $(goliath_current_dir "$ROOT")"
+    TARGET_RELEASE="$(goliath_current_dir "$ROOT")"
+    log "using existing $ROOT/current -> ${TARGET_RELEASE}"
     release_promote_lock
     return 0
   fi
@@ -567,14 +585,18 @@ ensure_current() {
     # A release whose promote_release.sh predates the pointer file ran ln -s,
     # which leaves an empty regular file on volumes without symlinks.
     log "promote left $ROOT/current unresolved; writing the pointer file"
-    [[ -L "$ROOT/current" ]] && rm -f "$ROOT/current"
-    [[ -d "$ROOT/current" ]] && die "$ROOT/current is a directory; move it aside"
-    printf '%s\n' "$dest_abs" >"$ROOT/current"
+    [[ -d "$ROOT/current" && ! -L "$ROOT/current" ]] && die "$ROOT/current is a directory; move it aside"
+    printf '%s\n' "$dest_abs" >"$ROOT/.current.$$"
+    if ! mv -fT "$ROOT/.current.$$" "$ROOT/current"; then
+      rm -f "$ROOT/.current.$$"
+      printf '%s\n' "$dest_abs" >"$ROOT/current"
+    fi
     [[ "$(goliath_current_dir "$ROOT" || true)" == "$dest_abs" ]] \
       || die "cannot point $ROOT/current at ${dest}"
   fi
   printf '%s\n' "$dest" >"$ROOT/.current.ready.$$"
   mv -f "$ROOT/.current.ready.$$" "$ROOT/current.ready"
+  TARGET_RELEASE="$dest_abs"
   release_promote_lock
 }
 
@@ -647,7 +669,7 @@ install_local_venv() {
 }
 
 # Shared trees (samples, genomes, site, releases, image cache) stay on the
-# volume. Per-node logs and scratch are under nodes/<id>. Docker overlay
+# volume. Per-node scratch and state are under nodes/<id>; logs are local. Docker overlay
 # storage cannot live on this network filesystem.
 # Install the external tools the pipeline needs (samtools, bedtools, setfacl,
 # ...; scripts/system_tools.list) on this host's local disk before anything
@@ -698,10 +720,10 @@ ensure_work_layout() {
       "$work_root/genomes" "$work_root/site" "$ROOT"
   fi
   apply_work_umask
-  mkdir -p "$ROOT/images" "$ROOT/bin" "$(node_root)/logs" "$(node_root)/tmp" "$(node_root)/scratch" "$(node_root)/status" "$(node_root)/env"
+  mkdir -p "$ROOT/images" "$ROOT/bin" "$(node_root)/tmp" "$(node_root)/scratch" "$(node_root)/status" "$(node_root)/env"
   chmod_work "$(work_dir_mode)" \
     "$ROOT/images" "$ROOT/bin" "$ROOT/locks" \
-    "$(node_root)" "$(node_root)/logs" "$(node_root)/tmp" \
+    "$(node_root)" "$(node_root)/tmp" \
     "$(node_root)/scratch" "$(node_root)/status" "$(node_root)/env"
   warn_docker_storage
 }
@@ -725,12 +747,32 @@ print(data.get("data-root") or "")' "$daemon" 2>/dev/null || true)"
   fi
 }
 
+# The adapter's path inside a release bundle, resolved under the release
+# this boot runs (TARGET_RELEASE). An adapter computes GOLIATH_BUNDLED_START
+# before ensure_current; when that was the previous release (current pointed
+# at 2026.10.15 while this boot promoted 2026.10.17) its path is stale, so
+# only the part after runtime-bundle/ is kept and re-rooted.
+target_bundled_start() {
+  local bundled="${GOLIATH_BUNDLED_START:-}" rel="${GOLIATH_BUNDLED_START_REL:-}"
+  if [[ -z "$rel" && "$bundled" == */runtime-bundle/* ]]; then
+    rel="${bundled##*/runtime-bundle/}"
+  fi
+  if [[ -n "$rel" && -n "$TARGET_RELEASE" ]]; then
+    printf '%s/runtime-bundle/%s' "$TARGET_RELEASE" "$rel"
+    return 0
+  fi
+  printf '%s' "$bundled"
+}
+
 maybe_reexec() {
   # A provider adapter sets GOLIATH_BUNDLED_START to its copy inside the
-  # release bundle. After current exists, switch to that adapter once.
+  # release bundle. After current exists, switch to the copy in the release
+  # this boot runs (explicit path, not $ROOT/current) once.
   [[ "${GOLIATH_START_REEXECED:-}" == "1" ]] && return 0
-  local bundled="${GOLIATH_BUNDLED_START:-}"
+  local bundled
+  bundled="$(target_bundled_start)"
   [[ -n "$bundled" && -f "$bundled" ]] || return 0
+  [[ -n "$TARGET_RELEASE" ]] && export GOLIATH_RELEASE_DIR="$TARGET_RELEASE"
   local self target
   self="$(readlink -f "${GOLIATH_ADAPTER_SCRIPT:-$0}" 2>/dev/null || printf '%s' "${GOLIATH_ADAPTER_SCRIPT:-$0}")"
   target="$(readlink -f "$bundled" 2>/dev/null || printf '%s' "$bundled")"
@@ -1166,6 +1208,47 @@ ensure_tmpdirs() {
   done
 }
 
+# Local log directory. GOLIATH_LOG_DIR may override it, but a path on the
+# work mount is refused (logs never go to /work). /var/log/goliath when it
+# can be created, else /tmp/goliath-logs.
+resolve_log_dir() {
+  local want="${GOLIATH_LOG_DIR:-/var/log/goliath}" d
+  if path_on_work "$want"; then
+    log "warning: GOLIATH_LOG_DIR=${want} is on ${WORK_MOUNT}; runtime logs stay on local disk"
+    want="/var/log/goliath"
+  fi
+  for d in "$want" /var/log/goliath "${TMPDIR:-/tmp}/goliath-logs" /tmp/goliath-logs; do
+    path_on_work "$d" && continue
+    if mkdir -p "$d" 2>/dev/null && [[ -w "$d" ]]; then
+      printf '%s' "$d"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Append stdin to a log file, rotating by size: when the file exceeds
+# max_bytes it becomes file.1 (file.1 -> file.2 ... up to keep). The size is
+# checked every 100 lines, so a file overshoots the cap by at most that much.
+rotating_log() {
+  local file="$1" max="${2:-52428800}" keep="${3:-3}" line n=0 i size
+  [[ "$max" =~ ^[0-9]+$ && "$max" -gt 0 ]] || max=52428800
+  [[ "$keep" =~ ^[0-9]+$ && "$keep" -ge 1 ]] || keep=3
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    n=$((n + 1))
+    if (( n % 100 == 1 )) && [[ -f "$file" ]]; then
+      size="$(stat -c %s "$file" 2>/dev/null || echo 0)"
+      if (( size > max )); then
+        for ((i = keep - 1; i >= 1; i--)); do
+          [[ -f "$file.$i" ]] && mv -f "$file.$i" "$file.$((i + 1))"
+        done
+        mv -f "$file" "$file.1"
+      fi
+    fi
+    printf '%s\n' "$line" >>"$file"
+  done
+}
+
 start_supervisor() {
   local bin pidfile token_file
   bin="$(worker_bin)" || {
@@ -1216,7 +1299,8 @@ start_supervisor() {
     fi
     load_token_env "$token_file"
     while true; do
-      "$bin" --api-base "$WORKER_API_BASE" >>"$LOG_DIR/methyl-worker.log" 2>&1 || true
+      "$bin" --api-base "$WORKER_API_BASE" 2>&1 \
+        | rotating_log "$LOG_DIR/methyl-worker.log" "$GOLIATH_LOG_MAX_BYTES" "$GOLIATH_LOG_KEEP" || true
       sleep 5
     done
   ) &
@@ -1270,12 +1354,14 @@ main() {
   GOLIATH_NODE_ID="$(node_id)"
   export GOLIATH_NODE_ID
   apply_work_umask
-  mkdir -p "$ROOT" "$(node_root)/tmp" "$(node_root)/logs" "$(node_root)/status"
-  chmod_work "$(work_dir_mode)" "$ROOT" "$ROOT/nodes" "$(node_root)" "$(node_root)/tmp" "$(node_root)/logs" "$(node_root)/status"
-  if [[ -z "$LOG_DIR" ]]; then
-    LOG_DIR="$(node_root)/logs"
-  fi
-  mkdir -p "$LOG_DIR"
+  # /work/goliath/nodes/<id> keeps only small per-node state that the next
+  # boot reads back: status/joined (skip re-provision), env/worker.env (the
+  # supervisor's EnvironmentFile), tmp/ (release download staging). Logs
+  # are local (resolve_log_dir).
+  mkdir -p "$ROOT" "$(node_root)/tmp" "$(node_root)/status"
+  chmod_work "$(work_dir_mode)" "$ROOT" "$ROOT/nodes" "$(node_root)" "$(node_root)/tmp" "$(node_root)/status"
+  LOG_DIR="$(resolve_log_dir)" || die "no writable local log directory (tried /var/log/goliath and /tmp/goliath-logs)"
+  log "runtime logs on local disk: ${LOG_DIR}"
   ensure_current
   maybe_reexec "$@"
   ensure_system_deps

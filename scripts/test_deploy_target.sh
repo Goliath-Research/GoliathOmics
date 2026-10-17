@@ -724,7 +724,7 @@ run_start() {
     GOLIATH_ROOT="$work_root/goliath" \
     GOLIATH_WORK_MOUNT="$work_root" \
     GOLIATH_LOCAL_ROOT="$worker_local" \
-    GOLIATH_LOG_DIR="$work_root/goliath/logs" \
+    GOLIATH_LOG_DIR="$worker_local/logs" \
     GOLIATH_START_NO_EXEC=1 \
     GOLIATH_PROVISION_SCRIPT="$work_root/provision" \
     GOLIATH_REPORT_SCRIPT="$work_root/report" \
@@ -767,7 +767,11 @@ grep -q 'host=' "$report_log" || fail "report should include host"
 grep -q 'GPU detected via nvidia-smi' "$out" || fail "start script should log nvidia-smi detection"
 [[ "$(stat -c %a "$token_file")" == "600" ]] || fail "worker token file must be mode 600"
 grep -q '^WORKER_ID=7$' "$token_file" || fail "enroll token should be kept"
-supervisor_pid="$(cat "$work_root/goliath/logs/methyl-worker.supervisor.pid")"
+supervisor_pid="$(cat "$worker_local/logs/methyl-worker.supervisor.pid")"
+# Runtime logs are on local disk; /work keeps only per-node state.
+[[ ! -e "$work_root/goliath/nodes/pod-test-1/logs" ]] || fail "worker logs must not be created on /work"
+[[ ! -e "$work_root/goliath/logs/methyl-worker.supervisor.pid" ]] || fail "supervisor pid must not be on /work"
+grep -q "runtime logs on local disk: $worker_local/logs" "$out" || fail "start should log the local log dir"
 kill -0 "$supervisor_pid" || fail "worker supervisor should be running"
 prov_lines="$(wc -l <"$prov_log" | tr -d ' ')"
 run_start
@@ -917,6 +921,7 @@ env -u GH_TOKEN -u GITHUB_TOKEN -u GOLIATH_RELEASE_URL \
   GOLIATH_WORK_MOUNT="$deny_root/work" \
   GOLIATH_LOCAL_ROOT="$deny_root/local" \
   GOLIATH_PRIVATE_DIR="$deny_root/private" \
+  GOLIATH_LOG_DIR="$deny_root/local/logs" \
   GOLIATH_START_NO_EXEC=1 \
   GOLIATH_PROVISION_SCRIPT="$work_root/provision" \
   GOLIATH_REPORT_SCRIPT="$work_root/report" \
@@ -928,10 +933,13 @@ env -u GH_TOKEN -u GITHUB_TOKEN -u GOLIATH_RELEASE_URL \
   PATH="$deny_root/bin:$work_root:$PATH" \
   bash "$start_script" >"$out" 2>"$err"
 grep -q 'was not applied' "$out" || fail "chmod failure on /work should warn and continue"
+[[ "$(grep -c 'was not applied' "$out")" == "1" ]] || fail "chmod rejections on /work should log one note, not one per path"
+if grep -qi 'chmod' "$err"; then fail "expected chmod rejections on /work must not be errors on stderr"; fi
 if grep -q 'cannot create' "$err"; then
   fail "mkdir on a chmod-rejecting volume should still create the work tree"
 fi
-[[ -d "$deny_root/work/goliath/nodes/pod-chmod/logs" ]] || fail "per-node logs dir should exist when chmod fails"
+[[ -d "$deny_root/work/goliath/nodes/pod-chmod/status" ]] || fail "per-node status dir should exist when chmod fails"
+[[ ! -e "$deny_root/work/goliath/nodes/pod-chmod/logs" ]] || fail "per-node logs must be local, not on /work"
 [[ -f "$deny_root/private/secrets.env" ]] || fail "secrets stay on local disk when /work rejects chmod"
 [[ "$(stat -c %a "$deny_root/private/secrets.env")" == "600" ]] || fail "local secrets file must be mode 600"
 if grep -R -q 'b2-sekret' "$deny_root/work"; then
@@ -940,7 +948,7 @@ fi
 if [[ -f "$deny_root/work/goliath/logs/methyl-worker.supervisor.pid" ]]; then
   kill "$(cat "$deny_root/work/goliath/logs/methyl-worker.supervisor.pid")" >/dev/null 2>&1 || true
 fi
-pod_pid="$deny_root/work/goliath/nodes/pod-chmod/logs/methyl-worker.supervisor.pid"
+pod_pid="$deny_root/local/logs/methyl-worker.supervisor.pid"
 if [[ -f "$pod_pid" ]]; then
   kill "$(cat "$pod_pid")" >/dev/null 2>&1 || true
 fi
@@ -1037,9 +1045,28 @@ env -u GH_TOKEN -u GITHUB_TOKEN -u GOLIATH_RELEASE_URL \
   PATH="$work_root:$PATH" \
   bash "$start_script" >"$out" 2>"$err"
 grep -q -- "--work $layout_mount" "$layout_log" || fail "start script should run init_work_layout.sh from the release"
-if [[ -f "$layout_mount/goliath/logs/methyl-worker.supervisor.pid" ]]; then
-  kill "$(cat "$layout_mount/goliath/logs/methyl-worker.supervisor.pid")" >/dev/null 2>&1 || true
+# GOLIATH_LOG_DIR on the work mount is refused; logs go to local disk.
+grep -q "GOLIATH_LOG_DIR=$layout_mount/goliath/logs is on $layout_mount" "$out" || fail "a log dir on /work should be refused"
+[[ ! -e "$layout_mount/goliath/logs/methyl-worker.supervisor.pid" ]] || fail "supervisor pid must not be on /work"
+layout_logs="$(sed -n 's/.*runtime logs on local disk: //p' "$out" | tail -n 1)"
+if [[ -n "$layout_logs" && -f "$layout_logs/methyl-worker.supervisor.pid" ]]; then
+  kill "$(cat "$layout_logs/methyl-worker.supervisor.pid")" >/dev/null 2>&1 || true
+  rm -f "$layout_logs/methyl-worker.supervisor.pid"
 fi
+
+# Size-based rotation of the local worker log.
+rot_dir="$(mktemp -d)"
+eval "$(sed -n '/^rotating_log() {/,/^}/p' "$ROOT/scripts/start_shared_worker.sh")"
+for i in $(seq 1 3000); do printf 'line %05d padding-padding-padding-padding\n' "$i"; done \
+  | rotating_log "$rot_dir/methyl-worker.log" 20000 2
+[[ -f "$rot_dir/methyl-worker.log" && -f "$rot_dir/methyl-worker.log.1" && -f "$rot_dir/methyl-worker.log.2" ]] \
+  || fail "rotating_log should keep the live file plus 2 rotations"
+[[ ! -e "$rot_dir/methyl-worker.log.3" ]] || fail "rotating_log must not keep more than 2 rotations"
+for f in "$rot_dir"/methyl-worker.log*; do
+  (( $(stat -c %s "$f") < 30000 )) || fail "rotated file $f exceeds the cap"
+done
+tail -n 1 "$rot_dir/methyl-worker.log" | grep -q 'line 03000' || fail "newest line should be in the live log"
+rm -rf "$rot_dir"
 
 boot="$ROOT/deploy/runpod/goliath-worker-bootstrap.sh"
 stub_cmd="$ROOT/deploy/runpod/template-start-command.sh"

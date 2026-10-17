@@ -33,6 +33,7 @@ DOWNLOAD_TMP=""
 META_FILE=""
 RELEASE_TAG=""
 child=0
+CHMOD_WARNED=0
 
 log() { printf "[goliath-bootstrap] %s\n" "$*"; }
 
@@ -66,11 +67,13 @@ chmod_work() {
   for path in "$@"; do
     [[ -e "$path" ]] || continue
     if ! chmod "$mode" "$path" 2>/dev/null; then
-      log "warning: chmod ${mode} ${path} was not applied; continuing"
+      [[ "$CHMOD_WARNED" == 1 ]] || log "note: chmod ${mode} ${path} was not applied (expected on a shared volume that fixes modes); continuing, further notices suppressed"
+      CHMOD_WARNED=1
     fi
     if shared_group; then
       if ! chgrp "$group" "$path" 2>/dev/null; then
-        log "warning: chgrp ${group} ${path} was not applied; continuing"
+        [[ "$CHMOD_WARNED" == 1 ]] || log "note: chgrp ${group} ${path} was not applied (expected on a shared volume); continuing, further notices suppressed"
+        CHMOD_WARNED=1
       fi
     fi
   done
@@ -167,10 +170,23 @@ cur_dir() {
   goliath_current_dir "$ROOT" 2>/dev/null || printf '%s\n' "$ROOT/current"
 }
 
-# Tag matching $ROOT/current, from its manifest version (goliathomics-<ver>).
+# Release whose bundle the scripts come from: the wanted release's own
+# directory when it is already on the volume (explicit path), else the
+# release behind $ROOT/current. Never trust current alone: during a promote
+# by another pod it can still name the previous release.
+bundle_dir() {
+  local ver="${WANTED_TAG#goliathomics-}"
+  if [[ -n "$WANTED_TAG" && "$ver" =~ ^[A-Za-z0-9._+-]+$ && -f "$ROOT/releases/$ver/manifest.json" ]]; then
+    printf '%s\n' "$ROOT/releases/$ver"
+    return 0
+  fi
+  cur_dir
+}
+
+# Tag matching bundle_dir, from its manifest version (goliathomics-<ver>).
 bundle_release() {
   local manifest
-  manifest="$(cur_dir)/manifest.json"
+  manifest="$(bundle_dir)/manifest.json"
   [[ -f "$manifest" ]] || return 0
   python3 -c 'import json,sys
 v=json.load(open(sys.argv[1], encoding="utf-8")).get("version") or ""
@@ -424,7 +440,7 @@ fetch_start_script() {
 
 install_start_script() {
   local bundled
-  bundled="$(cur_dir)/runtime-bundle/deploy/runpod/goliath-worker-start.sh"
+  bundled="$(bundle_dir)/runtime-bundle/deploy/runpod/goliath-worker-start.sh"
   local dest="$ROOT/bin/goliath-worker-start.sh"
   local b=0 e=0
   script_ok "$bundled" && b=1
@@ -453,7 +469,7 @@ install_companion() {
   local repo_path="$1"
   local marker="$2"
   local bundled
-  bundled="$(cur_dir)/runtime-bundle/${repo_path}"
+  bundled="$(bundle_dir)/runtime-bundle/${repo_path}"
   local dest
   dest="$ROOT/bin/$(basename "$repo_path")"
   local b=0 e=0
@@ -501,6 +517,7 @@ run_start() {
   rc=$?
   set -e
   child=0
+CHMOD_WARNED=0
   if [[ "$rc" -ne 0 ]]; then
     hold "goliath-worker-start.sh exited ${rc}"
   fi
@@ -527,6 +544,11 @@ main() {
     record_release "$WANTED_TAG"
   fi
   clear_github_header
+  local wanted_dir
+  wanted_dir="$(bundle_dir)"
+  if [[ -n "$WANTED_TAG" && "$wanted_dir" == "$ROOT/releases/${WANTED_TAG#goliathomics-}" ]]; then
+    export GOLIATH_RELEASE_DIR="$wanted_dir"
+  fi
   run_start "$ROOT/bin/goliath-worker-start.sh" "$@"
 }
 

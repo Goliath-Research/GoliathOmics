@@ -16,11 +16,22 @@ trap 'exit 0' EXIT
 TOKEN_URL="https://api2.cursor.sh/auth/exchange_user_api_key"
 FACTORY_URL="https://api.cursor.com/factory.v1.DeploymentsService"
 SOURCE_URI="${DEPLOY_SOURCE_URI:-https://github.com/Goliath-Research/GoliathOmics}"
-CONNECT_TIMEOUT=5
-MAX_TIME=20
+# Every curl call is bounded: CONNECT_TIMEOUT per connect, MAX_TIME per
+# attempt, ATTEMPTS tries on transport errors only (HTTP 4xx/5xx are not
+# retried). Worst case per request: ATTEMPTS * MAX_TIME + backoff.
+CONNECT_TIMEOUT="${REPORT_DEPLOY_CONNECT_TIMEOUT:-5}"
+MAX_TIME="${REPORT_DEPLOY_MAX_TIME:-15}"
+ATTEMPTS="${REPORT_DEPLOY_ATTEMPTS:-2}"
+[[ "$CONNECT_TIMEOUT" =~ ^[0-9]+$ ]] || CONNECT_TIMEOUT=5
+[[ "$MAX_TIME" =~ ^[0-9]+$ ]] || MAX_TIME=15
+[[ "$ATTEMPTS" =~ ^[1-5]$ ]] || ATTEMPTS=2
 
 warn() {
   echo "[WARN] report_deploy: $*" >&2
+}
+
+info() {
+  echo "[INFO] report_deploy: $*" >&2
 }
 
 usage() {
@@ -112,7 +123,7 @@ load_api_key() {
 
 load_api_key
 if [[ -z "${CURSOR_API_KEY:-}" ]]; then
-  warn "CURSOR_API_KEY is unset (env or /etc/goliath/rollouts.env); skipping Rollouts report"
+  info "CURSOR_API_KEY is not set (env or /etc/goliath/rollouts.env); skipping Rollouts report"
   exit 0
 fi
 
@@ -199,11 +210,57 @@ state_file() {
 
 STATE_FILE="$(state_file)"
 
+# CA bundle for the public Cursor endpoints. Worker pods export
+# SSL_CERT_FILE / REQUESTS_CA_BUNDLE (and sometimes CURL_CA_BUNDLE) pointing
+# at a bundle built for the private gateway. curl honours SSL_CERT_FILE and
+# CURL_CA_BUNDLE, so a gateway-only or unreadable file there makes every TLS
+# handshake to api2.cursor.sh fail before any HTTP response (HTTP 000). These
+# calls use the OS trust store explicitly and ignore those overrides.
+# REPORT_DEPLOY_CA_BUNDLE overrides the choice.
+cursor_ca_bundle() {
+  local candidate
+  for candidate in "${REPORT_DEPLOY_CA_BUNDLE:-}" "${GOLIATH_SYSTEM_CA_BUNDLE:-}" \
+    /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
+    /etc/ssl/ca-bundle.pem /etc/ssl/cert.pem; do
+    if [[ -n "$candidate" && -r "$candidate" && -s "$candidate" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+CA_BUNDLE="$(cursor_ca_bundle || true)"
+
+# One line describing the TLS trust inputs, for failure diagnostics. Paths
+# only; never contents or credentials.
+tls_diag() {
+  local d="cacert=${CA_BUNDLE:-curl-default}"
+  [[ -n "${CURL_CA_BUNDLE:-}" ]] && d+=" ignored CURL_CA_BUNDLE=${CURL_CA_BUNDLE}"
+  [[ -n "${SSL_CERT_FILE:-}" ]] && d+=" ignored SSL_CERT_FILE=${SSL_CERT_FILE}"
+  [[ -n "${HTTPS_PROXY:-${https_proxy:-}}" ]] && d+=" https_proxy=set"
+  printf '%s' "$d"
+}
+
+# First line of curl's stderr, with any secret scrubbed. curl's own error
+# text names the host and the failing step, not headers.
+curl_error_line() {
+  local file="$1" line
+  line="$(head -n 1 "$file" 2>/dev/null | tr -d '\r' | cut -c1-300)"
+  if [[ -n "${CURSOR_API_KEY:-}" ]]; then line="${line//"$CURSOR_API_KEY"/<redacted>}"; fi
+  if [[ -n "${ACCESS_TOKEN:-}" ]]; then line="${line//"$ACCESS_TOKEN"/<redacted>}"; fi
+  printf '%s' "$line"
+}
+
+# POST JSON. Sets HTTP_CODE ("000" when no response arrived), HTTP_BODY,
+# CURL_RC and CURL_ERR. Transport errors (curl exit != 0) are retried up to
+# ATTEMPTS times; an HTTP status is returned as is.
 http_post() {
   local url="$1"
   local body="$2"
   shift 2
-  local out err cfg
+  local out err cfg attempt
+  local -a tls=()
   out="$(mktemp)"
   err="$(mktemp)"
   cfg="$(mktemp)"
@@ -211,19 +268,35 @@ http_post() {
   if [[ -n "${CURL_AUTH_HEADER:-}" ]]; then
     printf 'header = "Authorization: Bearer %s"\n' "$CURL_AUTH_HEADER" >"$cfg"
   fi
-  HTTP_CODE="$(
-    curl -sS --connect-timeout "$CONNECT_TIMEOUT" --max-time "$MAX_TIME" \
-      -o "$out" -w '%{http_code}' \
-      -K "$cfg" \
-      -X POST "$url" \
-      -H 'Content-Type: application/json' \
-      "$@" \
-      --data-binary "$body" 2>"$err"
-  )" || HTTP_CODE="000"
+  [[ -n "$CA_BUNDLE" ]] && tls=(--cacert "$CA_BUNDLE")
+  CURL_RC=0
+  CURL_ERR=""
+  for ((attempt = 1; attempt <= ATTEMPTS; attempt++)); do
+    : >"$err"
+    CURL_RC=0
+    HTTP_CODE="$(
+      env -u CURL_CA_BUNDLE -u SSL_CERT_FILE -u SSL_CERT_DIR \
+        curl -sS --connect-timeout "$CONNECT_TIMEOUT" --max-time "$MAX_TIME" \
+        "${tls[@]}" \
+        -o "$out" -w '%{http_code}' \
+        -K "$cfg" \
+        -X POST "$url" \
+        -H 'Content-Type: application/json' \
+        "$@" \
+        --data-binary "$body" 2>"$err"
+    )" || CURL_RC=$?
+    [[ "$HTTP_CODE" =~ ^[0-9]{3}$ ]] || HTTP_CODE="000"
+    if [[ "$CURL_RC" -eq 0 ]]; then
+      break
+    fi
+    HTTP_CODE="000"
+    CURL_ERR="$(curl_error_line "$err")"
+    warn "POST ${url} attempt ${attempt}/${ATTEMPTS}: curl exit ${CURL_RC}: ${CURL_ERR:-no message} ($(tls_diag))"
+    if [[ "$attempt" -lt "$ATTEMPTS" ]]; then
+      sleep "$attempt"
+    fi
+  done
   HTTP_BODY="$(cat "$out" 2>/dev/null || true)"
-  if [[ -s "$err" ]]; then
-    warn "HTTP request to ${url} did not complete (curl exit, HTTP ${HTTP_CODE})"
-  fi
   rm -f "$out" "$err" "$cfg"
 }
 
@@ -249,7 +322,11 @@ exchange_token() {
   http_post "$TOKEN_URL" '{}'
   unset CURL_AUTH_HEADER
   if ! [[ "$HTTP_CODE" =~ ^2 ]]; then
-    warn "token exchange failed (HTTP ${HTTP_CODE})"
+    if [[ "$HTTP_CODE" == "000" ]]; then
+      warn "token exchange failed: no HTTP response from ${TOKEN_URL} (curl exit ${CURL_RC:-?}: ${CURL_ERR:-unknown}); skipping Rollouts report"
+    else
+      warn "token exchange failed (HTTP ${HTTP_CODE}); check CURSOR_API_KEY; skipping Rollouts report"
+    fi
     HTTP_BODY=""
     return 1
   fi

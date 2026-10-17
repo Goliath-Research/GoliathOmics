@@ -39,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     -w) writefmt="$2"; shift 2 ;;
     --data|--data-binary) data="$2"; shift 2 ;;
     -K) config="$2"; shift 2 ;;
+    --cacert) printf '%s\n' "$2" >>"${CURL_LOG_DIR:?}/cacert"; shift 2 ;;
     -H|-X|--connect-timeout|--max-time) shift 2 ;;
     -sS|-s|-S|-f|-fsS) shift ;;
     http*) url="$1"; shift ;;
@@ -49,7 +50,13 @@ if [[ -n "$config" && -f "$config" ]] && grep -q 'Authorization:' "$config"; the
   auth_present=yes
 fi
 mkdir -p "${CURL_LOG_DIR:?}"
+printf '%s|%s\n' "${CURL_CA_BUNDLE-unset}" "${SSL_CERT_FILE-unset}" >>"$CURL_LOG_DIR/ca_env"
 printf '%s\n' "$url" >>"$CURL_LOG_DIR/urls"
+if [[ "${FAKE_CURL_FAIL:-}" == "dns" ]]; then
+  echo "curl: (6) Could not resolve host: ${url#https://}" >&2
+  printf '000'
+  exit 6
+fi
 printf '%s\n' "$data" >>"$CURL_LOG_DIR/bodies"
 printf '%s\n' "$auth_present" >>"$CURL_LOG_DIR/auth"
 body='{}'
@@ -81,8 +88,10 @@ err="$(mktemp)"
 env -u CURSOR_API_KEY ROLLOUTS_STATE_DIR="$TMP/nokey" bash "$REPORTER" start --service goliath-gateway >"$out" 2>"$err"
 status=$?
 assert_eq "$status" "0" "missing key exit"
-grep -q 'skipping' "$err" || fail "missing key should warn"
-grep -q 'CURSOR_API_KEY' "$err" || fail "warning should name the variable"
+grep -q 'skipping' "$err" || fail "missing key should say it skips"
+grep -q 'CURSOR_API_KEY' "$err" || fail "skip line should name the variable"
+assert_eq "$(wc -l <"$err" | tr -d ' ')" "1" "missing key logs exactly one line"
+grep -q '^\[INFO\] report_deploy:' "$err" || fail "missing key is INFO, not WARN"
 if grep -q 'sk-' "$out" "$err"; then
   fail "stdout/stderr looked like a secret"
 fi
@@ -175,5 +184,27 @@ grep -q '"failed":{"message":"host=a arch=amd64 capability=methyl-qc (exit 1)"}'
 run_report start --service methyl-extractor --version ghi789 >/dev/null
 run_report aborted --service methyl-extractor --message aborted >/dev/null
 grep -q '"aborted":{}' "$CURL_LOG_DIR/bodies" || fail "aborted payload missing"
+
+# Transport failure (HTTP 000): the curl exit code and message are logged,
+# retries are bounded, the key never appears, and the pod CA overrides
+# (gateway bundle in CURL_CA_BUNDLE/SSL_CERT_FILE) are not passed to curl.
+: >"$CURL_LOG_DIR/urls"
+: >"$CURL_LOG_DIR/ca_env"
+rm -f "$CURL_LOG_DIR/cacert"
+printf 'system-ca\n' >"$TMP/system-ca.pem"
+printf 'gateway-only\n' >"$TMP/gateway-ca.pem"
+result="$(FAKE_CURL_FAIL=dns REPORT_DEPLOY_ATTEMPTS=2 GOLIATH_SYSTEM_CA_BUNDLE="$TMP/system-ca.pem" \
+  CURL_CA_BUNDLE="$TMP/gateway-ca.pem" SSL_CERT_FILE="$TMP/gateway-ca.pem" \
+  run_report start --service goliath-worker --version zzz999)"
+assert_eq "$(printf '%s\n' "$result" | head -n 1)" "0" "transport failure exit"
+printf '%s\n' "$result" | grep -q 'curl exit 6: curl: (6) Could not resolve host' || fail "curl error not logged: $result"
+printf '%s\n' "$result" | grep -q 'attempt 2/2' || fail "retry not logged"
+printf '%s\n' "$result" | grep -q 'no HTTP response from https://api2.cursor.sh' || fail "000 not explained"
+printf '%s\n' "$result" | grep -q "ignored SSL_CERT_FILE=$TMP/gateway-ca.pem" || fail "CA override not diagnosed"
+printf '%s\n' "$result" | grep -q 'cursor_test_key_should_not_leak' && fail "api key leaked on transport failure"
+assert_eq "$(grep -c exchange_user_api_key "$CURL_LOG_DIR/urls")" "2" "bounded retries"
+grep -q CreateDeployment "$CURL_LOG_DIR/urls" && fail "must stop after a failed exchange"
+assert_eq "$(sort -u "$CURL_LOG_DIR/ca_env")" "unset|unset" "curl must not inherit the gateway CA overrides"
+assert_eq "$(sort -u "$CURL_LOG_DIR/cacert")" "$TMP/system-ca.pem" "curl uses the system CA bundle"
 
 echo "test_report_deploy ok"
