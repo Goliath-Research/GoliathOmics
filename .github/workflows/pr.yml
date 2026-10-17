@@ -77,6 +77,8 @@ jobs:
             deploy/runpod/goliath-worker-start.sh \
             deploy/runpod/keepalive.sh \
             deploy/runpod/template-start-command.sh \
+            deploy/runpod/create_worker_pod.sh \
+            scripts/test_create_worker_pod.sh \
             workflow_engine/sql_pg/deploy_test_bed.sh
 
       - name: Rollouts reporter and target profile tests
@@ -92,6 +94,7 @@ jobs:
           bash scripts/test_gateway_release_subset.sh
           bash scripts/test_current_pointer.sh
           bash scripts/test_enroll_wait.sh
+          bash scripts/test_create_worker_pod.sh
 
   pr:
     runs-on: ubuntu-latest

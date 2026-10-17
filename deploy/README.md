@@ -41,4 +41,4 @@ Call `scripts/start_shared_worker.sh` from the machine's own service manager. Do
 
 **A local disk or an on-prem box.** Use a directory as the shared mount (`GOLIATH_WORK_MOUNT=/srv/goliath-work` is enough when there is only one machine). Point `B2_*` and `LONGTERM_*` at the S3-compatible endpoints for new data and long-term objects. `GOLIATH_NODE_ID` defaults to the hostname. `chmod` succeeds here, so the modes above are the ones on disk.
 
-**RunPod.** The adapter is `deploy/runpod/`. The template stub, the bootstrap, `RUNPOD_POD_ID`, and `/start.sh` stay in that directory. See [deploy/runpod/README.md](runpod/README.md).
+**RunPod.** The adapter is `deploy/runpod/`. The template stub, the bootstrap, `RUNPOD_POD_ID`, and `/start.sh` stay in that directory. See [deploy/runpod/README.md](runpod/README.md). Create worker pods with `deploy/runpod/create_worker_pod.sh`, never from the Runpod console: only the API can mount the global volume at `/work`.
