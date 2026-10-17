@@ -6,7 +6,7 @@ This directory is the RunPod adapter. The worker itself is provider-neutral: [`s
 
 The adapter sets `GOLIATH_NODE_ID` from `RUNPOD_POD_ID` and `GOLIATH_START_KEEPALIVE` to `keepalive.sh` (which execs the image's `/start.sh`). It then execs `start_shared_worker.sh`. That script waits for `/work`, creates the shared layout (`samples`, `projects`, `cache`, `genomes`, `site`) and the shared image cache `/work/goliath/images`, uses `/work/goliath/current` when that tree is already there, otherwise downloads the latest GitHub release bundle, runs `provision_worker_node.sh` in join mode, reports `goliath-worker` to Rollouts, and starts `methyl-worker`. The keepalive then holds Jupyter (port 8888) and SSH (port 22). `/start.sh` is not used on any other cloud.
 
-`/work` on this template is one Runpod global volume mounted read-write by every pod (`goliath-worker-1`, `goliath-worker-2`, …). Global volumes do not support permission bits, file locking, hard links, or atomic rename ([Runpod global volume limitations](https://docs.runpod.io/storage/globalvolume/overview)). `chmod` and `chown` return `Operation not permitted`. The scripts still request the shared modes (`0755` directories, `0644` files, or `2775` / `0664` when `GOLIATH_SHARED_GROUP` exists). A rejected change is a warning. Files are created with umask `0022` (or `0002` with that group) so other pods can read them anyway. Other filesystems, including Lambda NFS and a local disk, honor the same `chmod`.
+`/work` on these pods is one Runpod global volume (`work`) mounted read-write by every pod (`goliath-worker-1`, `goliath-worker-2`, …). Global volumes do not support permission bits, file locking, hard links, or atomic rename ([Runpod global volume limitations](https://docs.runpod.io/storage/globalvolume/overview)). `chmod` and `chown` return `Operation not permitted`. The scripts still request the shared modes (`0755` directories, `0644` files, or `2775` / `0664` when `GOLIATH_SHARED_GROUP` exists). A rejected change is a warning. Files are created with umask `0022` (or `0002` with that group) so other pods can read them anyway. Other filesystems, including Lambda NFS and a local disk, honor the same `chmod`.
 
 ## Shared volume layout
 
@@ -64,8 +64,59 @@ A fresh volume does not need a manual copy of the start script. If the template 
 1. In the RunPod console, open **Templates** and find the template whose image is `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404`. That template is `runpod-torch-v280`.
 2. **Clone** it. Name the clone `goliath-worker`.
 3. Leave the container image as `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404`.
-4. Attach a network volume and set its mount path to `/work`.
-5. When you deploy a pod from this template, choose GPU **RTX 6000 Ada** × 1 (48 GB), **16 vCPU**, and **62 GB** RAM. Those match the `goliath-worker-1` pool in the target profile.
+4. Do not add a volume to the template. Templates can only hold a host-local `persistent` mount, and a template persistent mount cannot be combined with the global volume (`create_worker_pod.sh` refuses such a template). The global volume is attached per pod, at creation, by the script below.
+5. Do not deploy pods from this template in the console. Use [Create a worker pod](#create-a-worker-pod).
+
+## Create a worker pod
+
+Always create worker pods with [`create_worker_pod.sh`](create_worker_pod.sh). Never deploy them from the Runpod console.
+
+Why:
+
+- A Runpod template cannot carry a network or global volume mount, only a host-local `persistent` one. The global volume has to be attached to each pod when it is created.
+- A console deploy mounts the global volume at `/workspace` by default (`/workspace-global` next to a network volume). The bootstrap then stops with `persistent volume /work is not mounted and writable`.
+- Runpod cannot add or change a mount kind after creation (`mount type cannot be changed from none to global after pod creation`). A pod created with the wrong mount has to be terminated and created again.
+
+The script calls the Runpod REST API v2 (`POST https://api.runpod.io/v2/pods`), which takes the global volume and its path in the create body. The v1 REST API (`rest.runpod.io/v1`) has no global volumes. The body it sends:
+
+```json
+{
+  "name": "goliath-worker-2",
+  "templateId": "nw0judtfil",
+  "cloud": "SECURE",
+  "gpu": {"id": "NVIDIA L40S", "count": 1},
+  "mounts": {"global": [{"volumeId": "<id of the global volume named work>", "path": "/work"}]},
+  "startSsh": true
+}
+```
+
+The template supplies the image, start command, disk, ports, `{{ RUNPOD_SECRET_* }}` env, and CUDA constraint. `startSsh` injects the account's registered SSH keys so the printed SSH command works.
+
+Needs `curl`, `jq`, and `RUNPOD_API_KEY` in the environment (a key with pod read/write). The key is passed to `curl` through a private config file, not the command line, and is never printed.
+
+```bash
+# Resolve the template, volume, next free name and GPU price, print the body. No POST.
+deploy/runpod/create_worker_pod.sh --dry-run
+
+# Create it (billable). Defaults: --template goliath-worker --volume work
+# --mount-path /work --gpu 'NVIDIA L40S' --gpu-count 1 --cloud SECURE
+deploy/runpod/create_worker_pod.sh --yes
+
+# Another GPU type or an explicit name
+deploy/runpod/create_worker_pod.sh --gpu 'NVIDIA RTX 6000 Ada Generation' --name goliath-worker-5 --yes
+```
+
+What it does:
+
+1. Resolves `--template` (default `goliath-worker`) and `--volume` (default the global volume `work`) by name or id. It stops if either is missing or ambiguous, or if the template has a persistent mount.
+2. Picks the name: `--name`, or the lowest free `goliath-worker-N` among existing pods. An existing name is refused.
+3. Prints the GPU's list price per hour for the chosen cloud (`GET /v2/catalog/gpus/{id}`). The created pod's `cost` is the billed rate.
+4. Refuses a mount path other than `/work` unless `--allow-nonstandard-path` is also given.
+5. With `--dry-run`, prints the JSON body and exits. Without `--yes`, prints the body and exits non-zero. Only `--yes` POSTs.
+6. After the POST, reads the pod back (`GET /v2/pods/{id}`) and checks that `mounts.global` has the volume at the mount path. If it does not, it prints an error, says the pod must be terminated, and exits 3. It never terminates a pod itself.
+7. Waits up to `--wait` seconds (default 180) for SSH, then prints `pod_id`, `name`, `status`, `mount`, `ssh`, and `public_ip`.
+
+`scripts/test_create_worker_pod.sh` checks this with a stubbed `curl` (no network) and runs in the PR workflow.
 
 ## Container start command
 
