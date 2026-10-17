@@ -1116,6 +1116,32 @@ load_token_env() {
   done <"$file"
 }
 
+# Create the configured temp directories on local disk before anything calls
+# mktemp. worker.env sets TMPDIR=/var/tmp/methyl-samtools (samtools sort
+# scratch); a fresh container does not have it and mktemp then fails. A
+# directory that cannot be created makes TMPDIR fall back to /tmp.
+ensure_tmpdirs() {
+  local d envfile cfg=""
+  for envfile in "${ROOT:-/work/goliath}/env/worker.env" "${GOLIATH_POD_ENV_FILE:-}"; do
+    [[ -n "$envfile" && -f "$envfile" ]] || continue
+    cfg="$(sed -n 's/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}TMPDIR=//p' "$envfile" 2>/dev/null | tail -n 1 | tr -d '"'"'"'')"
+    [[ -n "$cfg" ]] && break
+  done
+  for d in "${TMPDIR:-}" "$cfg" "${METHYL_SAMTOOLS_TMPDIR:-/var/tmp/methyl-samtools}"; do
+    [[ -n "$d" && "$d" == /* ]] || continue
+    if mkdir -p "$d" 2>/dev/null && [[ -w "$d" ]]; then
+      chmod 1777 "$d" 2>/dev/null || true
+    else
+      echo "[WARN] cannot create temp dir ${d}" >&2
+      if [[ "$d" == "${TMPDIR:-}" ]]; then
+        echo "[WARN] TMPDIR=${d} is unusable; using /tmp" >&2
+        TMPDIR=/tmp
+        export TMPDIR
+      fi
+    fi
+  done
+}
+
 start_supervisor() {
   local bin pidfile token_file
   bin="$(worker_bin)" || {
@@ -1126,8 +1152,7 @@ start_supervisor() {
   # worker.env sets TMPDIR=/var/tmp/methyl-samtools. The systemd unit creates
   # that directory in ExecStartPre. Without systemd, tempfile calls fail on
   # the first job unless the supervisor creates it too.
-  mkdir -p /var/tmp/methyl-samtools
-  chmod 1777 /var/tmp/methyl-samtools 2>/dev/null || true
+  ensure_tmpdirs
   pidfile="$LOG_DIR/methyl-worker.supervisor.pid"
   if [[ -f "$pidfile" ]]; then
     local old
@@ -1215,6 +1240,7 @@ finish_exec() {
 }
 
 main() {
+  ensure_tmpdirs
   wait_for_work
   export GOLIATH_SHARED_WORK=1
   GOLIATH_NODE_ID="$(node_id)"
@@ -1237,6 +1263,8 @@ main() {
   HOST_SHORT="$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo unknown)"
   restore_or_write_token
   write_worker_env
+  # worker.env (just written) names TMPDIR; provision sources it and mktemps.
+  ensure_tmpdirs
   local state stamp
   state="$(node_root)/status"
   stamp="$state/joined"

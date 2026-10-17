@@ -122,6 +122,33 @@ run() {
 
 die() { echo "[ERROR] $*" >&2; exit 1; }
 
+# Create the configured temp directories on local disk before anything calls
+# mktemp. worker.env sets TMPDIR=/var/tmp/methyl-samtools (samtools sort
+# scratch); a fresh container does not have it and mktemp then fails. A
+# directory that cannot be created makes TMPDIR fall back to /tmp.
+ensure_tmpdirs() {
+  local d envfile cfg=""
+  for envfile in "${ROOT:-/work/goliath}/env/worker.env" "${GOLIATH_POD_ENV_FILE:-}"; do
+    [[ -n "$envfile" && -f "$envfile" ]] || continue
+    cfg="$(sed -n 's/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}TMPDIR=//p' "$envfile" 2>/dev/null | tail -n 1 | tr -d '"'"'"'')"
+    [[ -n "$cfg" ]] && break
+  done
+  for d in "${TMPDIR:-}" "$cfg" "${METHYL_SAMTOOLS_TMPDIR:-/var/tmp/methyl-samtools}"; do
+    [[ -n "$d" && "$d" == /* ]] || continue
+    if mkdir -p "$d" 2>/dev/null && [[ -w "$d" ]]; then
+      chmod 1777 "$d" 2>/dev/null || true
+    else
+      echo "[WARN] cannot create temp dir ${d}" >&2
+      if [[ "$d" == "${TMPDIR:-}" ]]; then
+        echo "[WARN] TMPDIR=${d} is unusable; using /tmp" >&2
+        TMPDIR=/tmp
+        export TMPDIR
+      fi
+    fi
+  done
+}
+ensure_tmpdirs
+
 case "$JOIN_MODE" in
   auto|join|first) ;;
   *) die "Invalid --join-mode: $JOIN_MODE (use auto|join|first)" ;;
@@ -188,6 +215,9 @@ do_enroll() {
   # shellcheck disable=SC1091
   source "$ROOT/env/parabricks.env" 2>/dev/null || true
   set +a
+  # worker.env just exported TMPDIR (/var/tmp/methyl-samtools); create it
+  # before the mktemp below and every enroll attempt.
+  ensure_tmpdirs
   export WORKER_API_BASE="$live_api_base"
   local enroll_args=(enroll --api-base "$live_api_base" --cluster "$CLUSTER" --key "$worker_key")
   if [[ -n "$CAPABILITY" ]]; then
