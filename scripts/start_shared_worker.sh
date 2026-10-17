@@ -649,6 +649,30 @@ install_local_venv() {
 # Shared trees (samples, genomes, site, releases, image cache) stay on the
 # volume. Per-node logs and scratch are under nodes/<id>. Docker overlay
 # storage cannot live on this network filesystem.
+# Install the external tools the pipeline needs (samtools, bedtools, setfacl,
+# ...; scripts/system_tools.list) on this host's local disk before anything
+# uses them. A tool that cannot be installed stops the start: a worker without
+# it would silently drop pipeline steps.
+ensure_system_deps() {
+  local installer=""
+  if [[ -n "${GOLIATH_SYSTEM_DEPS_SCRIPT:-}" ]]; then
+    installer="$(resolve_tool "$GOLIATH_SYSTEM_DEPS_SCRIPT" install_system_deps.sh)"
+  elif [[ -f "$START_SCRIPT_DIR/install_system_deps.sh" && -f "$START_SCRIPT_DIR/system_tools.list" ]]; then
+    installer="$START_SCRIPT_DIR/install_system_deps.sh"
+  else
+    installer="$(resolve_tool "" install_system_deps.sh)" \
+      || die "install_system_deps.sh not found next to this script or in the release bundle"
+  fi
+  local -a args=()
+  # The release carries offline .deb bundles (system-deps/<os>-<ver>-<arch>/);
+  # the installer copies them to local disk before installing.
+  if [[ -d "$(cur_dir)/system-deps" ]]; then
+    args+=(--bundle "$(cur_dir)/system-deps")
+  fi
+  log "checking worker system tools ($installer)"
+  bash "$installer" "${args[@]}" || die "required system tools could not be installed; see the install-system-deps errors above"
+}
+
 ensure_work_layout() {
   local work_root init
   work_root="$(dirname "$ROOT")"
@@ -1254,6 +1278,7 @@ main() {
   mkdir -p "$LOG_DIR"
   ensure_current
   maybe_reexec "$@"
+  ensure_system_deps
   ensure_work_layout
   install_local_extractor
   install_local_venv

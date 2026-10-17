@@ -172,6 +172,7 @@ manifest = {
     "min_driver_version": base.get("min_driver_version", ""),
     "requirements_lock": base.get("requirements_lock", "requirements-worker.lock"),
     "runtime_bundle": base.get("runtime_bundle", "runtime-bundle"),
+    "system_deps": mp_manifest.get("system_deps") or base.get("system_deps", "system-deps"),
     "artifacts": artifacts,
 }
 

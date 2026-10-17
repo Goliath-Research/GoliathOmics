@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-setuptools python3-wheel
 
       # GoliathApp main is what the next release bundles (build_gateway_wheel.sh
       # clones it). test_apply_goliathapp_schema.sh applies its sql_pg
@@ -58,6 +58,11 @@ jobs:
             scripts/verify_e2e_node.sh \
             scripts/init_work_layout.sh \
             scripts/start_shared_worker.sh \
+            scripts/install_system_deps.sh \
+            scripts/test_install_system_deps.sh \
+            scripts/bundle_system_deps.sh \
+            scripts/check_offline_wheels.sh \
+            scripts/test_release_bundles.sh \
             scripts/worker_venv_local.sh \
             scripts/test_worker_venv_local.sh \
             scripts/test_gateway_release_subset.sh \
@@ -95,6 +100,8 @@ jobs:
           bash scripts/test_current_pointer.sh
           bash scripts/test_enroll_wait.sh
           bash scripts/test_create_worker_pod.sh
+          bash scripts/test_install_system_deps.sh
+          bash scripts/test_release_bundles.sh
 
   pr:
     runs-on: ubuntu-latest
