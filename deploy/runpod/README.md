@@ -69,7 +69,9 @@ A fresh volume does not need a manual copy of the start script. If the template 
 
 ## Create a worker pod
 
-Always create worker pods with [`create_worker_pod.sh`](create_worker_pod.sh). Never deploy them from the Runpod console.
+Always create worker pods with [`create_worker_pod.sh`](create_worker_pod.sh) (or the equivalent `deploy/workers/create_worker.sh --provider runpod`). Never deploy them from the Runpod console.
+
+`create_worker_pod.sh` is a thin wrapper that runs the provider-neutral [`deploy/workers/create_worker.sh`](../workers/create_worker.sh) with `--provider runpod`. The Runpod API calls live in [`deploy/workers/providers/runpod.sh`](../workers/providers/runpod.sh); see [`deploy/workers/providers/README.md`](../workers/providers/README.md) for the provider interface.
 
 Why:
 
@@ -116,7 +118,7 @@ What it does:
 6. After the POST, reads the pod back (`GET /v2/pods/{id}`) and checks that `mounts.global` has the volume at the mount path. If it does not, it prints an error, says the pod must be terminated, and exits 3. It never terminates a pod itself.
 7. Waits up to `--wait` seconds (default 180) for SSH, then prints `pod_id`, `name`, `status`, `mount`, `ssh`, and `public_ip`.
 
-`scripts/test_create_worker_pod.sh` checks this with a stubbed `curl` (no network) and runs in the PR workflow.
+`scripts/test_create_worker_pod.sh` checks the Runpod provider with a stubbed `curl` (no network), and `scripts/test_create_worker.sh` checks the generic flow with a fake provider. Both run in the PR workflow.
 
 ## Container start command
 
