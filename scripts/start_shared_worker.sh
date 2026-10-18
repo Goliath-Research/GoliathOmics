@@ -292,8 +292,15 @@ goliath_current_dir() {
   printf '%s\n' "$target"
 }
 
-# Release dir behind $ROOT/current, or the literal path when unresolved.
+# Release directory this boot runs. Prefer TARGET_RELEASE (set by
+# ensure_current after keep-or-promote) so post-promote steps never re-read
+# $ROOT/current, which can lag on shared volumes. Fall back to the pointer
+# file, or the literal path when unresolved.
 cur_dir() {
+  if [[ -n "${TARGET_RELEASE:-}" && -d "$TARGET_RELEASE" ]]; then
+    printf '%s\n' "$TARGET_RELEASE"
+    return 0
+  fi
   goliath_current_dir "$ROOT" 2>/dev/null || printf '%s\n' "$ROOT/current"
 }
 
@@ -487,13 +494,29 @@ current_is_usable() {
 }
 
 # Release directory this boot runs: set by ensure_current to the release it
-# kept or just promoted. Later steps (maybe_reexec) use this explicit path,
-# never a fresh read of $ROOT/current, which another pod may be flipping.
+# kept or just promoted. Post-promote steps (system-deps, venv, extractor,
+# resolve_tool, maybe_reexec) use this via cur_dir / GOLIATH_RELEASE_DIR -
+# never a fresh read of $ROOT/current, which can lag or be mid-flip on a
+# shared volume.
 TARGET_RELEASE=""
 
 ensure_current() {
-  local have="" have_ver="" want
+  local have="" have_ver="" want explicit="" explicit_ver=""
   want="$(wanted_release_version)"
+  # A prior promote/re-exec exports GOLIATH_RELEASE_DIR for the release this
+  # boot already chose. Prefer it when it satisfies the wanted version:
+  # re-reading $ROOT/current can still name the previous release on a shared
+  # volume (worker boot of 2026.10.20 saw current -> 2026.10.19 after promote).
+  if [[ -n "${GOLIATH_RELEASE_DIR:-}" && -f "${GOLIATH_RELEASE_DIR}/manifest.json" ]]; then
+    explicit="$(cd "${GOLIATH_RELEASE_DIR}" && pwd -P)" || explicit="${GOLIATH_RELEASE_DIR}"
+    explicit_ver="$(manifest_version "$explicit/manifest.json")"
+    if [[ -n "$explicit" && -d "$explicit" ]] \
+      && { [[ -z "$want" ]] || ! version_older "${explicit_ver:-}" "$want"; }; then
+      log "using GOLIATH_RELEASE_DIR -> ${explicit} (release ${explicit_ver:-unknown})"
+      TARGET_RELEASE="$explicit"
+      return 0
+    fi
+  fi
   if have="$(goliath_current_dir "$ROOT")"; then
     have_ver="$(manifest_version "$have/manifest.json")"
   elif [[ -e "$ROOT/current" || -L "$ROOT/current" ]]; then
