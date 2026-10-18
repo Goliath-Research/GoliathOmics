@@ -160,11 +160,12 @@ install_worker_venv_local() {
     export GOLIATH_WORKER_VENV
     return 0
   fi
-  if [[ -f "$release/first-party-wheels.txt" ]] \
-    && ! _wvl_copy_verified "$release/first-party-wheels.txt" "$stage/first-party-wheels.txt"; then
-    rm -rf "$stage"
-    return 1
-  fi
+  for name in first-party-wheels.txt venv-bootstrap.lock; do
+    if [[ -f "$release/$name" ]] && ! _wvl_copy_verified "$release/$name" "$stage/$name"; then
+      rm -rf "$stage"
+      return 1
+    fi
+  done
   if [[ -d "$release/wheels" ]]; then
     for f in "$release"/wheels/*; do
       [[ -f "$f" ]] || continue

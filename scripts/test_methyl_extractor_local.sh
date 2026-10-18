@@ -56,15 +56,16 @@ home="$(METHYL_EXTRACTOR_HOME="$tmp/work/me" methyl_extractor_local_home amd64 2
 home="$(env -u METHYL_EXTRACTOR_HOME GOLIATH_LOCAL_ROOT="$tmp/cli" bash "$ROOT/scripts/methyl_extractor_local.sh" --tarball "$tarball" --print-home 2>/dev/null)"
 [[ -x "$home/bin/MethylExtractor" && "$home" == "$tmp/cli/methyl-extractor-amd64" ]] || fail "CLI install failed"
 
-# A binary that needs a bundled lib (like libhts.so.3) runs only when the
-# installer puts <home>/lib on LD_LIBRARY_PATH; otherwise exit 127.
+# A binary that loads its bundled lib (like libhts.so.3) through RUNPATH
+# runs with no LD_LIBRARY_PATH. The installer never adds <home>/lib to
+# LD_LIBRARY_PATH (that made /usr/bin/curl load the tarball's libcurl 7.81)
+# and removes a stale entry.
 mkdir -p "$tmp/hts/bin" "$tmp/hts/lib"
 cat >"$tmp/hts/bin/MethylExtractor" <<'SH'
 #!/bin/bash
+# RUNPATH $ORIGIN/../lib stand-in: resolve the lib relative to the binary.
 here="$(cd "$(dirname "$0")/.." && pwd)"
-case ":${LD_LIBRARY_PATH:-}:" in
-  *":$here/lib:"*) [[ -f "$here/lib/libhts.so.3" ]] && exit 0 ;;
-esac
+[[ -f "$here/lib/libhts.so.3" ]] && exit 0
 echo "libhts.so.3: cannot open shared object file" >&2
 exit 127
 SH
@@ -73,14 +74,39 @@ ln -s libhts.so.3.1 "$tmp/hts/lib/libhts.so.3"
 hts_tb="$tmp/work/goliath/releases/1.0.0/methyl-extractor-linux-aarch64.tar.gz"
 tar -czf "$hts_tb" -C "$tmp/hts" bin lib
 (
-  unset LD_LIBRARY_PATH METHYL_EXTRACTOR_HOME
-  install_methyl_extractor_local "$hts_tb" aarch64 2>/dev/null || fail "bundled-lib run check failed"
-  [[ ":$LD_LIBRARY_PATH:" == *":$METHYL_EXTRACTOR_HOME/lib:"* ]] || fail "LD_LIBRARY_PATH missing local lib: ${LD_LIBRARY_PATH:-}"
-  grep -q 'LD_LIBRARY_PATH="'"$METHYL_EXTRACTOR_HOME"'/lib' "$METHYL_EXTRACTOR_HOME/env.sh" || fail "env.sh lacks LD_LIBRARY_PATH"
+  unset METHYL_EXTRACTOR_HOME
+  home="$(methyl_extractor_local_home aarch64)"
+  export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$home/lib"
+  install_methyl_extractor_local "$hts_tb" aarch64 2>/dev/null || fail "RUNPATH binary run check failed"
+  [[ "$LD_LIBRARY_PATH" == /usr/local/cuda/lib64 ]] || fail "stale <home>/lib must be removed from LD_LIBRARY_PATH: ${LD_LIBRARY_PATH:-}"
+  grep -q LD_LIBRARY_PATH= "$METHYL_EXTRACTOR_HOME/env.sh" && fail "env.sh must not set LD_LIBRARY_PATH"
   # shellcheck source=/dev/null
   ( unset LD_LIBRARY_PATH; . "$METHYL_EXTRACTOR_HOME/env.sh"; "$METHYL_EXTRACTOR_BIN" ) || fail "env.sh does not make the binary runnable"
+  unset LD_LIBRARY_PATH
+  install_methyl_extractor_local "$hts_tb" aarch64 2>/dev/null || fail "reinstall failed"
+  [[ -z "${LD_LIBRARY_PATH+x}" ]] || fail "installer must not set LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
 )
+# A binary that only runs with <home>/lib on LD_LIBRARY_PATH (no RUNPATH)
+# is rejected rather than leaking its libraries into every other program.
+cat >"$tmp/hts/bin/MethylExtractor" <<'SH'
+#!/bin/bash
+here="$(cd "$(dirname "$0")/.." && pwd)"
+case ":${LD_LIBRARY_PATH:-}:" in
+  *":$here/lib:"*) exit 0 ;;
+esac
+exit 127
+SH
+tar -czf "$hts_tb" -C "$tmp/hts" bin lib
+if (unset METHYL_EXTRACTOR_HOME; install_methyl_extractor_local "$hts_tb" aarch64 2>/dev/null); then
+  fail "a binary without RUNPATH must fail the run check"
+fi
 # Without the lib in the tarball the run check reports exit 127.
+cat >"$tmp/hts/bin/MethylExtractor" <<'SH'
+#!/bin/bash
+here="$(cd "$(dirname "$0")/.." && pwd)"
+[[ -f "$here/lib/libhts.so.3" ]] && exit 0
+exit 127
+SH
 rm -f "$tmp/hts/lib/libhts.so.3" "$tmp/hts/lib/libhts.so.3.1"
 tar -czf "$hts_tb" -C "$tmp/hts" bin lib
 if (unset METHYL_EXTRACTOR_HOME; install_methyl_extractor_local "$hts_tb" aarch64 2>/dev/null); then

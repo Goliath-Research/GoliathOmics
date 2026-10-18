@@ -43,18 +43,31 @@ S
 cat >"$STUB/dpkg" <<'S'
 #!/usr/bin/env bash
 [[ "$1" == --print-architecture ]] && { echo "${FAKE_ARCH:-amd64}"; exit 0; }
+if [[ "$1" == --compare-versions ]]; then  # A lt B, numeric dotted versions
+  [[ "$3" == lt ]] || exit 2
+  [[ "$2" != "$4" && "$(printf '%s\n%s\n' "$2" "$4" | sort -V | head -n 1)" == "$2" ]]
+  exit
+fi
 exit 1
 S
+# installed: "PKG" (version 1.0) or "PKG VERSION" per line.
 cat >"$STUB/dpkg-query" <<'S'
 #!/usr/bin/env bash
 pkg="${!#}"
-grep -qx "$pkg" "$STATE/installed" 2>/dev/null && { printf 'install ok installed'; exit 0; }
-exit 1
+line="$(awk -v p="$pkg" '$1==p {print; exit}' "$STATE/installed" 2>/dev/null)"
+[[ -n "$line" ]] || exit 1
+case "$*" in
+  *Version*) v="$(awk '{print $2}' <<<"$line")"; printf '%s' "${v:-1.0}" ;;
+  *) printf 'install ok installed' ;;
+esac
 S
 cat >"$STUB/dpkg-deb" <<'S'
 #!/usr/bin/env bash
-# dpkg-deb -f FILE Package
-sed -n 's/^Package: //p' "$2"
+# dpkg-deb -f FILE Package|Version
+case "$3" in
+  Version) v="$(sed -n 's/^Version: //p' "$2")"; echo "${v:-1.0}" ;;
+  *) sed -n 's/^Package: //p' "$2" ;;
+esac
 S
 # Shared install logic for apt-get/dnf stubs.
 cat >"$STUB/_install" <<'S'
@@ -75,9 +88,13 @@ if [[ -n "${FAKE_FAIL_FIRST:-}" ]]; then
   n="$(cat "$STATE/failcount" 2>/dev/null || echo 0)"
   if [[ "$n" -lt "$FAKE_FAIL_FIRST" ]]; then echo $((n + 1)) >"$STATE/failcount"; echo "E: Could not get lock /var/lib/dpkg/lock-frontend" >&2; exit 100; fi
 fi
-action="" nodl=0 skip=0; pkgs=()
+action="" nodl=0 skip=0 nosrc=0; pkgs=()
 for a in "$@"; do
-  [[ "$skip" == 1 ]] && { skip=0; continue; }
+  if [[ "$skip" == 1 ]]; then
+    skip=0
+    [[ "$a" == Dir::Etc::SourceList=* && ! -s "${a#*=}" ]] && nosrc=1
+    continue
+  fi
   case "$a" in
     -o) skip=1 ;;
     update|install) action="$a" ;;
@@ -88,10 +105,14 @@ for a in "$@"; do
 done
 [[ "$action" == update ]] && { [[ "${FAKE_ONLINE:-1}" == 1 ]] || exit 100; exit 0; }
 for p in "${pkgs[@]}"; do
-  if [[ "$p" == /* || "$p" == ./* ]]; then
+  if [[ "$p" == *.deb ]]; then
+    # Real apt 2.x: --no-download makes it look a local file up in the
+    # archive cache by bare name and abort.
+    [[ "$nodl" == 0 ]] || { echo "E: Internal Error, Pathname to install is not absolute '$(basename "$p")'" >&2; exit 100; }
+    [[ "$p" == /* || "$p" == ./* ]] || { echo "E: Unable to locate package $p" >&2; exit 100; }
     install_pkg "$(sed -n 's/^Package: //p' "$p")" || exit 100
   else
-    [[ "$nodl" == 0 && "${FAKE_ONLINE:-1}" == 1 ]] || exit 100
+    [[ "$nodl" == 0 && "$nosrc" == 0 && "${FAKE_ONLINE:-1}" == 1 ]] || { echo "E: Unable to locate package $p" >&2; exit 100; }
     install_pkg "$p" || { echo "E: Unable to locate package $p" >&2; exit 100; }
   fi
 done
@@ -148,7 +169,8 @@ make_bundle "$TMP/bundle" ubuntu-24.04-amd64 gpkg-sam gpkg-bed gpkg-acl gpkg-lib
 FAKE_ONLINE=0 run bundle --bundle "$TMP/bundle"
 [[ "$(rc bundle)" == 0 ]] || { cat "$TMP/bundle.out"; fail "bundle install should succeed offline"; }
 grep -q 'installed from the release bundle' "$TMP/bundle.out" || fail "bundle path message"
-calls | grep -q -- '--no-download' || fail "bundle install must be offline (--no-download)"
+calls | grep -q -- '--no-download' && fail "--no-download breaks apt with local .deb paths"
+calls | grep -q 'Dir::Etc::SourceList=' || fail "bundle install must hide the configured sources (offline)"
 calls | grep -q ' update' && fail "bundle install must not apt-get update"
 calls | grep -q "$TMP/bundle" && fail "apt must get the local copies, not the shared bundle dir"
 calls | grep -q "$TMP/local/goliath-sysdeps" || fail "debs should be staged under the local stage dir"
@@ -166,6 +188,22 @@ FAKE_ONLINE=0 run skipinst --bundle "$TMP/bundle"
 [[ "$(rc skipinst)" == 0 ]] || { cat "$TMP/skipinst.out"; fail "skipinst"; }
 calls | grep -q 'gpkg-lib_' && fail "an installed package must not be reinstalled/downgraded"
 
+# 5b. An installed package older than the bundled one is upgraded from the
+# bundle (the closure may need it); a newer installed one is left alone.
+reset
+make_bundle "$TMP/vbundle" ubuntu-24.04-amd64 gpkg-sam gpkg-bed gpkg-acl gpkg-lib
+printf 'Package: gpkg-lib\nVersion: 2.0\n' >"$TMP/vbundle/ubuntu-24.04-amd64/gpkg-lib_1.0_amd64.deb"
+(cd "$TMP/vbundle/ubuntu-24.04-amd64" && sha256sum -- *.deb >SHA256SUMS)
+echo "gpkg-lib 1.5" >"$STATE/installed"
+FAKE_ONLINE=0 run upgrade --bundle "$TMP/vbundle"
+[[ "$(rc upgrade)" == 0 ]] || { cat "$TMP/upgrade.out"; fail "upgrade"; }
+calls | grep -q 'gpkg-lib_' || fail "an older installed package must be upgraded from the bundle"
+reset
+echo "gpkg-lib 3.0" >"$STATE/installed"
+FAKE_ONLINE=0 run nodowngrade --bundle "$TMP/vbundle"
+[[ "$(rc nodowngrade)" == 0 ]] || { cat "$TMP/nodowngrade.out"; fail "nodowngrade"; }
+calls | grep -q 'gpkg-lib_' && fail "a newer installed package must not be downgraded"
+
 # 6. Corrupt bundle: ignored, online fallback used.
 reset
 cp -r "$TMP/bundle" "$TMP/badbundle"
@@ -173,6 +211,7 @@ printf 'Package: evil\n' >"$TMP/badbundle/ubuntu-24.04-amd64/gpkg-sam_1.0_amd64.
 run corrupt --bundle "$TMP/badbundle"
 [[ "$(rc corrupt)" == 0 ]] || { cat "$TMP/corrupt.out"; fail "corrupt bundle should fall back online"; }
 grep -q 'checksum mismatch' "$TMP/corrupt.out" || fail "checksum mismatch message"
+grep -q 'WARNING: installing from the network' "$TMP/corrupt.out" || fail "online fallback must warn loudly"
 grep -qx evil "$STATE/installed" && fail "corrupt deb must not be installed"
 calls | grep -q 'install .*gpkg-sam' || fail "online fallback"
 
@@ -186,7 +225,7 @@ run otheros --bundle "$TMP/other"
 reset
 make_bundle "$TMP/partial" ubuntu-24.04-amd64 gpkg-sam
 run partial --bundle "$TMP/partial"
-[[ "$(rc partial)" == 0 ]] && grep -q 'still missing after the bundle: gtool-bed gtool-acl' "$TMP/partial.out" \
+[[ "$(rc partial)" == 0 ]] && grep -q 'still missing after the release bundle: gtool-bed gtool-acl' "$TMP/partial.out" \
   || { cat "$TMP/partial.out"; fail "partial bundle"; }
 
 # 9. Partial bundle and no network: fail loudly, naming the tools.

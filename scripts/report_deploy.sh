@@ -11,10 +11,17 @@
 set +x
 set -uo pipefail
 
+# Only OS tools run here (curl, jq, python3). A caller's LD_LIBRARY_PATH can
+# name private library dirs that break them: with MethylExtractor's bundled
+# Ubuntu 22.04 libcurl first on the path, /usr/bin/curl died with
+# "symbol lookup error: curl: undefined symbol: curl_global_trace".
+unset LD_LIBRARY_PATH LD_PRELOAD
+
 trap 'exit 0' EXIT
 
-TOKEN_URL="https://api2.cursor.sh/auth/exchange_user_api_key"
-FACTORY_URL="https://api.cursor.com/factory.v1.DeploymentsService"
+# The URL overrides exist for tests (a local server); production uses the defaults.
+TOKEN_URL="${REPORT_DEPLOY_TOKEN_URL:-https://api2.cursor.sh/auth/exchange_user_api_key}"
+FACTORY_URL="${REPORT_DEPLOY_FACTORY_URL:-https://api.cursor.com/factory.v1.DeploymentsService}"
 SOURCE_URI="${DEPLOY_SOURCE_URI:-https://github.com/Goliath-Research/GoliathOmics}"
 # Every curl call is bounded: CONNECT_TIMEOUT per connect, MAX_TIME per
 # attempt, ATTEMPTS tries on transport errors only (HTTP 4xx/5xx are not
@@ -87,8 +94,12 @@ if [[ -z "$SERVICE" ]]; then
   exit 0
 fi
 
-if ! command -v curl >/dev/null 2>&1; then
-  warn "curl is not installed; skipping Rollouts report"
+# curl is preferred; python3 (urllib) is the fallback when curl is missing
+# or cannot run (exit 126/127).
+HAVE_CURL=0
+command -v curl >/dev/null 2>&1 && HAVE_CURL=1
+if [[ "$HAVE_CURL" == 0 ]] && ! command -v python3 >/dev/null 2>&1; then
+  warn "neither curl nor python3 is installed; skipping Rollouts report"
   exit 0
 fi
 if ! command -v jq >/dev/null 2>&1; then
@@ -252,10 +263,73 @@ curl_error_line() {
   printf '%s' "$line"
 }
 
+# POST JSON with python3's urllib: the fallback when curl is missing or
+# cannot run. Same contract as http_post (HTTP_CODE, HTTP_BODY, CURL_RC,
+# CURL_ERR). The bearer token travels in the environment, never argv.
+# Extra args are curl-style -H 'Name: value' pairs.
+http_post_python() {
+  local url="$1" body="$2" out err rc=0
+  shift 2
+  local -a hdrs=()
+  while [[ $# -gt 0 ]]; do
+    if [[ "$1" == -H && $# -ge 2 ]]; then hdrs+=("$2"); shift 2; else shift; fi
+  done
+  out="$(mktemp)"
+  err="$(mktemp)"
+  chmod 600 "$out" "$err" 2>/dev/null || true
+  HTTP_CODE="$(
+    REPORT_DEPLOY_BEARER="${CURL_AUTH_HEADER:-}" REPORT_DEPLOY_BODY="$body" \
+    REPORT_DEPLOY_CAFILE="${CA_BUNDLE:-}" REPORT_DEPLOY_TIMEOUT="$MAX_TIME" \
+      env -u SSL_CERT_FILE -u SSL_CERT_DIR -u REQUESTS_CA_BUNDLE \
+      python3 - "$url" "$out" "${hdrs[@]}" 2>"$err" <<'PY'
+import os, ssl, sys, urllib.error, urllib.request
+url, out, *hdrs = sys.argv[1:]
+req = urllib.request.Request(url, data=os.environ.get("REPORT_DEPLOY_BODY", "").encode(), method="POST")
+req.add_header("Content-Type", "application/json")
+for h in hdrs:
+    k, _, v = h.partition(":")
+    req.add_header(k.strip(), v.strip())
+tok = os.environ.get("REPORT_DEPLOY_BEARER", "")
+if tok:
+    req.add_header("Authorization", "Bearer " + tok)
+ctx = ssl.create_default_context(cafile=os.environ.get("REPORT_DEPLOY_CAFILE") or None)
+try:
+    with urllib.request.urlopen(req, timeout=float(os.environ.get("REPORT_DEPLOY_TIMEOUT") or 15), context=ctx) as r:
+        code, data = r.status, r.read()
+except urllib.error.HTTPError as e:
+    code, data = e.code, e.read()
+except Exception as e:  # transport error: no HTTP response
+    print(f"python urllib: {type(e).__name__}: {e}", file=sys.stderr)
+    print("000")
+    sys.exit(7)
+with open(out, "wb") as f:
+    f.write(data)
+print(f"{code:03d}")
+PY
+  )" || rc=$?
+  [[ "$HTTP_CODE" =~ ^[0-9]{3}$ ]] || HTTP_CODE="000"
+  CURL_RC="$rc"
+  CURL_ERR=""
+  if [[ "$rc" -ne 0 ]]; then
+    HTTP_CODE="000"
+    CURL_ERR="$(curl_error_line "$err")"
+    warn "POST ${url} (python fallback): ${CURL_ERR:-no message} ($(tls_diag))"
+  fi
+  HTTP_BODY="$(cat "$out" 2>/dev/null || true)"
+  rm -f "$out" "$err"
+}
+
 # POST JSON. Sets HTTP_CODE ("000" when no response arrived), HTTP_BODY,
 # CURL_RC and CURL_ERR. Transport errors (curl exit != 0) are retried up to
-# ATTEMPTS times; an HTTP status is returned as is.
+# ATTEMPTS times; an HTTP status is returned as is. Falls back to python3
+# when curl is missing or cannot execute (exit 126/127: a broken binary or
+# shared library, which retrying cannot fix).
 http_post() {
+  if [[ "$HAVE_CURL" == 0 ]]; then
+    http_post_python "$@"
+    return
+  fi
+
   local url="$1"
   local body="$2"
   shift 2
@@ -292,6 +366,13 @@ http_post() {
     HTTP_CODE="000"
     CURL_ERR="$(curl_error_line "$err")"
     warn "POST ${url} attempt ${attempt}/${ATTEMPTS}: curl exit ${CURL_RC}: ${CURL_ERR:-no message} ($(tls_diag))"
+    if [[ "$CURL_RC" -eq 126 || "$CURL_RC" -eq 127 ]] && command -v python3 >/dev/null 2>&1; then
+      rm -f "$out" "$err" "$cfg"
+      warn "curl cannot run; using python3 for Rollouts calls"
+      HAVE_CURL=0
+      http_post_python "$url" "$body" "$@"
+      return
+    fi
     if [[ "$attempt" -lt "$ATTEMPTS" ]]; then
       sleep "$attempt"
     fi

@@ -51,6 +51,11 @@ GPU_DESC=""
 HOST_SHORT=""
 
 log() { printf '[start-shared-worker] %s\n' "$*"; }
+# Run an OS tool (curl, apt) with the dynamic loader reset to the system
+# defaults. LD_LIBRARY_PATH may name private library dirs (bundled Ubuntu
+# 22.04 libs) that break host binaries: /usr/bin/curl then fails with
+# "symbol lookup error: undefined symbol: curl_global_trace".
+host_tool() { env -u LD_LIBRARY_PATH -u LD_PRELOAD "$@"; }
 
 exec_keepalive() {
   local keepalive="${GOLIATH_START_KEEPALIVE:-}"
@@ -368,7 +373,7 @@ curl_download() {
     args+=(-H "Accept: ${accept}")
   fi
   args+=(-o "$dest" "$url")
-  curl "${args[@]}" || rc=$?
+  host_tool curl "${args[@]}" || rc=$?
   if [[ -n "$header" ]]; then
     rm -f "$header"
   fi
@@ -920,7 +925,7 @@ write_worker_env() {
   # promote_release.sh already wrote Parabricks, PATH, CAAS, and HBM
   # settings. Refresh the storage and API keys this script owns, plus the
   # extractor paths when this pod installed MethylExtractor locally.
-  owned='WORKER_API_BASE|GOLIATH_ENV|B2_BUCKET|B2_ENDPOINT|LONGTERM_BUCKET|LONGTERM_ENDPOINT|LONGTERM_HOST|LONGTERM_SHARE|WORKER_CAPABILITY|POSTGRES_HOST|POSTGRES_DB|POSTGRES_USER|POSTGRES_SSLMODE|POSTGRES_CHANNEL_BINDING|POSTGRES_PASSWORD|GOLIATH_GATEWAY_CA_FILE|REQUESTS_CA_BUNDLE|SSL_CERT_FILE'
+  owned='LD_LIBRARY_PATH|WORKER_API_BASE|GOLIATH_ENV|B2_BUCKET|B2_ENDPOINT|LONGTERM_BUCKET|LONGTERM_ENDPOINT|LONGTERM_HOST|LONGTERM_SHARE|WORKER_CAPABILITY|POSTGRES_HOST|POSTGRES_DB|POSTGRES_USER|POSTGRES_SSLMODE|POSTGRES_CHANNEL_BINDING|POSTGRES_PASSWORD|GOLIATH_GATEWAY_CA_FILE|REQUESTS_CA_BUNDLE|SSL_CERT_FILE'
   local have_local_venv=0
   if [[ "$LOCAL_VENV_READY" -eq 1 && -n "${GOLIATH_WORKER_VENV:-}" ]]; then
     have_local_venv=1
@@ -929,7 +934,7 @@ write_worker_env() {
   local have_local_extractor=0
   if [[ -n "${METHYL_EXTRACTOR_HOME:-}" && -x "${METHYL_EXTRACTOR_BIN:-}" ]]; then
     have_local_extractor=1
-    owned="METHYL_EXTRACTOR_HOME|METHYL_EXTRACTOR_BIN|HDF5_PLUGIN_PATH|LD_LIBRARY_PATH|${owned}"
+    owned="METHYL_EXTRACTOR_HOME|METHYL_EXTRACTOR_BIN|HDF5_PLUGIN_PATH|${owned}"
   fi
   mkdir -p "$(dirname "$pod_env")" "$ROOT/env"
   old_umask="$(umask)"
@@ -957,8 +962,23 @@ write_worker_env() {
     append_kv "$tmp" METHYL_EXTRACTOR_HOME "$METHYL_EXTRACTOR_HOME"
     append_kv "$tmp" METHYL_EXTRACTOR_BIN "$METHYL_EXTRACTOR_BIN"
     append_kv "$tmp" HDF5_PLUGIN_PATH "$HDF5_PLUGIN_PATH"
-    # libhts.so.3 ships in the tarball's lib/; worker.env is literal.
-    append_kv "$tmp" LD_LIBRARY_PATH "${LD_LIBRARY_PATH:-$METHYL_EXTRACTOR_HOME/lib}"
+  fi
+  # MethylExtractor finds its bundled libs through RUNPATH. Its lib/ on
+  # LD_LIBRARY_PATH would make every tool methyl-worker runs (samtools, curl)
+  # load those Ubuntu 22.04 libraries. Always written (possibly empty) so a
+  # stale value in the shared worker.env cannot win.
+  local ld_path="" ld_entry
+  local -a ld_parts=()
+  IFS=: read -r -a ld_parts <<<"${LD_LIBRARY_PATH:-}"
+  for ld_entry in "${ld_parts[@]}"; do
+    [[ -n "$ld_entry" ]] || continue
+    [[ -n "${METHYL_EXTRACTOR_HOME:-}" && "$ld_entry" == "${METHYL_EXTRACTOR_HOME%/}/lib" ]] && continue
+    ld_path+="${ld_path:+:}$ld_entry"
+  done
+  if [[ -n "$ld_path" ]]; then
+    append_kv "$tmp" LD_LIBRARY_PATH "$ld_path"
+  else
+    printf 'LD_LIBRARY_PATH=""\n' >>"$tmp"
   fi
   if [[ "$have_local_venv" -eq 1 ]]; then
     # This pod's venv may have fallen back to /tmp; worker.env is literal.

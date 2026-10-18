@@ -1,0 +1,9 @@
+# Packaging tools for the worker venv (pip itself and the build backends pip
+# may use). Their wheels ship in the release's wheels/ and install_release.sh
+# upgrades a fresh venv from them offline (--no-index --require-hashes).
+# build_release.sh writes the hash-pinned venv-bootstrap.lock from this file.
+# packaging must match its pin in requirements-worker.lock.
+pip==26.2.1
+setuptools==84.0.0
+wheel==0.48.0
+packaging==26.3

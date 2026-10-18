@@ -54,26 +54,45 @@ methyl_extractor_local_home() {
 
 # Fail when BIN cannot be executed (missing, no exec bit, unreadable, bad
 # loader). --help need not succeed; only "cannot execute" codes are fatal.
+#
+# The binary must run with no LD_LIBRARY_PATH at all. Release tarballs
+# bundle every non-glibc library in <home>/lib (built on Ubuntu 22.04:
+# libhts, libhdf5, libcurl, libssl, libzstd, ...) and resolve them through
+# RUNPATH $ORIGIN/../lib. Putting <home>/lib on LD_LIBRARY_PATH instead makes
+# every other program in that environment load those 22.04 libraries:
+# /usr/bin/curl died with "undefined symbol: curl_global_trace, version
+# CURL_OPENSSL_4" (libcurl 7.81 from the tarball), and samtools would load
+# libhts 1.13 instead of the host's.
 _mel_check_exec() {
   local bin="$1" rc=0
   [[ -f "$bin" ]] || { _mel_die "missing ${bin}"; return 1; }
   [[ -r "$bin" ]] || { _mel_die "cannot read ${bin}"; return 1; }
   [[ -x "$bin" ]] || { _mel_die "${bin} is not executable"; return 1; }
-  # Bundled libs (libhts.so.3, libdeflate) live in <home>/lib.
-  LD_LIBRARY_PATH="$(dirname "$(dirname "$bin")")/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-    "$bin" --help >/dev/null 2>&1 </dev/null || rc=$?
+  env -u LD_LIBRARY_PATH -u LD_PRELOAD "$bin" --help >/dev/null 2>&1 </dev/null || rc=$?
   if [[ "$rc" -eq 126 || "$rc" -eq 127 ]]; then
-    _mel_die "${bin} does not run (exit ${rc})"
+    _mel_die "${bin} does not run on its own (exit ${rc}); its bundled libraries must resolve through RUNPATH \$ORIGIN/../lib (LD_LIBRARY_PATH is never set for it)"
     return 1
   fi
   return 0
 }
 
+# Print LD_LIBRARY_PATH ($2, default the current value) without DIR ($1).
+_mel_ld_path_without() {
+  local dir="$1" path="${2-${LD_LIBRARY_PATH:-}}" out="" e
+  local -a parts=()
+  IFS=: read -r -a parts <<<"$path"
+  for e in "${parts[@]}"; do
+    [[ -n "$e" && "$e" != "$dir" ]] || continue
+    out+="${out:+:}$e"
+  done
+  printf '%s' "$out"
+}
+
 # install_methyl_extractor_local TARBALL ARCH [EXPECTED_SHA256]
-# Prints nothing on stdout; sets METHYL_EXTRACTOR_HOME, METHYL_EXTRACTOR_BIN,
-# HDF5_PLUGIN_PATH and LD_LIBRARY_PATH (prepends <home>/lib, where the
-# tarball bundles libhts.so.3) in the caller (exported). Idempotent: skips extraction
-# when the installed copy came from a tarball with the same sha256.
+# Prints nothing on stdout; sets METHYL_EXTRACTOR_HOME, METHYL_EXTRACTOR_BIN
+# and HDF5_PLUGIN_PATH in the caller (exported), and removes <home>/lib from
+# LD_LIBRARY_PATH if an earlier step put it there. Idempotent: skips
+# extraction when the installed copy came from a tarball with the same sha256.
 install_methyl_extractor_local() {
   local tarball="$1" arch="$2" expected="${3:-}"
   local home bin actual stamp stage
@@ -117,15 +136,17 @@ install_methyl_extractor_local() {
 export METHYL_EXTRACTOR_HOME="$home"
 export METHYL_EXTRACTOR_BIN="$bin"
 export HDF5_PLUGIN_PATH="$home/lib/hdf5_zstd_plugin"
-export LD_LIBRARY_PATH="$home/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
+# No LD_LIBRARY_PATH: the binary finds its bundled libs through RUNPATH.
 export PATH="$home/bin:\$PATH"
 ENV
   export METHYL_EXTRACTOR_HOME="$home"
   export METHYL_EXTRACTOR_BIN="$bin"
   export HDF5_PLUGIN_PATH="$home/lib/hdf5_zstd_plugin"
   case ":${LD_LIBRARY_PATH:-}:" in
-    *":$home/lib:"*) ;;
-    *) export LD_LIBRARY_PATH="$home/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ;;
+    *":$home/lib:"*)
+      LD_LIBRARY_PATH="$(_mel_ld_path_without "$home/lib")"
+      if [[ -n "$LD_LIBRARY_PATH" ]]; then export LD_LIBRARY_PATH; else unset LD_LIBRARY_PATH; fi
+      ;;
   esac
   _mel_info "MethylExtractor: ${bin}" >&2
 }

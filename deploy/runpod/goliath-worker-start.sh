@@ -67,10 +67,43 @@ if [[ -z "${GOLIATH_START_KEEPALIVE:-}" ]]; then
   fi
 fi
 
+# Release version in a release dir's manifest.json, or nothing.
+release_version() {
+  [[ -f "$1/manifest.json" ]] || return 0
+  sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1/manifest.json" | head -n 1
+}
+
+# Release the bootstrap installed $ROOT/bin from ($ROOT/bin/.release holds
+# goliathomics-<version>), or nothing.
+bin_release_version() {
+  local tag=""
+  [[ -f "$ROOT/bin/.release" ]] && tag="$(head -n 1 "$ROOT/bin/.release" | tr -d '[:space:]')"
+  tag="${tag#goliathomics-}"
+  printf '%s' "${tag#v}"
+}
+
+# The shared start this boot runs. With no explicit GOLIATH_RELEASE_DIR,
+# $ROOT/current still names the previous release on the first boot of a new
+# one (it is promoted later by this very start). The bootstrap has already
+# installed the wanted release's start into $ROOT/bin, so that copy wins
+# when its release is newer than current's: running current's older start
+# re-exec'd the previous release's adapter (worker-1 boot of 2026.10.18 ran
+# releases/2026.10.17/.../goliath-worker-start.sh).
 find_core() {
-  local candidate
+  local candidate cur_ver bin_ver bin_first=0
+  if [[ -z "${GOLIATH_RELEASE_DIR:-}" || "$CURRENT_DIR" != "${GOLIATH_RELEASE_DIR:-}" ]]; then
+    cur_ver="$(release_version "${CURRENT_DIR:-$ROOT/current}")"
+    bin_ver="$(bin_release_version)"
+    if [[ -n "$bin_ver" && -f "$ROOT/bin/start_shared_worker.sh" ]]; then
+      if [[ -z "$cur_ver" ]] || { [[ "$bin_ver" != "$cur_ver" ]] \
+          && [[ "$(printf '%s\n%s\n' "$cur_ver" "$bin_ver" | sort -V | tail -n 1)" == "$bin_ver" ]]; }; then
+        bin_first=1
+      fi
+    fi
+  fi
   for candidate in \
     "${GOLIATH_SHARED_WORKER_SCRIPT:-}" \
+    "$([[ "$bin_first" == 1 ]] && printf '%s' "$ROOT/bin/start_shared_worker.sh")" \
     "${CURRENT_DIR:-$ROOT/current}/runtime-bundle/scripts/start_shared_worker.sh" \
     "$ROOT/bin/start_shared_worker.sh" \
     "$HERE/start_shared_worker.sh" \

@@ -52,6 +52,12 @@ fi
 mkdir -p "${CURL_LOG_DIR:?}"
 printf '%s|%s\n' "${CURL_CA_BUNDLE-unset}" "${SSL_CERT_FILE-unset}" >>"$CURL_LOG_DIR/ca_env"
 printf '%s\n' "$url" >>"$CURL_LOG_DIR/urls"
+# The worker boot failure: a private LD_LIBRARY_PATH entry shadows the
+# system libcurl and the curl binary cannot even start.
+if [[ -n "${LD_LIBRARY_PATH:-}" || "${FAKE_CURL_FAIL:-}" == "broken" ]]; then
+  echo "curl: symbol lookup error: curl: undefined symbol: curl_global_trace, version CURL_OPENSSL_4" >&2
+  exit 127
+fi
 if [[ "${FAKE_CURL_FAIL:-}" == "dns" ]]; then
   echo "curl: (6) Could not resolve host: ${url#https://}" >&2
   printf '000'
@@ -206,5 +212,62 @@ assert_eq "$(grep -c exchange_user_api_key "$CURL_LOG_DIR/urls")" "2" "bounded r
 grep -q CreateDeployment "$CURL_LOG_DIR/urls" && fail "must stop after a failed exchange"
 assert_eq "$(sort -u "$CURL_LOG_DIR/ca_env")" "unset|unset" "curl must not inherit the gateway CA overrides"
 assert_eq "$(sort -u "$CURL_LOG_DIR/cacert")" "$TMP/system-ca.pem" "curl uses the system CA bundle"
+
+# LD_LIBRARY_PATH naming MethylExtractor's bundled libs (libcurl 7.81) must
+# not reach curl: the reporter clears the loader overrides first.
+rm -rf "$ROLLOUTS_STATE_DIR"
+: >"$CURL_LOG_DIR/urls"
+result="$(LD_LIBRARY_PATH="$TMP/methyl-extractor/lib" LD_PRELOAD="" \
+  run_report start --service goliath-worker --version ld1)"
+printf '%s\n' "$result" | grep -q 'curl_global_trace' && fail "curl ran with the caller's LD_LIBRARY_PATH: $result"
+printf '%s\n' "$result" | grep -q 'Opened Rollouts deployment deployments/test-1' || fail "LD_LIBRARY_PATH run did not open: $result"
+
+# curl that cannot run (exit 127) falls back to python3 urllib, once, with
+# the same endpoints, payloads and bearer auth. Local HTTP server, no network.
+cat >"$TMP/server.py" <<'PY'
+import json, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+log = open(sys.argv[1], "a")
+class H(BaseHTTPRequestHandler):
+    def do_POST(self):
+        body = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode()
+        auth = "yes" if (self.headers.get("Authorization") or "").startswith("Bearer ") else "no"
+        log.write(f"{self.path}|{auth}|{body}\n"); log.flush()
+        if self.path.endswith("exchange"):
+            out = {"accessToken": "test-access-token"}
+        elif self.path.endswith("CreateDeployment"):
+            out = {"deployment": {"name": "deployments/py-1"}}
+        else:
+            out = {}
+        data = json.dumps(out).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+    def log_message(self, *a):
+        pass
+srv = HTTPServer(("127.0.0.1", 0), H)
+open(sys.argv[2], "w").write(str(srv.server_address[1]))
+srv.serve_forever()
+PY
+python3 "$TMP/server.py" "$TMP/server.log" "$TMP/server.port" &
+server_pid=$!
+trap 'kill "$server_pid" 2>/dev/null || true; rm -rf "$TMP"' EXIT
+for _ in $(seq 50); do [[ -s "$TMP/server.port" ]] && break; sleep 0.1; done
+port="$(cat "$TMP/server.port")"
+rm -rf "$ROLLOUTS_STATE_DIR"
+: >"$CURL_LOG_DIR/urls"
+result="$(FAKE_CURL_FAIL=broken REPORT_DEPLOY_TOKEN_URL="http://127.0.0.1:${port}/auth/exchange" \
+  REPORT_DEPLOY_FACTORY_URL="http://127.0.0.1:${port}/factory" \
+  run_report start --service goliath-worker --version py1)"
+assert_eq "$(printf '%s\n' "$result" | head -n 1)" "0" "python fallback exit"
+printf '%s\n' "$result" | grep -q 'using python3' || fail "fallback not announced: $result"
+printf '%s\n' "$result" | grep -q 'Opened Rollouts deployment deployments/py-1' || fail "python fallback did not open: $result"
+printf '%s\n' "$result" | grep -q 'cursor_test_key_should_not_leak' && fail "api key leaked in python fallback"
+assert_eq "$(wc -l <"$CURL_LOG_DIR/urls" | tr -d ' ')" "1" "curl tried once, then python for every call"
+grep -q '^/auth/exchange|yes|' "$TMP/server.log" || fail "python exchange missing auth"
+grep -q '^/factory/CreateDeployment|yes|.*"deployVersion":"py1"' "$TMP/server.log" || fail "python CreateDeployment payload"
+kill "$server_pid" 2>/dev/null || true
 
 echo "test_report_deploy ok"
