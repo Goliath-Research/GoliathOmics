@@ -61,6 +61,7 @@ jobs:
             scripts/install_system_deps.sh \
             scripts/test_install_system_deps.sh \
             scripts/bundle_system_deps.sh \
+            scripts/check_system_deps_bundle.sh \
             scripts/check_offline_wheels.sh \
             scripts/test_release_bundles.sh \
             scripts/worker_venv_local.sh \

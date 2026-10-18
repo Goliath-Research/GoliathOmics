@@ -22,6 +22,14 @@ Options:
                        .deb sets (default: ubuntu-24.04-amd64; env
                        GOLIATH_SYSTEM_DEPS_TARGETS); needs docker or podman
   --skip-system-deps   Dev only: do not bundle system tools
+  --system-deps-check-images LIST  Worker images the bundle must install in
+                       offline (default: the worker images of
+                       deploy/targets/*.json; env GOLIATH_SYSDEPS_CHECK_IMAGES,
+                       "" for none). A large image is skipped with a warning
+                       when the container storage lacks room
+  --require-worker-image-check  Fail instead of skipping a worker image that
+                       does not fit (env GOLIATH_SYSDEPS_REQUIRE_WORKER_IMAGES=1)
+  --skip-system-deps-check  Dev only: do not prove the bundle installs offline
   --extra-index-url U  Extra index for lock compile and wheel download; repeatable
                        (default: https://pypi.nvidia.com; env
                        GOLIATH_PIP_EXTRA_INDEX_URLS, space-separated, "" for none)
@@ -45,6 +53,7 @@ WHEEL_ARCHES="${GOLIATH_WHEEL_ARCHES:-x86_64}"
 STRICT_WHEELS="${GOLIATH_STRICT_WHEELS:-1}"
 SYSTEM_DEPS_TARGETS="${GOLIATH_SYSTEM_DEPS_TARGETS:-ubuntu-24.04-amd64}"
 SKIP_SYSTEM_DEPS=0
+SKIP_SYSTEM_DEPS_CHECK=0
 EXTRA_INDEX_URLS="${GOLIATH_PIP_EXTRA_INDEX_URLS-https://pypi.nvidia.com}"
 _cli_extra_index=""
 WORKER_PY_VERSION="${GOLIATH_WORKER_PYTHON_VERSION:-3.12}"
@@ -63,6 +72,9 @@ while [[ $# -gt 0 ]]; do
     --allow-missing-wheels) STRICT_WHEELS=0; shift ;;
     --system-deps-targets) SYSTEM_DEPS_TARGETS="${2:-}"; shift 2 ;;
     --skip-system-deps) SKIP_SYSTEM_DEPS=1; shift ;;
+    --system-deps-check-images) export GOLIATH_SYSDEPS_CHECK_IMAGES="${2:-}"; shift 2 ;;
+    --require-worker-image-check) export GOLIATH_SYSDEPS_REQUIRE_WORKER_IMAGES=1; shift ;;
+    --skip-system-deps-check) SKIP_SYSTEM_DEPS_CHECK=1; shift ;;
     --extra-index-url) _cli_extra_index="${_cli_extra_index} ${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
@@ -315,11 +327,20 @@ check_offline_wheels() {
 
 # System tools (scripts/system_tools.list) as offline .deb bundles under
 # system-deps/<target>/; pods install them with install_system_deps.sh --bundle.
+# Each bundle must then install with --network none in a stock image, the
+# oldest package set of its OS release, and the worker images
+# (check_system_deps_bundle.sh); a bundle that does not fails the release.
 bundle_system_deps() {
   local t
   for t in $SYSTEM_DEPS_TARGETS; do
     bash "$SCRIPT_DIR/bundle_system_deps.sh" --target "$t" --output "$OUTPUT/system-deps" \
       || die "could not bundle system tools for $t"
+    if [[ "$SKIP_SYSTEM_DEPS_CHECK" -eq 1 ]]; then
+      info "  skipping the offline install check of the $t bundle (--skip-system-deps-check)"
+      continue
+    fi
+    bash "$SCRIPT_DIR/check_system_deps_bundle.sh" --bundle "$OUTPUT/system-deps" --target "$t" \
+      || die "the $t system-deps bundle does not install offline (see check-system-deps above)"
   done
 }
 
@@ -365,6 +386,7 @@ build_runtime_bundle() {
            setup_gateway_nginx.sh \
            provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh \
            start_shared_worker.sh install_system_deps.sh system_tools.list bundle_system_deps.sh \
+           check_system_deps_bundle.sh \
            bundle_sdist_wheels.py check_offline_wheels.sh \
            install_methyl_extractor_tarball.sh methyl_extractor_local.sh worker_venv_local.sh \
            verify_locked_wheels.py sanitize_lock.py fix_wheel_path_deps.py \
