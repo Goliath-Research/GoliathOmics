@@ -288,7 +288,8 @@ enroll_registration_sql() {
 enroll_public_ip() {
   local ip="${GOLIATH_PUBLIC_IP:-${RUNPOD_PUBLIC_IP:-}}"
   if [[ -z "$ip" ]] && command -v curl >/dev/null 2>&1; then
-    ip="$(curl -fsS --max-time 5 "${GOLIATH_PUBLIC_IP_URL:-https://api.ipify.org}" 2>/dev/null || true)"
+    # env -u: a private LD_LIBRARY_PATH entry must not shadow the system libcurl.
+    ip="$(env -u LD_LIBRARY_PATH -u LD_PRELOAD curl -fsS --max-time 5 "${GOLIATH_PUBLIC_IP_URL:-https://api.ipify.org}" 2>/dev/null || true)"
   fi
   [[ "$ip" =~ ^[0-9a-fA-F.:]+$ ]] || ip="unknown"
   printf '%s' "$ip"

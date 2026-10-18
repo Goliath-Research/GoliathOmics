@@ -95,8 +95,16 @@ fi
 
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
+# Upgrade pip/setuptools/wheel/packaging from the release's own wheels
+# (venv-bootstrap.lock, hash-pinned), never from an index: a worker venv is
+# built without network access. build_release.sh always writes that lock.
+BOOT_LOCK="$RELEASE_DIR/venv-bootstrap.lock"
 if [[ "${GOLIATH_VENV_UPGRADE_PIP:-1}" == "1" ]]; then
-  pip install -U pip wheel setuptools
+  [[ -f "$BOOT_LOCK" ]] || die "missing $BOOT_LOCK (rebuild the release with scripts/build_release.sh)"
+  [[ -d "$WHEELS_DIR" ]] || die "missing $WHEELS_DIR"
+  info "Upgrading pip, setuptools, wheel, packaging from release wheels/ (offline)"
+  python -m pip install -q --upgrade --no-index --find-links "$WHEELS_DIR" --require-hashes -r "$BOOT_LOCK" \
+    || die "offline pip/setuptools/wheel upgrade from $WHEELS_DIR failed (see $BOOT_LOCK)"
 fi
 
 # Older locks embedded the build host's --find-links (a GitHub runner path
@@ -144,7 +152,8 @@ if listed.is_file():
     pins = [l.strip() for l in listed.read_text().splitlines() if l.strip() and not l.startswith("#")]
 else:
     locked = set()
-    for line in lock.read_text().splitlines():
+    boot = release / "venv-bootstrap.lock"
+    for line in lock.read_text().splitlines() + (boot.read_text().splitlines() if boot.is_file() else []):
         m = re.match(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*==", line)
         if m:
             locked.add(norm(m.group(1)))

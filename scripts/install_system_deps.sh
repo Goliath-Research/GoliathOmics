@@ -10,8 +10,11 @@
 #                    DIR/<os>-<version>-<arch>/ (*.deb, SHA256SUMS, bundle.json,
 #                    built by bundle_system_deps.sh). The bundle is verified and
 #                    copied to local disk before dpkg/apt touch it; nothing is
-#                    executed from DIR (normally on /work). The online package
-#                    manager is used only when no bundle matches this host or
+#                    executed from DIR (normally on /work). apt installs the
+#                    local .deb files (absolute paths) with every configured
+#                    source hidden, so the bundle path never touches the
+#                    network. The online package manager is a last resort,
+#                    with a loud warning, when no bundle matches this host or
 #                    the bundle could not provide every tool.
 #
 # Idempotent: tools already on PATH are skipped and nothing runs when all are
@@ -22,6 +25,11 @@
 # a missing tool must stop the worker, not silently drop pipeline steps.
 
 set -euo pipefail
+
+# Only OS tools run here (apt, dpkg, sha256sum). A caller's LD_LIBRARY_PATH
+# can name private library dirs (MethylExtractor's bundled Ubuntu 22.04 libs:
+# libcurl, libzstd, liblzma, libssl) that break the host's own binaries.
+unset LD_LIBRARY_PATH LD_PRELOAD
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST="${GOLIATH_SYSTEM_TOOLS_MANIFEST:-$HERE/system_tools.list}"
@@ -41,7 +49,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run) MODE=dry-run; shift ;;
     --bundle) [[ $# -ge 2 ]] || die "--bundle needs a value"; BUNDLE_ROOT="$2"; shift 2 ;;
     --manifest) [[ $# -ge 2 ]] || die "--manifest needs a value"; MANIFEST="$2"; shift 2 ;;
-    -h|--help) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
 done
@@ -109,9 +117,26 @@ deb_installed() {
   dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'install ok installed'
 }
 
+# True when the host should take DEB: the package is not installed, or the
+# installed version is older than the bundled one. The bundle is the
+# dependency closure resolved on an up-to-date image of this OS release, so
+# its packages can need the updated version of a library the host already
+# has (libncurses6 needs the exact libtinfo6 it was built with). Never
+# downgrade or reinstall.
+deb_wanted() {
+  local deb="$1" pkg ver have
+  pkg="$(dpkg-deb -f "$deb" Package 2>/dev/null)" || return 1
+  [[ -n "$pkg" ]] || return 1
+  deb_installed "$pkg" || return 0
+  ver="$(dpkg-deb -f "$deb" Version 2>/dev/null)" || return 1
+  have="$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null)" || return 0
+  [[ -n "$ver" && -n "$have" ]] || return 1
+  dpkg --compare-versions "$have" lt "$ver"
+}
+
 # install_from_bundle: 0 when the bundle ran (tools re-checked afterwards).
 install_from_bundle() {
-  local target src stage d pkg
+  local target src stage d
   local -a todo=()
   [[ -n "$BUNDLE_ROOT" ]] || return 1
   [[ "$PM" == apt-get ]] || { log "bundle: $PM host; bundles are .deb only"; return 1; }
@@ -140,9 +165,7 @@ install_from_bundle() {
   fi
   shopt -s nullglob
   for d in "$stage"/*.deb; do
-    pkg="$(dpkg-deb -f "$d" Package 2>/dev/null)" || continue
-    # Never reinstall or downgrade a package the host already has.
-    deb_installed "$pkg" || todo+=("$d")
+    deb_wanted "$d" && todo+=("$d")
   done
   shopt -u nullglob
   if [[ "${#todo[@]}" -eq 0 ]]; then
@@ -151,14 +174,34 @@ install_from_bundle() {
     return 0
   fi
   log "installing ${#todo[@]} bundled packages for $target (offline)"
+  # apt resolves dependencies among the given files and the installed
+  # packages only: an empty source list hides every configured repository,
+  # so nothing is downloaded (no apt-get update either). The paths are
+  # absolute ($stage is). Do not add --no-download: with local .deb
+  # arguments apt 2.x then looks the files up in its archive cache by bare
+  # name and aborts with "Internal Error, Pathname to install is not
+  # absolute 'pigz_2.8-1_amd64.deb'".
+  mkdir -p "$stage/sources.list.d"
+  : >"$stage/sources.list"
   APT_LOG="$(mktemp)"
-  if ! retry apt_quiet install --no-download --no-install-recommends "${todo[@]}"; then
+  if ! retry apt_quiet install --no-install-recommends \
+      -o "Dir::Etc::SourceList=$stage/sources.list" \
+      -o "Dir::Etc::SourceParts=$stage/sources.list.d" \
+      "${todo[@]}"; then
     log "bundle: offline install failed"
     rm -rf "$stage" "$APT_LOG"
     return 1
   fi
   rm -rf "$stage" "$APT_LOG"
   return 0
+}
+
+# The online package manager is the last resort; say so loudly.
+ONLINE_WARNED=0
+warn_online() {
+  ONLINE_WARNED=1
+  printf '[install-system-deps] WARNING: %s\n' "$*" >&2
+  printf '[install-system-deps] WARNING: installing from the network with %s; the release bundle should make this unnecessary\n' "$PM" >&2
 }
 
 PKGS=()
@@ -205,7 +248,7 @@ if install_from_bundle; then
     log "installed from the release bundle; all ${#BIN[@]} required tools present"
     exit 0
   fi
-  log "still missing after the bundle: $(names_of "${MISSING[@]}"); trying $PM online"
+  warn_online "still missing after the release bundle: $(names_of "${MISSING[@]}")"
   PKGS=()
   UNPACKAGED=()
   for i in "${MISSING[@]}"; do
@@ -226,6 +269,9 @@ if [[ "${#PKGS[@]}" -gt 0 ]]; then
   if [[ "$MODE" == dry-run ]]; then
     log "dry run: $PM install ${PKGS[*]}"
     exit 0
+  fi
+  if [[ -n "$BUNDLE_ROOT" && "$ONLINE_WARNED" == 0 ]]; then
+    warn_online "the release bundle under $BUNDLE_ROOT did not install: ${PKGS[*]}"
   fi
   log "installing with $PM: ${PKGS[*]}"
   APT_LOG="$(mktemp)"

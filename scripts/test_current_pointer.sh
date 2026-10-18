@@ -136,6 +136,31 @@ got="$(env -u GOLIATH_BUNDLED_START -u GOLIATH_SHARED_WORKER_SCRIPT GOLIATH_ROOT
 [[ "$got" == "core 2026.10.17 bundled=$g/releases/2026.10.17/runtime-bundle/deploy/runpod/goliath-worker-start.sh" ]] \
   || fail "adapter must use GOLIATH_RELEASE_DIR, got: $got"
 
+# First boot of a new release (worker-1, 2026.10.18): current still names
+# the previous release and the wanted one is not on the volume yet; the
+# bootstrap installed the wanted release's start into $ROOT/bin. The adapter
+# must run that start, not current's older one (which re-exec'd the old
+# release's adapter).
+goliath_write_current "$g" "$g/releases/2026.10.15" >/dev/null
+mkdir -p "$g/bin"
+printf '#!/bin/bash\n# start_shared_worker\necho "core bin"\n' >"$g/bin/start_shared_worker.sh"
+printf 'goliathomics-2026.10.17\n' >"$g/bin/.release"
+got="$(env -u GOLIATH_BUNDLED_START -u GOLIATH_SHARED_WORKER_SCRIPT -u GOLIATH_RELEASE_DIR GOLIATH_ROOT="$g" \
+  GOLIATH_START_KEEPALIVE=/bin/true bash "$ROOT/deploy/runpod/goliath-worker-start.sh")"
+[[ "$got" == "core bin" ]] || fail "adapter must run the bootstrap's newer start over current's, got: $got"
+# $ROOT/bin from an older release than current: current's start wins.
+printf 'goliathomics-2026.10.9\n' >"$g/bin/.release"
+got="$(env -u GOLIATH_BUNDLED_START -u GOLIATH_SHARED_WORKER_SCRIPT -u GOLIATH_RELEASE_DIR GOLIATH_ROOT="$g" \
+  GOLIATH_START_KEEPALIVE=/bin/true bash "$ROOT/deploy/runpod/goliath-worker-start.sh")"
+[[ "$got" == core\ 2026.10.15* ]] || fail "older \$ROOT/bin must not win over current, got: $got"
+# An explicit GOLIATH_RELEASE_DIR still wins over a newer \$ROOT/bin.
+printf 'goliathomics-2026.10.99\n' >"$g/bin/.release"
+got="$(env -u GOLIATH_BUNDLED_START -u GOLIATH_SHARED_WORKER_SCRIPT GOLIATH_ROOT="$g" \
+  GOLIATH_RELEASE_DIR="$g/releases/2026.10.17" GOLIATH_START_KEEPALIVE=/bin/true \
+  bash "$ROOT/deploy/runpod/goliath-worker-start.sh")"
+[[ "$got" == core\ 2026.10.17* ]] || fail "GOLIATH_RELEASE_DIR must win, got: $got"
+rm -f "$g/bin/start_shared_worker.sh" "$g/bin/.release"
+
 # Bootstrap: scripts come from the wanted release's own directory.
 eval "$(sed -n '/^cur_dir() {/,/^}/p;/^bundle_dir() {/,/^}/p' "$ROOT/deploy/runpod/goliath-worker-bootstrap.sh")"
 ROOT_SAVE="$ROOT"; ROOT="$g"

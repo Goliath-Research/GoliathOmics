@@ -133,13 +133,11 @@ VENV_DIR="$(worker_venv_local_dir "$ARCH")"
 ME_ROOT="$(methyl_extractor_local_home "$ARCH")"
 ME_BIN="$ME_ROOT/bin/MethylExtractor"
 PLUGIN_DIR="$ME_ROOT/lib/hdf5_zstd_plugin"
-# The tarball bundles libhts.so.3 in lib/. EnvironmentFile= is literal, so
-# expand the current LD_LIBRARY_PATH now.
-ME_LD_PATH="$ME_ROOT/lib"
-case ":${LD_LIBRARY_PATH:-}:" in
-  *":$ME_LD_PATH:"*) ME_LD_PATH="${LD_LIBRARY_PATH}" ;;
-  *) ME_LD_PATH="$ME_LD_PATH${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ;;
-esac
+# MethylExtractor resolves its bundled libs through RUNPATH; <home>/lib must
+# never be on LD_LIBRARY_PATH (it made /usr/bin/curl load the tarball's
+# Ubuntu 22.04 libcurl). EnvironmentFile= is literal, so write the current
+# value now, without that directory; an empty value overrides a stale one.
+ME_LD_PATH="$(_mel_ld_path_without "$ME_ROOT/lib")"
 
 if [[ ! -x "$ME_BIN" ]]; then
   ME_BIN="${METHYL_EXTRACTOR_BIN:-MethylExtractor}"

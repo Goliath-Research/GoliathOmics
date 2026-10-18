@@ -4,9 +4,11 @@
 # is resolved (pip --dry-run, into a throwaway --target) for each target arch
 # with only the bundled wheels. Any pin without a usable wheel fails here,
 # so a release never ships an incomplete wheels/ directory.
+# --bootstrap-lock checks venv-bootstrap.lock (pip, setuptools, wheel,
+# packaging, which install_release.sh upgrades a fresh venv with) the same way.
 #
 # Usage: check_offline_wheels.sh LOCK WHEELS_DIR [--arch x86_64 ...]
-#        [--python-version 3.12] [--python python3]
+#        [--python-version 3.12] [--python python3] [--bootstrap-lock FILE]
 
 set -euo pipefail
 
@@ -15,9 +17,10 @@ info() { printf '[check-offline-wheels] %s\n' "$*" >&2; }
 
 [[ $# -ge 2 ]] || die "usage: $0 LOCK WHEELS_DIR [--arch A ...] [--python-version X.Y] [--python BIN]"
 LOCK="$1" WHEELS="$2"; shift 2
-ARCHES=() PYVER=3.12 PY="${PYTHON_BIN:-python3}"
+ARCHES=() PYVER=3.12 PY="${PYTHON_BIN:-python3}" BOOT_LOCK=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --bootstrap-lock) BOOT_LOCK="$2"; shift 2 ;;
     --arch) ARCHES+=("$2"); shift 2 ;;
     --python-version) PYVER="$2"; shift 2 ;;
     --python) PY="$2"; shift 2 ;;
@@ -54,5 +57,18 @@ for arch in "${ARCHES[@]}"; do
     rc=1
   fi
 done
+if [[ -n "$BOOT_LOCK" ]]; then
+  [[ -f "$BOOT_LOCK" ]] || die "missing venv bootstrap lock $BOOT_LOCK"
+  grep -q -- '--hash=' "$BOOT_LOCK" || die "$BOOT_LOCK must pin hashes"
+  info "offline install check: venv bootstrap $(grep -cE '^[A-Za-z0-9]' "$BOOT_LOCK") pins from $WHEELS"
+  if ! PIP_CONFIG_FILE=/dev/null "$PY" -m pip install -q --dry-run --ignore-installed --no-index \
+      --find-links "$WHEELS" --target "$TMP/target-bootstrap" --only-binary=:all: \
+      --implementation cp --python-version "$PYVER" --abi "$pyabi" --abi none --platform any \
+      --require-hashes -r "$BOOT_LOCK" >"$TMP/pip-bootstrap.log" 2>&1; then
+    sed 's/^/  /' "$TMP/pip-bootstrap.log" >&2
+    info "FAILED: a fresh venv could not upgrade pip/setuptools/wheel offline from this release"
+    rc=1
+  fi
+fi
 [[ "$rc" == 0 ]] || die "offline wheel install check failed; every locked requirement needs a bundled wheel"
 info "OK: the full requirement set installs offline for ${ARCHES[*]}"
