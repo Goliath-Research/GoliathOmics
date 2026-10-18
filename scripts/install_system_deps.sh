@@ -7,13 +7,18 @@
 #   install_system_deps.sh --dry-run  print the install command, change nothing
 #   install_system_deps.sh --bundle DIR
 #                    install from the release's offline bundle first:
-#                    DIR/<os>-<version>-<arch>/ (*.deb, SHA256SUMS, bundle.json,
+#                    DIR/<os>-<version>-<arch>/ (*.deb, Packages, Release,
+#                    SHA256SUMS, bundle.json,
 #                    built by bundle_system_deps.sh). The bundle is verified and
 #                    copied to local disk before dpkg/apt touch it; nothing is
-#                    executed from DIR (normally on /work). apt installs the
-#                    local .deb files (absolute paths) with every configured
-#                    source hidden, so the bundle path never touches the
-#                    network. The online package manager is a last resort,
+#                    executed from DIR (normally on /work). The bundle is a
+#                    flat apt repository holding the full dependency closure;
+#                    apt installs the missing tools from it in one
+#                    transaction, with every configured source, list, pin and
+#                    archive cache hidden, so it never touches the network.
+#                    Host packages move to the bundled version only where a
+#                    dependency needs it; nothing is removed. The online
+#                    package manager is a last resort,
 #                    with a loud warning, when no bundle matches this host or
 #                    the bundle could not provide every tool.
 #
@@ -49,7 +54,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run) MODE=dry-run; shift ;;
     --bundle) [[ $# -ge 2 ]] || die "--bundle needs a value"; BUNDLE_ROOT="$2"; shift 2 ;;
     --manifest) [[ $# -ge 2 ]] || die "--manifest needs a value"; MANIFEST="$2"; shift 2 ;;
-    -h|--help) sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
 done
@@ -113,31 +118,49 @@ host_target() {
   printf '%s-%s-%s' "$id" "$ver" "$arch"
 }
 
-deb_installed() {
-  dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'install ok installed'
+# Apt options that make the bundle the ONLY package source: a private source
+# list naming the bundle as a flat file: repository, private lists, caches
+# and archives (so nothing from /var/cache/apt/archives or a stale
+# `apt-get update` is used) and no host pinning. The host's dpkg status,
+# holds and auto-installed marks are used as they are.
+bundle_apt_opts() {  # bundle_apt_opts STAGE
+  local st="$1"
+  BOPTS=(-o "Dir::Etc::SourceList=$st/bundle.list" -o "Dir::Etc::SourceParts=$st/none"
+         -o Dir::Etc::Preferences=/dev/null -o "Dir::Etc::PreferencesParts=$st/none"
+         -o "Dir::State::Lists=$st/lists" -o "Dir::Cache=$st/cache"
+         -o "Dir::Cache::archives=$st/archives" -o APT::Sandbox::User=root
+         -o Acquire::Languages=none -o APT::Install-Recommends=false -o APT::Install-Suggests=false)
 }
 
-# True when the host should take DEB: the package is not installed, or the
-# installed version is older than the bundled one. The bundle is the
-# dependency closure resolved on an up-to-date image of this OS release, so
-# its packages can need the updated version of a library the host already
-# has (libncurses6 needs the exact libtinfo6 it was built with). Never
-# downgrade or reinstall.
-deb_wanted() {
-  local deb="$1" pkg ver have
-  pkg="$(dpkg-deb -f "$deb" Package 2>/dev/null)" || return 1
-  [[ -n "$pkg" ]] || return 1
-  deb_installed "$pkg" || return 0
-  ver="$(dpkg-deb -f "$deb" Version 2>/dev/null)" || return 1
-  have="$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null)" || return 0
-  [[ -n "$ver" && -n "$have" ]] || return 1
-  dpkg --compare-versions "$have" lt "$ver"
+# apt_sim OUT ARGS...: `apt-get --simulate` (no lock, no changes) into OUT.
+apt_sim() {
+  local out="$1"; shift
+  "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get -q -s -o Dpkg::Use-Pty=0 "$@" >"$out" 2>&1
+}
+
+# bundled_version PKG: the version the bundle carries (from its Packages).
+bundled_version() {
+  awk -v p="$1" '/^Package: /{cur=$2} /^Version: /{if (cur==p) {print $2; exit}}' "$STAGE_REPO/Packages"
+}
+
+installed_version() {
+  dpkg-query -W -f='${Status} ${Version}' "$1" 2>/dev/null | awk '$3=="installed" {print $4}'
 }
 
 # install_from_bundle: 0 when the bundle ran (tools re-checked afterwards).
+#
+# apt installs the missing tools' packages from the bundle repository in one
+# transaction. Host packages are upgraded to the bundled version only when a
+# dependency needs it (libncurses6 needs the exact libtinfo6 it was built
+# with). A host package NEWER than the bundled one is kept unless a bundled
+# package has an exact-version dependency on the bundled version; then only
+# those packages are moved to the bundled version, with a loud warning, and
+# only if apt can do it without removing anything or breaking any installed
+# package's dependencies. Otherwise the conflict is reported and the online
+# fallback runs.
 install_from_bundle() {
-  local target src stage d
-  local -a todo=()
+  local target src stage d i p sim extra_new line x y v have cand bv hv n_new n_up n_down round
+  local -a want=() extra=() dg=()
   [[ -n "$BUNDLE_ROOT" ]] || return 1
   [[ "$PM" == apt-get ]] || { log "bundle: $PM host; bundles are .deb only"; return 1; }
   target="$(host_target)" || { log "bundle: cannot identify this OS; skipping the bundle"; return 1; }
@@ -146,48 +169,107 @@ install_from_bundle() {
     log "bundle: none for $target under $BUNDLE_ROOT; falling back to $PM online"
     return 1
   fi
+  if [[ ! -f "$src/Packages" || ! -f "$src/Release" ]]; then
+    log "bundle: $src has no apt repository index (Packages/Release); ignoring it"
+    return 1
+  fi
+  for i in "${MISSING[@]}"; do
+    p="${APT[$i]}"
+    [[ "$p" != - && " ${want[*]} " != *" $p "* ]] && want+=("$p")
+  done
+  [[ "${#want[@]}" -gt 0 ]] || { log "bundle: no apt package provides $(names_of "${MISSING[@]}")"; return 1; }
   if [[ "$MODE" == dry-run ]]; then
-    log "dry run: install bundled .deb files from $src"
+    log "dry run: install ${want[*]} offline from the bundled repository $src"
     exit 0
   fi
   mkdir -p "$LOCAL_STAGE_PARENT"
   stage="$(mktemp -d "$LOCAL_STAGE_PARENT/goliath-sysdeps.XXXXXX")"
-  # Copy to local disk and verify there, so what dpkg installs is exactly
+  STAGE_REPO="$stage/repo"
+  mkdir -p "$STAGE_REPO" "$stage/none" "$stage/lists/partial" "$stage/cache" "$stage/archives/partial"
+  # Copy to local disk and verify there, so what apt installs is exactly
   # what was checked, and nothing executes from the shared volume.
-  cp -- "$src/SHA256SUMS" "$stage/" || { rm -rf "$stage"; return 1; }
+  cp -- "$src/SHA256SUMS" "$src/Packages" "$src/Release" "$STAGE_REPO/" || { rm -rf "$stage"; return 1; }
   shopt -s nullglob
-  for d in "$src"/*.deb; do cp -- "$d" "$stage/" || { rm -rf "$stage"; return 1; }; done
+  for d in "$src"/*.deb; do cp -- "$d" "$STAGE_REPO/" || { rm -rf "$stage"; return 1; }; done
   shopt -u nullglob
-  if ! (cd "$stage" && sha256sum --check --quiet --strict SHA256SUMS >&2); then
+  if ! (cd "$STAGE_REPO" && sha256sum --check --quiet --strict SHA256SUMS >&2) \
+      || ! grep -q ' Packages$' "$STAGE_REPO/SHA256SUMS" || ! grep -q ' Release$' "$STAGE_REPO/SHA256SUMS"; then
     log "bundle: checksum mismatch in $src; ignoring it"
     rm -rf "$stage"
     return 1
   fi
-  shopt -s nullglob
-  for d in "$stage"/*.deb; do
-    deb_wanted "$d" && todo+=("$d")
+  # A package that is installed but whose binary is missing is not asked for:
+  # `apt-get install` would upgrade it (and its exact-version siblings the
+  # bundle may not carry); the online fallback reports or repairs it.
+  local -a inbundle=() lack=() broken=()
+  for p in "${want[@]}"; do
+    if [[ -n "$(installed_version "$p")" ]]; then broken+=("$p")
+    elif [[ -n "$(bundled_version "$p")" ]]; then inbundle+=("$p")
+    else lack+=("$p"); fi
   done
-  shopt -u nullglob
-  if [[ "${#todo[@]}" -eq 0 ]]; then
-    log "bundle: every bundled package is already installed"
-    rm -rf "$stage"
-    return 0
-  fi
-  log "installing ${#todo[@]} bundled packages for $target (offline)"
-  # apt resolves dependencies among the given files and the installed
-  # packages only: an empty source list hides every configured repository,
-  # so nothing is downloaded (no apt-get update either). The paths are
-  # absolute ($stage is). Do not add --no-download: with local .deb
-  # arguments apt 2.x then looks the files up in its archive cache by bare
-  # name and aborts with "Internal Error, Pathname to install is not
-  # absolute 'pigz_2.8-1_amd64.deb'".
-  mkdir -p "$stage/sources.list.d"
-  : >"$stage/sources.list"
+  [[ "${#broken[@]}" -eq 0 ]] || log "bundle: ${broken[*]} installed but the tool is missing; not reinstalling from the bundle"
+  [[ "${#lack[@]}" -eq 0 ]] || log "bundle lacks ${lack[*]}; the online fallback below handles them"
+  if [[ "${#inbundle[@]}" -eq 0 ]]; then rm -rf "$stage"; return 1; fi
+  want=("${inbundle[@]}")
+  # The path is absolute ($stage is) and local; trusted=yes because
+  # SHA256SUMS (checked above) is the bundle's integrity root.
+  printf 'deb [trusted=yes] file:%s ./\n' "$STAGE_REPO" >"$stage/bundle.list"
+  bundle_apt_opts "$stage"
   APT_LOG="$(mktemp)"
-  if ! retry apt_quiet install --no-install-recommends \
-      -o "Dir::Etc::SourceList=$stage/sources.list" \
-      -o "Dir::Etc::SourceParts=$stage/sources.list.d" \
-      "${todo[@]}"; then
+  sim="$stage/sim.log"
+  if ! apt_quiet "${BOPTS[@]}" update; then
+    log "bundle: apt cannot read the bundled repository"
+    rm -rf "$stage" "$APT_LOG"
+    return 1
+  fi
+  # Plan with --simulate first (no lock, no retries for a plan apt rejects).
+  round=0
+  while :; do
+    if apt_sim "$sim" "${BOPTS[@]}" --no-remove ${extra[@]:+--allow-downgrades} install "${want[@]}" "${extra[@]}"; then
+      break
+    fi
+    # An exact-version dependency apt cannot meet because the host has a
+    # NEWER build than the bundle:
+    #   libncurses6 : Depends: libtinfo6 (= 6.4-2.2) but 6.4-2.3 is installed
+    # moves libtinfo6 to the bundled 6.4-2.2; and an installed sibling that
+    # then breaks (libncursesw6 6.4-2.3 needs libtinfo6 = 6.4-2.3) follows
+    # to its bundled version when the bundle has one.
+    extra_new=0
+    while IFS= read -r line; do
+      [[ "$line" =~ ^[[:space:]]*([^ ]+)\ :\ (Pre-)?Depends:\ ([^ ]+)\ \(=\ ([^\)]+)\)\ but\ ([^ ]+)\ is ]] || continue
+      x="${BASH_REMATCH[1]%%:*}" y="${BASH_REMATCH[3]%%:*}" v="${BASH_REMATCH[4]}" have="${BASH_REMATCH[5]}"
+      for cand in "$y $v $have" "$x $(bundled_version "$x") $(installed_version "$x")"; do
+        read -r p bv hv <<<"$cand"
+        [[ -n "${bv:-}" && -n "${hv:-}" && "$(bundled_version "$p")" == "$bv" ]] || continue
+        dpkg --compare-versions "$hv" gt "$bv" 2>/dev/null || continue
+        [[ " ${extra[*]} " == *" $p=$bv "* ]] && continue
+        extra+=("$p=$bv") dg+=("$p $hv -> $bv")
+        extra_new=1
+      done
+    done <"$sim"
+    round=$((round + 1))
+    if [[ "$extra_new" == 0 || "$round" -gt 5 ]]; then
+      log "bundle: CONFLICT: the bundled packages cannot be installed next to this host's packages without removing or breaking something:"
+      grep -E 'Depends:|Conflicts:|Breaks:|^E:' "$sim" | sed 's/^/[install-system-deps]   /' >&2 || tail -n 20 "$sim" >&2
+      if grep -q 'remove is disabled' "$sim" \
+          && apt_sim "$sim" "${BOPTS[@]}" ${extra[@]:+--allow-downgrades} install "${want[@]}" "${extra[@]}"; then
+        log "bundle:   apt would have to remove: $(awk '/^Remv /{printf "%s%s %s", sep, $2, $3; sep=", "}' "$sim")"
+        [[ "${#dg[@]}" -eq 0 ]] || log "bundle:   after moving down: $(IFS=';'; printf '%s' "${dg[*]}")"
+      fi
+      log "bundle: this image's packages and the release bundle do not fit together; add the image to the release check (build_release.sh --system-deps-check-images) and rebuild; the online fallback below is the last resort"
+      rm -rf "$stage" "$APT_LOG"
+      return 1
+    fi
+  done
+  n_new="$(grep -cE '^Inst [^ ]+ \(' "$sim" || true)"
+  n_up="$(grep -cE '^Inst [^ ]+ \[' "$sim" || true)"
+  n_down="${#dg[@]}"
+  if [[ "$n_down" -gt 0 ]]; then
+    printf '[install-system-deps] WARNING: moving %s host package(s) DOWN to the bundled version, which bundled packages require exactly (apt keeps every installed package satisfied; nothing is removed):\n' "$n_down" >&2
+    for line in "${dg[@]}"; do printf '[install-system-deps] WARNING:   %s\n' "$line" >&2; done
+  fi
+  log "installing ${want[*]} from the bundle for $target (offline): $n_new new, $n_up changed to the bundled version"
+  if ! retry apt_quiet "${BOPTS[@]}" --no-remove ${extra[@]:+--allow-downgrades} install "${want[@]}" "${extra[@]}"; then
     log "bundle: offline install failed"
     rm -rf "$stage" "$APT_LOG"
     return 1
