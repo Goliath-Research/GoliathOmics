@@ -172,4 +172,54 @@ WANTED_TAG=""
 [[ "$(bundle_dir)" == "$g/releases/2026.10.15" ]] || fail "no wanted tag falls back to current"
 ROOT="$ROOT_SAVE"
 
+
+# Post-promote steps must use TARGET_RELEASE, not a stale $ROOT/current
+# (worker boot of 2026.10.20: promoted 2026.10.20, then install_system_deps
+# and worker_venv_local resolved releases/2026.10.19 because cur_dir re-read
+# the pointer on a shared volume that still named the previous release).
+eval "$(sed -n '/^goliath_current_dir() {/,/^resolve_tool() {/p' "$ROOT/scripts/start_shared_worker.sh" | sed '$d')"
+ROOT_SAVE="$ROOT"; ROOT="$g"
+# shellcheck disable=SC2034  # read by cur_dir
+TARGET_RELEASE=""
+goliath_write_current "$g" "$g/releases/2026.10.15" >/dev/null
+[[ "$(cur_dir)" == "$g/releases/2026.10.15" ]] || fail "cur_dir falls back to current when TARGET_RELEASE is empty"
+TARGET_RELEASE="$g/releases/2026.10.17"
+[[ "$(cur_dir)" == "$g/releases/2026.10.17" ]] \
+  || fail "cur_dir must prefer TARGET_RELEASE over stale current, got: $(cur_dir)"
+# Missing TARGET_RELEASE dir falls through to the pointer.
+TARGET_RELEASE="$g/releases/does-not-exist"
+[[ "$(cur_dir)" == "$g/releases/2026.10.15" ]] \
+  || fail "invalid TARGET_RELEASE must fall back to current, got: $(cur_dir)"
+TARGET_RELEASE=""
+ROOT="$ROOT_SAVE"
+
+# ensure_current: GOLIATH_RELEASE_DIR matching the wanted release wins over a
+# stale current (re-exec after promote; pointer may still name the old one).
+eval "$(sed -n '/^ensure_current() {/,/^}/p' "$ROOT/scripts/start_shared_worker.sh")"
+acquire_promote_lock() { fail "ensure_current must not re-promote when GOLIATH_RELEASE_DIR matches"; }
+release_promote_lock() { :; }
+download_latest_release() { fail "must not download when GOLIATH_RELEASE_DIR matches"; }
+log() { :; }
+die() { fail "die: $*"; }
+ROOT_SAVE="$ROOT"; ROOT="$g"
+TARGET_RELEASE=""
+export GOLIATH_RELEASE_DIR="$g/releases/2026.10.17"
+printf 'goliathomics-2026.10.17\n' >"$g/bin/.release"
+goliath_write_current "$g" "$g/releases/2026.10.15" >/dev/null
+ensure_current
+[[ "$TARGET_RELEASE" == "$g/releases/2026.10.17" ]] \
+  || fail "ensure_current must keep GOLIATH_RELEASE_DIR, got: $TARGET_RELEASE"
+# An older GOLIATH_RELEASE_DIR than wanted must not short-circuit (would need
+# refresh). Stub only the early check: leave TARGET_RELEASE unset and expect
+# current_is_usable false then the lock path — exercise by clearing the env
+# and confirming a matching current still works without GOLIATH_RELEASE_DIR.
+unset GOLIATH_RELEASE_DIR
+TARGET_RELEASE=""
+goliath_write_current "$g" "$g/releases/2026.10.17" >/dev/null
+ensure_current
+[[ "$TARGET_RELEASE" == "$g/releases/2026.10.17" ]] \
+  || fail "ensure_current keeps matching current, got: $TARGET_RELEASE"
+ROOT="$ROOT_SAVE"
+unset -f acquire_promote_lock release_promote_lock download_latest_release
+
 echo "test_current_pointer: OK"
