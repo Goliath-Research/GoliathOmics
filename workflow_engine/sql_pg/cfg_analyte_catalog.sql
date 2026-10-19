@@ -236,19 +236,25 @@ AS $$
 DECLARE
   v_count bigint;
 BEGIN
+  -- LATERAL may not correlate to the UPDATE target alias on Postgres; join via subquery.
   UPDATE cfg.study s
-  SET default_analyte_id = a.id,
+  SET default_analyte_id = m.analyte_id,
       updated_at_utc = (now() AT TIME ZONE 'utc')
-  FROM LATERAL (
-    SELECT x.id
-    FROM cfg.analyte x
-    WHERE x.name = s.document_json->'regulatory'->>'primary_analyte'
-      AND x.status IN ('published', 'retired')
-    ORDER BY x.id DESC
-    LIMIT 1
-  ) a
-  WHERE s.default_analyte_id IS NULL
-    AND NULLIF(btrim(s.document_json->'regulatory'->>'primary_analyte'), '') IS NOT NULL;
+  FROM (
+    SELECT s2.id AS study_id, a.id AS analyte_id
+    FROM cfg.study s2
+    JOIN LATERAL (
+      SELECT x.id
+      FROM cfg.analyte x
+      WHERE x.name = s2.document_json->'regulatory'->>'primary_analyte'
+        AND x.status IN ('published', 'retired')
+      ORDER BY x.id DESC
+      LIMIT 1
+    ) a ON TRUE
+    WHERE s2.default_analyte_id IS NULL
+      AND NULLIF(btrim(s2.document_json->'regulatory'->>'primary_analyte'), '') IS NOT NULL
+  ) m
+  WHERE s.id = m.study_id;
   GET DIAGNOSTICS v_count = ROW_COUNT;
   studies_updated := v_count;
   RETURN NEXT;
