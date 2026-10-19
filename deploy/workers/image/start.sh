@@ -11,6 +11,18 @@ if [[ "${1:-}" == "--version-check" ]]; then
 fi
 
 mkdir -p /var/run/sshd /run/sshd
+# Runpod passes the pod's SSH public keys (newline-separated) in PUBLIC_KEY;
+# runpod/pytorch's /start.sh installs them, this image must do it itself.
+if [[ -n "${PUBLIC_KEY:-}" ]]; then
+  install -d -m 700 /root/.ssh
+  touch /root/.ssh/authorized_keys
+  chmod 600 /root/.ssh/authorized_keys
+  while IFS= read -r key; do
+    key="${key%$'\r'}"
+    [[ -n "$key" ]] || continue
+    grep -qxF -- "$key" /root/.ssh/authorized_keys || printf '%s\n' "$key" >>/root/.ssh/authorized_keys
+  done <<<"$PUBLIC_KEY"
+fi
 if ! pgrep -x sshd >/dev/null 2>&1; then
   /usr/sbin/sshd || true
 fi
