@@ -79,7 +79,7 @@ deploy_mssql() {
 
 deploy_postgres() {
   local dir="$REPO_ROOT/workflow_engine/sql_pg"
-  local app_sql="${GOLIATHAPP_SQL_DIR:-}"
+  local app_sql="${GOLIATHAPP_SQL_DIR:-${GOLIATH_APP_SQL_DIR:-}}"
   if ! command -v psql >/dev/null 2>&1; then
     echo "psql not found" >&2
     exit 1
@@ -110,6 +110,7 @@ deploy_postgres() {
     fi
   }
   if [[ -n "$app_sql" ]]; then
+    apply_if_present "$app_sql/cfg_schema.sql" "cfg_schema.sql (GoliathApp)"
     apply_if_present "$app_sql/cfg_repo_api.sql" "cfg_repo_api.sql (GoliathApp)"
     apply_if_present "$app_sql/cfg_process_pack_catalog.sql" "cfg_process_pack_catalog.sql (GoliathApp)"
     apply_if_present "$app_sql/cfg_assay_procedure_links.sql" "cfg_assay_procedure_links.sql (GoliathApp)"
@@ -118,6 +119,7 @@ deploy_postgres() {
     echo "==> postgres: GoliathApp process-pack DDL skipped (set GOLIATHAPP_SQL_DIR or GOLIATH_RELEASE_SRC); expected already applied by release schema"
   fi
   # Omics-owned analyte catalog (not in GoliathApp apply list as of 2026.10.21)
+  psql -q -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS cfg;'
   apply_if_present "$dir/cfg_analyte_catalog.sql" "cfg_analyte_catalog.sql (Omics)"
 }
 

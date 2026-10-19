@@ -569,6 +569,14 @@ run_catalog_sync() {
       return 0
     fi
   fi
+  # Catalog sync needs GoliathApp cfg.* (cfg_schema + registry). Synthetic
+  # test releases that only ship a ledger stub have no cfg schema — skip.
+  if ! psql -qAt -v ON_ERROR_STOP=1 -c \
+    "SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name='cfg');" \
+    | grep -qx t; then
+    info "catalog sync: cfg schema absent (incomplete GoliathApp SQL in this release); skip"
+    return 0
+  fi
   report_component start goliath-db-catalog "catalog sync ${TARGET} ${release_id}"
   info "catalog sync: analyte DDL + DomainPrograms + cfg rows for ${release_id}"
   # Ensure Omics analyte DDL (and optional GoliathApp process-pack re-apply)
