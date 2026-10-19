@@ -277,7 +277,7 @@ grep -q 'schema_host=ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech' "$out" 
 grep -q 'channel_binding=require' "$out" || fail "dry-run should show channel_binding"
 grep -q 'schema: goliathapp=per-release apply=test-bed force=0' "$out" \
   || fail "dry-run should show the GoliathApp schema mode"
-grep -q 'self_provision runpod amd64 runpod-torch-v280' "$out" || fail "dry-run should describe the RunPod pool"
+grep -q 'self_provision runpod amd64 goliath-worker' "$out" || fail "dry-run should describe the RunPod pool"
 grep -q 'bucket=goliath-omics' "$out" || fail "dry-run should show the B2 bucket"
 grep -q 'https://s3.us-east-005.backblazeb2.com' "$out" || fail "dry-run should show the B2 endpoint"
 grep -q 'https://s3.us-east-1.myqnapcloud.io' "$out" || fail "dry-run should show the myQNAPCloud endpoint"
