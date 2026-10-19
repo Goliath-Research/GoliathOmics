@@ -19,4 +19,3 @@ tar         tar        tar        tar       # start_shared_worker.sh release ext
 python3     python3    python3    python3   # start_shared_worker.sh manifest parsing, bootstrap
 python3.12  python3.12 python3.12 -         # worker venv (release wheels are cp312); worker_venv_local.sh
 sha256sum   coreutils  coreutils  coreutils # worker_venv_local.sh checksum
-aws         awscli     awscli     aws-cli   # cfg provision-assets + sync_genomes_to_s3.sh (S3 genome/reference sync)
