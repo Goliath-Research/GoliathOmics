@@ -25,6 +25,9 @@ provider_defaults() {
   PROVIDER_DEFAULT_CLOUD="SECURE"
   RUNPOD_API_BASE_URL="${RUNPOD_API_BASE:-https://api.runpod.io}"
   RUNPOD_API_BASE_URL="${RUNPOD_API_BASE_URL%/}"
+  # Private GHCR (Parabricks EULA → package is private): registry credential id
+  # from RunPod console (POST /v2/registries). Env or create_worker --registry-auth.
+  PROVIDER_DEFAULT_REGISTRY_AUTH="${RUNPOD_REGISTRY_AUTH_ID:-}"
 }
 
 provider_require_env() {
@@ -166,6 +169,9 @@ provider_price() {
 }
 
 provider_build_request() {
+  # OPT_IMAGE → v2 "image" (overrides template). OPT_REGISTRY_AUTH / env
+  # RUNPOD_REGISTRY_AUTH_ID → v2 "registry" (private GHCR credential id).
+  local registry="${OPT_REGISTRY_AUTH:-${RUNPOD_REGISTRY_AUTH_ID:-${PROVIDER_DEFAULT_REGISTRY_AUTH:-}}}"
   jq -n \
     --arg name "$WORKER_NAME" \
     --arg templateId "$TEMPLATE_ID" \
@@ -174,6 +180,8 @@ provider_build_request() {
     --argjson count "$OPT_GPU_COUNT" \
     --arg volumeId "$STORAGE_ID" \
     --arg path "$MOUNT_PATH" \
+    --arg image "${OPT_IMAGE:-}" \
+    --arg registry "$registry" \
     '{
        name: $name,
        templateId: $templateId,
@@ -181,7 +189,9 @@ provider_build_request() {
        gpu: {id: $gpu, count: $count},
        mounts: {global: [{volumeId: $volumeId, path: $path}]},
        startSsh: true
-     }' >"$1"
+     }
+     + (if ($image | length) > 0 then {image: $image} else {} end)
+     + (if ($registry | length) > 0 then {registry: $registry} else {} end)' >"$1"
 }
 
 provider_check_request() {

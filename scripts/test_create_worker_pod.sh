@@ -184,7 +184,15 @@ grep -q '^DELETE' "$LOG/requests" && fail "must not terminate the pod automatica
 run dup --dry-run --name goliath-worker-1
 [[ "$(rc dup)" != 0 ]] || fail "duplicate name must fail"
 
-# 10. The generic entry point gives the identical body.
+# 10. --image and --registry-auth land on the v2 create body.
+run imgreg --dry-run --image ghcr.io/example/goliath-worker:t --registry-auth reg_test123
+[[ "$(rc imgreg)" == 0 ]] || { cat "$TMP/imgreg.out"; fail "image+registry dry-run should succeed"; }
+imgreg_body="$(sed -n '/^{/,/^}/p' "$TMP/imgreg.out")"
+jq -e '.image == "ghcr.io/example/goliath-worker:t" and .registry == "reg_test123"' <<<"$imgreg_body" >/dev/null \
+  || { echo "$imgreg_body"; fail "body must carry v2 image + registry"; }
+
+# 11. The generic entry point gives the identical body.
+
 SCRIPT="$ROOT/deploy/workers/create_worker.sh"
 run generic --provider runpod --dry-run
 [[ "$(rc generic)" == 0 ]] || { cat "$TMP/generic.out"; fail "create_worker.sh --provider runpod should succeed"; }

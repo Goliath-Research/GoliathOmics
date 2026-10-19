@@ -79,6 +79,7 @@ deploy_mssql() {
 
 deploy_postgres() {
   local dir="$REPO_ROOT/workflow_engine/sql_pg"
+  local app_sql="${GOLIATHAPP_SQL_DIR:-${GOLIATH_APP_SQL_DIR:-}}"
   if ! command -v psql >/dev/null 2>&1; then
     echo "psql not found" >&2
     exit 1
@@ -93,16 +94,33 @@ deploy_postgres() {
     echo "Set PGHOST/PGUSER/PGPASSWORD (or POSTGRES_*)" >&2
     exit 1
   fi
-  echo "==> postgres: cfg_repo_api.sql (assay_procedure kind)"
-  psql -q -v ON_ERROR_STOP=1 -f "$dir/cfg_repo_api.sql"
-  echo "==> postgres: cfg_process_pack_catalog.sql"
-  psql -q -v ON_ERROR_STOP=1 -f "$dir/cfg_process_pack_catalog.sql"
-  echo "==> postgres: cfg_assay_procedure_links.sql"
-  psql -q -v ON_ERROR_STOP=1 -f "$dir/cfg_assay_procedure_links.sql"
-  echo "==> postgres: cfg_analyte_catalog.sql"
-  psql -q -v ON_ERROR_STOP=1 -f "$dir/cfg_analyte_catalog.sql"
-  echo "==> postgres: portal_contract_api.sql (catalog @scope_id + pack entitlements)"
-  psql -q -v ON_ERROR_STOP=1 -f "$dir/portal_contract_api.sql"
+  # GoliathApp-owned DDL (cfg_repo_api, process_pack, portal_contract) is applied
+  # by release-deploy via apply_goliathapp_schema.sh. Re-apply from GOLIATHAPP_SQL_DIR
+  # or the release bundle when present; otherwise skip with a note.
+  if [[ -z "$app_sql" && -n "${GOLIATH_RELEASE_SRC:-}" && -d "${GOLIATH_RELEASE_SRC}/goliathapp-sql/sql_pg" ]]; then
+    app_sql="${GOLIATH_RELEASE_SRC}/goliathapp-sql/sql_pg"
+  fi
+  apply_if_present() {
+    local f="$1" label="$2"
+    if [[ -f "$f" ]]; then
+      echo "==> postgres: $label"
+      psql -q -v ON_ERROR_STOP=1 -f "$f"
+    else
+      echo "==> postgres: skip $label (not found: $f)"
+    fi
+  }
+  if [[ -n "$app_sql" ]]; then
+    apply_if_present "$app_sql/cfg_schema.sql" "cfg_schema.sql (GoliathApp)"
+    apply_if_present "$app_sql/cfg_repo_api.sql" "cfg_repo_api.sql (GoliathApp)"
+    apply_if_present "$app_sql/cfg_process_pack_catalog.sql" "cfg_process_pack_catalog.sql (GoliathApp)"
+    apply_if_present "$app_sql/cfg_assay_procedure_links.sql" "cfg_assay_procedure_links.sql (GoliathApp)"
+    apply_if_present "$app_sql/portal_contract_api.sql" "portal_contract_api.sql (GoliathApp)"
+  else
+    echo "==> postgres: GoliathApp process-pack DDL skipped (set GOLIATHAPP_SQL_DIR or GOLIATH_RELEASE_SRC); expected already applied by release schema"
+  fi
+  # Omics-owned analyte catalog (not in GoliathApp apply list as of 2026.10.21)
+  psql -q -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS cfg;'
+  apply_if_present "$dir/cfg_analyte_catalog.sql" "cfg_analyte_catalog.sql (Omics)"
 }
 
 backends=()

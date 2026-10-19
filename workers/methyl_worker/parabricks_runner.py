@@ -141,10 +141,15 @@ def resolve_collectmultiplemetrics_config(
         if candidate and "methylgrapher" not in candidate:
             clara = candidate
     if not clara:
-        raise RuntimeError(
-            "collectmultiplemetrics requires METHYL_PARABRICKS_IMAGE "
-            "(Clara Parabricks image with pbrun); Mojo methylgrapher images do not ship pbrun"
-        )
+        if use_host_pbrun():
+            # Host image already has pbrun; docker image tag is unused.
+            clara = "host-pbrun"
+        else:
+            raise RuntimeError(
+                "collectmultiplemetrics requires METHYL_PARABRICKS_IMAGE "
+                "(Clara Parabricks image with pbrun) or host pbrun on PATH; "
+                "Mojo methylgrapher images do not ship pbrun"
+            )
 
     cfg = resolve_parabricks_config(
         project_path=proj,
@@ -362,6 +367,190 @@ def _docker_bin() -> str:
     return docker
 
 
+def use_host_pbrun() -> bool:
+    """True when Clara ``pbrun`` should run on the worker host (no nested docker).
+
+    ``METHYL_PARABRICKS_MODE=host|native`` forces host mode (requires ``pbrun``).
+    ``docker|container`` forces docker. Default ``auto``: host when ``pbrun`` is
+    on PATH (goliath-worker image), else docker (SSH VMs that still pull NGC).
+    """
+    mode = os.environ.get("METHYL_PARABRICKS_MODE", "auto").strip().lower()
+    has_pbrun = shutil.which("pbrun") is not None
+    if mode in {"host", "native", "1", "true", "yes"}:
+        if not has_pbrun:
+            raise RuntimeError(
+                "METHYL_PARABRICKS_MODE=host but pbrun is not on PATH; "
+                "use the goliath-worker image or install Clara Parabricks"
+            )
+        return True
+    if mode in {"docker", "container"}:
+        return False
+    return has_pbrun
+
+
+
+def use_host_methylgrapher() -> bool:
+    """True when ``methylGrapher`` / GoliathAlign should run on the host (no nested docker).
+
+    ``METHYL_METHYLGRAPHER_MODE=host|native`` forces host. ``docker|container``
+    forces docker. Default ``auto``: host when the CLI is resolvable (boot
+    installs the jammy release tarball via goliath_align_local.sh).
+    """
+    mode = os.environ.get("METHYL_METHYLGRAPHER_MODE", "auto").strip().lower()
+    bin_name = os.environ.get("METHYL_METHYLGRAPHER_BIN", "").strip() or "methylGrapher"
+    has = shutil.which(bin_name) is not None
+    if not has:
+        home = os.environ.get("GOLIATH_ALIGN_HOME", "").strip()
+        candidates = []
+        if home:
+            candidates.append(Path(home) / "bin" / "methylGrapher")
+        candidates.extend(
+            [
+                Path("/usr/local/bin/methylGrapher"),
+                Path("/opt/goliath-align/bin/methylGrapher"),
+                Path("/opt/goliath/goliath-align-amd64/bin/methylGrapher"),
+            ]
+        )
+        for cand in candidates:
+            if cand.is_file():
+                has = True
+                break
+    if mode in {"host", "native", "1", "true", "yes"}:
+        if not has:
+            raise RuntimeError(
+                "METHYL_METHYLGRAPHER_MODE=host but methylGrapher is not on PATH; "
+                "the release must include goliath-align-host-linux-amd64-jammy.tar.gz "
+                "and start_shared_worker must install it (goliath_align_local.sh)"
+            )
+        return True
+    if mode in {"docker", "container"}:
+        return False
+    return has
+
+
+def _methylgrapher_bin() -> str:
+    explicit = os.environ.get("METHYL_METHYLGRAPHER_BIN", "").strip()
+    if explicit:
+        return explicit
+    found = shutil.which("methylGrapher")
+    if found:
+        return found
+    for cand in (
+        Path("/usr/local/bin/methylGrapher"),
+        Path("/opt/goliath-align/bin/methylGrapher"),
+        Path("/work/goliath/opt/goliath-align/bin/methylGrapher"),
+        Path("/work/goliath/opt/goliath-align/methylGrapher.mojo.sh"),
+    ):
+        if cand.is_file():
+            return str(cand)
+    return "methylGrapher"
+
+
+
+def _build_host_fq2bam_meth_command(
+    cfg: ParabricksConfig,
+    paths: ParabricksPaths,
+    fastqs: Sequence[Path],
+) -> List[str]:
+    host_fqs = [str(fq.resolve()) for fq in fastqs]
+    return [
+        "pbrun",
+        "fq2bam_meth",
+        f"--ref={paths.reference_fasta.resolve()}",
+        *_in_fq_flags(host_fqs),
+        f"--out-bam={paths.bam_path.resolve()}",
+        f"--out-qc-metrics-dir={paths.qc_metrics_dir.resolve()}",
+        f"--out-duplicate-metrics={paths.dedup_metrics.resolve()}",
+        f"--logfile={paths.log_path.resolve()}",
+        f"--tmp-dir={paths.tmp_dir.resolve()}",
+        f"--bwa-cpu-thread-pool={cfg.bwa_threads}",
+        "--gpusort",
+        "--gpuwrite",
+    ]
+
+
+def build_collectmultiplemetrics_command(
+    cfg: ParabricksConfig,
+    paths: ParabricksPaths,
+    reference_fasta: Path,
+) -> List[str]:
+    """Host ``pbrun`` or docker ``pbrun collectmultiplemetrics``."""
+    ref = reference_fasta.resolve()
+    if use_host_pbrun():
+        return [
+            "pbrun",
+            "collectmultiplemetrics",
+            f"--ref={ref}",
+            f"--bam={paths.bam_path.resolve()}",
+            f"--out-qc-metrics-dir={paths.qc_metrics_dir.resolve()}",
+            "--gen-all-metrics",
+        ]
+    genome_dir = ref.parent
+    return [
+        _docker_bin(),
+        "run",
+        "--rm",
+        *cfg.gpu_flags,
+        "--user",
+        align_docker_user(),
+        "-v",
+        f"{paths.sample_dir.resolve()}:/workdir",
+        "-v",
+        f"{paths.sample_dir.resolve()}:/outputdir",
+        "-v",
+        f"{genome_dir}:/genomes:ro",
+        "-w",
+        "/workdir",
+        *cfg.extra_docker_args,
+        *docker_umask_prefix(),
+        cfg.image,
+        *docker_umask_suffix(
+            "pbrun",
+            "collectmultiplemetrics",
+            f"--ref=/genomes/{ref.name}",
+            f"--bam=/workdir/{paths.bam_path.name}",
+            f"--out-qc-metrics-dir=/outputdir/{paths.qc_metrics_dir.name}",
+            "--gen-all-metrics",
+        ),
+    ]
+
+
+def _build_host_mojo_fq2bam_meth_command(
+    cfg: ParabricksConfig,
+    paths: ParabricksPaths,
+    fastqs: Sequence[Path],
+) -> List[str]:
+    if len(fastqs) != 2:
+        raise RuntimeError(
+            "MojoFq2bamMeth accepts one FASTQ pair; "
+            f"found {len(fastqs)} files. Use Clara fq2bam_meth for multi-lane samples."
+        )
+    mg = _methylgrapher_bin()
+    return [
+        mg,
+        "MojoFq2bamMeth",
+        "-fq1",
+        str(fastqs[0].resolve()),
+        "-fq2",
+        str(fastqs[1].resolve()),
+        "-ref",
+        str(paths.reference_fasta.resolve()),
+        "-out_bam",
+        str(paths.bam_path.resolve()),
+        "-out_qc_dir",
+        str(paths.qc_metrics_dir.resolve()),
+        "-sample_id",
+        paths.sample_id,
+        "-t",
+        str(cfg.bwa_threads),
+        "-device",
+        cfg.align_device,
+        "-work_dir",
+        str(paths.tmp_dir.resolve()),
+    ]
+
+
+
 def _build_docker_command(
     cfg: ParabricksConfig,
     paths: ParabricksPaths,
@@ -526,7 +715,7 @@ def run_fq2bam_meth(
     parabricks_image: Optional[str] = None,
     bwa_threads: Optional[int] = None,
 ) -> Dict[str, Optional[str]]:
-    """Align bisulfite FASTQs (Clara fq2bam_meth or MojoFq2bamMeth) in Docker."""
+    """Align bisulfite FASTQs (Clara fq2bam_meth or MojoFq2bamMeth; host or docker)."""
     sample_path = Path(sample_dir).resolve()
     reference_path = Path(reference_fasta).resolve()
     if not sample_path.is_dir():
@@ -559,16 +748,23 @@ def run_fq2bam_meth(
         assert_execute_gpu_prereqs("parabricks.fq2bam", "sample.parabricks_fq2bam")
 
     fastqs = resolve_paired_fastqs(sample_path, sample_id)
-    docker_cmd = _build_docker_command(cfg, paths, fastqs)
+    if cfg.engine == "mojo" and use_host_methylgrapher():
+        align_cmd = _build_host_mojo_fq2bam_meth_command(cfg, paths, fastqs)
+        label = "MojoFq2bamMeth (host)"
+    elif cfg.engine == "parabricks" and use_host_pbrun():
+        align_cmd = _build_host_fq2bam_meth_command(cfg, paths, fastqs)
+        label = "Parabricks fq2bam_meth (host pbrun)"
+    else:
+        align_cmd = _build_docker_command(cfg, paths, fastqs)
+        label = "MojoFq2bamMeth (docker)" if cfg.engine == "mojo" else "Parabricks fq2bam_meth (docker)"
     paths.sample_dir.mkdir(parents=True, exist_ok=True)
     _reset_tmp(paths)
 
-    label = "MojoFq2bamMeth" if cfg.engine == "mojo" else "Parabricks fq2bam_meth"
     logger.info("Running %s for %s (device=%s)", label, sample_id, cfg.align_device)
-    _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in docker_cmd))
+    _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in align_cmd))
 
     proc = subprocess.run(
-        docker_cmd,
+        align_cmd,
         capture_output=True,
         text=True,
         check=False,

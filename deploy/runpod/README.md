@@ -2,7 +2,7 @@
 
 This directory is the RunPod adapter. The worker itself is provider-neutral: [`scripts/start_shared_worker.sh`](../../scripts/start_shared_worker.sh). How Lambda, Nebius, and a local disk call that script is [deploy/README.md](../README.md).
 
-`deploy/targets/goliath-test.json` does not SSH to workers. The pool boots itself from a RunPod template cloned from `runpod-torch-v280`. The container start command is one line (`deploy/runpod/template-start-command.sh`). That line downloads `deploy/runpod/goliath-worker-bootstrap.sh` from the newest non-draft `goliathomics-*` release and runs it. On an empty `/work` the bootstrap creates `/work/goliath/bin`, downloads the RunPod adapter, `scripts/start_shared_worker.sh`, and `keepalive.sh` from that release tag, and runs the adapter.
+`deploy/targets/goliath-test.json` does not SSH to workers. The pool boots itself from a RunPod template cloned from `runpod-torch-v280` and re-pointed at the `goliath-worker` GHCR image. The container start command is one line (`deploy/runpod/template-start-command.sh`). That line downloads `deploy/runpod/goliath-worker-bootstrap.sh` from the newest non-draft `goliathomics-*` release and runs it. On an empty `/work` the bootstrap creates `/work/goliath/bin`, downloads the RunPod adapter, `scripts/start_shared_worker.sh`, and `keepalive.sh` from that release tag, and runs the adapter.
 
 The adapter sets `GOLIATH_NODE_ID` from `RUNPOD_POD_ID` and `GOLIATH_START_KEEPALIVE` to `keepalive.sh` (which execs the image's `/start.sh`). It then execs `start_shared_worker.sh`. That script waits for `/work`, creates the shared layout (`samples`, `projects`, `cache`, `genomes`, `site`) and the shared image cache `/work/goliath/images`, uses `/work/goliath/current` when that tree is already there, otherwise downloads the latest GitHub release bundle, runs `provision_worker_node.sh` in join mode, reports `goliath-worker` to Rollouts, and starts `methyl-worker`. The keepalive then holds Jupyter (port 8888) and SSH (port 22). `/start.sh` is not used on any other cloud.
 
@@ -62,7 +62,7 @@ A fresh volume does not need a manual copy of the start script. If the template 
 
 1. In the RunPod console, open **Templates** and find the template whose image is `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404`. That template is `runpod-torch-v280`.
 2. **Clone** it. Name the clone `goliath-worker`.
-3. Leave the container image as `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404`.
+3. Set the container image to `ghcr.io/goliath-research/goliath-worker:4.7.0-1` (Clara Parabricks host `pbrun`; see `deploy/workers/image/`). Alternatively keep the template image and pass `deploy/workers/create_worker.sh --provider runpod --image ghcr.io/goliath-research/goliath-worker:4.7.0-1` so the create body sets `imageName`. Private GHCR (required — Parabricks EULA) needs a Runpod container registry credential: set `RUNPOD_REGISTRY_AUTH_ID` or `create_worker.sh --registry-auth <id>` (v2 create body field `registry`). Legacy: `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404` cannot run nested Clara Docker.
 4. Do not add a volume to the template. Templates can only hold a host-local `persistent` mount, and a template persistent mount cannot be combined with the global volume (`create_worker_pod.sh` refuses such a template). The global volume is attached per pod, at creation, by the script below.
 5. Do not deploy pods from this template in the console. Use [Create a worker pod](#create-a-worker-pod).
 

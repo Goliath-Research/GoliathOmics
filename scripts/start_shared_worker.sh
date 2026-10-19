@@ -664,6 +664,41 @@ install_local_extractor() {
   log "MethylExtractor on local disk: ${METHYL_EXTRACTOR_BIN}"
 }
 
+
+# GoliathAlign host runtime (MojoFq2bamMeth / pangenome_wgbs): jammy tarball in
+# the release; extract onto local disk every boot (same reason as MethylExtractor).
+install_local_goliath_align() {
+  local manifest helper="" candidate tar_name sha release
+  manifest="$(cur_dir)/manifest.json"
+  if [[ ! -f "$manifest" ]]; then
+    log "no ${manifest}; skipping local GoliathAlign install"
+    return 0
+  fi
+  for candidate in "$START_SCRIPT_DIR/goliath_align_local.sh" \
+    "$(cur_dir)/runtime-bundle/scripts/goliath_align_local.sh"; do
+    if [[ -f "$candidate" ]]; then
+      helper="$candidate"
+      break
+    fi
+  done
+  [[ -n "$helper" ]] || {
+    log "goliath_align_local.sh not found; skipping GoliathAlign host install"
+    return 0
+  }
+  # shellcheck source=goliath_align_local.sh
+  source "$helper"
+  release="$(cur_dir)"
+  tar_name="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); a=m.get("artifacts",{}).get("amd64",{}); print(a.get("goliath_align_host",""))' "$manifest")"
+  sha="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); a=m.get("artifacts",{}).get("amd64",{}); print(a.get("goliath_align_host_sha256",""))' "$manifest")"
+  if [[ -z "$tar_name" ]]; then
+    log "release manifest has no GoliathAlign host tarball; skipping (Mojo/wgbs need docker or a newer assemble)"
+    return 0
+  fi
+  install_goliath_align_local "$release/$tar_name" "amd64" "$sha" \
+    || die "local GoliathAlign install from ${release}/${tar_name} failed"
+  log "GoliathAlign on local disk: ${METHYL_METHYLGRAPHER_BIN}"
+}
+
 # The worker venv (bin/python, methyl-worker) cannot run from the shared
 # volume either. Every pod boot builds it on local disk from the release's
 # wheels/ and requirements-worker.lock, copied off the volume and verified
@@ -955,6 +990,9 @@ write_worker_env() {
     owned="PATH|GOLIATH_WORKER_VENV|${owned}"
   fi
   local have_local_extractor=0
+  if [[ -n "${GOLIATH_ALIGN_HOME:-}" && -x "${METHYL_METHYLGRAPHER_BIN:-}" ]]; then
+    owned="GOLIATH_ALIGN_HOME|METHYL_METHYLGRAPHER_BIN|METHYL_METHYLGRAPHER_MODE|${owned}"
+  fi
   if [[ -n "${METHYL_EXTRACTOR_HOME:-}" && -x "${METHYL_EXTRACTOR_BIN:-}" ]]; then
     have_local_extractor=1
     owned="METHYL_EXTRACTOR_HOME|METHYL_EXTRACTOR_BIN|HDF5_PLUGIN_PATH|${owned}"
@@ -985,6 +1023,11 @@ write_worker_env() {
     append_kv "$tmp" METHYL_EXTRACTOR_HOME "$METHYL_EXTRACTOR_HOME"
     append_kv "$tmp" METHYL_EXTRACTOR_BIN "$METHYL_EXTRACTOR_BIN"
     append_kv "$tmp" HDF5_PLUGIN_PATH "$HDF5_PLUGIN_PATH"
+  fi
+  if [[ -n "${GOLIATH_ALIGN_HOME:-}" && -x "${METHYL_METHYLGRAPHER_BIN:-}" ]]; then
+    append_kv "$tmp" GOLIATH_ALIGN_HOME "$GOLIATH_ALIGN_HOME"
+    append_kv "$tmp" METHYL_METHYLGRAPHER_BIN "${METHYL_METHYLGRAPHER_BIN:-}"
+    append_kv "$tmp" METHYL_METHYLGRAPHER_MODE "${METHYL_METHYLGRAPHER_MODE:-host}"
   fi
   # MethylExtractor finds its bundled libs through RUNPATH. Its lib/ on
   # LD_LIBRARY_PATH would make every tool methyl-worker runs (samtools, curl)
@@ -1410,6 +1453,7 @@ main() {
   ensure_system_deps
   ensure_work_layout
   install_local_extractor
+install_local_goliath_align
   install_local_venv
   [[ -n "${WORKER_API_BASE:-}" ]] || die "WORKER_API_BASE is required (profile public_base_url, for example https://45.76.21.8/v1)"
   detect_gpu

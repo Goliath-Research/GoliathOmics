@@ -21,15 +21,16 @@
 #   3. worker    every --image, default: the worker images of the deploy
 #                targets (deploy/targets/*.json workers[].image whose arch
 #                matches; env GOLIATH_SYSDEPS_CHECK_IMAGES overrides, ""
-#                for none). An image of another OS release is skipped.
-# Worker images can be large (runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404
-# is ~10.6 GB compressed, ~3-5 min to pull on a GitHub runner). A worker
-# image that is not present locally is pulled only when the container
-# storage has room (3x its compressed size + 5 GB; --min-free-gb, default
-# 40, when the size is unknown); otherwise it is skipped with a warning
-# (the stock and oldest checks still gate) unless --require-worker-images
-# (env GOLIATH_SYSDEPS_REQUIRE_WORKER_IMAGES=1). Images this script pulled
-# are removed afterwards (GOLIATH_SYSDEPS_CHECK_KEEP_IMAGES=1 keeps them).
+#                for none). An image of another OS release is skipped via
+#                GOLIATH-SKIP inside the offline check (never a tools-only
+#                pass). For ghcr.io/.../goliath-worker (private / may not
+#                exist yet) the Clara NGC base is used when NGC_API_KEY is
+#                set; otherwise that leg is skipped with a loud warning.
+# Worker images can be large. A worker image that is not present locally is
+# pulled only when the container storage has room (3x compressed + 5 GB;
+# --min-free-gb, default 40); otherwise skipped with a warning unless
+# --require-worker-images. Images this script pulled are removed afterwards
+# (GOLIATH_SYSDEPS_CHECK_KEEP_IMAGES=1 keeps them).
 #
 # Needs docker or podman (GOLIATH_CONTAINER_RUNTIME). Exit 1 on any failure.
 
@@ -217,9 +218,14 @@ dpkg-query -W libc6 libtinfo6' >"$WORK/oldest.log" 2>&1 || { cat "$WORK/oldest.l
   run_check oldest "$OLDEST"
 fi
 
-# 3. worker images
+# 3. worker images (full offline bundle install; no tools-only shortcut).
+# GHCR goliath-worker may be private / not yet published at release time: try
+# pull, then fall back to the Clara NGC base (same Ubuntu) when NGC_API_KEY is
+# set; otherwise skip that leg with a loud warning (stock+oldest still gate).
+CLARA_FALLBACK="${GOLIATH_SYSDEPS_CLARA_FALLBACK:-nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1}"
 for img in "${IMAGES[@]}"; do
   [[ -n "$img" ]] || continue
+  check_img="$img"
   if ! "$RT" image inspect "$img" >/dev/null 2>&1; then
     free="$(storage_free_bytes)"
     size="$(image_size_bytes "$img")"
@@ -235,9 +241,29 @@ for img in "${IMAGES[@]}"; do
       continue
     fi
     info "[worker] pulling $img${size:+ ($(gb "$size") GB compressed)}; $(gb "$free") GB free"
-    "$RT" pull --platform "linux/$ARCH" "$img" >/dev/null || die "cannot pull worker image $img"
-    PULLED+=("$img")
+    if ! "$RT" pull --platform "linux/$ARCH" "$img" >/dev/null 2>"$WORK/pull.err"; then
+      # Private GHCR / unpublished tag: prove the jammy bundle on Clara base instead.
+      if [[ "$img" == *goliath-worker* || "$img" == *clara-parabricks* ]]; then
+        if [[ -n "${NGC_API_KEY:-}" ]]; then
+          info "[worker] cannot pull $img; logging into nvcr.io and using Clara base $CLARA_FALLBACK for the offline check"
+          echo "$NGC_API_KEY" | "$RT" login nvcr.io -u '$oauthtoken' --password-stdin >/dev/null
+          "$RT" pull --platform "linux/$ARCH" "$CLARA_FALLBACK" >/dev/null \
+            || die "cannot pull Clara fallback $CLARA_FALLBACK"
+          PULLED+=("$CLARA_FALLBACK")
+          check_img="$CLARA_FALLBACK"
+        else
+          msg="cannot pull worker image $img (see $WORK/pull.err); NGC_API_KEY unset so Clara fallback skipped"
+          [[ "$REQUIRE_WORKER" != 1 ]] || die "$msg; --require-worker-images is set"
+          warn "$msg; skipped worker-image leg. Stock and oldest-$OS_VER checks still gate this release."
+          continue
+        fi
+      else
+        die "cannot pull worker image $img"
+      fi
+    else
+      PULLED+=("$img")
+    fi
   fi
-  run_check worker "$img"
+  run_check worker "$check_img"
 done
 info "the $TARGET bundle installs offline and every tool runs in: ${CHECKED[*]}"

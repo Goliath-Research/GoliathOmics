@@ -19,8 +19,9 @@ Options:
                        locked pin has no bundled wheel
   --allow-missing-wheels  Dev only: warn instead of failing on missing wheels
   --system-deps-targets LIST  OS targets to bundle system tools for as offline
-                       .deb sets (default: ubuntu-24.04-amd64; env
-                       GOLIATH_SYSTEM_DEPS_TARGETS); needs docker or podman
+                       .deb sets (default: derived from deploy/targets/*.json
+                       worker images via derive_system_deps_targets.py; env
+                       GOLIATH_SYSTEM_DEPS_TARGETS overrides); needs docker/podman
   --skip-system-deps   Dev only: do not bundle system tools
   --system-deps-check-images LIST  Worker images the bundle must install in
                        offline (default: the worker images of
@@ -51,7 +52,13 @@ SKIP_WHEELS=0
 WITH_GPU=0
 WHEEL_ARCHES="${GOLIATH_WHEEL_ARCHES:-x86_64}"
 STRICT_WHEELS="${GOLIATH_STRICT_WHEELS:-1}"
-SYSTEM_DEPS_TARGETS="${GOLIATH_SYSTEM_DEPS_TARGETS:-ubuntu-24.04-amd64}"
+# Default: every worker OS/arch in deploy/targets (today: ubuntu-22.04-amd64
+# for ghcr.io/.../goliath-worker). Explicit env/flag wins.
+if [[ -n "${GOLIATH_SYSTEM_DEPS_TARGETS:-}" ]]; then
+  SYSTEM_DEPS_TARGETS="$GOLIATH_SYSTEM_DEPS_TARGETS"
+else
+  SYSTEM_DEPS_TARGETS="$("$SCRIPT_DIR/derive_system_deps_targets.py" --targets-dir "$REPO_ROOT/deploy/targets")"     || die "could not derive system-deps targets from deploy/targets"
+fi
 SKIP_SYSTEM_DEPS=0
 SKIP_SYSTEM_DEPS_CHECK=0
 EXTRA_INDEX_URLS="${GOLIATH_PIP_EXTRA_INDEX_URLS-https://pypi.nvidia.com}"
@@ -385,7 +392,7 @@ build_runtime_bundle() {
            install_reclaim_leases_timer.sh provision_gateway_node.sh \
            setup_gateway_nginx.sh \
            provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh \
-           start_shared_worker.sh install_system_deps.sh system_tools.list bundle_system_deps.sh \
+           start_shared_worker.sh install_system_deps.sh system_tools.list goliath_align_local.sh check_goliath_align_host.sh download_goliath_align_artifacts.sh bundle_system_deps.sh \
            check_system_deps_bundle.sh \
            bundle_sdist_wheels.py check_offline_wheels.sh \
            install_methyl_extractor_tarball.sh methyl_extractor_local.sh worker_venv_local.sh \

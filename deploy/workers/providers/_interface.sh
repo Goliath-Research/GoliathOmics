@@ -13,6 +13,8 @@
 #   CW_TMP            private (0700) scratch directory, removed on exit
 #   WORKER_NAME       worker name (set before provider_build_request)
 #   OPT_TEMPLATE      --template value (or the provider default)
+#   OPT_IMAGE         --image value (optional container image override)
+#   OPT_REGISTRY_AUTH --registry-auth value (optional private registry credential id)
 #   OPT_STORAGE       --volume value (or the provider default)
 #   MOUNT_PATH        shared-storage mount path (normally /work)
 #   OPT_GPU           --gpu value (or the provider default)

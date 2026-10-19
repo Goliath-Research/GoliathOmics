@@ -39,6 +39,8 @@ grep -qE '^setfacl[[:space:]]+acl[[:space:]]' "$MANIFEST" || fail "setfacl must 
 # Tools that are deliberately not host packages, with the reason.
 EXEMPT=(
   docker        # container runtime, provided by the image/provider when GPU tools need it
+  methylGrapher # GoliathAlign CLI: staged on /work or baked in methylgrapher image (not apt)
+  pbrun         # Clara Parabricks CLI: baked in goliath-worker / NGC image (not apt)
   nvidia-smi    # NVIDIA driver, provided by the GPU host
   rocm-smi rocminfo  # AMD driver tools, provided by the host
   MethylExtractor    # release artifact installed by install_local_extractor

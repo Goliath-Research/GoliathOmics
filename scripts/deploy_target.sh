@@ -535,6 +535,119 @@ run_schema() {
     return 1
   fi
   report_component succeeded goliath-db-schema "schema ${TARGET}"
+  # DomainPrograms + cfg.analyte after schema/test-bed (once per release).
+  run_catalog_sync || return 1
+}
+
+# Once-per-release SamplePrep DomainProgram + cfg.analyte / process-pack row sync.
+# Gated by wf.catalog_sync_release (same release id as wf.schema_release). The
+# GitHub runner has no /work: deploy_workflow_definitions.sh writes
+# workflow_versions.json under RUNNER_TEMP/goliath-env (uploaded as an artifact).
+# Workers resolve workflow_version_id from the DB (program_path /
+# get_workflow_definition_by_name); the JSON is optional for canary/smoke.
+run_catalog_sync() {
+  local release_id already
+  if [[ "$db_kind" == "mssql" ]]; then
+    info "catalog sync: database.kind=mssql; skipping PostgreSQL catalog sync"
+    return 0
+  fi
+  if [[ -z "${GOLIATH_RELEASE_SRC:-}" || ! -f "${GOLIATH_RELEASE_SRC}/manifest.json" ]]; then
+    info "catalog sync: GOLIATH_RELEASE_SRC unset; skipping DomainProgram / analyte sync"
+    return 0
+  fi
+  release_id="$(jq -r '.version // empty' "${GOLIATH_RELEASE_SRC}/manifest.json")"
+  [[ -n "$release_id" ]] || die "catalog sync: release manifest has no version"
+  load_db_password
+  export_schema_pg_env
+  already="$(psql -qAt -v ON_ERROR_STOP=1 -c \
+    "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='wf' AND table_name='catalog_sync_release');")"
+  if [[ "$already" == "t" ]]; then
+    already="$(psql -qAt -v ON_ERROR_STOP=1 -c \
+      "SELECT EXISTS (SELECT 1 FROM wf.catalog_sync_release WHERE release='${release_id}');")"
+    if [[ "$already" == "t" && "${FORCE_SCHEMA:-0}" != "1" && "${GOLIATH_FORCE_CATALOG_SYNC:-0}" != "1" ]]; then
+      info "catalog sync: release ${release_id} already recorded; skip (set GOLIATH_FORCE_CATALOG_SYNC=1 or --force-schema)"
+      return 0
+    fi
+  fi
+  # Catalog sync needs GoliathApp cfg.* (cfg_schema + registry). Synthetic
+  # test releases that only ship a ledger stub have no cfg schema — skip.
+  if ! psql -qAt -v ON_ERROR_STOP=1 -c \
+    "SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name='cfg');" \
+    | grep -qx t; then
+    info "catalog sync: cfg schema absent (incomplete GoliathApp SQL in this release); skip"
+    return 0
+  fi
+  report_component start goliath-db-catalog "catalog sync ${TARGET} ${release_id}"
+  info "catalog sync: analyte DDL + DomainPrograms + cfg rows for ${release_id}"
+  # Ensure Omics analyte DDL (and optional GoliathApp process-pack re-apply)
+  if ! bash "$REPO_ROOT/scripts/deploy_process_pack_catalog.sh" --backend postgres; then
+    report_component failed goliath-db-catalog "deploy_process_pack_catalog DDL failed"
+    return 1
+  fi
+  # DomainPrograms (SamplePrepPipeline, …). Keep instances on replace.
+  export GOLIATH_ENV_DIR="${GOLIATH_ENV_DIR:-${RUNNER_TEMP:-${TMPDIR:-/tmp}}/goliath-env}"
+  export GOLIATH_DEPLOY_KEEP_INSTANCES="${GOLIATH_DEPLOY_KEEP_INSTANCES:-1}"
+  export BACKEND_DB=postgres
+  export POSTGRES_HOST="${PGHOST}"
+  export POSTGRES_PORT="${PGPORT:-5432}"
+  export POSTGRES_DB="${PGDATABASE}"
+  export POSTGRES_USER="${PGUSER}"
+  export POSTGRES_PASSWORD="${PGPASSWORD}"
+  # rest package lives in the methyl-gateway wheel from the release bundle
+  if [[ -z "${PYTHONPATH:-}" || "${PYTHONPATH}" != *workflow_engine* ]]; then
+    export PYTHONPATH="${REPO_ROOT}/workflow_engine${PYTHONPATH:+:$PYTHONPATH}"
+  fi
+  local wheel_meta wheel=""
+  if wheel_meta="$(bash "$REPO_ROOT/scripts/install_gateway_venv.sh" --find-wheel "$GOLIATH_RELEASE_SRC" 2>/dev/null)"; then
+    wheel="$(printf '%s\n' "$wheel_meta" | awk -F= '/^path=/{print substr($0,6); exit}')"
+  fi
+  local py=python3
+  if [[ -n "$wheel" && -f "$wheel" ]]; then
+    local venv="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/goliath-catalog-venv"
+    if [[ ! -x "$venv/bin/python" ]]; then
+      python3 -m venv "$venv"
+      "$venv/bin/pip" -q install --upgrade pip
+      "$venv/bin/pip" -q install "$wheel" "psycopg[binary]"
+    fi
+    py="$venv/bin/python"
+    local sp
+    sp="$(find "$venv/lib" -maxdepth 2 -type d -name site-packages | head -n1)"
+    export PYTHONPATH="${REPO_ROOT}/workflow_engine${sp:+:$sp}${PYTHONPATH:+:$PYTHONPATH}"
+  else
+    warn "catalog sync: no methyl-gateway wheel under GOLIATH_RELEASE_SRC; deploy_workflow_definitions may fail without rest"
+    python3 -m pip -q install "psycopg[binary]" >/dev/null 2>&1 || true
+  fi
+  if ! PYTHON_BIN="$py" bash "$REPO_ROOT/scripts/deploy_workflow_definitions.sh" --keep-instances; then
+    report_component failed goliath-db-catalog "deploy_workflow_definitions failed"
+    return 1
+  fi
+  if ! (
+    cd "$REPO_ROOT"
+    PYTHONPATH="${REPO_ROOT}/workflow_engine${PYTHONPATH:+:$PYTHONPATH}" \
+      "$py" "$REPO_ROOT/scripts/sync_cfg_profiles_and_action_catalog.py" \
+        --backend postgres --skip-seed
+  ); then
+    report_component failed goliath-db-catalog "sync_cfg_profiles_and_action_catalog failed"
+    return 1
+  fi
+  psql -q -v ON_ERROR_STOP=1 <<SQL
+CREATE TABLE IF NOT EXISTS wf.catalog_sync_release (
+  release text PRIMARY KEY,
+  applied_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  applied_by text NOT NULL DEFAULT current_user,
+  apply_count integer NOT NULL DEFAULT 1
+);
+COMMENT ON TABLE wf.catalog_sync_release IS
+  'GoliathOmics releases whose SamplePrep DomainPrograms + cfg.analyte sync ran (scripts/deploy_target.sh).';
+INSERT INTO wf.catalog_sync_release (release)
+VALUES ('${release_id}')
+ON CONFLICT (release) DO UPDATE SET
+  applied_at_utc = EXCLUDED.applied_at_utc,
+  applied_by = EXCLUDED.applied_by,
+  apply_count = wf.catalog_sync_release.apply_count + 1;
+SQL
+  info "catalog sync: recorded release ${release_id}; versions at ${GOLIATH_ENV_DIR}/workflow_versions.json"
+  report_component succeeded goliath-db-catalog "catalog sync ${TARGET} ${release_id}"
 }
 
 # --component runtime alone also stages a release. Upgrade the database first

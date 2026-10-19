@@ -13,7 +13,7 @@
 # goliath/methylgrapher:1.70. In-image: METHYLGRAPHER_MCALL_ENGINE=python
 # (methylGrapher.mojo.sh skips Mojo and runs engine.cli).
 
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
