@@ -147,22 +147,50 @@ from rest.db_client import create_workflow_definition, delete_workflow_definitio
 config = resolve_connection_config()
 db = open_gateway_db(config)
 results = {}
+# Methyl SamplePrep trio is required for catalog_sync_release. RNA/proteomics
+# packs are compiled when fixtures exist but may reference actions not yet
+# seeded in wf.workflow_action — soft-fail those unless forced.
+_REQUIRED_STEMS = {
+    "sample_prep_compiled",
+    "sample_prep_remediate_compiled",
+    "study_validation_lifecycle_compiled",
+}
+import os as _os
+_force_optional = _os.environ.get("GOLIATH_DEPLOY_OPTIONAL_PACKS", "").lower() in (
+    "1", "true", "yes",
+)
 try:
-    for path in sorted(out_dir.glob("*_compiled.json")):
+    paths = sorted(out_dir.glob("*_compiled.json"))
+    required = [p for p in paths if p.stem in _REQUIRED_STEMS]
+    optional = [p for p in paths if p.stem not in _REQUIRED_STEMS]
+    for path in required + optional:
         spec = json.loads(path.read_text(encoding="utf-8"))
         name = spec.get("name") or path.stem
         delete_instances = False
-        import os as _os
         if _os.environ.get("GOLIATH_DEPLOY_KEEP_INSTANCES", "1") in ("0", "false", "False"):
             delete_instances = True
-        result = deploy_workflow_definition(
-            db,
-            {"spec": spec, "replace": True, "delete_instances": delete_instances},
-            create_workflow_definition=create_workflow_definition,
-            delete_workflow_definition=delete_workflow_definition,
-        )
+        optional_pack = path.stem not in _REQUIRED_STEMS
+        try:
+            result = deploy_workflow_definition(
+                db,
+                {"spec": spec, "replace": True, "delete_instances": delete_instances},
+                create_workflow_definition=create_workflow_definition,
+                delete_workflow_definition=delete_workflow_definition,
+            )
+        except Exception as exc:
+            if optional_pack and not _force_optional:
+                print(
+                    f"WARN: optional pack {name} ({path.name}) skipped: {exc}",
+                    file=sys.stderr,
+                )
+                results[name] = {"skipped": True, "error": str(exc)}
+                continue
+            raise
         results[name] = result
         print(f"deployed {name}: workflow_version_id={result.get('workflow_version_id')}")
+    missing = _REQUIRED_STEMS - {p.stem for p in required}
+    if missing:
+        raise SystemExit(f"required compiled specs missing: {sorted(missing)}")
 finally:
     db.close()
 
