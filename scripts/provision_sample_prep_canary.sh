@@ -5,7 +5,7 @@
 # Canonical local + QNAP location (same relative tree as graph assets):
 #
 #   /work/genomes/pangenome/canary/gse261315/SRR28293403/{full,subset}/
-#   s3://goliath/genomes/pangenome/canary/gse261315/SRR28293403/{full,subset}/
+#   s3://goliath-omics/genomes/pangenome/canary/gse261315/SRR28293403/{full,subset}/
 #
 # Downloads the public SRA run once, materializes a deterministic paired-read
 # subset, checksums both tiers, and stages under that pangenome tree. Mirror to
@@ -31,7 +31,7 @@ Options:
 Canonical layout (pangenome project provenance):
   /work/genomes/pangenome/canary/gse261315/SRR28293403/full/
   /work/genomes/pangenome/canary/gse261315/SRR28293403/subset/
-  s3://goliath/genomes/pangenome/canary/gse261315/SRR28293403/...
+  s3://goliath-omics/genomes/pangenome/canary/gse261315/SRR28293403/...
 
 Requires (for a full provision):
   - prefetch / fasterq-dump (SRA Toolkit) OR existing *_1.fastq.gz / *_2.fastq.gz
@@ -78,7 +78,7 @@ echo "  run=${RUN_ACC} geo=${GEO_SAMPLE} subset_pairs=${SUBSET_PAIRS}"
 echo "  work_dir=${WORK_DIR}"
 echo "  stage_root=${STAGE_ROOT}"
 echo "  local: ${STAGE_ROOT}/${FULL_PREFIX}/"
-echo "  qnap:  s3://goliath/genomes/pangenome/${FULL_PREFIX}/"
+echo "  qnap:  s3://goliath-omics/genomes/pangenome/${FULL_PREFIX}/"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   cat <<EOF
@@ -226,8 +226,38 @@ Path("${CHECKSUMS}").write_text(json.dumps(payload, indent=2) + "\n", encoding="
 print(json.dumps(payload, indent=2))
 PY
 
-cp -f "$REPO_ROOT/tests/real_data/sample_prep_canary/provenance.json" \
-  "$STAGE_ROOT/canary/gse261315/${RUN_ACC}/provenance.json"
+# Release runtime-bundles carry no tests/ tree; write provenance when the
+# repo fixture is absent instead of failing after everything is staged.
+PROVENANCE_SRC="$REPO_ROOT/tests/real_data/sample_prep_canary/provenance.json"
+PROVENANCE_DST="$STAGE_ROOT/canary/gse261315/${RUN_ACC}/provenance.json"
+if [[ -f "$PROVENANCE_SRC" ]]; then
+  cp -f "$PROVENANCE_SRC" "$PROVENANCE_DST"
+else
+  RUN_ACC="$RUN_ACC" GEO_ACC="$GEO_SAMPLE" SUBSET_PAIRS="$SUBSET_PAIRS" PROVENANCE_DST="$PROVENANCE_DST" \
+    python3 - <<'PY'
+import datetime, json, os
+from pathlib import Path
+run = os.environ["RUN_ACC"]
+digits = run[3:]
+# ENA layout: vol1/fastq/<first 6>/<00 + trailing digits beyond 6, zero-padded to 3>/<run>/
+ena_dir = f"{run[:6]}/" + (f"{digits[6:]:0>3}/" if len(digits) > 6 else "")
+doc = {
+    "run_accession": run,
+    "geo_accession": os.environ.get("GEO_ACC", ""),
+    "geo_series": "GSE261315",
+    "source": "NCBI SRA / ENA",
+    "ena_fastq": [
+        f"https://ftp.sra.ebi.ac.uk/vol1/fastq/{ena_dir}{run}/{run}_{r}.fastq.gz"
+        for r in (1, 2)
+    ],
+    "subset_pairs": int(os.environ["SUBSET_PAIRS"]),
+    "subset_rule": "first N read pairs (deterministic)",
+    "generated_by": "scripts/provision_sample_prep_canary.sh",
+    "generated_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+}
+Path(os.environ["PROVENANCE_DST"]).write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+PY
+fi
 
 echo "Staged under ${STAGE_ROOT}"
 echo "Next:"

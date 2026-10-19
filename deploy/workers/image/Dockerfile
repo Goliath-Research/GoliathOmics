@@ -41,6 +41,13 @@ RUN apt-get update \
  && ssh-keygen -A \
  && rm -rf /var/lib/apt/lists/*
 
+# aws CLI for cfg provision-assets / sync_genomes_to_s3.sh (S3-compatible QNAP/B2).
+# Own venv so it never touches the worker venv's botocore pins.
+RUN python3.12 -m venv /opt/awscli \
+ && /opt/awscli/bin/pip install --no-cache-dir "awscli>=1.36,<2" \
+ && ln -sf /opt/awscli/bin/aws /usr/local/bin/aws \
+ && aws --version
+
 RUN command -v pbrun >/dev/null \
  && pbrun version >/tmp/pbrun-version.txt \
  && cat /tmp/pbrun-version.txt

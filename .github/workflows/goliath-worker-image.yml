@@ -13,7 +13,7 @@ on:
         description: Published image tag (also tagged as latest when on main)
         required: false
         type: string
-        default: "4.7.0-2"
+        default: "4.7.0-3"
       pushToRegistry:
         description: docker push to GHCR after build
         required: false
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       IMAGE_REPO: ghcr.io/goliath-research/goliath-worker
-      IMAGE_TAG: ${{ inputs.imageTag || '4.7.0-2' }}
+      IMAGE_TAG: ${{ inputs.imageTag || '4.7.0-3' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -65,7 +65,7 @@ jobs:
           # Offline-ish tool presence (image already installed system_tools.list)
           docker run --rm --entrypoint bash "${IMAGE_REPO}:${IMAGE_TAG}" -lc '
             set -euo pipefail
-            for t in pbrun python3.12 samtools bedtools fastp pigz gzip setfacl curl tar sha256sum; do
+            for t in pbrun python3.12 samtools bedtools fastp pigz gzip setfacl curl tar sha256sum aws; do
               command -v "$t" >/dev/null || { echo "missing $t"; exit 1; }
             done
             echo "smoke ok"
