@@ -627,6 +627,17 @@ run_catalog_sync() {
     warn "catalog sync: no methyl-gateway wheel under GOLIATH_RELEASE_SRC; deploy_workflow_definitions may fail without rest"
     python3 -m pip -q install "psycopg[binary]" >/dev/null 2>&1 || true
   fi
+  # DomainProgram create resolves action_name against wf.workflow_action.
+  # Seed from schemas/actions/catalog.json before deploy_workflow_definitions
+  # (sync_cfg --skip-seed only upserts cfg.* rows).
+  info "catalog sync: seeding wf.workflow_action from schemas/actions/catalog.json"
+  if ! (
+    cd "$REPO_ROOT"
+    PYTHONPATH="${catalog_py_path}${PYTHONPATH:+:$PYTHONPATH}"       "$py" "$REPO_ROOT/workflow_engine/sql_mssql/seed_action_catalog.py" --use-db
+  ); then
+    report_component failed goliath-db-catalog "seed_action_catalog failed"
+    return 1
+  fi
   if ! PYTHON_BIN="$py" bash "$REPO_ROOT/scripts/deploy_workflow_definitions.sh" --keep-instances; then
     report_component failed goliath-db-catalog "deploy_workflow_definitions failed"
     return 1
