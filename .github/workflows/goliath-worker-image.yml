@@ -28,7 +28,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     env:
-      IMAGE_REPO: ghcr.io/${{ lower(github.repository_owner) }}/goliath-worker
+      IMAGE_REPO: ghcr.io/goliath-research/goliath-worker
       IMAGE_TAG: ${{ inputs.imageTag || '4.7.0-1' }}
     steps:
       - uses: actions/checkout@v6
@@ -94,7 +94,8 @@ jobs:
         run: |
           set -euo pipefail
           # Package may not exist until the first push; ignore 404.
-          owner="${{ lower(github.repository_owner) }}"
+          # GHCR package API paths require lowercase org/login.
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           pkg="goliath-worker"
           # org vs user package path
           if gh api "orgs/${owner}/packages/container/${pkg}" >/dev/null 2>&1; then
