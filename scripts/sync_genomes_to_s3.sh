@@ -32,31 +32,31 @@
 # Optional env overrides:
 #   GENOMES_SRC=/work/genomes
 #   S3_ENDPOINT_URL=https://s3.us-east-1.myqnapcloud.io
-#   S3_BUCKET=goliath
+#   S3_BUCKET=goliath-omics
 #   S3_PREFIX=genomes
 #   AWS_DEFAULT_REGION=us-east-1
 #   AWS_REQUEST_CHECKSUM_CALCULATION=when_required   # if QNAP rejects newer checksums
 #
 # Verify after sync:
-#   aws s3 ls s3://goliath/genomes/ --endpoint-url https://s3.us-east-1.myqnapcloud.io
-#   aws s3 ls s3://goliath/genomes/linear/GRCh38/ensembl-116/ \
+#   aws s3 ls s3://goliath-omics/genomes/ --endpoint-url https://s3.us-east-1.myqnapcloud.io
+#   aws s3 ls s3://goliath-omics/genomes/linear/GRCh38/ensembl-116/ \
 #     --endpoint-url https://s3.us-east-1.myqnapcloud.io
-#   aws s3 ls s3://goliath/genomes/annotation/gencode/v50/ \
+#   aws s3 ls s3://goliath-omics/genomes/annotation/gencode/v50/ \
 #     --endpoint-url https://s3.us-east-1.myqnapcloud.io
-#   aws s3 ls s3://goliath/genomes/rna/GRCh38/ \
+#   aws s3 ls s3://goliath-omics/genomes/rna/GRCh38/ \
 #     --endpoint-url https://s3.us-east-1.myqnapcloud.io
-#   aws s3 ls s3://goliath/genomes/pangenome/GRCh38/d9/1.70/ \
+#   aws s3 ls s3://goliath-omics/genomes/pangenome/GRCh38/d9/1.70/ \
 #     --endpoint-url https://s3.us-east-1.myqnapcloud.io
-#   aws s3 ls s3://goliath/genomes/pangenome/GRCh38/d9-bs/1.70/ \
+#   aws s3 ls s3://goliath-omics/genomes/pangenome/GRCh38/d9-bs/1.70/ \
 #     --endpoint-url https://s3.us-east-1.myqnapcloud.io
-#   aws s3 ls s3://goliath/genomes/pangenome/canary/gse261315/SRR28293403/ \
+#   aws s3 ls s3://goliath-omics/genomes/pangenome/canary/gse261315/SRR28293403/ \
 #     --endpoint-url https://s3.us-east-1.myqnapcloud.io
 
 set -euo pipefail
 
 GENOMES_SRC="${GENOMES_SRC:-/work/genomes}"
 S3_ENDPOINT_URL="${S3_ENDPOINT_URL:-https://s3.us-east-1.myqnapcloud.io}"
-S3_BUCKET="${S3_BUCKET:-goliath}"
+S3_BUCKET="${S3_BUCKET:-goliath-omics}"
 S3_PREFIX="${S3_PREFIX:-genomes}"
 AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 export AWS_DEFAULT_REGION
