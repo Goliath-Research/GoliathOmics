@@ -75,6 +75,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 info() { echo "[INFO] $*"; }
+warn() { echo "[WARN] $*" >&2; }
 die() { echo "[ERROR] $*" >&2; exit 1; }
 
 [[ -n "$TARGET" ]] || die "--target is required"
@@ -593,13 +594,22 @@ run_catalog_sync() {
   export POSTGRES_DB="${PGDATABASE}"
   export POSTGRES_USER="${PGUSER}"
   export POSTGRES_PASSWORD="${PGPASSWORD}"
-  # rest package lives in the methyl-gateway wheel from the release bundle
+  # DomainProgram compile needs methyldomain + workers + contract; rest comes from the gateway wheel.
+  local catalog_py_path="${REPO_ROOT}/workflow_engine:${REPO_ROOT}/workflow_engine/domain:${REPO_ROOT}/workflow_engine/contract:${REPO_ROOT}/packages/methyldomain:${REPO_ROOT}/workers"
   if [[ -z "${PYTHONPATH:-}" || "${PYTHONPATH}" != *workflow_engine* ]]; then
-    export PYTHONPATH="${REPO_ROOT}/workflow_engine${PYTHONPATH:+:$PYTHONPATH}"
+    export PYTHONPATH="${catalog_py_path}${PYTHONPATH:+:$PYTHONPATH}"
+  else
+    export PYTHONPATH="${catalog_py_path}:${PYTHONPATH}"
   fi
   local wheel_meta wheel=""
   if wheel_meta="$(bash "$REPO_ROOT/scripts/install_gateway_venv.sh" --find-wheel "$GOLIATH_RELEASE_SRC" 2>/dev/null)"; then
-    wheel="$(printf '%s\n' "$wheel_meta" | awk -F= '/^path=/{print substr($0,6); exit}')"
+    # install_gateway_venv --find-wheel prints WHEEL=... (not path=)
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      case "$line" in
+        WHEEL=*) wheel="${line#WHEEL=}" ;;
+        path=*) wheel="${line#path=}" ;;
+      esac
+    done <<< "$wheel_meta"
   fi
   local py=python3
   if [[ -n "$wheel" && -f "$wheel" ]]; then
@@ -612,7 +622,7 @@ run_catalog_sync() {
     py="$venv/bin/python"
     local sp
     sp="$(find "$venv/lib" -maxdepth 2 -type d -name site-packages | head -n1)"
-    export PYTHONPATH="${REPO_ROOT}/workflow_engine${sp:+:$sp}${PYTHONPATH:+:$PYTHONPATH}"
+    export PYTHONPATH="${catalog_py_path}${sp:+:$sp}${PYTHONPATH:+:$PYTHONPATH}"
   else
     warn "catalog sync: no methyl-gateway wheel under GOLIATH_RELEASE_SRC; deploy_workflow_definitions may fail without rest"
     python3 -m pip -q install "psycopg[binary]" >/dev/null 2>&1 || true
@@ -623,7 +633,7 @@ run_catalog_sync() {
   fi
   if ! (
     cd "$REPO_ROOT"
-    PYTHONPATH="${REPO_ROOT}/workflow_engine${PYTHONPATH:+:$PYTHONPATH}" \
+    PYTHONPATH="${catalog_py_path}${PYTHONPATH:+:$PYTHONPATH}" \
       "$py" "$REPO_ROOT/scripts/sync_cfg_profiles_and_action_catalog.py" \
         --backend postgres --skip-seed
   ); then
