@@ -32,7 +32,16 @@ def deploy_workflow_definition(
         raise ValueError("workflow spec missing name")
 
     if replace:
-        delete_workflow_definition(db, name, bool(body.get("delete_instances", True)))
+        # sp_delete_workflow_def RAISES when the name is absent; first-time
+        # catalog sync must still create. Treat not-found as a no-op.
+        try:
+            delete_workflow_definition(
+                db, name, bool(body.get("delete_instances", True))
+            )
+        except Exception as exc:  # noqa: BLE001 — gateway raises DatabaseError/KeyError
+            msg = str(exc).lower()
+            if "not found" not in msg and "does not exist" not in msg:
+                raise
 
     return create_workflow_definition(db, spec)
 
