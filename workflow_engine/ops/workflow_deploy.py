@@ -34,13 +34,20 @@ def deploy_workflow_definition(
     if replace:
         # sp_delete_workflow_def RAISES when the name is absent; first-time
         # catalog sync must still create. Treat not-found as a no-op.
+        # With delete_instances=false some gateway builds leave workflow_edge
+        # rows and fail FK when deleting workflow_version — retry with True.
+        delete_instances = bool(body.get("delete_instances", True))
         try:
-            delete_workflow_definition(
-                db, name, bool(body.get("delete_instances", True))
-            )
+            delete_workflow_definition(db, name, delete_instances)
         except Exception as exc:  # noqa: BLE001 — gateway raises DatabaseError/KeyError
             msg = str(exc).lower()
-            if "not found" not in msg and "does not exist" not in msg:
+            if "not found" in msg or "does not exist" in msg:
+                pass
+            elif (not delete_instances) and (
+                "foreign key" in msg or "workflow_edge" in msg
+            ):
+                delete_workflow_definition(db, name, True)
+            else:
                 raise
 
     return create_workflow_definition(db, spec)
