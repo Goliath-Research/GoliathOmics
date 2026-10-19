@@ -41,9 +41,6 @@ WF_ENGINE = REPO_ROOT / "workflow_engine"
 sys.path.insert(0, str(REPO_ROOT / "workers"))
 sys.path.insert(0, str(WF_ENGINE))
 
-from methyl_worker.action_catalog_export import export_action_catalog  # noqa: E402
-from methyl_worker.task_schema_registry import list_task_schema_specs  # noqa: E402
-
 
 def pg_dsn() -> str:
     import os
@@ -223,6 +220,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.regenerate_catalog:
+        from methyl_worker.action_catalog_export import export_action_catalog
+
         export_action_catalog(write=True)
 
     if args.dsn:
