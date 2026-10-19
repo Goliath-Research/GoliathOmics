@@ -1,0 +1,109 @@
+name: goliath-worker image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - deploy/workers/image/**
+      - .github/workflows/goliath-worker-image.yml
+      - scripts/platform_matrix.env
+  workflow_dispatch:
+    inputs:
+      imageTag:
+        description: Published image tag (also tagged as latest when on main)
+        required: false
+        type: string
+        default: "4.7.0-1"
+      pushToRegistry:
+        description: docker push to GHCR after build
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/goliath-worker
+      IMAGE_TAG: ${{ inputs.imageTag || '4.7.0-1' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Free disk
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          df -h
+
+      - name: Login to NGC (Clara base)
+        env:
+          NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${NGC_API_KEY:-}" ]]; then
+            echo "ERROR: NGC_API_KEY secret is required to pull nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1" >&2
+            exit 1
+          fi
+          echo "$NGC_API_KEY" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+      - name: Build image
+        run: |
+          set -euo pipefail
+          docker build \
+            -t "${IMAGE_REPO}:${IMAGE_TAG}" \
+            -f deploy/workers/image/Dockerfile \
+            deploy/workers/image
+
+      - name: Smoke (pbrun + python3.12 + system tools)
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint /start.sh "${IMAGE_REPO}:${IMAGE_TAG}" --version-check
+          # Offline-ish tool presence (image already installed system_tools.list)
+          docker run --rm --entrypoint bash "${IMAGE_REPO}:${IMAGE_TAG}" -lc '
+            set -euo pipefail
+            for t in pbrun python3.12 samtools bedtools fastp pigz gzip setfacl curl tar sha256sum; do
+              command -v "$t" >/dev/null || { echo "missing $t"; exit 1; }
+            done
+            echo "smoke ok"
+          '
+
+      - name: Login to GHCR
+        if: ${{ github.event_name == 'push' || inputs.pushToRegistry }}
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Push
+        if: ${{ github.event_name == 'push' || inputs.pushToRegistry }}
+        run: |
+          set -euo pipefail
+          docker push "${IMAGE_REPO}:${IMAGE_TAG}"
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            docker tag "${IMAGE_REPO}:${IMAGE_TAG}" "${IMAGE_REPO}:latest"
+            docker push "${IMAGE_REPO}:latest"
+          fi
+
+      - name: Make GHCR package private (Parabricks EULA)
+        if: ${{ github.event_name == 'push' || inputs.pushToRegistry }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Package may not exist until the first push; ignore 404.
+          owner="${{ github.repository_owner }}"
+          pkg="goliath-worker"
+          # org vs user package path
+          if gh api "orgs/${owner}/packages/container/${pkg}" >/dev/null 2>&1; then
+            gh api --method PATCH "orgs/${owner}/packages/container/${pkg}" -f visibility=private \
+              || echo "::warning::could not set package visibility private (check org package permissions)"
+          elif gh api "users/${owner}/packages/container/${pkg}" >/dev/null 2>&1; then
+            gh api --method PATCH "users/${owner}/packages/container/${pkg}" -f visibility=private \
+              || echo "::warning::could not set package visibility private"
+          else
+            echo "::warning::GHCR package ${pkg} not visible yet; set visibility=private in GitHub Packages UI"
+          fi
+

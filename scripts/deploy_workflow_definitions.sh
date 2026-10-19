@@ -11,6 +11,8 @@ Options:
   --output-dir PATH    Write compiled specs (default: /work/goliath/env/compiled)
   --versions-out PATH  workflow_version_id map (default: /work/goliath/env/workflow_versions.json)
   --dry-run            Compile only; do not deploy
+  --keep-instances     On replace, do not delete running instances (default)
+  --delete-instances   On replace, delete instances (destructive)
   -h, --help           Show this help
 
 Requires BACKEND_DB + AZURE_SQL_* or POSTGRES_* (see deploy/env/gateway.*.env.example).
@@ -22,9 +24,21 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
 
-OUTPUT_DIR="${GOLIATH_ENV_DIR:-/work/goliath/env}/compiled"
-VERSIONS_OUT="${GOLIATH_ENV_DIR:-/work/goliath/env}/workflow_versions.json"
+# On a GitHub runner there is no /work. Prefer GOLIATH_ENV_DIR, else a writable
+# temp dir. Workers resolve SamplePrepPipeline from the DB (program_path /
+# get_workflow_definition_by_name); the JSON is for canary/smoke convenience and
+# is uploaded as a release-deploy artifact when produced on the runner.
+if [[ -n "${GOLIATH_ENV_DIR:-}" ]]; then
+  _goliath_env="$GOLIATH_ENV_DIR"
+elif [[ -d /work/goliath ]]; then
+  _goliath_env="/work/goliath/env"
+else
+  _goliath_env="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/goliath-env"
+fi
+OUTPUT_DIR="${_goliath_env}/compiled"
+VERSIONS_OUT="${_goliath_env}/workflow_versions.json"
 DRY_RUN=0
+KEEP_INSTANCES="${GOLIATH_DEPLOY_KEEP_INSTANCES:-1}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,6 +46,8 @@ while [[ $# -gt 0 ]]; do
     --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
     --versions-out) VERSIONS_OUT="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --keep-instances) KEEP_INSTANCES=1; shift ;;
+    --delete-instances) KEEP_INSTANCES=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
@@ -112,6 +128,7 @@ fi
 
 rollouts_begin workflow-definitions "workflow definitions ($(hostname -s 2>/dev/null || hostname))"
 
+export GOLIATH_DEPLOY_KEEP_INSTANCES="$KEEP_INSTANCES"
 "$PYTHON_BIN" - "$REPO_ROOT" "$OUTPUT_DIR" "$VERSIONS_OUT" <<'PY'
 import json
 import sys
@@ -134,9 +151,13 @@ try:
     for path in sorted(out_dir.glob("*_compiled.json")):
         spec = json.loads(path.read_text(encoding="utf-8"))
         name = spec.get("name") or path.stem
+        delete_instances = False
+        import os as _os
+        if _os.environ.get("GOLIATH_DEPLOY_KEEP_INSTANCES", "1") in ("0", "false", "False"):
+            delete_instances = True
         result = deploy_workflow_definition(
             db,
-            {"spec": spec, "replace": True, "delete_instances": True},
+            {"spec": spec, "replace": True, "delete_instances": delete_instances},
             create_workflow_definition=create_workflow_definition,
             delete_workflow_definition=delete_workflow_definition,
         )

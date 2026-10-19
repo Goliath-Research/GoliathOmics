@@ -4,9 +4,16 @@
   "title": "GoliathOmics deploy target",
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "rollouts_environment", "database"],
+  "required": [
+    "name",
+    "rollouts_environment",
+    "database"
+  ],
   "properties": {
-    "name": {"type": "string", "minLength": 1},
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
     "rollouts_environment": {
       "type": "string",
       "minLength": 1,
@@ -16,12 +23,24 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "install_root": {"type": "string"},
-        "env_file": {"type": "string"},
-        "user": {"type": "string"},
-        "bind_host": {"type": "string"},
-        "port": {"type": "integer"},
-        "public_base_url": {"type": "string"},
+        "install_root": {
+          "type": "string"
+        },
+        "env_file": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        },
+        "bind_host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "public_base_url": {
+          "type": "string"
+        },
         "tls": {
           "type": "object",
           "additionalProperties": false,
@@ -29,7 +48,10 @@
           "properties": {
             "mode": {
               "type": "string",
-              "enum": ["self-signed", "letsencrypt"]
+              "enum": [
+                "self-signed",
+                "letsencrypt"
+              ]
             },
             "san_ip": {
               "type": "string",
@@ -47,35 +69,63 @@
         },
         "hosts": {
           "type": "array",
-          "items": {"$ref": "#/definitions/sshHost"}
+          "items": {
+            "$ref": "#/definitions/sshHost"
+          }
         }
       }
     },
     "workers": {
       "type": "array",
-      "items": {"$ref": "#/definitions/worker"}
+      "items": {
+        "$ref": "#/definitions/worker"
+      }
     },
     "runtime": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "root": {"type": "string"},
-        "release_dir": {"type": "string"},
-        "pull_parabricks": {"type": "boolean"},
+        "root": {
+          "type": "string"
+        },
+        "release_dir": {
+          "type": "string"
+        },
+        "pull_parabricks": {
+          "type": "boolean"
+        },
         "hosts": {
           "type": "array",
-          "items": {"$ref": "#/definitions/sshHost"}
+          "items": {
+            "$ref": "#/definitions/sshHost"
+          }
         }
       }
     },
     "database": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["host", "dbname", "user"],
+      "required": [
+        "host",
+        "dbname",
+        "user"
+      ],
       "properties": {
-        "kind": {"type": "string", "enum": ["postgres", "neon", "mssql"]},
-        "project": {"type": "string", "description": "Neon project id or name. Not a secret."},
-        "branch": {"type": "string"},
+        "kind": {
+          "type": "string",
+          "enum": [
+            "postgres",
+            "neon",
+            "mssql"
+          ]
+        },
+        "project": {
+          "type": "string",
+          "description": "Neon project id or name. Not a secret."
+        },
+        "branch": {
+          "type": "string"
+        },
         "host": {
           "type": "string",
           "description": "Pooled host for the running gateway. Neon pooler hostnames end in -pooler."
@@ -84,27 +134,50 @@
           "type": "string",
           "description": "Non-pooled host used for schema apply. DDL and session settings go here when the pooled host is a transaction pooler."
         },
-        "port": {"type": "integer"},
-        "dbname": {"type": "string"},
-        "user": {"type": "string"},
-        "password": {"$ref": "#/definitions/secretRef"},
-        "sslmode": {"type": "string"},
+        "port": {
+          "type": "integer"
+        },
+        "dbname": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        },
+        "password": {
+          "$ref": "#/definitions/secretRef"
+        },
+        "sslmode": {
+          "type": "string"
+        },
         "channel_binding": {
           "type": "string",
           "description": "libpq channel_binding (PGCHANNELBINDING). Neon test uses require."
         }
       }
     },
-    "shared_storage": {"$ref": "#/definitions/objectStore"},
-    "long_term_storage": {"$ref": "#/definitions/objectStore"},
+    "shared_storage": {
+      "$ref": "#/definitions/objectStore"
+    },
+    "long_term_storage": {
+      "$ref": "#/definitions/objectStore"
+    },
     "schema": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "apply": {"type": "string", "enum": ["test-bed", "none"]},
+        "apply": {
+          "type": "string",
+          "enum": [
+            "test-bed",
+            "none"
+          ]
+        },
         "goliathapp": {
           "type": "string",
-          "enum": ["per-release", "none"],
+          "enum": [
+            "per-release",
+            "none"
+          ],
           "default": "per-release",
           "description": "per-release: apply the release's GoliathApp sql_pg scripts (goliathapp-sql/) on the first deploy of each release, recorded in wf.schema_release. none: never apply them."
         }
@@ -120,18 +193,31 @@
     "sshHost": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "ssh"],
+      "required": [
+        "name",
+        "ssh"
+      ],
       "properties": {
-        "name": {"type": "string"},
-        "ssh": {"type": "string", "description": "user@host passed to ssh. Not a secret."},
-        "port": {"type": "integer"},
+        "name": {
+          "type": "string"
+        },
+        "ssh": {
+          "type": "string",
+          "description": "user@host passed to ssh. Not a secret."
+        },
+        "port": {
+          "type": "integer"
+        },
         "identity_file": {
           "type": "string",
           "description": "Path to a private key, or secret:NAME whose value is that key. The key is not stored in this file."
         },
         "arch": {
           "type": "string",
-          "enum": ["aarch64", "amd64"],
+          "enum": [
+            "aarch64",
+            "amd64"
+          ],
           "description": "CPU arch for this host. Runtime promote uses it when set on runtime.hosts; otherwise a matching worker ssh is used, then the host is detected."
         }
       }
@@ -140,70 +226,146 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "name": {"type": "string", "minLength": 1},
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
         "self_provision": {
           "type": "boolean",
           "description": "When true, the worker joins itself (for example a RunPod pool). deploy_target.sh does not SSH to it."
         },
         "provider": {
           "type": "string",
-          "enum": ["runpod", "ssh"]
+          "enum": [
+            "runpod",
+            "ssh"
+          ]
         },
-        "ssh": {"type": "string"},
-        "port": {"type": "integer"},
+        "ssh": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
         "identity_file": {
           "type": "string",
           "description": "Path to a private key, or secret:NAME whose value is that key. The key is not stored in this file."
         },
-        "arch": {"type": "string", "enum": ["aarch64", "amd64"]},
-        "capability": {"type": "string"},
+        "arch": {
+          "type": "string",
+          "enum": [
+            "aarch64",
+            "amd64"
+          ]
+        },
+        "capability": {
+          "type": "string"
+        },
         "gpu": {
           "description": "true when an SSH worker has a GPU, or a GPU spec for a self-provisioned pool.",
           "oneOf": [
-            {"type": "boolean"},
+            {
+              "type": "boolean"
+            },
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["model"],
+              "required": [
+                "model"
+              ],
               "properties": {
-                "model": {"type": "string", "minLength": 1},
-                "count": {"type": "integer", "minimum": 1},
-                "memory_gb": {"type": "integer", "minimum": 1}
+                "model": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "memory_gb": {
+                  "type": "integer",
+                  "minimum": 1
+                }
               }
             }
           ]
         },
-        "vcpu": {"type": "integer", "minimum": 1},
+        "vcpu": {
+          "type": "integer",
+          "minimum": 1
+        },
         "memory_gb": {
           "type": "integer",
           "minimum": 1,
           "description": "Node RAM in GiB. GPU memory lives on gpu.memory_gb."
         },
-        "volume_mount": {"type": "string"},
-        "template": {"type": "string"},
-        "image": {"type": "string"},
-        "install_root": {"type": "string"}
+        "volume_mount": {
+          "type": "string"
+        },
+        "template": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        },
+        "install_root": {
+          "type": "string"
+        },
+        "os": {
+          "type": "string",
+          "description": "Worker OS for offline system-deps bundles (e.g. ubuntu-22.04). Overrides image-based derivation in derive_system_deps_targets.py.",
+          "pattern": "^ubuntu-[0-9]+\\.[0-9]+$"
+        },
+        "registry_auth": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Provider registry credential id for a private worker image (RunPod: container registry credential id). Not a secret value \u2014 the secret lives in the provider console."
+        }
       },
       "if": {
-        "properties": {"self_provision": {"const": true}},
-        "required": ["self_provision"]
+        "properties": {
+          "self_provision": {
+            "const": true
+          }
+        },
+        "required": [
+          "self_provision"
+        ]
       },
       "then": {
-        "required": ["name", "arch", "provider"],
+        "required": [
+          "name",
+          "arch",
+          "provider"
+        ],
         "allOf": [
           {
             "if": {
-              "properties": {"provider": {"const": "runpod"}},
-              "required": ["provider"]
+              "properties": {
+                "provider": {
+                  "const": "runpod"
+                }
+              },
+              "required": [
+                "provider"
+              ]
             },
             "then": {
-              "required": ["template", "image", "volume_mount"]
+              "required": [
+                "template",
+                "image",
+                "volume_mount"
+              ]
             }
           }
         ]
       },
       "else": {
-        "required": ["name", "ssh", "arch"]
+        "required": [
+          "name",
+          "ssh",
+          "arch"
+        ]
       }
     },
     "objectStore": {
@@ -212,20 +374,48 @@
       "properties": {
         "provider": {
           "type": "string",
-          "enum": ["b2", "s3", "runpod", "qnap", "myqnapcloud", "none"]
+          "enum": [
+            "b2",
+            "s3",
+            "runpod",
+            "qnap",
+            "myqnapcloud",
+            "none"
+          ]
         },
-        "bucket": {"type": "string"},
-        "endpoint": {"type": "string"},
-        "region": {"type": "string"},
-        "host": {"type": "string"},
-        "share": {"type": "string"},
+        "bucket": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "share": {
+          "type": "string"
+        },
         "roles": {
           "type": "array",
-          "items": {"type": "string", "enum": ["hot", "cold", "shared"]},
+          "items": {
+            "type": "string",
+            "enum": [
+              "hot",
+              "cold",
+              "shared"
+            ]
+          },
           "description": "Which tiers this endpoint serves. myQNAPCloud on goliath-test serves both hot and cold."
         },
-        "access_key_id": {"$ref": "#/definitions/secretRef"},
-        "secret_access_key": {"$ref": "#/definitions/secretRef"}
+        "access_key_id": {
+          "$ref": "#/definitions/secretRef"
+        },
+        "secret_access_key": {
+          "$ref": "#/definitions/secretRef"
+        }
       }
     }
   }

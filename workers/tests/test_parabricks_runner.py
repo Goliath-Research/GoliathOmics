@@ -654,3 +654,122 @@ def test_resolve_parabricks_from_project_action_config(tmp_path: Path) -> None:
     )
     assert cfg.image == "custom/parabricks:1.0"
     assert cfg.bwa_threads == 4
+
+
+def test_use_host_pbrun_auto_when_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("METHYL_PARABRICKS_MODE", raising=False)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
+    assert runner.use_host_pbrun() is True
+
+
+def test_use_host_pbrun_docker_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "docker")
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
+    assert runner.use_host_pbrun() is False
+
+
+def test_host_pbrun_fq2bam_meth_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
+    sample = tmp_path / "s"
+    sample.mkdir()
+    fq1 = sample / "s_R1.fastq.gz"
+    fq2 = sample / "s_R2.fastq.gz"
+    fq1.write_bytes(b"x")
+    fq2.write_bytes(b"y")
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nACGT\n", encoding="utf-8")
+    cfg = runner.ParabricksConfig(
+        image="host-pbrun",
+        gpu_flags=(),
+        bwa_threads=8,
+        extra_docker_args=(),
+        cleanup_tmp=True,
+        engine="parabricks",
+    )
+    paths = runner._resolve_paths(sample, "s", ref)
+    cmd = runner._build_host_fq2bam_meth_command(cfg, paths, [fq1, fq2])
+    assert cmd[0] == "pbrun"
+    assert "fq2bam_meth" in cmd
+    assert any(str(ref) in a for a in cmd)
+    assert "docker" not in cmd
+
+
+def test_collectmultiplemetrics_host_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
+    sample = tmp_path / "s"
+    sample.mkdir()
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nACGT\n", encoding="utf-8")
+    bam = sample / "s.bam"
+    bam.write_bytes(b"BAM")
+    paths = runner._resolve_paths(sample, "s", ref)
+    cfg = runner.ParabricksConfig(
+        image="host-pbrun",
+        gpu_flags=("--gpus", "all"),
+        bwa_threads=4,
+        extra_docker_args=(),
+        cleanup_tmp=True,
+        engine="parabricks",
+    )
+    cmd = runner.build_collectmultiplemetrics_command(cfg, paths, ref)
+    assert cmd[:2] == ["pbrun", "collectmultiplemetrics"]
+    assert all(a != "docker" for a in cmd)
+
+
+def test_use_host_methylgrapher_auto_when_on_path(tmp_path, monkeypatch):
+    from methyl_worker import parabricks_runner as runner
+
+    fake = tmp_path / "methylGrapher"
+    fake.write_text("#!/bin/sh\n", encoding="utf-8")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}:{__import__('os').environ.get('PATH','')}")
+    monkeypatch.delenv("METHYL_METHYLGRAPHER_MODE", raising=False)
+    assert runner.use_host_methylgrapher() is True
+    monkeypatch.setenv("METHYL_METHYLGRAPHER_MODE", "docker")
+    assert runner.use_host_methylgrapher() is False
+
+
+def test_host_mojo_fq2bam_meth_command(tmp_path, monkeypatch):
+    from methyl_worker.parabricks_runner import (
+        ParabricksConfig,
+        ParabricksPaths,
+        _build_host_mojo_fq2bam_meth_command,
+    )
+
+    monkeypatch.setenv("METHYL_METHYLGRAPHER_BIN", "methylGrapher")
+    sample = tmp_path / "s"
+    sample.mkdir()
+    fq1 = sample / "a_R1.fastq.gz"
+    fq2 = sample / "a_R2.fastq.gz"
+    fq1.write_bytes(b"")
+    fq2.write_bytes(b"")
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">c\nACGT\n", encoding="utf-8")
+    paths = ParabricksPaths(
+        sample_id="a",
+        sample_dir=sample,
+        reference_fasta=ref,
+        bam_path=sample / "a.bam",
+        qc_metrics_dir=sample / "a.qc-metrics",
+        dedup_metrics=sample / "a.dedup.txt",
+        log_path=sample / "a.log",
+        tmp_dir=sample / "tmp",
+        metrics_json=sample / "a.json",
+        qc_metrics_tar=sample / "a.qc-metrics.tar",
+    )
+    cfg = ParabricksConfig(
+        image="unused",
+        gpu_flags=(),
+        bwa_threads=4,
+        extra_docker_args=(),
+        cleanup_tmp=True,
+        engine="mojo",
+        align_device="nvidia",
+        write_methylation_tags=True,
+    )
+    cmd = _build_host_mojo_fq2bam_meth_command(cfg, paths, [fq1, fq2])
+    assert cmd[0] == "methylGrapher"
+    assert cmd[1] == "MojoFq2bamMeth"
+    assert "-fq1" in cmd and str(fq1.resolve()) in cmd

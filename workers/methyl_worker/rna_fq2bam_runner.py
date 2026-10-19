@@ -24,6 +24,7 @@ from methyl_worker.parabricks_runner import (
     _pick_bool,
     resolve_paired_fastqs,
     resolve_parabricks_config,
+    use_host_pbrun,
 )
 
 logger = logging.getLogger(__name__)
@@ -88,14 +89,32 @@ def outputs_complete(paths: RnaFq2bamPaths) -> bool:
     return paths.bam_path.is_file() and paths.gene_counts_path.is_file()
 
 
-def _build_docker_command(cfg, paths: RnaFq2bamPaths, fastqs: Sequence[Path]) -> List[str]:
+def _build_align_command(cfg, paths: RnaFq2bamPaths, fastqs: Sequence[Path]) -> List[str]:
+    if len(fastqs) < 2:
+        raise RuntimeError("rna_fq2bam requires a FASTQ pair")
+    if use_host_pbrun():
+        paths.star_output_dir.mkdir(parents=True, exist_ok=True)
+        paths.tmp_dir.mkdir(parents=True, exist_ok=True)
+        return [
+            "pbrun",
+            "rna_fq2bam",
+            f"--genome-lib-dir={paths.star_index_dir.resolve()}",
+            "--in-fq",
+            str(fastqs[0].resolve()),
+            str(fastqs[1].resolve()),
+            f"--out-bam={paths.bam_path.resolve()}",
+            f"--output-dir={paths.star_output_dir.resolve()}",
+            "--read-files-command=zcat",
+            f"--logfile={paths.log_path.resolve()}",
+            f"--tmp-dir={paths.tmp_dir.resolve()}",
+            f"--num-threads={cfg.bwa_threads}",
+        ]
     uid = os.getuid()
     gid = os.getgid()
     in_fq_args: List[str] = []
     for fastq in fastqs:
         rel = fastq.relative_to(paths.sample_dir)
         in_fq_args.append(f"/workdir/{rel.as_posix()}")
-
     index_mount = paths.star_index_dir
     cmd: List[str] = [
         _docker_bin(),
@@ -110,12 +129,6 @@ def _build_docker_command(cfg, paths: RnaFq2bamPaths, fastqs: Sequence[Path]) ->
         f"{paths.sample_dir.resolve()}:/outputdir",
         "-v",
         f"{index_mount.resolve()}:/rna_index:ro",
-    ]
-    gtf_arg: List[str] = []
-    if paths.gtf is not None:
-        cmd += ["-v", f"{paths.gtf.parent.resolve()}:/annotation:ro"]
-        gtf_arg = [f"--output-dir=/outputdir/{paths.star_output_dir.name}"]
-    cmd += [
         "-w",
         "/workdir",
         *cfg.extra_docker_args,
@@ -128,12 +141,17 @@ def _build_docker_command(cfg, paths: RnaFq2bamPaths, fastqs: Sequence[Path]) ->
         in_fq_args[1],
         f"--out-bam=/outputdir/{paths.bam_path.name}",
         f"--output-dir=/outputdir/{paths.star_output_dir.name}",
-        f"--read-files-command=zcat",
+        "--read-files-command=zcat",
         f"--logfile=/outputdir/{paths.log_path.name}",
         f"--tmp-dir=/outputdir/{paths.tmp_dir.name}",
         f"--num-threads={cfg.bwa_threads}",
     ]
     return cmd
+
+
+def _build_docker_command(cfg, paths: RnaFq2bamPaths, fastqs: Sequence[Path]) -> List[str]:
+    """Deprecated alias; prefer :func:`_build_align_command`."""
+    return _build_align_command(cfg, paths, fastqs)
 
 
 def _normalize_gene_counts(paths: RnaFq2bamPaths) -> None:
@@ -213,7 +231,7 @@ def run_rna_fq2bam(
 
     fastqs = resolve_paired_fastqs(sample_path, sample_id)
     paths.tmp_dir.mkdir(parents=True, exist_ok=True)
-    docker_cmd = _build_docker_command(cfg, paths, fastqs)
+    docker_cmd = _build_align_command(cfg, paths, fastqs)
     logger.info("Running Parabricks rna_fq2bam for %s", sample_id)
     _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in docker_cmd))
 

@@ -1,3 +1,9 @@
+# Parabricks (linear WGBS Align)
+
+1. **Host `pbrun`** (`METHYL_PARABRICKS_MODE=host` or auto when `pbrun` is on PATH) — goliath-worker image `FROM nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1` (see `deploy/workers/image/`). No nested Docker.
+2. **Docker `pbrun`** (legacy SSH VMs) — `docker run --gpus all` with `METHYL_PARABRICKS_IMAGE` when host `pbrun` is absent.
+3. **MojoFq2bamMeth** (`actionConfig.parabricks.engine=mojo`) — methylgrapher image.
+
 # Linear WGBS Align: Clara Parabricks or MojoFq2bamMeth
 
 This path is selected by **explicit** `alignmentMode: linear` (or stock `pangenome` for Giraffe) — never as an automatic fallback when `pangenome_wgbs` native-Mojo fails. Sample prep alignment (`sample.parabricks_fq2bam`) runs **either**:
@@ -12,8 +18,8 @@ Implementation: [`methyl_worker/parabricks_runner.py`](../methyl_worker/parabric
 ### Clara (`engine=parabricks`)
 
 - NVIDIA GPU driver + `nvidia-smi`
-- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (`docker run --gpus all`)
-- Parabricks image pulled locally (NGC license)
+- **goliath-worker** (preferred): host `pbrun` from Clara base; no nested Docker
+- Legacy SSH VMs: [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) + `METHYL_PARABRICKS_IMAGE` (NGC license)
 - **samtools** on the worker host PATH (methyl_qc flagstat)
 
 ### Mojo (`engine=mojo`)
@@ -67,3 +73,13 @@ Under `{sampleDir}`:
 - `{sampleId}.json` — Parabricks-shaped metrics (Mojo emits MVP subset; see [`docs/reference/mojo-fq2bam-meth-parity.md`](../../docs/reference/mojo-fq2bam-meth-parity.md))
 
 See [`workflow_engine/contract/sample_prep_capabilities.md`](../../workflow_engine/contract/sample_prep_capabilities.md).
+
+
+## Host mode (goliath-worker)
+
+On `ghcr.io/goliath-research/goliath-worker`, Clara `pbrun` is on PATH
+(`METHYL_PARABRICKS_MODE=host|auto`). GoliathAlign / MojoFq2bamMeth /
+`pangenome_wgbs` use host `methylGrapher` installed automatically from the
+release tarball `goliath-align-host-linux-amd64-jammy.tar.gz` on every boot
+(`goliath_align_local.sh` → local disk; `METHYL_METHYLGRAPHER_MODE=host|auto`).
+Nested docker is not used. ConversionRate sidecar also prefers host mode.

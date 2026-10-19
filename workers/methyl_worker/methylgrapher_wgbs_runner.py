@@ -28,6 +28,7 @@ from methyl_worker.work_share import share_work_path, share_work_tree
 
 import numpy as np
 
+from methyl_worker.parabricks_runner import use_host_methylgrapher
 from methyl_worker.mojo_align_env import (
     INSTALL_PREFIX,
     getenv as mojo_align_getenv,
@@ -354,6 +355,49 @@ def fingerprint_wgbs_assets(bundle: MethylGrapherWgbsBundle) -> Dict[str, str]:
     return out
 
 
+def _run_mg_cli(
+    inner_cmd: Sequence[str],
+    log_path: Path,
+    *,
+    step: str,
+    image: str | None,
+    mount_roots: set,
+    env_pairs: Sequence[str] = (),
+    gpu_device: str | None = None,
+    stdout_path: Path | None = None,
+    overlay: bool = True,
+) -> None:
+    """Run methylGrapher/vg argv on the host or via docker (host when CLI is on PATH)."""
+    if use_host_methylgrapher():
+        host_env = os.environ.copy()
+        for env_pair in env_pairs:
+            if "=" in env_pair:
+                k, v = env_pair.split("=", 1)
+                host_env[k] = v
+        _run(list(inner_cmd), log_path, step=step, stdout_path=stdout_path, env=host_env)
+        return
+    if not image:
+        raise RuntimeError(f"{step}: docker mode needs a methylGrapher image")
+    docker_cmd: List[str] = [
+        _docker_bin(),
+        "run",
+        "--rm",
+        "--user",
+        _align_docker_user(),
+    ]
+    if gpu_device is not None:
+        docker_cmd.extend(align_docker_gpu_flags(gpu_device))
+    for env_pair in env_pairs:
+        docker_cmd.extend(["-e", env_pair])
+    for root in sorted(mount_roots, key=str):
+        docker_cmd.extend(["-v", f"{str(root)}:{str(root)}"])
+    if overlay:
+        add_mojo_src_overlay_mounts(docker_cmd)
+    docker_cmd.extend([image, *_with_umask_002(list(inner_cmd))])
+    _run(docker_cmd, log_path, step=step, stdout_path=stdout_path)
+
+
+
 def _docker_bin() -> str:
     return shutil.which("docker") or "docker"
 
@@ -677,6 +721,7 @@ def _run(
     *,
     step: str,
     stdout_path: Path | None = None,
+    env: dict[str, str] | None = None,
 ) -> None:
     """Run a command, optionally redirecting binary stdout to ``stdout_path``.
 
@@ -703,6 +748,7 @@ def _run(
                 stdout=out_fh,
                 stderr=subprocess.PIPE,
                 start_new_session=True,
+                env=env,
             )
             if handle is not None:
                 handle.register_process(proc)
@@ -732,7 +778,18 @@ def _run(
         return
 
     try:
-        proc = run_cancellable(list(cmd), handle=handle)
+        if env is not None:
+            import os as _os
+            old = _os.environ.copy()
+            _os.environ.clear()
+            _os.environ.update(env)
+            try:
+                proc = run_cancellable(list(cmd), handle=handle)
+            finally:
+                _os.environ.clear()
+                _os.environ.update(old)
+        else:
+            proc = run_cancellable(list(cmd), handle=handle)
     except WorkerStoppedError:
         raise
     if proc.stdout:
@@ -2100,7 +2157,7 @@ def run_methylgrapher_wgbs_align(
         conversion_report.write_text("dry_run=1\n", encoding="utf-8")
         _write_dedup_metrics(dedup_path, sample_id)
     else:
-        image = _resolve_image(bundle)
+        image = None if use_host_methylgrapher() else _resolve_image(bundle)
         # Mount sample + genome roots covering C2T/G2A/linear assets.
         # Include resolved index_prefix parent so -index_prefix matches a mounted path.
         mount_roots = {
@@ -2122,23 +2179,34 @@ def run_methylgrapher_wgbs_align(
         else:
             align_device = resolve_giraffe_device(bundle)
             _ensure_align_workdir_writable(work_dir)
-            docker_cmd = [
-                _docker_bin(),
-                "run",
-                "--rm",
-                "--user",
-                _align_docker_user(),
-                *align_docker_gpu_flags(align_device),
-            ]
-            for env_pair in materialize_align_docker_env(bundle):
-                docker_cmd.extend(["-e", env_pair])
-            for root in sorted(mount_roots, key=str):
-                docker_cmd.extend(["-v", f"{root}:{root}"])
-            add_mojo_src_overlay_mounts(docker_cmd)
-            docker_cmd.extend([image, *_with_umask_002(align_cmd)])
-            # One GH200 ≈ full HBM: flock + admit fraction + always release after.
-            with _gpu_align_lock(align_device):
-                _run(docker_cmd, log_path, step="methylGrapher.Align")
+            if use_host_methylgrapher():
+                # Host GoliathAlign (goliath-worker / /work payload); no nested docker.
+                host_env = os.environ.copy()
+                for env_pair in materialize_align_docker_env(bundle):
+                    if "=" in env_pair:
+                        k, v = env_pair.split("=", 1)
+                        host_env[k] = v
+                with _gpu_align_lock(align_device):
+                    _run(align_cmd, log_path, step="methylGrapher.Align", env=host_env)
+            else:
+                docker_cmd = [
+                    _docker_bin(),
+                    "run",
+                    "--rm",
+                    "--user",
+                    _align_docker_user(),
+                    *align_docker_gpu_flags(align_device),
+                ]
+                for env_pair in materialize_align_docker_env(bundle):
+                    docker_cmd.extend(["-e", env_pair])
+                for root in sorted(mount_roots, key=str):
+                    docker_cmd.extend(["-v", f"{root}:{root}"])
+                add_mojo_src_overlay_mounts(docker_cmd)
+                assert image is not None
+                docker_cmd.extend([image, *_with_umask_002(align_cmd)])
+                # One GH200 ≈ full HBM: flock + admit fraction + always release after.
+                with _gpu_align_lock(align_device):
+                    _run(docker_cmd, log_path, step="methylGrapher.Align")
             share_work_tree(work_dir)
 
             # methylGrapher merges to work_dir/alignment.gaf; ignore empty shard files
@@ -2251,24 +2319,6 @@ def run_methylgrapher_wgbs_align(
                         out_sam=qc_sam,
                         segment_offsets=offsets_dir,
                     )
-                    docker_mojo_qc = [
-                        _docker_bin(),
-                        "run",
-                        "--rm",
-                        "--user",
-                        _align_docker_user(),
-                        *align_docker_gpu_flags(resolve_giraffe_device(bundle)),
-                    ]
-                    for env_pair in materialize_align_docker_env(bundle):
-                        docker_mojo_qc.extend(["-e", env_pair])
-                    docker_mojo_qc.extend(
-                        [
-                            "-e",
-                            "MOJO_ALIGN_EMIT=sam",
-                            "-e",
-                            f"MOJO_ALIGN_SEGMENT_OFFSETS={offsets_dir}",
-                        ]
-                    )
                     qc_mounts = set(mount_roots)
                     qc_mounts.add(bundle.ref_paths.parent.resolve())
                     try:
@@ -2276,10 +2326,10 @@ def run_methylgrapher_wgbs_align(
                     except OSError:
                         qc_mounts.add(offsets_dir)
                     add_mojo_segment_cache_mounts(qc_mounts, bundle)
-                    for root in sorted(qc_mounts, key=str):
-                        docker_mojo_qc.extend(["-v", f"{root}:{root}"])
-                    add_mojo_src_overlay_mounts(docker_mojo_qc)
-                    docker_mojo_qc.extend([image, *_with_umask_002(mojo_qc_cmd)])
+                    qc_env = list(materialize_align_docker_env(bundle)) + [
+                        "MOJO_ALIGN_EMIT=sam",
+                        f"MOJO_ALIGN_SEGMENT_OFFSETS={offsets_dir}",
+                    ]
                     try:
                         _append_log(
                             log_path,
@@ -2289,7 +2339,15 @@ def run_methylgrapher_wgbs_align(
                         # under the flock even when science GAF was reused (that
                         # path skips the Align lock). Always release on exit.
                         with _gpu_align_lock(resolve_giraffe_device(bundle)):
-                            _run(docker_mojo_qc, log_path, step="mojo.qc_sam")
+                            _run_mg_cli(
+                                mojo_qc_cmd,
+                                log_path,
+                                step="mojo.qc_sam",
+                                image=image,
+                                mount_roots=qc_mounts,
+                                env_pairs=qc_env,
+                                gpu_device=resolve_giraffe_device(bundle),
+                            )
                         samtools_sam_to_bam(qc_sam, qc_bam, log_path)
                         write_mojo_qc_sam_provenance(qc_bam, offsets_dir=offsets_dir)
                         _append_log(
@@ -2319,23 +2377,14 @@ def run_methylgrapher_wgbs_align(
                         fq2_g2a=g2a_r2,
                         threads=bundle.threads,
                     )
-                    docker_qc_bam = [
-                        _docker_bin(),
-                        "run",
-                        "--rm",
-                        "--user",
-                        _align_docker_user(),
-                    ]
-                    for root in sorted(
-                        mount_roots | {bundle.ref_paths.parent.resolve()}, key=str
-                    ):
-                        docker_qc_bam.extend(["-v", f"{root}:{root}"])
-                    docker_qc_bam.extend([image, *_with_umask_002(qc_bam_cmd)])
-                    _run(
-                        docker_qc_bam,
+                    _run_mg_cli(
+                        qc_bam_cmd,
                         log_path,
                         step="vg.giraffe_qc_bam",
+                        image=image,
+                        mount_roots=mount_roots | {bundle.ref_paths.parent.resolve()},
                         stdout_path=qc_bam,
+                        overlay=False,
                     )
                 for converted in (c2t_r1, g2a_r2):
                     converted.unlink(missing_ok=True)
@@ -2872,7 +2921,7 @@ def _maybe_run_conversion_rate(
     sample_path: Path,
     work_dir: Path,
     index_prefix: str,
-    image: str,
+    image: str | None,
     mount_roots: set,
     log_path: Path,
 ) -> bool:
@@ -2904,24 +2953,33 @@ def _maybe_run_conversion_rate(
         "-index_prefix",
         index_prefix,
     ]
-    docker_conv = [
-        _docker_bin(),
-        "run",
-        "--rm",
-        "--user",
-        _align_docker_user(),
-    ]
-    for root in sorted(mount_roots | {report.parent.resolve()}, key=str):
-        docker_conv.extend(["-v", f"{root}:{root}"])
-    docker_conv.extend([image, *_with_umask_002(conv_cmd)])
+    # Capture stdout for rate parsing via a temp log; prefer host methylGrapher.
     try:
-        proc = subprocess.run(
-            docker_conv, capture_output=True, text=True, check=False
-        )
+        if use_host_methylgrapher():
+            proc = subprocess.run(
+                conv_cmd, capture_output=True, text=True, check=False
+            )
+        else:
+            if not image:
+                _append_log(log_path, "ConversionRate skip: no image and host methylGrapher unavailable")
+                return False
+            docker_conv = [
+                _docker_bin(),
+                "run",
+                "--rm",
+                "--user",
+                _align_docker_user(),
+            ]
+            for root in sorted(mount_roots | {report.parent.resolve()}, key=str):
+                docker_conv.extend(["-v", f"{root}:{root}"])
+            docker_conv.extend([image, *_with_umask_002(conv_cmd)])
+            proc = subprocess.run(
+                docker_conv, capture_output=True, text=True, check=False
+            )
     except Exception as exc:
         _append_log(log_path, f"ConversionRate failed: {exc}")
         return False
-    _append_log(log_path, f"[{'ConversionRate'}] stdout:\n{proc.stdout or ''}")
+    _append_log(log_path, f"[ConversionRate] stdout:\n{proc.stdout or ''}")
     if proc.stderr:
         _append_log(log_path, f"[ConversionRate] stderr:\n{proc.stderr}")
     if proc.returncode != 0:
@@ -3275,7 +3333,7 @@ def run_methylgrapher_wgbs_extract(
             ensure_gaf_named_coordinates(gaf_path, work_dir, bundle, log_path)
             shutil.copy2(gaf_path, work_gaf)
 
-        image = _resolve_image(bundle)
+        image = None if use_host_methylgrapher() else _resolve_image(bundle)
         methyl_cmd = build_methylcall_command(
             bundle=bundle, work_dir=work_dir, index_prefix=index_prefix
         )
@@ -3289,20 +3347,15 @@ def run_methylgrapher_wgbs_extract(
         # Follow symlink targets so Docker can open {index_prefix}.wl.gfa on local disk.
         if wl_gfa.is_symlink():
             mount_roots.add(wl_gfa.resolve().parent)
-        docker_cmd = [
-            _docker_bin(),
-            "run",
-            "--rm",
-            "--user",
-            _align_docker_user(),
-        ]
-        for root in sorted(mount_roots, key=str):
-            docker_cmd.extend(["-v", f"{root}:{root}"])
-        # Optional host overlay so Mojo GAF / MethylCall / QC SAM hotfixes ship
-        # without image rebuild.
-        add_mojo_src_overlay_mounts(docker_cmd)
-        docker_cmd.extend([image, *_with_umask_002(methyl_cmd)])
-        _run(docker_cmd, log_path, step="methylGrapher.MethylCall")
+        env_pairs = materialize_align_docker_env(bundle)
+        _run_mg_cli(
+            methyl_cmd,
+            log_path,
+            step="methylGrapher.MethylCall",
+            image=image,
+            mount_roots=mount_roots,
+            env_pairs=env_pairs,
+        )
         share_work_tree(work_dir)
 
         merge_cmd = [
@@ -3313,17 +3366,15 @@ def run_methylgrapher_wgbs_extract(
             "-index_prefix",
             index_prefix,
         ]
-        docker_merge = [
-            _docker_bin(),
-            "run",
-            "--rm",
-            "--user",
-            _align_docker_user(),
-        ]
-        for root in sorted(mount_roots, key=str):
-            docker_merge.extend(["-v", f"{root}:{root}"])
-        docker_merge.extend([image, *_with_umask_002(merge_cmd)])
-        _run(docker_merge, log_path, step="methylGrapher.MergeCpG")
+        _run_mg_cli(
+            merge_cmd,
+            log_path,
+            step="methylGrapher.MergeCpG",
+            image=image,
+            mount_roots=mount_roots,
+            env_pairs=env_pairs,
+            overlay=False,
+        )
         share_work_tree(work_dir)
 
         if bundle.conversion_rate_enabled:

@@ -11,9 +11,11 @@ Options:
   --release-version VER       Deploy bundle id (SemVer, e.g. 2026.6.1)
   --methyl-pipeline-version VER  MethylPipeline release version (SemVer)
   --methyl-extractor-version VER MethylExtractor Universal Package version (SemVer)
+  --goliath-align-version VER Jammy GoliathAlign host runtime version (SemVer; GitHub Release)
   --methyl-pipeline-dir PATH  Local MethylPipeline release tree (wheels/, runtime-bundle/, lockfile)
   --output DIR                Output bundle directory (default: /work/goliath/releases/<release-version>)
   --skip-methyl-extractor-download  Skip GitHub download (tarballs already in output)
+  --skip-goliath-align-download     Skip GoliathAlign host runtime download
   --organization URL          GitHub org URL (default: https://github.com/Goliath-Research)
   --project NAME              GitHub org slug (default: Goliath-Research)
   --feed NAME                 Ignored (GitHub Releases); kept for compatibility
@@ -39,9 +41,11 @@ source "$SCRIPT_DIR/detect_platform.sh"
 RELEASE_VERSION=""
 MP_VERSION=""
 ME_VERSION=""
+GA_VERSION=""
 MP_DIR=""
 OUTPUT=""
 SKIP_ME_DL=0
+SKIP_GA_DL=0
 ORG="${GITHUB_ORG:-https://github.com/Goliath-Research}"
 PROJECT="${GITHUB_PROJECT:-Goliath-Research}"
 FEED="${METHYL_EXTRACTOR_FEED:-methyl-extractor}"
@@ -51,9 +55,11 @@ while [[ $# -gt 0 ]]; do
     --release-version) RELEASE_VERSION="${2:-}"; shift 2 ;;
     --methyl-pipeline-version) MP_VERSION="${2:-}"; shift 2 ;;
     --methyl-extractor-version) ME_VERSION="${2:-}"; shift 2 ;;
+    --goliath-align-version) GA_VERSION="${2:-}"; shift 2 ;;
     --methyl-pipeline-dir) MP_DIR="${2:-}"; shift 2 ;;
     --output) OUTPUT="${2:-}"; shift 2 ;;
     --skip-methyl-extractor-download) SKIP_ME_DL=1; shift ;;
+    --skip-goliath-align-download) SKIP_GA_DL=1; shift ;;
     --organization) ORG="${2:-}"; shift 2 ;;
     --project) PROJECT="${2:-}"; shift 2 ;;
     --feed) FEED="${2:-}"; shift 2 ;;
@@ -68,14 +74,17 @@ die() { echo "[ERROR] $*" >&2; exit 1; }
 [[ -n "$RELEASE_VERSION" ]] || die "--release-version is required"
 [[ -n "$MP_VERSION" ]] || die "--methyl-pipeline-version is required"
 [[ -n "$ME_VERSION" ]] || die "--methyl-extractor-version is required"
+[[ -n "$GA_VERSION" ]] || die "--goliath-align-version is required"
 [[ -d "$MP_DIR" ]] || die "--methyl-pipeline-dir is required and must exist"
 
 RELEASE_VERSION="$(normalize_release_version "$RELEASE_VERSION")"
 MP_VERSION="$(normalize_release_version "$MP_VERSION")"
 ME_VERSION="$(normalize_release_version "$ME_VERSION")"
+GA_VERSION="$(normalize_release_version "$GA_VERSION")"
 require_release_version "$RELEASE_VERSION" "--release-version" || exit 1
 require_release_version "$MP_VERSION" "--methyl-pipeline-version" || exit 1
 require_release_version "$ME_VERSION" "--methyl-extractor-version" || exit 1
+require_release_version "$GA_VERSION" "--goliath-align-version" || exit 1
 
 OUTPUT="${OUTPUT:-/work/goliath/releases/$RELEASE_VERSION}"
 mkdir -p "$OUTPUT"
@@ -83,12 +92,14 @@ mkdir -p "$OUTPUT"
 info "Assembling release bundle $RELEASE_VERSION"
 info "  methyl_pipeline: $MP_VERSION"
 info "  methyl_extractor: $ME_VERSION"
+info "  goliath_align: $GA_VERSION"
 info "  output: $OUTPUT"
 
 rsync_safe=(rsync -rl --delete --no-perms --no-owner --no-group --no-times)
 "${rsync_safe[@]}" \
   --exclude manifest.json \
   --exclude 'methyl-extractor-linux-*.tar.gz' \
+  --exclude 'goliath-align-host-linux-*.tar.gz' \
   "$MP_DIR/" "$OUTPUT/"
 
 if [[ "$SKIP_ME_DL" -eq 0 ]]; then
@@ -111,6 +122,17 @@ for arch in aarch64 amd64; do
   bash "$SCRIPT_DIR/bundle_methyl_extractor_libs.sh" "${bundle_args[@]}"
 done
 
+if [[ "$SKIP_GA_DL" -eq 0 ]]; then
+  bash "$SCRIPT_DIR/download_goliath_align_artifacts.sh" \
+    --version "$GA_VERSION" \
+    --release-dir "$OUTPUT" \
+    --organization "$ORG"
+fi
+GA_TB="$OUTPUT/goliath-align-host-linux-amd64-jammy.tar.gz"
+[[ -f "$GA_TB" ]] || die "Missing $GA_TB"
+bash "$SCRIPT_DIR/check_goliath_align_host.sh" --tarball "$GA_TB" \
+  || die "GoliathAlign jammy host runtime failed the offline ubuntu:22.04 help gate"
+
 # The MethylPipeline release carries GoliathApp's sql_pg scripts
 # (goliathapp-sql/). Check them before they become part of the deploy bundle.
 if [[ -f "$OUTPUT/goliathapp-sql/manifest.sha256" ]]; then
@@ -121,15 +143,15 @@ else
   info "  goliathapp_sql: none in this MethylPipeline release (deploy will not apply GoliathApp SQL)"
 fi
 
-python3 - "$OUTPUT" "$RELEASE_VERSION" "$MP_VERSION" "$ME_VERSION" "$MP_DIR" <<'PY'
+python3 - "$OUTPUT" "$RELEASE_VERSION" "$MP_VERSION" "$ME_VERSION" "$GA_VERSION" "$MP_DIR" <<'PY'
 import json
 import hashlib
 import sys
 from pathlib import Path
 
 out = Path(sys.argv[1])
-release_ver, mp_ver, me_ver = sys.argv[2:5]
-mp_dir = Path(sys.argv[5])
+release_ver, mp_ver, me_ver, ga_ver = sys.argv[2:6]
+mp_dir = Path(sys.argv[6])
 
 stub_path = out / "manifest.json"
 base = {}
@@ -156,12 +178,17 @@ for arch in ("aarch64", "amd64"):
         "methyl_extractor": name,
         "sha256": sha256_file(path),
     }
+ga_name = "goliath-align-host-linux-amd64-jammy.tar.gz"
+ga_path = out / ga_name
+artifacts["amd64"]["goliath_align_host"] = ga_name
+artifacts["amd64"]["goliath_align_host_sha256"] = sha256_file(ga_path)
 
 manifest = {
     "version": release_ver,
     "components": {
         "methyl_pipeline": mp_ver,
         "methyl_extractor": me_ver,
+        "goliath_align": ga_ver,
     },
     "python": base.get("python", "3.12"),
     "gateway_source": mp_manifest.get("gateway_source") or base.get("gateway_source", ""),

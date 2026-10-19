@@ -27,8 +27,8 @@ NAME_PREFIX=goliath-worker
 
 PROVIDER=""
 NAME=""
-OPT_TEMPLATE="" OPT_STORAGE="" OPT_GPU="" OPT_CLOUD=""
-OPT_TEMPLATE_SET=0 OPT_STORAGE_SET=0 OPT_GPU_SET=0 OPT_CLOUD_SET=0
+OPT_TEMPLATE="" OPT_STORAGE="" OPT_GPU="" OPT_CLOUD="" OPT_IMAGE="" OPT_REGISTRY_AUTH=""
+OPT_TEMPLATE_SET=0 OPT_STORAGE_SET=0 OPT_GPU_SET=0 OPT_CLOUD_SET=0 OPT_IMAGE_SET=0 OPT_REGISTRY_AUTH_SET=0
 OPT_GPU_COUNT=1
 MOUNT_PATH="$STANDARD_MOUNT_PATH"
 DRY_RUN=0
@@ -60,6 +60,8 @@ Create a goliath-worker with the shared storage mounted at /work.
   --provider NAME           Cloud provider (available: $(available_providers))
   --name NAME               Worker name (default: next free goliath-worker-N)
   --template NAME_OR_ID     Image/template (provider default)
+  --image IMAGE            Override container image (provider-specific; see providers/README.md)
+  --registry-auth ID       Private registry credential id (provider-specific)
   --volume NAME_OR_ID       Shared storage to mount (provider default)
   --mount-path PATH         Mount path (default: /work; anything else also
                             needs --allow-nonstandard-path)
@@ -83,6 +85,8 @@ while [[ $# -gt 0 ]]; do
     --provider) need_arg "$@"; PROVIDER="$2"; shift 2 ;;
     --name) need_arg "$@"; NAME="$2"; shift 2 ;;
     --template) need_arg "$@"; OPT_TEMPLATE="$2"; OPT_TEMPLATE_SET=1; shift 2 ;;
+    --image) need_arg "$@"; OPT_IMAGE="$2"; OPT_IMAGE_SET=1; shift 2 ;;
+    --registry-auth) need_arg "$@"; OPT_REGISTRY_AUTH="$2"; OPT_REGISTRY_AUTH_SET=1; shift 2 ;;
     --volume) need_arg "$@"; OPT_STORAGE="$2"; OPT_STORAGE_SET=1; shift 2 ;;
     --mount-path) need_arg "$@"; MOUNT_PATH="$2"; shift 2 ;;
     --allow-nonstandard-path) ALLOW_NONSTANDARD_PATH=1; shift ;;
@@ -112,6 +116,8 @@ provider_defaults
 [[ "$OPT_STORAGE_SET" == 1 ]] || OPT_STORAGE="${PROVIDER_DEFAULT_STORAGE:-}"
 [[ "$OPT_GPU_SET" == 1 ]] || OPT_GPU="${PROVIDER_DEFAULT_GPU:-}"
 [[ "$OPT_CLOUD_SET" == 1 ]] || OPT_CLOUD="${PROVIDER_DEFAULT_CLOUD:-}"
+[[ "$OPT_IMAGE_SET" == 1 ]] || OPT_IMAGE="${PROVIDER_DEFAULT_IMAGE:-${CREATE_WORKER_IMAGE:-}}"
+[[ "$OPT_REGISTRY_AUTH_SET" == 1 ]] || OPT_REGISTRY_AUTH="${PROVIDER_DEFAULT_REGISTRY_AUTH:-${CREATE_WORKER_REGISTRY_AUTH:-}}"
 
 # ---- static checks (no network) ----
 command -v jq >/dev/null 2>&1 || die "jq is required"

@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       pullParabricks:
-        description: docker pull Parabricks during promote (first arch only)
+        description: Legacy docker pull of Clara during promote (unused when workers use goliath-worker host pbrun image)
         required: false
         type: boolean
         default: false
@@ -183,6 +183,15 @@ jobs:
           [[ -f scripts/deploy_target.sh ]] || { echo "Missing scripts/deploy_target.sh"; exit 1; }
           [[ -f "${GOLIATH_RELEASE_SRC}/manifest.json" ]] || { echo "Release bundle was not staged"; exit 1; }
           bash scripts/deploy_target.sh --target "${{ inputs.target }}" --component all
+
+      - name: Upload workflow_versions.json
+        if: inputs.target != '' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-versions-${{ inputs.releaseVersion }}-${{ inputs.target }}
+          path: ${{ runner.temp }}/goliath-env/workflow_versions.json
+          if-no-files-found: warn
+
 
       - name: Rsync bundle and promote_release
         if: inputs.target == ''

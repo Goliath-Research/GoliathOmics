@@ -34,9 +34,10 @@
       "vcpu": 16,
       "memory_gb": 62,
       "volume_mount": "/work",
-      "template": "runpod-torch-v280",
-      "image": "runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404",
-      "install_root": "/work/goliath"
+      "template": "goliath-worker",
+      "image": "ghcr.io/goliath-research/goliath-worker:4.7.0-1",
+      "install_root": "/work/goliath",
+      "os": "ubuntu-22.04"
     }
   ],
   "runtime": {
@@ -68,12 +69,16 @@
     "endpoint": "https://s3.us-east-1.myqnapcloud.io",
     "host": "s3.us-east-1.myqnapcloud.io",
     "share": "goliath-omics",
-    "roles": ["hot", "cold"],
+    "roles": [
+      "hot",
+      "cold"
+    ],
     "access_key_id": "secret:LONGTERM_ACCESS_KEY_ID",
     "secret_access_key": "secret:LONGTERM_SECRET_ACCESS_KEY"
   },
   "schema": {
     "goliathapp": "per-release",
     "apply": "test-bed"
-  }
+  },
+  "pull_parabricks": false
 }

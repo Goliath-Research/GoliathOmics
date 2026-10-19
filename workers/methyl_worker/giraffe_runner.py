@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from methyl_worker.parabricks_runner import (
+    use_host_pbrun,
+    build_collectmultiplemetrics_command,
     ParabricksConfig,
     ParabricksPaths,
     _append_log,
@@ -94,6 +96,39 @@ def _container_path(host_root: Path, host_path: Path) -> str:
     return f"/pangenome/{rel.as_posix()}"
 
 
+def _build_host_giraffe_command(
+    cfg: ParabricksConfig,
+    paths: ParabricksPaths,
+    graph: PangenomeGraphBundle,
+    fastqs: Sequence[Path],
+) -> List[str]:
+    """Host ``pbrun giraffe`` (goliath-worker; no nested docker)."""
+    if len(fastqs) < 2:
+        raise RuntimeError("Parabricks giraffe needs a FASTQ pair")
+    read_group = f"{paths.sample_id}_rg"
+    return [
+        "pbrun",
+        "giraffe",
+        f"--read-group={read_group}",
+        f"--sample={paths.sample_id}",
+        "--read-group-library=library",
+        "--read-group-platform=ILLUMINA",
+        f"--read-group-pu={paths.sample_id}",
+        f"--gbz-name={graph.gbz.resolve()}",
+        f"--dist-name={graph.dist.resolve()}",
+        f"--minimizer-name={graph.minimizer.resolve()}",
+        f"--zipcodes-name={graph.zipcodes.resolve()}",
+        f"--ref-paths={graph.ref_paths.resolve()}",
+        "--in-fq",
+        str(fastqs[0].resolve()),
+        str(fastqs[1].resolve()),
+        f"--out-bam={paths.bam_path.resolve()}",
+        f"--out-duplicate-metrics={paths.dedup_metrics.resolve()}",
+        f"--logfile={paths.log_path.resolve()}",
+    ]
+
+
+
 def _build_giraffe_docker_command(
     cfg: ParabricksConfig,
     paths: ParabricksPaths,
@@ -153,35 +188,8 @@ def _build_collect_metrics_docker_command(
     paths: ParabricksPaths,
     reference_fasta: Path,
 ) -> List[str]:
-    genome_dir = reference_fasta.parent
-    ref_basename = reference_fasta.name
-    return [
-        _docker_bin(),
-        "run",
-        "--rm",
-        *cfg.gpu_flags,
-        "--user",
-        align_docker_user(),
-        "-v",
-        f"{paths.sample_dir.resolve()}:/workdir",
-        "-v",
-        f"{paths.sample_dir.resolve()}:/outputdir",
-        "-v",
-        f"{genome_dir.resolve()}:/genomes:ro",
-        "-w",
-        "/workdir",
-        *cfg.extra_docker_args,
-        *docker_umask_prefix(),
-        cfg.image,
-        *docker_umask_suffix(
-            "pbrun",
-            "collectmultiplemetrics",
-            f"--ref=/genomes/{ref_basename}",
-            f"--bam=/workdir/{paths.bam_path.name}",
-            f"--out-qc-metrics-dir=/outputdir/{paths.qc_metrics_dir.name}",
-            "--gen-all-metrics",
-        ),
-    ]
+    """Backward-compatible name; host or docker via parabricks_runner."""
+    return build_collectmultiplemetrics_command(cfg, paths, reference_fasta)
 
 
 def run_giraffe_align(
@@ -227,8 +235,12 @@ def run_giraffe_align(
     paths.sample_dir.mkdir(parents=True, exist_ok=True)
     paths.tmp_dir.mkdir(parents=True, exist_ok=True)
 
-    giraffe_cmd = _build_giraffe_docker_command(cfg, paths, graph, fastqs)
-    logger.info("Running Parabricks giraffe for %s", sample_id)
+    if use_host_pbrun():
+        giraffe_cmd = _build_host_giraffe_command(cfg, paths, graph, fastqs)
+        logger.info("Running Parabricks giraffe (host pbrun) for %s", sample_id)
+    else:
+        giraffe_cmd = _build_giraffe_docker_command(cfg, paths, graph, fastqs)
+        logger.info("Running Parabricks giraffe (docker) for %s", sample_id)
     _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in giraffe_cmd))
     _run_docker(giraffe_cmd, paths.log_path, step="giraffe")
 
@@ -263,6 +275,7 @@ def run_giraffe_align(
 
 
 def _run_docker(cmd: List[str], log_path: Path, *, step: str) -> None:
+    """Run a host or docker Parabricks command (name kept for callers)."""
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.stdout:
         _append_log(log_path, f"[{step}] stdout:\n{proc.stdout}")

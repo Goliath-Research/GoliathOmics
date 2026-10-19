@@ -72,5 +72,6 @@
   "schema": {
     "goliathapp": "per-release",
     "apply": "test-bed"
-  }
+  },
+  "pull_parabricks": false
 }
