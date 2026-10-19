@@ -32,25 +32,61 @@ def deploy_workflow_definition(
         raise ValueError("workflow spec missing name")
 
     if replace:
-        # sp_delete_workflow_def RAISES when the name is absent; first-time
-        # catalog sync must still create. Treat not-found as a no-op.
-        # With delete_instances=false some gateway builds leave workflow_edge
-        # rows and fail FK when deleting workflow_version — retry with True.
         delete_instances = bool(body.get("delete_instances", True))
-        try:
-            delete_workflow_definition(db, name, delete_instances)
-        except Exception as exc:  # noqa: BLE001 — gateway raises DatabaseError/KeyError
-            msg = str(exc).lower()
-            if "not found" in msg or "does not exist" in msg:
-                pass
-            elif (not delete_instances) and (
-                "foreign key" in msg or "workflow_edge" in msg
-            ):
-                delete_workflow_definition(db, name, True)
-            else:
-                raise
+        if hasattr(db, "_connection"):
+            replace_delete_workflow_graph(db, name, delete_instances)
+        else:
+            try:
+                delete_workflow_definition(db, name, delete_instances)
+            except Exception as exc:  # noqa: BLE001 — gateway raises DatabaseError/KeyError
+                msg = str(exc).lower()
+                if "not found" not in msg and "does not exist" not in msg:
+                    raise
 
     return create_workflow_definition(db, spec)
+
+
+_DELETE_EDGES_SQL = """
+DELETE FROM wf.workflow_edge e
+USING wf.workflow_node n
+JOIN wf.workflow_version v ON v.id = n.workflow_version_id
+JOIN wf.workflow_def d ON d.id = v.workflow_def_id
+WHERE d.name = %s
+  AND (e.parent_node_id = n.id OR e.child_node_id = n.id)
+"""
+
+
+def replace_delete_workflow_graph(
+    db: Any, name: str, delete_instances: bool
+) -> Dict[str, int]:
+    """Delete a workflow definition graph in FK order within one transaction.
+
+    wf.workflow_edge references wf.workflow_node without ON DELETE CASCADE, so
+    sp_delete_workflow_def (which deletes versions -> cascades nodes) fails
+    while edges remain. Delete the edges first, then call the procedure, all
+    on one connection/transaction. A missing definition is a no-op.
+    """
+    with db._connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM wf.workflow_def WHERE name = %s", (name,))
+            if cur.fetchone() is None:
+                conn.rollback()
+                return {"deleted_instance_count": 0, "deleted_version_count": 0}
+            cur.execute(_DELETE_EDGES_SQL, (name,))
+            cur.execute(
+                "SELECT * FROM wf.sp_delete_workflow_def(NULL, %s, %s)",
+                (name, delete_instances),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    if not row:
+        return {"deleted_instance_count": 0, "deleted_version_count": 0}
+    if isinstance(row, dict):
+        return {
+            "deleted_instance_count": int(row["deleted_instance_count"]),
+            "deleted_version_count": int(row["deleted_version_count"]),
+        }
+    return {"deleted_instance_count": int(row[0]), "deleted_version_count": int(row[1])}
 
 
 def list_workflow_definitions(

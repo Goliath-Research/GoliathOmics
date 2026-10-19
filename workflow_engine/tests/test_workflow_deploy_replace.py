@@ -54,3 +54,95 @@ def test_replace_treats_missing_delete_as_noop() -> None:
     )
     assert result["workflow_version_id"] == 42
     assert created["spec"]["name"] == "SamplePrepPipeline"
+
+
+class _FakeCursor:
+    def __init__(self, log: list, def_exists: bool) -> None:
+        self.log = log
+        self.def_exists = def_exists
+        self._last = ""
+
+    def __enter__(self) -> "_FakeCursor":
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        return None
+
+    def execute(self, sql: str, params: Any = ()) -> None:
+        self._last = sql
+        self.log.append(" ".join(sql.split()))
+
+    def fetchone(self) -> Any:
+        if "FROM wf.workflow_def WHERE" in self._last:
+            return (1,) if self.def_exists else None
+        if "sp_delete_workflow_def" in self._last:
+            return {"deleted_instance_count": 0, "deleted_version_count": 1}
+        return None
+
+
+class _FakeConn:
+    def __init__(self, log: list, def_exists: bool) -> None:
+        self.log = log
+        self.def_exists = def_exists
+
+    def __enter__(self) -> "_FakeConn":
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        return None
+
+    def cursor(self) -> _FakeCursor:
+        return _FakeCursor(self.log, self.def_exists)
+
+    def commit(self) -> None:
+        self.log.append("COMMIT")
+
+    def rollback(self) -> None:
+        self.log.append("ROLLBACK")
+
+
+class _ConnDb:
+    def __init__(self, def_exists: bool) -> None:
+        self.log: list = []
+        self.def_exists = def_exists
+
+    def _connection(self) -> _FakeConn:
+        return _FakeConn(self.log, self.def_exists)
+
+
+def _sample_prep_spec() -> Dict[str, Any]:
+    fixture = REPO / "workflow_engine" / "domain" / "fixtures" / "sample_prep.program.json"
+    return compile_domain_program_file(fixture, enrich_context=False).workflow.model_dump(
+        mode="json"
+    )
+
+
+def _no_delete(*_a: Any) -> Dict[str, int]:
+    raise AssertionError("gateway delete must not be used when db has a connection")
+
+
+def test_replace_deletes_edges_before_nodes_in_one_transaction() -> None:
+    db = _ConnDb(def_exists=True)
+    result = deploy_workflow_definition(
+        db,
+        {"spec": _sample_prep_spec(), "replace": True, "delete_instances": False},
+        create_workflow_definition=lambda _db, spec: {"workflow_version_id": 9},
+        delete_workflow_definition=_no_delete,
+    )
+    assert result["workflow_version_id"] == 9
+    edge_idx = next(i for i, s in enumerate(db.log) if s.startswith("DELETE FROM wf.workflow_edge"))
+    sp_idx = next(i for i, s in enumerate(db.log) if "sp_delete_workflow_def" in s)
+    assert edge_idx < sp_idx < db.log.index("COMMIT")
+    assert db.log.count("COMMIT") == 1
+
+
+def test_replace_missing_definition_with_connection_is_noop() -> None:
+    db = _ConnDb(def_exists=False)
+    result = deploy_workflow_definition(
+        db,
+        {"spec": _sample_prep_spec(), "replace": True},
+        create_workflow_definition=lambda _db, spec: {"workflow_version_id": 3},
+        delete_workflow_definition=_no_delete,
+    )
+    assert result["workflow_version_id"] == 3
+    assert not any("workflow_edge" in s for s in db.log)
