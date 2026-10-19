@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -147,7 +147,7 @@ class WorkflowDefinitionSpec(BaseModel):
     variable_schemas: Dict[str, Any] = Field(default_factory=dict)
 
     def to_db_spec(self) -> Dict[str, Any]:
-        return self.model_dump(mode="json", exclude_none=True)
+        return cast(Dict[str, Any], self.model_dump(mode="json", exclude_none=True))
 
 
 def repo_schemas_workflow_dir() -> Path:

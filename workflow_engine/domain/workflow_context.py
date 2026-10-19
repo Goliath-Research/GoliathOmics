@@ -13,7 +13,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Set
+from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -593,7 +593,7 @@ def validate_resolved_input_json(input_json: Mapping[str, Any], action_name: str
 
 def instance_context_to_json(context: InstanceContext | Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(context, InstanceContext):
-        return context.model_dump(exclude_none=True)
+        return cast(Dict[str, Any], context.model_dump(exclude_none=True))
     return dict(context)
 
 

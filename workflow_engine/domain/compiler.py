@@ -12,7 +12,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 
 from methyl_domain.program import (
     ActionStep,
@@ -51,6 +51,10 @@ if str(_WORKERS) not in sys.path:
 from methyl_worker.action_catalog import find_catalog_entry  # noqa: E402
 
 from workflow_context import enrich_instance_context  # noqa: E402
+
+StepUnion = Union[
+    ActionStep, AssignStep, IfStep, SwitchStep, WhileStep, RepeatStep, ForeachStep, ParallelStep, WaitStep
+]
 
 
 @dataclass
@@ -92,9 +96,7 @@ class _CompileCtx:
 
 def _parse_step(
     raw: Any,
-) -> Union[
-    ActionStep, AssignStep, IfStep, SwitchStep, WhileStep, RepeatStep, ForeachStep, ParallelStep, WaitStep
-]:
+) -> StepUnion:
     if isinstance(
         raw,
         (ActionStep, AssignStep, IfStep, SwitchStep, WhileStep, RepeatStep, ForeachStep, ParallelStep, WaitStep),
@@ -103,23 +105,23 @@ def _parse_step(
     if not isinstance(raw, dict):
         raise ValueError(f"unsupported program step: {raw!r}")
     if "assign" in raw:
-        return AssignStep.model_validate(raw)
+        return cast(StepUnion, AssignStep.model_validate(raw))  # pydantic validate -> step union
     if "parallel" in raw and isinstance(raw.get("parallel"), list):
-        return ParallelStep.model_validate(raw)
+        return cast(StepUnion, ParallelStep.model_validate(raw))  # pydantic validate -> step union
     if "for" in raw or "foreach" in raw:
-        return ForeachStep.model_validate(raw)
+        return cast(StepUnion, ForeachStep.model_validate(raw))  # pydantic validate -> step union
     if "switch" in raw:
-        return SwitchStep.model_validate(raw)
+        return cast(StepUnion, SwitchStep.model_validate(raw))  # pydantic validate -> step union
     if "while" in raw:
-        return WhileStep.model_validate(raw)
+        return cast(StepUnion, WhileStep.model_validate(raw))  # pydantic validate -> step union
     if "repeat" in raw:
-        return RepeatStep.model_validate(raw)
+        return cast(StepUnion, RepeatStep.model_validate(raw))  # pydantic validate -> step union
     if "if" in raw:
-        return IfStep.model_validate(raw)
+        return cast(StepUnion, IfStep.model_validate(raw))  # pydantic validate -> step union
     if "wait" in raw:
-        return WaitStep.model_validate(raw)
+        return cast(StepUnion, WaitStep.model_validate(raw))  # pydantic validate -> step union
     if "do" in raw or "action" in raw:
-        return ActionStep.model_validate(raw)
+        return cast(StepUnion, ActionStep.model_validate(raw))  # pydantic validate -> step union
     raise ValueError(f"unsupported program step keys: {list(raw)}")
 
 
