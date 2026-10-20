@@ -9,6 +9,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tarfile
@@ -635,6 +636,10 @@ def _build_host_mojo_fq2bam_meth_command(
     ]
 
 
+def _docker_container_name(paths: ParabricksPaths) -> str:
+    """Stable ``docker run --name`` so a killed CLI can still drop the GPU container."""
+    return f"methyl-pb-{paths.tmp_dir.name}"
+
 
 def _docker_tmp_volume(paths: ParabricksPaths) -> List[str]:
     """Bind the local scratch dir into the container, off the /work mount."""
@@ -666,6 +671,8 @@ def _build_docker_command(
             "run",
             "--rm",
             *cfg.gpu_flags,
+            "--name",
+            _docker_container_name(paths),
             "--user",
             docker_user,
             "-e",
@@ -716,6 +723,8 @@ def _build_docker_command(
         "run",
         "--rm",
         *cfg.gpu_flags,
+        "--name",
+        _docker_container_name(paths),
         "--user",
         docker_user,
         "-v",
@@ -813,35 +822,115 @@ def bwameth_c2t_index_paths(reference_fasta: str | Path) -> tuple[Path, ...]:
     return tuple(Path(base + suffix) for suffix in _BWAMETH_C2T_SUFFIXES)
 
 
+def _docker_run_name(cmd: Sequence[str]) -> Optional[str]:
+    """``docker run --name`` value, when this argv starts a container."""
+    if len(cmd) < 2 or Path(cmd[0]).name != "docker" or cmd[1] != "run":
+        return None
+    try:
+        index = cmd.index("--name")
+    except ValueError:
+        return None
+    if index + 1 >= len(cmd):
+        return None
+    return cmd[index + 1]
+
+
+def _kill_process_group(proc: subprocess.Popen) -> None:
+    """SIGKILL the session from ``start_new_session`` (leader and children).
+
+    ``subprocess.run(..., timeout=)`` signals only the direct child. Host
+    ``pbrun`` workers and a ``docker`` CLI's grandchildren keep the GPU.
+    """
+    if not proc.pid:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            proc.kill()
+        except OSError:
+            pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _force_remove_docker_container(docker_bin: str, name: str, log_path: Path) -> None:
+    """Drop a ``--gpus`` container that outlived the ``docker run`` CLI."""
+    try:
+        completed = subprocess.run(
+            [docker_bin, "rm", "-f", name],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        _append_log(log_path, f"docker rm -f {name} failed: {exc}")
+        return
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip()
+        _append_log(
+            log_path,
+            f"docker rm -f {name} failed: {detail or completed.returncode}",
+        )
+
+
+def _close_align_pipes(proc: subprocess.Popen) -> None:
+    for stream in (getattr(proc, "stdout", None), getattr(proc, "stderr", None)):
+        if stream is None:
+            continue
+        try:
+            stream.close()
+        except OSError:
+            pass
+
+
 def _run_align_subprocess(
     cmd: List[str],
     *,
     log_path: Path,
     label: str,
 ) -> subprocess.CompletedProcess[str]:
-    """Run pbrun (or the docker wrapper) and fail clearly when it exceeds the timeout."""
+    """Run pbrun (or the docker wrapper) and fail clearly when it exceeds the timeout.
+
+    The child is a session leader. On timeout the whole group is SIGKILLed, and
+    a named ``docker run`` container is removed so it cannot keep the GPU.
+    """
     timeout = _pbrun_timeout_seconds()
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
     try:
-        return subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=timeout,
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            _kill_process_group(proc)
+            container_name = _docker_run_name(cmd)
+            if container_name:
+                _force_remove_docker_container(cmd[0], container_name, log_path)
+            stdout = _subprocess_text(exc.stdout)
+            stderr = _subprocess_text(exc.stderr)
+            if stdout:
+                _append_log(log_path, stdout)
+            if stderr:
+                _append_log(log_path, stderr)
+            message = (
+                f"{label} timed out after {timeout:g}s "
+                "(METHYL_PBRUN_TIMEOUT_SEC) and was killed"
+            )
+            _append_log(log_path, message)
+            raise RuntimeError(message) from exc
+        return subprocess.CompletedProcess(
+            cmd, int(proc.returncode or 0), stdout or "", stderr or ""
         )
-    except subprocess.TimeoutExpired as exc:
-        stdout = _subprocess_text(exc.stdout)
-        stderr = _subprocess_text(exc.stderr)
-        if stdout:
-            _append_log(log_path, stdout)
-        if stderr:
-            _append_log(log_path, stderr)
-        message = (
-            f"{label} timed out after {timeout:g}s "
-            "(METHYL_PBRUN_TIMEOUT_SEC) and was killed"
-        )
-        _append_log(log_path, message)
-        raise RuntimeError(message) from exc
+    finally:
+        _close_align_pipes(proc)
 
 
 def require_bwameth_c2t_index(reference_fasta: str | Path) -> None:
@@ -910,33 +999,36 @@ def run_fq2bam_meth(
     paths.sample_dir.mkdir(parents=True, exist_ok=True)
     _reset_tmp(paths)
 
-    logger.info("Running %s for %s (device=%s)", label, sample_id, cfg.align_device)
-    _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in align_cmd))
+    try:
+        logger.info("Running %s for %s (device=%s)", label, sample_id, cfg.align_device)
+        _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in align_cmd))
 
-    proc = _run_align_subprocess(align_cmd, log_path=paths.log_path, label=label)
-    if proc.stdout:
-        _append_log(paths.log_path, proc.stdout)
-    if proc.stderr:
-        _append_log(paths.log_path, proc.stderr)
-    if proc.returncode != 0:
-        raise RuntimeError(
-            proc.stderr.strip() or proc.stdout.strip() or f"{label} failed"
-        )
+        proc = _run_align_subprocess(align_cmd, log_path=paths.log_path, label=label)
+        if proc.stdout:
+            _append_log(paths.log_path, proc.stdout)
+        if proc.stderr:
+            _append_log(paths.log_path, proc.stderr)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                proc.stderr.strip() or proc.stdout.strip() or f"{label} failed"
+            )
 
-    if not paths.bam_path.is_file():
-        raise RuntimeError(f"{label} did not produce BAM: {paths.bam_path}")
+        if not paths.bam_path.is_file():
+            raise RuntimeError(f"{label} did not produce BAM: {paths.bam_path}")
 
-    tar_path = _package_qc_metrics(paths)
-    if tar_path is None and not paths.metrics_json.is_file():
-        raise RuntimeError(
-            f"{label} did not produce QC metrics for {sample_id}: expected "
-            f"{paths.qc_metrics_dir} or {paths.qc_metrics_tar}"
-        )
+        tar_path = _package_qc_metrics(paths)
+        if tar_path is None and not paths.metrics_json.is_file():
+            raise RuntimeError(
+                f"{label} did not produce QC metrics for {sample_id}: expected "
+                f"{paths.qc_metrics_dir} or {paths.qc_metrics_tar}"
+            )
 
-    if cfg.cleanup_tmp:
-        _cleanup_tmp(paths)
-
-    return _result_payload(paths)
+        return _result_payload(paths)
+    finally:
+        # Timeout raises before a successful BAM/QC write. The hang this limit
+        # exists for is deleteTmpDir, so the local scratch tree is still full.
+        if cfg.cleanup_tmp:
+            _cleanup_tmp(paths)
 
 
 def _result_payload(paths: ParabricksPaths) -> Dict[str, Optional[str]]:

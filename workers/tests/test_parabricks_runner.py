@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import os
+import shlex
 import shutil
+import signal
 import subprocess
 import tarfile
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -378,6 +382,7 @@ def test_build_docker_command_mounts_and_flags(tmp_path: Path) -> None:
 
     joined = " ".join(cmd)
     assert "/usr/bin/docker run --rm --gpus all" in joined
+    assert cmd[cmd.index("--name") + 1] == runner._docker_container_name(paths)
     assert f"{sample_dir.resolve()}:/workdir" in cmd
     assert f"{ref.parent.resolve()}:/genomes:ro" in cmd
     assert cmd[cmd.index(cfg.image) - 2 : cmd.index(cfg.image)] == ["--entrypoint", "sh"]
@@ -512,20 +517,27 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
     (sample_dir / "S7_1.fastq.gz").write_bytes(b"1")
     (sample_dir / "S7_2.fastq.gz").write_bytes(b"2")
 
-    def fake_run(cmd, **kwargs):
-        bam = sample_dir / "S7.bam"
-        qc_dir = sample_dir / "S7.qc-metrics"
-        qc_dir.mkdir()
-        (qc_dir / "summary.txt").write_text("qc")
-        bam.write_bytes(b"BAM")
-        return type("P", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
+    class _AlignProc:
+        def __init__(self, cmd, **kwargs):
+            assert kwargs.get("start_new_session") is True
+            self.returncode = 0
+            self.stdout = None
+            self.stderr = None
+            bam = sample_dir / "S7.bam"
+            qc_dir = sample_dir / "S7.qc-metrics"
+            qc_dir.mkdir()
+            (qc_dir / "summary.txt").write_text("qc")
+            bam.write_bytes(b"BAM")
+
+        def communicate(self, timeout=None):
+            return "ok", ""
 
     with patch.dict(
         "os.environ",
         {"METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1"},
     ):
         with patch("methyl_worker.capabilities._gpu_available", return_value=True):
-            with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+            with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=_AlignProc):
                 out = runner.run_fq2bam_meth(
                     sample_id="S7",
                     sample_dir=sample_dir,
@@ -561,6 +573,7 @@ def test_build_mojo_fq2bam_docker_command(tmp_path: Path) -> None:
         cmd = runner._build_docker_command(cfg, paths, [fq1, fq2])
 
     assert "MojoFq2bamMeth" in cmd
+    assert cmd[cmd.index("--name") + 1] == runner._docker_container_name(paths)
     assert "pbrun" not in cmd
     assert "-device" in cmd
     assert "amd" in cmd
@@ -956,19 +969,164 @@ def test_run_fq2bam_meth_timeout_raises(tmp_path: Path, monkeypatch: pytest.Monk
         path.write_bytes(b"")
     (sample_dir / "S9_1.fastq.gz").write_bytes(b"1")
     (sample_dir / "S9_2.fastq.gz").write_bytes(b"2")
+    paths = runner._resolve_paths(sample_dir, "S9", ref)
+    killed: dict[str, object] = {}
 
-    def fake_run(cmd, **kwargs):
-        assert kwargs["timeout"] == 15.0
-        raise subprocess.TimeoutExpired(cmd, 15, stderr="pbutils.deleteTmpDir")
+    class _HangProc:
+        pid = 424242
+        returncode = None
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            assert timeout == 15.0
+            (paths.tmp_dir / "chunk").write_text("scratch", encoding="utf-8")
+            raise subprocess.TimeoutExpired(["pbrun"], timeout, stderr="pbutils.deleteTmpDir")
+
+        def kill(self):
+            killed["direct"] = True
+
+        def wait(self, timeout=None):
+            self.returncode = -signal.SIGKILL
+            return self.returncode
+
+    real_popen = subprocess.Popen
+
+    def fake_popen(cmd, **kwargs):
+        argv = list(cmd)
+        if argv and str(argv[0]).endswith("pbrun"):
+            assert kwargs.get("start_new_session") is True
+            return _HangProc()
+        return real_popen(argv, **kwargs)
+
+    def fake_killpg(pid, sig):
+        killed["pid"] = pid
+        killed["sig"] = sig
 
     with patch("methyl_worker.capabilities._gpu_available", return_value=True):
-        with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
-            with pytest.raises(RuntimeError, match=r"timed out after 15s \(METHYL_PBRUN_TIMEOUT_SEC\) and was killed"):
-                runner.run_fq2bam_meth(
-                    sample_id="S9",
-                    sample_dir=sample_dir,
-                    reference_fasta=ref,
-                )
+        with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+            with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+                with pytest.raises(
+                    RuntimeError,
+                    match=r"timed out after 15s \(METHYL_PBRUN_TIMEOUT_SEC\) and was killed",
+                ):
+                    runner.run_fq2bam_meth(
+                        sample_id="S9",
+                        sample_dir=sample_dir,
+                        reference_fasta=ref,
+                    )
     log_text = (sample_dir / "S9.fq2bam_meth.log").read_text(encoding="utf-8")
     assert "pbutils.deleteTmpDir" in log_text
     assert "timed out after 15s" in log_text
+    assert killed["pid"] == 424242
+    assert killed["sig"] == signal.SIGKILL
+    assert not paths.tmp_dir.exists()
+
+
+def test_run_fq2bam_meth_timeout_removes_docker_container(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "15")
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "docker")
+    monkeypatch.setenv("METHYL_PARABRICKS_IMAGE", "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1")
+    monkeypatch.setattr(runner, "_docker_bin", lambda: "/usr/bin/docker")
+    sample_dir = tmp_path / "S10"
+    sample_dir.mkdir()
+    ref = tmp_path / "genome.fa"
+    ref.write_text(">ref\n", encoding="utf-8")
+    for path in runner.bwameth_c2t_index_paths(ref):
+        path.write_bytes(b"")
+    (sample_dir / "S10_1.fastq.gz").write_bytes(b"1")
+    (sample_dir / "S10_2.fastq.gz").write_bytes(b"2")
+    paths = runner._resolve_paths(sample_dir, "S10", ref)
+    container_name = runner._docker_container_name(paths)
+    killed: dict[str, object] = {}
+    rm_cmds: list[list[str]] = []
+
+    class _HangProc:
+        pid = 515151
+        returncode = None
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            (paths.tmp_dir / "chunk").write_text("scratch", encoding="utf-8")
+            raise subprocess.TimeoutExpired(
+                ["docker"], timeout or 15, stderr="pbutils.deleteTmpDir"
+            )
+
+        def kill(self):
+            killed["direct"] = True
+
+        def wait(self, timeout=None):
+            self.returncode = -signal.SIGKILL
+            return self.returncode
+
+    real_popen = subprocess.Popen
+    real_run = subprocess.run
+
+    def fake_popen(cmd, **kwargs):
+        argv = list(cmd)
+        if "--name" in argv and container_name in argv:
+            assert kwargs.get("start_new_session") is True
+            return _HangProc()
+        return real_popen(argv, **kwargs)
+
+    def fake_killpg(pid, sig):
+        killed["pid"] = pid
+        killed["sig"] = sig
+
+    def fake_run(cmd, **kwargs):
+        argv = list(cmd)
+        if len(argv) >= 2 and argv[1] == "rm":
+            rm_cmds.append(argv)
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        return real_run(argv, **kwargs)
+
+    with patch("methyl_worker.capabilities._gpu_available", return_value=True):
+        with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+            with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+                with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+                    with pytest.raises(RuntimeError, match=r"timed out after 15s"):
+                        runner.run_fq2bam_meth(
+                            sample_id="S10",
+                            sample_dir=sample_dir,
+                            reference_fasta=ref,
+                        )
+    assert killed["pid"] == 515151
+    assert killed["sig"] == signal.SIGKILL
+    assert rm_cmds == [["/usr/bin/docker", "rm", "-f", container_name]]
+    assert not paths.tmp_dir.exists()
+
+
+def test_align_subprocess_timeout_kills_process_group(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "1")
+    log_path = tmp_path / "align.log"
+    pid_path = tmp_path / "child.pid"
+    quoted_pid = shlex.quote(str(pid_path))
+    cmd = ["bash", "-c", f"sleep 30 & echo $! > {quoted_pid}; wait"]
+    child_pid: int | None = None
+    try:
+        with pytest.raises(RuntimeError, match=r"timed out after 1s"):
+            runner._run_align_subprocess(cmd, log_path=log_path, label="pbrun")
+        child_pid = int(pid_path.read_text(encoding="utf-8").strip())
+        deadline = time.time() + 2
+        alive = True
+        while time.time() < deadline:
+            try:
+                os.kill(child_pid, 0)
+            except ProcessLookupError:
+                alive = False
+                break
+            time.sleep(0.05)
+        assert not alive
+    finally:
+        if child_pid is not None:
+            try:
+                os.kill(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
