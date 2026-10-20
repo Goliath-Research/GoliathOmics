@@ -29,9 +29,11 @@ def resolve_alignment_qc_config(
     - explicit resolved group labels
     """
     project = load_project(project_path)
-    paths = project.get_derived_paths()
-    resolved = project.get_resolved_groups()
-    resolved_with_side = project._get_resolved_groups_with_side()
+    # Sample prep runs alignment QC before methylation extraction writes
+    # <chrom>-<ctx>.h5. The analysis H5 filter would drop every sample.
+    paths = project.get_derived_paths(require_h5=False)
+    resolved = project.get_resolved_groups(require_h5=False)
+    resolved_with_side = project._get_resolved_groups_with_side(require_h5=False)
     paths_by_label = {label: list(group_paths) for label, group_paths in resolved}
 
     # Default: all samples from all resolved groups
@@ -46,9 +48,9 @@ def resolve_alignment_qc_config(
                 for _, group_paths in resolved:
                     selected.extend(group_paths)
             elif g == "group1":
-                selected.extend(project.get_group1_sample_paths())
+                selected.extend(project.get_group1_sample_paths(require_h5=False))
             elif g == "group2":
-                selected.extend(project.get_group2_sample_paths())
+                selected.extend(project.get_group2_sample_paths(require_h5=False))
             elif g in {"control", "disease"}:
                 for _, group_paths, side in resolved_with_side:
                     if side == g:

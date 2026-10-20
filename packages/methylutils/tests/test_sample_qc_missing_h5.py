@@ -85,3 +85,27 @@ def test_global_sample_qc_fails_when_group_becomes_empty(tmp_path: Path):
 
     with pytest.raises(ValueError, match="removed all samples"):
         project.get_resolved_groups()
+
+
+def test_alignment_qc_resolution_skips_h5_filter_and_empty_cohort(tmp_path: Path):
+    """Sample prep has no extraction H5 yet, and a disease arm may list no samples."""
+    cfg = _base_project(tmp_path)
+    samples_base = Path(cfg["samples_base_path"])
+    sample = samples_base / "canary-SRR28293403-linear-subset"
+    sample.mkdir(parents=True, exist_ok=True)
+    cfg["control"]["groups"][0]["sample_paths"] = [str(sample)]
+    cfg["disease"]["groups"][0]["label"] = "unused"
+    cfg["disease"]["groups"][0]["sample_paths"] = []
+    project = ProjectConfig.model_validate(cfg)
+
+    with pytest.raises(ValueError, match="Cohort group has no samples"):
+        project.get_resolved_groups()
+
+    resolved = project.get_resolved_groups(require_h5=False)
+    assert resolved[0] == ("all", [str(sample)])
+    assert resolved[1] == ("unused", [])
+    derived = project.get_derived_paths(require_h5=False)
+    assert derived.alignment_qc_dir.endswith("/alignment_qc")
+
+    with pytest.raises(ValueError, match="Cohort group has no samples"):
+        project.get_resolved_groups()

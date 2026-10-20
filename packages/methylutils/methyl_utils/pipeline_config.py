@@ -775,6 +775,8 @@ class ProjectConfig(BaseModel):
     def _get_resolved_groups_with_side(
         self,
         expand_subclusters: bool = False,
+        *,
+        require_h5: bool = True,
     ) -> List[Tuple[str, List[str], Literal["control", "disease"]]]:
         """
         Return list of (label, sample_paths, side) for each centroid group.
@@ -782,8 +784,14 @@ class ProjectConfig(BaseModel):
         When flat groups: first group = control, rest = disease.
         If expand_subclusters is True and a clustering manifest exists for a group with
         subcluster+persist_centroids, that group is expanded into (derived_label, paths, side) per cluster.
+
+        ``require_h5`` drops samples that lack ``<chrom>-<ctx>.h5`` and rejects an empty
+        cohort. Alignment QC runs before extraction writes those files, so it passes
+        ``require_h5=False``. Analysis stages keep the default.
         """
         base_for = self._base_for
+        cache_key = "with_side:flat"
+        grouped: List[Tuple[str, List[str], Literal["control", "disease"]]]
         if self.control is not None and self.disease is not None:
             out: List[Tuple[str, List[str], Literal["control", "disease"]]] = []
             for label, paths in self._expand_side_groups(self.control.groups, base_for):
@@ -796,24 +804,26 @@ class ProjectConfig(BaseModel):
                     out.extend(self._expand_one_with_manifest(label, paths, "disease"))
                 else:
                     out.append((label, paths, "disease"))
-            return self._apply_sample_qc_with_side(
-                out, cache_key=f"with_side:control_disease:{bool(expand_subclusters)}"
-            )
-        # Flat groups or group1/group2: no subcluster expansion
-        if self.groups:
-            resolved = self._expand_side_groups(self.groups, base_for)
+            grouped = out
+            cache_key = f"with_side:control_disease:{bool(expand_subclusters)}"
         else:
-            if self.group1 is None or self.group2 is None:
-                raise ValueError("group1 and group2 are required when groups is not set")
-            resolved = [
-                (self.group1.label, _resolve_sample_paths(self.group1.sample_paths, base_path=base_for(self.group1))),
-                (self.group2.label, _resolve_sample_paths(self.group2.sample_paths, base_path=base_for(self.group2))),
+            # Flat groups or group1/group2: no subcluster expansion
+            if self.groups:
+                resolved = self._expand_side_groups(self.groups, base_for)
+            else:
+                if self.group1 is None or self.group2 is None:
+                    raise ValueError("group1 and group2 are required when groups is not set")
+                resolved = [
+                    (self.group1.label, _resolve_sample_paths(self.group1.sample_paths, base_path=base_for(self.group1))),
+                    (self.group2.label, _resolve_sample_paths(self.group2.sample_paths, base_path=base_for(self.group2))),
+                ]
+            grouped = [
+                (label, paths, "control" if i == 0 else "disease")
+                for i, (label, paths) in enumerate(resolved)
             ]
-        with_side = [
-            (label, paths, "control" if i == 0 else "disease")
-            for i, (label, paths) in enumerate(resolved)
-        ]
-        return self._apply_sample_qc_with_side(with_side, cache_key="with_side:flat")
+        if not require_h5:
+            return [(label, list(paths), side) for label, paths, side in grouped]
+        return self._apply_sample_qc_with_side(grouped, cache_key=cache_key)
 
     def cohort_group_labels(self) -> List[str]:
         """Group labels for instance context, without resolving paths or H5 files.
@@ -839,13 +849,22 @@ class ProjectConfig(BaseModel):
             labels.append(self.group2.label)
         return labels
 
-    def _get_resolved_groups(self, expand_subclusters: bool = False) -> List[Tuple[str, List[str]]]:
+    def _get_resolved_groups(
+        self,
+        expand_subclusters: bool = False,
+        *,
+        require_h5: bool = True,
+    ) -> List[Tuple[str, List[str]]]:
         """
         Return list of (label, sample_paths) for each centroid group.
         When control/disease: control groups first, then disease. When groups set, expands by level_labels_path.
         If expand_subclusters is True, groups with subcluster+persist_centroids are expanded from clustering manifests.
+        ``require_h5=False`` keeps samples that do not yet have extraction H5 files.
         """
-        with_side = self._get_resolved_groups_with_side(expand_subclusters=expand_subclusters)
+        with_side = self._get_resolved_groups_with_side(
+            expand_subclusters=expand_subclusters,
+            require_h5=require_h5,
+        )
         return [(label, list(paths)) for label, paths, _ in with_side]
 
     # Legacy fallback for flat two-group configs that do not have a disease-side label.
@@ -1121,11 +1140,19 @@ class ProjectConfig(BaseModel):
             "indeterminate_delta": delta,
         }
 
-    def get_derived_paths(self, expand_subclusters: bool = False) -> DerivedPaths:
-        """Compute derived paths from this project config. Project root is {output_base}/{project_name}. When expand_subclusters is True, centroid_dirs include derived groups from clustering manifests."""
+    def get_derived_paths(
+        self,
+        expand_subclusters: bool = False,
+        *,
+        require_h5: bool = True,
+    ) -> DerivedPaths:
+        """Compute derived paths from this project config. Project root is {output_base}/{project_name}. When expand_subclusters is True, centroid_dirs include derived groups from clustering manifests. Alignment QC passes require_h5=False so missing extraction H5 files do not empty the cohort."""
         global_base = self.output_base.rstrip("/")
         project_root = f"{global_base}/{self.project_name}"
-        with_side = self._get_resolved_groups_with_side(expand_subclusters=expand_subclusters)
+        with_side = self._get_resolved_groups_with_side(
+            expand_subclusters=expand_subclusters,
+            require_h5=require_h5,
+        )
         centroid_dirs_list = [self.get_centroid_dir(side, label) for label, _, side in with_side]
         c1 = centroid_dirs_list[0] if len(centroid_dirs_list) >= 1 else ""
         c2 = centroid_dirs_list[1] if len(centroid_dirs_list) >= 2 else c1
@@ -1142,14 +1169,14 @@ class ProjectConfig(BaseModel):
             alignment_qc_dir=f"{project_root}/alignment_qc",
         )
 
-    def get_group1_sample_paths(self) -> List[str]:
+    def get_group1_sample_paths(self, *, require_h5: bool = True) -> List[str]:
         """Return resolved sample paths for group1 (or first group when using N groups)."""
-        resolved = self._get_resolved_groups()
+        resolved = self._get_resolved_groups(require_h5=require_h5)
         return list(resolved[0][1]) if resolved else []
 
-    def get_group2_sample_paths(self) -> List[str]:
+    def get_group2_sample_paths(self, *, require_h5: bool = True) -> List[str]:
         """Return resolved sample paths for group2 (or second group when using N groups)."""
-        resolved = self._get_resolved_groups()
+        resolved = self._get_resolved_groups(require_h5=require_h5)
         return list(resolved[1][1]) if len(resolved) > 1 else []
 
     def get_group_sample_paths(self, index: int) -> List[str]:
@@ -1174,9 +1201,17 @@ class ProjectConfig(BaseModel):
                 return list(paths)
         raise ValueError(f"group label {label!r} not found in resolved groups")
 
-    def get_resolved_groups(self, expand_subclusters: bool = False) -> List[tuple]:
-        """Return list of (label, sample_paths). When expand_subclusters is True, groups with subcluster+persist_centroids are expanded from clustering manifests."""
-        return self._get_resolved_groups(expand_subclusters=expand_subclusters)
+    def get_resolved_groups(
+        self,
+        expand_subclusters: bool = False,
+        *,
+        require_h5: bool = True,
+    ) -> List[tuple]:
+        """Return list of (label, sample_paths). When expand_subclusters is True, groups with subcluster+persist_centroids are expanded from clustering manifests. require_h5=False skips the extraction-H5 eligibility filter."""
+        return self._get_resolved_groups(
+            expand_subclusters=expand_subclusters,
+            require_h5=require_h5,
+        )
 
     def get_regulatory_config(self) -> Dict[str, Any]:
         """Return top-level regulatory metadata (no analyte profile merge)."""
