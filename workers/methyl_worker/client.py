@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import ssl
 from dataclasses import dataclass
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -86,7 +89,12 @@ def materialize_gateway_ca_file() -> Optional[str]:
         if current != text:
             tmp = dest.with_name(dest.name + ".tmp")
             tmp.write_text(text, encoding="utf-8")
-            os.chmod(tmp, 0o644)
+            try:
+                os.chmod(tmp, 0o644)
+            except OSError as exc:
+                # geesefs /work rejects chmod. The writer can still read the
+                # trust anchor it just created.
+                logger.warning("chmod 0644 rejected for %s: %s", tmp, exc)
             tmp.replace(dest)
         return str(dest)
     if explicit:

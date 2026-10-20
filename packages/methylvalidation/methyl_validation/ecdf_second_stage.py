@@ -1132,8 +1132,8 @@ def train_and_apply_ecdf_second_stage(
             json.dumps(test_payload, indent=2) + "\n",
             encoding="utf-8",
         )
-        shutil.copy2(test_pred_csv, predictor_output_dir / "predictions.csv")
-        shutil.copy2(test_metrics_path, predictor_output_dir / "validation_metrics.json")
+        shutil.copyfile(test_pred_csv, predictor_output_dir / "predictions.csv")
+        shutil.copyfile(test_metrics_path, predictor_output_dir / "validation_metrics.json")
 
     try:
         _proj = load_project(project_json)

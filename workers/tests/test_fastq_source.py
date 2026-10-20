@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -45,6 +46,33 @@ def _azure_source(prefix: str) -> AzureFastqSource:
         prefix=prefix,
         credentials={"authMode": "default_credential"},
     )
+
+
+def test_local_fetch_succeeds_when_utime_and_copystat_raise(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """geesefs returns EPERM from os.utime and shutil.copystat; fetch must finish.
+
+    ``OSError(EPERM)`` is a ``PermissionError``. ``_touch_mtime`` must tolerate
+    that ``OSError`` or the download fails after the bytes are copied.
+    """
+    src = tmp_path / "source"
+    src.mkdir()
+    (src / "S1_1.fastq.gz").write_bytes(b"read1")
+    (src / "S1_2.fastq.gz").write_bytes(b"read2")
+
+    def _deny(*_args: object, **_kwargs: object) -> None:
+        raise OSError(1, "Operation not permitted")
+
+    monkeypatch.setattr(os, "utime", _deny)
+    monkeypatch.setattr(shutil, "copystat", _deny)
+
+    dest = tmp_path / "dest"
+    files = download_from_source(_file_source(src), dest)
+
+    assert sorted(Path(p).name for p in files) == ["S1_1.fastq.gz", "S1_2.fastq.gz"]
+    assert (dest / "S1_1.fastq.gz").read_bytes() == b"read1"
+    assert (dest / "S1_2.fastq.gz").read_bytes() == b"read2"
 
 
 def test_local_folder_downloads_all_fastq_gz(tmp_path: Path) -> None:

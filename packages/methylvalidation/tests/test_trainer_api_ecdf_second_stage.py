@@ -191,7 +191,7 @@ def test_classic_ecdf_predictor_uses_partitioned_scoring_when_sidecars_exist(
 def test_score_classic_ecdf_test_partition_does_not_self_copy_test_metrics(
     tmp_path: Path, monkeypatch
 ):
-    """test_metrics.json is the canonical path; do not shutil.copy2 it onto itself."""
+    """test_metrics.json is the canonical path; do not copy it onto itself."""
     from methyl_validation.trainer_api import _score_classic_ecdf_partition
 
     project = tmp_path / "project.json"

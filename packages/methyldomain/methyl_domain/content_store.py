@@ -451,7 +451,7 @@ def _move_artifacts_into_entry(
                 and not _is_under(src_payload, entry_dir)
             )
             if src.is_symlink() or foreign_caas_blob:
-                shutil.copy2(str(src_payload), str(dest))
+                shutil.copyfile(str(src_payload), str(dest))
                 # Remove only the logical product path (usually a symlink under
                 # output_dir). Never delete a durable blob: sample-scoped CAAS
                 # lives at ``{sampleRoot}/.caas/...`` (flat: same as sampleDir),

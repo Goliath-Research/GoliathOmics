@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import logging
 import os
+import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tarfile
@@ -34,6 +37,14 @@ except ImportError:  # stale sister: work_share loaded before append_work_text e
 logger = logging.getLogger(__name__)
 
 DEFAULT_MOJO_IMAGE = "goliath/methylgrapher:1.70-mojo"
+# goliath-worker installs Clara here, outside the default PATH.
+_DEFAULT_PBRUN = Path("/usr/local/parabricks/pbrun")
+# pbrun deleteTmpDir waits forever on geesefs. Keep scratch on local disk.
+_DEFAULT_PB_TMP_ROOT = Path("/tmp/methyl-pb")
+# Bind-mount target inside the Parabricks/Mojo container (not /outputdir).
+_CONTAINER_PB_TMP = "/tmp/methyl-pb"
+# A WGBS sample can take many hours. A hang must still end the task.
+_DEFAULT_PBRUN_TIMEOUT_SEC = 48 * 60 * 60
 
 
 @dataclass(frozen=True)
@@ -303,6 +314,59 @@ def _load_config(
     )
 
 
+def _local_pbrun_tmp_root() -> Path:
+    """Directory that holds per-task Parabricks scratch, never the /work mount.
+
+    ``METHYL_LOCAL_TMP`` wins. Otherwise a ``methyl-pb`` directory under
+    ``TMPDIR``. The default is ``/tmp/methyl-pb``.
+    """
+    explicit = os.environ.get("METHYL_LOCAL_TMP", "").strip()
+    if explicit:
+        return Path(explicit).expanduser()
+    tmpdir = os.environ.get("TMPDIR", "").strip()
+    if tmpdir:
+        return Path(tmpdir).expanduser() / "methyl-pb"
+    return _DEFAULT_PB_TMP_ROOT
+
+
+def _local_pbrun_tmp_dir(sample_id: str, sample_dir: Path) -> Path:
+    """One local scratch directory for this sample's align task."""
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "_", sample_id).strip("._") or "sample"
+    digest = hashlib.sha256(str(sample_dir.resolve()).encode()).hexdigest()[:10]
+    return _local_pbrun_tmp_root() / f"{slug}-{digest}"
+
+
+def _pbrun_timeout_seconds() -> float:
+    """Seconds ``pbrun`` may run before the worker kills it.
+
+    ``METHYL_PBRUN_TIMEOUT_SEC`` overrides the default (48 hours).
+    """
+    raw = os.environ.get("METHYL_PBRUN_TIMEOUT_SEC", "").strip()
+    if not raw:
+        return float(_DEFAULT_PBRUN_TIMEOUT_SEC)
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"METHYL_PBRUN_TIMEOUT_SEC must be a positive number of seconds, got {raw!r}"
+        ) from exc
+    if value <= 0:
+        raise RuntimeError(
+            f"METHYL_PBRUN_TIMEOUT_SEC must be a positive number of seconds, got {raw!r}"
+        )
+    return value
+
+
+def _subprocess_text(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
 def _resolve_paths(sample_dir: Path, sample_id: str, reference_fasta: Path) -> ParabricksPaths:
     return ParabricksPaths(
         sample_dir=sample_dir,
@@ -314,7 +378,7 @@ def _resolve_paths(sample_dir: Path, sample_id: str, reference_fasta: Path) -> P
         metrics_json=sample_dir / f"{sample_id}.json",
         dedup_metrics=sample_dir / f"{sample_id}.deduplicate_metrics.txt",
         log_path=sample_dir / f"{sample_id}.fq2bam_meth.log",
-        tmp_dir=sample_dir / "tmp",
+        tmp_dir=_local_pbrun_tmp_dir(sample_id, sample_dir),
     )
 
 
@@ -367,15 +431,37 @@ def _docker_bin() -> str:
     return docker
 
 
+def resolve_pbrun() -> Optional[str]:
+    """Host ``pbrun``, or None when Clara is not installed on this machine.
+
+    ``METHYL_PBRUN_BIN`` wins. Otherwise ``PATH``, then the goliath-worker
+    image path ``/usr/local/parabricks/pbrun``.
+    """
+    explicit = os.environ.get("METHYL_PBRUN_BIN", "").strip()
+    if explicit:
+        return explicit
+    found = shutil.which("pbrun")
+    if found:
+        return found
+    if _DEFAULT_PBRUN.is_file():
+        return str(_DEFAULT_PBRUN)
+    return None
+
+
+def _host_pbrun_argv0() -> str:
+    return resolve_pbrun() or "pbrun"
+
+
 def use_host_pbrun() -> bool:
     """True when Clara ``pbrun`` should run on the worker host (no nested docker).
 
     ``METHYL_PARABRICKS_MODE=host|native`` forces host mode (requires ``pbrun``).
-    ``docker|container`` forces docker. Default ``auto``: host when ``pbrun`` is
-    on PATH (goliath-worker image), else docker (SSH VMs that still pull NGC).
+    ``docker|container`` forces docker. Default ``auto``: host when ``pbrun``
+    resolves (``PATH``, ``METHYL_PBRUN_BIN``, or ``/usr/local/parabricks/pbrun``),
+    else docker (SSH VMs that still pull NGC).
     """
     mode = os.environ.get("METHYL_PARABRICKS_MODE", "auto").strip().lower()
-    has_pbrun = shutil.which("pbrun") is not None
+    has_pbrun = resolve_pbrun() is not None
     if mode in {"host", "native", "1", "true", "yes"}:
         if not has_pbrun:
             raise RuntimeError(
@@ -454,7 +540,7 @@ def _build_host_fq2bam_meth_command(
 ) -> List[str]:
     host_fqs = [str(fq.resolve()) for fq in fastqs]
     return [
-        "pbrun",
+        _host_pbrun_argv0(),
         "fq2bam_meth",
         f"--ref={paths.reference_fasta.resolve()}",
         *_in_fq_flags(host_fqs),
@@ -478,7 +564,7 @@ def build_collectmultiplemetrics_command(
     ref = reference_fasta.resolve()
     if use_host_pbrun():
         return [
-            "pbrun",
+            _host_pbrun_argv0(),
             "collectmultiplemetrics",
             f"--ref={ref}",
             f"--bam={paths.bam_path.resolve()}",
@@ -550,6 +636,19 @@ def _build_host_mojo_fq2bam_meth_command(
     ]
 
 
+def _docker_container_name(paths: ParabricksPaths) -> str:
+    """Stable ``docker run --name`` so a killed CLI can still drop the GPU container.
+
+    The same name is removed before the next ``docker run``, so a leftover from
+    a crash or a failed ``docker rm`` does not block the retry.
+    """
+    return f"methyl-pb-{paths.tmp_dir.name}"
+
+
+def _docker_tmp_volume(paths: ParabricksPaths) -> List[str]:
+    """Bind the local scratch dir into the container, off the /work mount."""
+    return ["-v", f"{paths.tmp_dir.resolve()}:{_CONTAINER_PB_TMP}"]
+
 
 def _build_docker_command(
     cfg: ParabricksConfig,
@@ -576,6 +675,8 @@ def _build_docker_command(
             "run",
             "--rm",
             *cfg.gpu_flags,
+            "--name",
+            _docker_container_name(paths),
             "--user",
             docker_user,
             "-e",
@@ -588,6 +689,7 @@ def _build_docker_command(
             f"{paths.sample_dir.resolve()}:/workdir",
             "-v",
             f"{paths.sample_dir.resolve()}:/outputdir",
+            *_docker_tmp_volume(paths),
             "-v",
             f"{genome_dir.resolve()}:/genomes:ro",
             "-w",
@@ -615,7 +717,7 @@ def _build_docker_command(
                 "-device",
                 cfg.align_device,
                 "-work_dir",
-                f"/outputdir/{paths.tmp_dir.name}",
+                _CONTAINER_PB_TMP,
             ),
         ]
         return cmd
@@ -625,12 +727,15 @@ def _build_docker_command(
         "run",
         "--rm",
         *cfg.gpu_flags,
+        "--name",
+        _docker_container_name(paths),
         "--user",
         docker_user,
         "-v",
         f"{paths.sample_dir.resolve()}:/workdir",
         "-v",
         f"{paths.sample_dir.resolve()}:/outputdir",
+        *_docker_tmp_volume(paths),
         "-v",
         f"{genome_dir.resolve()}:/genomes:ro",
         "-w",
@@ -647,7 +752,7 @@ def _build_docker_command(
             f"--out-qc-metrics-dir=/outputdir/{paths.qc_metrics_dir.name}",
             f"--out-duplicate-metrics=/outputdir/{paths.dedup_metrics.name}",
             f"--logfile=/outputdir/{paths.log_path.name}",
-            f"--tmp-dir=/outputdir/{paths.tmp_dir.name}",
+            f"--tmp-dir={_CONTAINER_PB_TMP}",
             f"--bwa-cpu-thread-pool={cfg.bwa_threads}",
             "--gpusort",
             "--gpuwrite",
@@ -679,14 +784,14 @@ def _cleanup_tmp(paths: ParabricksPaths) -> None:
 
 
 def _reset_tmp(paths: ParabricksPaths) -> None:
-    """Empty leftover Align ``tmp`` and leave it other-writable for Docker.
+    """Empty leftover Align scratch on local disk and leave it other-writable.
 
-    ``pbrun`` / ``MojoFq2bamMeth`` create children under ``/outputdir/tmp``.
-    Align Docker uses ``--user 1000:1000`` (often not this host's ``ubuntu``
-    uid) and NFS ``root_squash`` maps Clara-as-root to ``nobody``. A fresh
-    umask-022 ``0755`` dir owned by the worker is not writable to either.
-    Keep an already other-writable leftover (umask ``000``) instead of
-    replacing it; always ``share_work_tree`` the directory that remains.
+    ``paths.tmp_dir`` is under ``METHYL_LOCAL_TMP`` or ``TMPDIR`` (default
+    ``/tmp/methyl-pb``), not on geesefs. ``pbrun deleteTmpDir`` hangs in the
+    kernel when that tree is on ``/work``. Docker bind-mounts this directory
+    at ``/tmp/methyl-pb`` and runs as ``--user 1000:1000``, so the directory
+    stays other-writable. Keep an already other-writable leftover instead of
+    replacing it.
     """
     if paths.tmp_dir.exists():
         share_work_tree(paths.tmp_dir)
@@ -719,6 +824,147 @@ def bwameth_c2t_index_paths(reference_fasta: str | Path) -> tuple[Path, ...]:
     """The six bwa-meth C2T FM-index siblings ``pbrun fq2bam_meth`` requires."""
     base = str(reference_fasta)
     return tuple(Path(base + suffix) for suffix in _BWAMETH_C2T_SUFFIXES)
+
+
+def _docker_run_name(cmd: Sequence[str]) -> Optional[str]:
+    """``docker run --name`` value, when this argv starts a container."""
+    if len(cmd) < 2 or Path(cmd[0]).name != "docker" or cmd[1] != "run":
+        return None
+    try:
+        index = cmd.index("--name")
+    except ValueError:
+        return None
+    if index + 1 >= len(cmd):
+        return None
+    return cmd[index + 1]
+
+
+def _kill_process_group(proc: subprocess.Popen) -> None:
+    """SIGKILL the session from ``start_new_session`` (leader and children).
+
+    ``subprocess.run(..., timeout=)`` signals only the direct child. Host
+    ``pbrun`` workers and a ``docker`` CLI's grandchildren keep the GPU.
+    """
+    if not proc.pid:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            proc.kill()
+        except OSError:
+            pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _force_remove_docker_container(docker_bin: str, name: str, log_path: Path) -> None:
+    """Drop a ``--gpus`` container that outlived the ``docker run`` CLI."""
+    try:
+        completed = subprocess.run(
+            [docker_bin, "rm", "-f", name],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        _append_log(log_path, f"docker rm -f {name} failed: {exc}")
+        return
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip()
+        _append_log(
+            log_path,
+            f"docker rm -f {name} failed: {detail or completed.returncode}",
+        )
+
+
+def _close_align_pipes(proc: subprocess.Popen) -> None:
+    for stream in (getattr(proc, "stdout", None), getattr(proc, "stderr", None)):
+        if stream is None:
+            continue
+        try:
+            stream.close()
+        except OSError:
+            pass
+
+
+def _teardown_align_process(proc: subprocess.Popen, cmd: Sequence[str], log_path: Path) -> None:
+    """SIGKILL the align session and drop a named GPU container if one was started."""
+    _kill_process_group(proc)
+    container_name = _docker_run_name(cmd)
+    if container_name:
+        _force_remove_docker_container(cmd[0], container_name, log_path)
+
+
+def _run_align_subprocess(
+    cmd: List[str],
+    *,
+    log_path: Path,
+    label: str,
+) -> subprocess.CompletedProcess[str]:
+    """Run pbrun (or the docker wrapper) and fail clearly when it exceeds the timeout.
+
+    The child is a session leader. A named ``docker run`` container is removed
+    before start so a leftover name cannot block the retry. If ``communicate``
+    does not return — timeout or any other error — the whole group is SIGKILLed
+    and that container is removed again before any ``/work`` log append. Those
+    appends chmod and can block, so they must not run while the GPU session is
+    still alive.
+    """
+    timeout = _pbrun_timeout_seconds()
+    container_name = _docker_run_name(cmd)
+    if container_name:
+        _force_remove_docker_container(cmd[0], container_name, log_path)
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    finished = False
+    stdout = ""
+    stderr = ""
+    timeout_error: Optional[subprocess.TimeoutExpired] = None
+    communicate_error: Optional[Exception] = None
+    try:
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+            finished = True
+        except subprocess.TimeoutExpired as exc:
+            timeout_error = exc
+            stdout = _subprocess_text(exc.stdout)
+            stderr = _subprocess_text(exc.stderr)
+        except Exception as exc:
+            communicate_error = exc
+    finally:
+        if not finished:
+            _teardown_align_process(proc, cmd, log_path)
+        _close_align_pipes(proc)
+
+    if timeout_error is not None:
+        if stdout:
+            _append_log(log_path, stdout)
+        if stderr:
+            _append_log(log_path, stderr)
+        message = (
+            f"{label} timed out after {timeout:g}s "
+            "(METHYL_PBRUN_TIMEOUT_SEC) and was killed"
+        )
+        _append_log(log_path, message)
+        raise RuntimeError(message) from timeout_error
+    if communicate_error is not None:
+        _append_log(
+            log_path,
+            f"{label} failed before exit ({type(communicate_error).__name__}: {communicate_error}); stopping the align session",
+        )
+        raise communicate_error
+    return subprocess.CompletedProcess(
+        cmd, int(proc.returncode or 0), stdout or "", stderr or ""
+    )
 
 
 def require_bwameth_c2t_index(reference_fasta: str | Path) -> None:
@@ -787,38 +1033,36 @@ def run_fq2bam_meth(
     paths.sample_dir.mkdir(parents=True, exist_ok=True)
     _reset_tmp(paths)
 
-    logger.info("Running %s for %s (device=%s)", label, sample_id, cfg.align_device)
-    _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in align_cmd))
+    try:
+        logger.info("Running %s for %s (device=%s)", label, sample_id, cfg.align_device)
+        _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in align_cmd))
 
-    proc = subprocess.run(
-        align_cmd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if proc.stdout:
-        _append_log(paths.log_path, proc.stdout)
-    if proc.stderr:
-        _append_log(paths.log_path, proc.stderr)
-    if proc.returncode != 0:
-        raise RuntimeError(
-            proc.stderr.strip() or proc.stdout.strip() or f"{label} failed"
-        )
+        proc = _run_align_subprocess(align_cmd, log_path=paths.log_path, label=label)
+        if proc.stdout:
+            _append_log(paths.log_path, proc.stdout)
+        if proc.stderr:
+            _append_log(paths.log_path, proc.stderr)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                proc.stderr.strip() or proc.stdout.strip() or f"{label} failed"
+            )
 
-    if not paths.bam_path.is_file():
-        raise RuntimeError(f"{label} did not produce BAM: {paths.bam_path}")
+        if not paths.bam_path.is_file():
+            raise RuntimeError(f"{label} did not produce BAM: {paths.bam_path}")
 
-    tar_path = _package_qc_metrics(paths)
-    if tar_path is None and not paths.metrics_json.is_file():
-        raise RuntimeError(
-            f"{label} did not produce QC metrics for {sample_id}: expected "
-            f"{paths.qc_metrics_dir} or {paths.qc_metrics_tar}"
-        )
+        tar_path = _package_qc_metrics(paths)
+        if tar_path is None and not paths.metrics_json.is_file():
+            raise RuntimeError(
+                f"{label} did not produce QC metrics for {sample_id}: expected "
+                f"{paths.qc_metrics_dir} or {paths.qc_metrics_tar}"
+            )
 
-    if cfg.cleanup_tmp:
-        _cleanup_tmp(paths)
-
-    return _result_payload(paths)
+        return _result_payload(paths)
+    finally:
+        # Timeout raises before a successful BAM/QC write. The hang this limit
+        # exists for is deleteTmpDir, so the local scratch tree is still full.
+        if cfg.cleanup_tmp:
+            _cleanup_tmp(paths)
 
 
 def _result_payload(paths: ParabricksPaths) -> Dict[str, Optional[str]]:

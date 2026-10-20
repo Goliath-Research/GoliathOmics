@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import platform
+import shlex
 import shutil
+import signal
+import subprocess
 import tarfile
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -377,6 +383,7 @@ def test_build_docker_command_mounts_and_flags(tmp_path: Path) -> None:
 
     joined = " ".join(cmd)
     assert "/usr/bin/docker run --rm --gpus all" in joined
+    assert cmd[cmd.index("--name") + 1] == runner._docker_container_name(paths)
     assert f"{sample_dir.resolve()}:/workdir" in cmd
     assert f"{ref.parent.resolve()}:/genomes:ro" in cmd
     assert cmd[cmd.index(cfg.image) - 2 : cmd.index(cfg.image)] == ["--entrypoint", "sh"]
@@ -428,12 +435,16 @@ def _assert_tmp_other_writable(path: Path) -> None:
     assert path.stat().st_mode & 0o002, oct(path.stat().st_mode)
 
 
-def test_reset_tmp_clears_leftover_children(tmp_path: Path) -> None:
+def test_reset_tmp_clears_leftover_children(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "local-pb"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
     sample_dir = tmp_path / "S_tmp"
     sample_dir.mkdir()
     ref = tmp_path / "genome.fa"
     ref.write_text(">ref\n")
     paths = runner._resolve_paths(sample_dir, "S_tmp", ref)
+    assert paths.tmp_dir.is_relative_to(local)
+    assert not paths.tmp_dir.is_relative_to(sample_dir)
     leftover = paths.tmp_dir / "ALLU26WX"
     leftover.mkdir(parents=True)
     (leftover / "stale").write_text("x")
@@ -445,7 +456,8 @@ def test_reset_tmp_clears_leftover_children(tmp_path: Path) -> None:
     _assert_tmp_other_writable(paths.tmp_dir)
 
 
-def test_reset_tmp_opens_fresh_dir_for_align_docker(tmp_path: Path) -> None:
+def test_reset_tmp_opens_fresh_dir_for_align_docker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(tmp_path / "local-pb"))
     sample_dir = tmp_path / "S_fresh"
     sample_dir.mkdir()
     ref = tmp_path / "genome.fa"
@@ -457,13 +469,14 @@ def test_reset_tmp_opens_fresh_dir_for_align_docker(tmp_path: Path) -> None:
     _assert_tmp_other_writable(paths.tmp_dir)
 
 
-def test_reset_tmp_keeps_other_writable_leftover(tmp_path: Path) -> None:
+def test_reset_tmp_keeps_other_writable_leftover(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(tmp_path / "local-pb"))
     sample_dir = tmp_path / "S_keep"
     sample_dir.mkdir()
     ref = tmp_path / "genome.fa"
     ref.write_text(">ref\n")
     paths = runner._resolve_paths(sample_dir, "S_keep", ref)
-    paths.tmp_dir.mkdir()
+    paths.tmp_dir.mkdir(parents=True)
     paths.tmp_dir.chmod(0o777)
     inode = paths.tmp_dir.stat().st_ino
     leftover = paths.tmp_dir / "ALLU26WX"
@@ -505,25 +518,76 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
     (sample_dir / "S7_1.fastq.gz").write_bytes(b"1")
     (sample_dir / "S7_2.fastq.gz").write_bytes(b"2")
 
-    def fake_run(cmd, **kwargs):
-        bam = sample_dir / "S7.bam"
-        qc_dir = sample_dir / "S7.qc-metrics"
-        qc_dir.mkdir()
-        (qc_dir / "summary.txt").write_text("qc")
-        bam.write_bytes(b"BAM")
-        return type("P", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
+    class _RmProc:
+        """``subprocess.run`` for ``docker rm`` uses ``Popen`` as a context manager."""
+
+        def __init__(self, args: list[str]) -> None:
+            self.args = args
+            self.returncode = 0
+            self.stdout = ""
+            self.stderr = ""
+
+        def communicate(self, input=None, timeout=None):
+            return "", ""
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self) -> None:
+            self.returncode = -9
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args: object) -> bool:
+            return False
+
+    class _AlignProc:
+        def __init__(self, cmd, **kwargs):
+            assert kwargs.get("start_new_session") is True
+            self.returncode = 0
+            self.stdout = None
+            self.stderr = None
+            bam = sample_dir / "S7.bam"
+            qc_dir = sample_dir / "S7.qc-metrics"
+            qc_dir.mkdir()
+            (qc_dir / "summary.txt").write_text("qc")
+            bam.write_bytes(b"BAM")
+
+        def communicate(self, timeout=None):
+            return "ok", ""
+
+    removed: list[str] = []
+    # h5py's first import asks platform.processor(), which spawns uname.
+    # Cache that before Popen is patched so this stub never has to run it.
+    platform.processor()
+
+    def fake_popen(cmd, **kwargs):
+        argv = list(cmd)
+        exe = Path(argv[0]).name if argv else ""
+        if exe == "docker" and len(argv) >= 2 and argv[1] == "rm":
+            removed.append(argv[-1])
+            return _RmProc(argv)
+        if exe == "docker" and len(argv) >= 2 and argv[1] == "run":
+            return _AlignProc(cmd, **kwargs)
+        raise AssertionError(f"unexpected subprocess: {argv}")
 
     with patch.dict(
         "os.environ",
-        {"METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1"},
+        {
+            "METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
+            "METHYL_PARABRICKS_MODE": "docker",
+        },
     ):
         with patch("methyl_worker.capabilities._gpu_available", return_value=True):
-            with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+            with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
                 out = runner.run_fq2bam_meth(
                     sample_id="S7",
                     sample_dir=sample_dir,
                     reference_fasta=ref,
                 )
+
+    assert removed and removed[0].startswith("methyl-pb-")
 
     assert out["bamPath"] == str(sample_dir / "S7.bam")
     assert out["qcMetricsTar"] == str(sample_dir / "S7.qc-metrics.tar")
@@ -554,6 +618,7 @@ def test_build_mojo_fq2bam_docker_command(tmp_path: Path) -> None:
         cmd = runner._build_docker_command(cfg, paths, [fq1, fq2])
 
     assert "MojoFq2bamMeth" in cmd
+    assert cmd[cmd.index("--name") + 1] == runner._docker_container_name(paths)
     assert "pbrun" not in cmd
     assert "-device" in cmd
     assert "amd" in cmd
@@ -660,18 +725,21 @@ def test_resolve_parabricks_from_project_action_config(tmp_path: Path) -> None:
 
 def test_use_host_pbrun_auto_when_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("METHYL_PARABRICKS_MODE", raising=False)
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
     monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
     assert runner.use_host_pbrun() is True
 
 
 def test_use_host_pbrun_docker_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("METHYL_PARABRICKS_MODE", "docker")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
     monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
     assert runner.use_host_pbrun() is False
 
 
 def test_host_pbrun_fq2bam_meth_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
     monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
     sample = tmp_path / "s"
     sample.mkdir()
@@ -691,7 +759,7 @@ def test_host_pbrun_fq2bam_meth_command(tmp_path: Path, monkeypatch: pytest.Monk
     )
     paths = runner._resolve_paths(sample, "s", ref)
     cmd = runner._build_host_fq2bam_meth_command(cfg, paths, [fq1, fq2])
-    assert cmd[0] == "pbrun"
+    assert cmd[0] == "/usr/bin/pbrun"
     assert "fq2bam_meth" in cmd
     assert any(str(ref) in a for a in cmd)
     assert "docker" not in cmd
@@ -699,6 +767,7 @@ def test_host_pbrun_fq2bam_meth_command(tmp_path: Path, monkeypatch: pytest.Monk
 
 def test_collectmultiplemetrics_host_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
     monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
     sample = tmp_path / "s"
     sample.mkdir()
@@ -716,8 +785,46 @@ def test_collectmultiplemetrics_host_command(tmp_path: Path, monkeypatch: pytest
         engine="parabricks",
     )
     cmd = runner.build_collectmultiplemetrics_command(cfg, paths, ref)
-    assert cmd[:2] == ["pbrun", "collectmultiplemetrics"]
+    assert cmd[:2] == ["/usr/bin/pbrun", "collectmultiplemetrics"]
     assert all(a != "docker" for a in cmd)
+
+
+def test_use_host_pbrun_falls_back_to_image_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pbrun = tmp_path / "pbrun"
+    pbrun.write_text("#!/bin/sh\n", encoding="utf-8")
+    pbrun.chmod(0o755)
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(runner, "_DEFAULT_PBRUN", pbrun)
+    assert runner.resolve_pbrun() == str(pbrun)
+    assert runner.use_host_pbrun() is True
+    sample = tmp_path / "s"
+    sample.mkdir()
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nACGT\n", encoding="utf-8")
+    paths = runner._resolve_paths(sample, "s", ref)
+    cfg = runner.ParabricksConfig(
+        image="host-pbrun",
+        gpu_flags=(),
+        bwa_threads=4,
+        extra_docker_args=(),
+        cleanup_tmp=True,
+        engine="parabricks",
+    )
+    cmd = runner.build_collectmultiplemetrics_command(cfg, paths, ref)
+    assert cmd[0] == str(pbrun)
+
+    custom = tmp_path / "custom-pbrun"
+    custom.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setenv("METHYL_PBRUN_BIN", str(custom))
+    monkeypatch.setattr(runner, "_DEFAULT_PBRUN", tmp_path / "missing")
+    assert runner.resolve_pbrun() == str(custom)
+    assert runner.use_host_pbrun() is True
+
+    monkeypatch.delenv("METHYL_PBRUN_BIN")
+    with pytest.raises(RuntimeError, match="pbrun is not on PATH"):
+        runner.use_host_pbrun()
 
 
 def test_use_host_methylgrapher_auto_when_on_path(tmp_path, monkeypatch):
@@ -775,3 +882,540 @@ def test_host_mojo_fq2bam_meth_command(tmp_path, monkeypatch):
     assert cmd[0] == "methylGrapher"
     assert cmd[1] == "MojoFq2bamMeth"
     assert "-fq1" in cmd and str(fq1.resolve()) in cmd
+
+
+def test_pbrun_tmp_dir_stays_off_sample_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "ignored-tmp"))
+    sample_dir = tmp_path / "align.linear.parabricks"
+    sample_dir.mkdir()
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nAC\n", encoding="utf-8")
+    paths = runner._resolve_paths(sample_dir, "S 1", ref)
+    again = runner._resolve_paths(sample_dir, "S 1", ref)
+    assert paths.tmp_dir == again.tmp_dir
+    assert paths.tmp_dir.is_relative_to(local)
+    assert not paths.tmp_dir.is_relative_to(sample_dir)
+    assert paths.tmp_dir.name.startswith("S_1-")
+    other = tmp_path / "other-sample"
+    other.mkdir()
+    assert runner._resolve_paths(other, "S 1", ref).tmp_dir != paths.tmp_dir
+
+    monkeypatch.delenv("METHYL_LOCAL_TMP")
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "system-tmp"))
+    via_tmpdir = runner._resolve_paths(sample_dir, "S 1", ref)
+    assert via_tmpdir.tmp_dir.is_relative_to(tmp_path / "system-tmp" / "methyl-pb")
+
+    monkeypatch.delenv("TMPDIR")
+    default = runner._local_pbrun_tmp_root()
+    assert default == runner._DEFAULT_PB_TMP_ROOT
+
+
+def test_docker_fq2bam_tmp_dir_is_local_bind_mount(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    sample_dir = tmp_path / "S4"
+    sample_dir.mkdir()
+    ref = tmp_path / "genomes" / "genome.fa"
+    ref.parent.mkdir(parents=True)
+    ref.write_text(">ref\n", encoding="utf-8")
+    cfg = runner.ParabricksConfig(
+        image="nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
+        gpu_flags=("--gpus", "all"),
+        bwa_threads=4,
+        extra_docker_args=(),
+        cleanup_tmp=True,
+        engine="parabricks",
+    )
+    paths = runner._resolve_paths(sample_dir, "S4", ref)
+    fq1 = sample_dir / "S4_1.fastq.gz"
+    fq2 = sample_dir / "S4_2.fastq.gz"
+    fq1.write_bytes(b"1")
+    fq2.write_bytes(b"2")
+    with patch.object(runner, "_docker_bin", return_value="/usr/bin/docker"):
+        cmd = runner._build_docker_command(cfg, paths, [fq1, fq2])
+    assert f"{paths.tmp_dir.resolve()}:{runner._CONTAINER_PB_TMP}" in cmd
+    assert f"--tmp-dir={runner._CONTAINER_PB_TMP}" in cmd
+    assert "--tmp-dir=/outputdir/tmp" not in cmd
+    assert not any(arg.startswith("--tmp-dir=/outputdir/") for arg in cmd)
+
+
+def test_host_fq2bam_tmp_dir_is_local(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
+    sample_dir = tmp_path / "S4"
+    sample_dir.mkdir()
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nAC\n", encoding="utf-8")
+    cfg = runner.ParabricksConfig(
+        image="host-pbrun",
+        gpu_flags=(),
+        bwa_threads=4,
+        extra_docker_args=(),
+        cleanup_tmp=True,
+        engine="parabricks",
+    )
+    paths = runner._resolve_paths(sample_dir, "S4", ref)
+    fq1 = sample_dir / "S4_1.fastq.gz"
+    fq2 = sample_dir / "S4_2.fastq.gz"
+    fq1.write_bytes(b"1")
+    fq2.write_bytes(b"2")
+    cmd = runner._build_host_fq2bam_meth_command(cfg, paths, [fq1, fq2])
+    assert f"--tmp-dir={paths.tmp_dir.resolve()}" in cmd
+    assert sample_dir.resolve() not in paths.tmp_dir.resolve().parents
+
+
+def test_cleanup_tmp_removes_local_scratch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    sample_dir = tmp_path / "S4"
+    sample_dir.mkdir()
+    decoy = sample_dir / "tmp"
+    decoy.mkdir()
+    (decoy / "keep").write_text("on-work", encoding="utf-8")
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nA\n", encoding="utf-8")
+    paths = runner._resolve_paths(sample_dir, "S4", ref)
+    runner._reset_tmp(paths)
+    (paths.tmp_dir / "chunk").write_text("scratch", encoding="utf-8")
+    runner._cleanup_tmp(paths)
+    assert not paths.tmp_dir.exists()
+    assert (decoy / "keep").read_text(encoding="utf-8") == "on-work"
+
+
+def test_pbrun_timeout_default_and_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("METHYL_PBRUN_TIMEOUT_SEC", raising=False)
+    assert runner._pbrun_timeout_seconds() == float(runner._DEFAULT_PBRUN_TIMEOUT_SEC)
+    assert runner._DEFAULT_PBRUN_TIMEOUT_SEC >= 24 * 60 * 60
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "90")
+    assert runner._pbrun_timeout_seconds() == 90.0
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "0")
+    with pytest.raises(RuntimeError, match="METHYL_PBRUN_TIMEOUT_SEC"):
+        runner._pbrun_timeout_seconds()
+
+
+def test_run_fq2bam_meth_timeout_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "15")
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.setenv("METHYL_PARABRICKS_IMAGE", "host-pbrun")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
+    sample_dir = tmp_path / "S9"
+    sample_dir.mkdir()
+    ref = tmp_path / "genome.fa"
+    ref.write_text(">ref\n", encoding="utf-8")
+    for path in runner.bwameth_c2t_index_paths(ref):
+        path.write_bytes(b"")
+    (sample_dir / "S9_1.fastq.gz").write_bytes(b"1")
+    (sample_dir / "S9_2.fastq.gz").write_bytes(b"2")
+    paths = runner._resolve_paths(sample_dir, "S9", ref)
+    killed: dict[str, object] = {}
+
+    class _HangProc:
+        pid = 424242
+        returncode = None
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            assert timeout == 15.0
+            (paths.tmp_dir / "chunk").write_text("scratch", encoding="utf-8")
+            raise subprocess.TimeoutExpired(["pbrun"], 15.0, stderr="pbutils.deleteTmpDir")
+
+        def kill(self):
+            killed["direct"] = True
+
+        def wait(self, timeout=None):
+            self.returncode = -signal.SIGKILL
+            return self.returncode
+
+    real_popen = subprocess.Popen
+
+    def fake_popen(cmd, **kwargs):
+        argv = list(cmd)
+        if argv and str(argv[0]).endswith("pbrun"):
+            assert kwargs.get("start_new_session") is True
+            return _HangProc()
+        return real_popen(argv, **kwargs)
+
+    def fake_killpg(pid, sig):
+        killed["pid"] = pid
+        killed["sig"] = sig
+
+    with patch("methyl_worker.capabilities._gpu_available", return_value=True):
+        with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+            with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+                with pytest.raises(
+                    RuntimeError,
+                    match=r"timed out after 15s \(METHYL_PBRUN_TIMEOUT_SEC\) and was killed",
+                ):
+                    runner.run_fq2bam_meth(
+                        sample_id="S9",
+                        sample_dir=sample_dir,
+                        reference_fasta=ref,
+                    )
+    log_text = (sample_dir / "S9.fq2bam_meth.log").read_text(encoding="utf-8")
+    assert "pbutils.deleteTmpDir" in log_text
+    assert "timed out after 15s" in log_text
+    assert killed["pid"] == 424242
+    assert killed["sig"] == signal.SIGKILL
+    assert not paths.tmp_dir.exists()
+
+
+def test_run_fq2bam_meth_timeout_removes_docker_container(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "15")
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "docker")
+    monkeypatch.setenv("METHYL_PARABRICKS_IMAGE", "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1")
+    monkeypatch.setattr(runner, "_docker_bin", lambda: "/usr/bin/docker")
+    sample_dir = tmp_path / "S10"
+    sample_dir.mkdir()
+    ref = tmp_path / "genome.fa"
+    ref.write_text(">ref\n", encoding="utf-8")
+    for path in runner.bwameth_c2t_index_paths(ref):
+        path.write_bytes(b"")
+    (sample_dir / "S10_1.fastq.gz").write_bytes(b"1")
+    (sample_dir / "S10_2.fastq.gz").write_bytes(b"2")
+    paths = runner._resolve_paths(sample_dir, "S10", ref)
+    container_name = runner._docker_container_name(paths)
+    killed: dict[str, object] = {}
+    rm_cmds: list[list[str]] = []
+
+    class _HangProc:
+        pid = 515151
+        returncode = None
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            (paths.tmp_dir / "chunk").write_text("scratch", encoding="utf-8")
+            raise subprocess.TimeoutExpired(["docker"], 15.0, stderr="pbutils.deleteTmpDir")
+
+        def kill(self):
+            killed["direct"] = True
+
+        def wait(self, timeout=None):
+            self.returncode = -signal.SIGKILL
+            return self.returncode
+
+    real_popen = subprocess.Popen
+    real_run = subprocess.run
+
+    def fake_popen(cmd, **kwargs):
+        argv = list(cmd)
+        if "--name" in argv and container_name in argv:
+            assert kwargs.get("start_new_session") is True
+            return _HangProc()
+        return real_popen(argv, **kwargs)
+
+    def fake_killpg(pid, sig):
+        killed["pid"] = pid
+        killed["sig"] = sig
+
+    def fake_run(cmd, **kwargs):
+        argv = list(cmd)
+        if len(argv) >= 2 and argv[1] == "rm":
+            rm_cmds.append(argv)
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        return real_run(argv, **kwargs)
+
+    with patch("methyl_worker.capabilities._gpu_available", return_value=True):
+        with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+            with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+                with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+                    with pytest.raises(RuntimeError, match=r"timed out after 15s"):
+                        runner.run_fq2bam_meth(
+                            sample_id="S10",
+                            sample_dir=sample_dir,
+                            reference_fasta=ref,
+                        )
+    assert killed["pid"] == 515151
+    assert killed["sig"] == signal.SIGKILL
+    assert rm_cmds == [
+        ["/usr/bin/docker", "rm", "-f", container_name],
+        ["/usr/bin/docker", "rm", "-f", container_name],
+    ]
+    assert not paths.tmp_dir.exists()
+
+
+def test_align_subprocess_drops_leftover_container_before_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stable --name from a crashed run is removed before the next docker run."""
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "30")
+    log_path = tmp_path / "align.log"
+    order: list[str] = []
+    killed: list[int] = []
+
+    class _OkProc:
+        pid = 101
+        returncode = 0
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            order.append("communicate")
+            return "aligned", ""
+
+        def kill(self) -> None:
+            killed.append(self.pid)
+
+        def wait(self, timeout=None):
+            return 0
+
+    cmd = ["/usr/bin/docker", "run", "--rm", "--name", "methyl-pb-retry", "image", "pbrun"]
+
+    def fake_popen(argv, **kwargs):
+        order.append("popen")
+        assert kwargs.get("start_new_session") is True
+        return _OkProc()
+
+    def fake_run(argv, **kwargs):
+        order.append("rm")
+        assert list(argv) == ["/usr/bin/docker", "rm", "-f", "methyl-pb-retry"]
+        return subprocess.CompletedProcess(list(argv), 0, "", "")
+
+    def fake_killpg(pid, sig):
+        killed.append(pid)
+
+    with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+        with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+            with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+                completed = runner._run_align_subprocess(cmd, log_path=log_path, label="align")
+    assert order == ["rm", "popen", "communicate"]
+    assert completed.returncode == 0
+    assert completed.stdout == "aligned"
+    assert killed == []
+
+
+def test_align_subprocess_tears_down_before_work_logs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Kill the session and container before any /work log append on failure."""
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "15")
+    log_path = tmp_path / "align.log"
+    events: list[str] = []
+
+    class _HangProc:
+        pid = 4242
+        returncode = None
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            raise subprocess.TimeoutExpired(["docker"], 15.0, stderr="hung")
+
+        def kill(self) -> None:
+            events.append("kill")
+
+        def wait(self, timeout=None):
+            events.append("wait")
+            self.returncode = -signal.SIGKILL
+            return self.returncode
+
+    cmd = ["/usr/bin/docker", "run", "--rm", "--name", "methyl-pb-order", "image", "pbrun"]
+
+    def fake_popen(argv, **kwargs):
+        return _HangProc()
+
+    def fake_killpg(pid, sig):
+        events.append("killpg")
+
+    def fake_run(argv, **kwargs):
+        events.append("docker-rm")
+        return subprocess.CompletedProcess(list(argv), 0, "", "")
+
+    def fake_append(path, text):
+        events.append("log")
+        path.write_text(text, encoding="utf-8")
+
+    with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+        with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+            with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+                with patch("methyl_worker.parabricks_runner._append_log", side_effect=fake_append):
+                    with pytest.raises(RuntimeError, match="timed out after 15s"):
+                        runner._run_align_subprocess(cmd, log_path=log_path, label="align")
+    kill_at = events.index("killpg")
+    log_at = events.index("log")
+    assert kill_at < log_at
+    assert "docker-rm" in events[kill_at:log_at]
+
+    events.clear()
+
+    class _BoomProc(_HangProc):
+        def communicate(self, timeout=None):
+            raise OSError("broken pipe")
+
+    def fake_boom(argv, **kwargs):
+        return _BoomProc()
+
+    with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_boom):
+        with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+            with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+                with patch("methyl_worker.parabricks_runner._append_log", side_effect=fake_append):
+                    with pytest.raises(OSError, match="broken pipe"):
+                        runner._run_align_subprocess(cmd, log_path=log_path, label="align")
+    kill_at = events.index("killpg")
+    log_at = events.index("log")
+    assert kill_at < log_at
+    assert "docker-rm" in events[kill_at:log_at]
+
+
+def test_align_subprocess_tears_down_when_communicate_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-timeout communicate error still kills the session and the GPU container."""
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "30")
+    log_path = tmp_path / "align.log"
+    killed: dict[str, object] = {}
+    rm_cmds: list[list[str]] = []
+
+    class _BoomProc:
+        pid = 303
+        returncode = None
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            raise OSError("broken pipe")
+
+        def kill(self) -> None:
+            killed["direct"] = True
+
+        def wait(self, timeout=None):
+            self.returncode = -signal.SIGKILL
+            return self.returncode
+
+    cmd = ["/usr/bin/docker", "run", "--rm", "--name", "methyl-pb-boom", "image", "pbrun"]
+
+    def fake_popen(argv, **kwargs):
+        assert kwargs.get("start_new_session") is True
+        return _BoomProc()
+
+    def fake_killpg(pid, sig):
+        killed["pid"] = pid
+        killed["sig"] = sig
+
+    def fake_run(argv, **kwargs):
+        rm_cmds.append(list(argv))
+        return subprocess.CompletedProcess(list(argv), 0, "", "")
+
+    with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+        with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+            with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+                with pytest.raises(OSError, match="broken pipe"):
+                    runner._run_align_subprocess(cmd, log_path=log_path, label="align")
+    assert killed["pid"] == 303
+    assert killed["sig"] == signal.SIGKILL
+    assert rm_cmds == [
+        ["/usr/bin/docker", "rm", "-f", "methyl-pb-boom"],
+        ["/usr/bin/docker", "rm", "-f", "methyl-pb-boom"],
+    ]
+    log_text = log_path.read_text(encoding="utf-8")
+    assert "failed before exit (OSError: broken pipe)" in log_text
+
+
+def test_run_fq2bam_meth_communicate_error_kills_and_cleans(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scratch is removed only after the host align session is killed."""
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "30")
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.setenv("METHYL_PARABRICKS_IMAGE", "host-pbrun")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
+    sample_dir = tmp_path / "S11"
+    sample_dir.mkdir()
+    ref = tmp_path / "genome.fa"
+    ref.write_text(">ref\n", encoding="utf-8")
+    for path in runner.bwameth_c2t_index_paths(ref):
+        path.write_bytes(b"")
+    (sample_dir / "S11_1.fastq.gz").write_bytes(b"1")
+    (sample_dir / "S11_2.fastq.gz").write_bytes(b"2")
+    paths = runner._resolve_paths(sample_dir, "S11", ref)
+    killed: dict[str, object] = {}
+
+    class _BoomProc:
+        pid = 616161
+        returncode = None
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            (paths.tmp_dir / "chunk").write_text("scratch", encoding="utf-8")
+            raise OSError("broken pipe")
+
+        def kill(self) -> None:
+            killed["direct"] = True
+
+        def wait(self, timeout=None):
+            self.returncode = -signal.SIGKILL
+            return self.returncode
+
+    def fake_popen(cmd, **kwargs):
+        argv = list(cmd)
+        if argv and str(argv[0]).endswith("pbrun"):
+            assert kwargs.get("start_new_session") is True
+            return _BoomProc()
+        raise AssertionError(argv)
+
+    def fake_killpg(pid, sig):
+        killed["pid"] = pid
+        killed["sig"] = sig
+
+    with patch("methyl_worker.capabilities._gpu_available", return_value=True):
+        with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+            with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+                with pytest.raises(OSError, match="broken pipe"):
+                    runner.run_fq2bam_meth(
+                        sample_id="S11",
+                        sample_dir=sample_dir,
+                        reference_fasta=ref,
+                    )
+    assert killed["pid"] == 616161
+    assert killed["sig"] == signal.SIGKILL
+    assert not paths.tmp_dir.exists()
+    log_text = (sample_dir / "S11.fq2bam_meth.log").read_text(encoding="utf-8")
+    assert "failed before exit (OSError: broken pipe)" in log_text
+
+
+def test_align_subprocess_timeout_kills_process_group(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "1")
+    log_path = tmp_path / "align.log"
+    pid_path = tmp_path / "child.pid"
+    quoted_pid = shlex.quote(str(pid_path))
+    cmd = ["bash", "-c", f"sleep 30 & echo $! > {quoted_pid}; wait"]
+    child_pid: int | None = None
+    try:
+        with pytest.raises(RuntimeError, match=r"timed out after 1s"):
+            runner._run_align_subprocess(cmd, log_path=log_path, label="pbrun")
+        child_pid = int(pid_path.read_text(encoding="utf-8").strip())
+        deadline = time.time() + 2
+        alive = True
+        while time.time() < deadline:
+            try:
+                os.kill(child_pid, 0)
+            except ProcessLookupError:
+                alive = False
+                break
+            time.sleep(0.05)
+        assert not alive
+    finally:
+        if child_pid is not None:
+            try:
+                os.kill(child_pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass

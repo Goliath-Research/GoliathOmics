@@ -1425,14 +1425,14 @@ def train_tabular_model(
 
     selected_method_dir = models_root / f"{selected_idx:02d}_{methods[selected_idx]['method']}"
     model_path = out_dir / "tabular-model.joblib"
-    shutil.copy2(selected_method_dir / "tabular-model.joblib", model_path)
+    shutil.copyfile(selected_method_dir / "tabular-model.joblib", model_path)
     selected_train_metrics_path = selected_method_dir / "training_metrics.json"
     if selected_train_metrics_path.is_file():
-        shutil.copy2(selected_train_metrics_path, out_dir / "training_metrics.json")
+        shutil.copyfile(selected_train_metrics_path, out_dir / "training_metrics.json")
     preprocessor_path = out_dir / "covariate-preprocessor.json"
     method_preproc_path = selected_method_dir / "covariate-preprocessor.json"
     if method_preproc_path.is_file():
-        shutil.copy2(method_preproc_path, preprocessor_path)
+        shutil.copyfile(method_preproc_path, preprocessor_path)
 
     with open(selected_method_dir / "tabular-model-metadata.json", encoding="utf-8") as f:
         selected_meta = json.load(f)
@@ -1776,7 +1776,7 @@ def predict_tabular_model_from_project(
     with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
     if partition == "test":
-        shutil.copy2(pred_csv, out_dir / "predictions.csv")
-        shutil.copy2(metrics_path, out_dir / "validation_metrics.json")
+        shutil.copyfile(pred_csv, out_dir / "predictions.csv")
+        shutil.copyfile(metrics_path, out_dir / "validation_metrics.json")
     return metrics
 

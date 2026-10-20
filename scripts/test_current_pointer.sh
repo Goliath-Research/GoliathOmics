@@ -17,6 +17,28 @@ printf '{"version": "2026.10.12"}\n' >"$g/releases/2026.10.12/manifest.json"
 
 # shellcheck source=detect_platform.sh
 source "$ROOT/scripts/detect_platform.sh"
+
+# goliath-worker installs pbrun at /usr/local/parabricks/pbrun. Worker PATH is
+# literal, so prepend that directory only when it exists.
+pb="$work/parabricks"
+mkdir -p "$pb"
+got="$(ensure_parabricks_on_path "/opt/goliath/venv/bin:/usr/bin" "$pb")"
+[[ "$got" == "$pb:/opt/goliath/venv/bin:/usr/bin" ]] || fail "parabricks dir should be prepended, got $got"
+got="$(ensure_parabricks_on_path "$pb:/usr/bin" "$pb")"
+[[ "$got" == "$pb:/usr/bin" ]] || fail "parabricks dir should not be duplicated, got $got"
+got="$(ensure_parabricks_on_path "/opt/goliath/venv/bin:/usr/bin" "$work/missing-parabricks")"
+[[ "$got" == "/opt/goliath/venv/bin:/usr/bin" ]] || fail "missing parabricks dir must leave PATH unchanged, got $got"
+grep -q 'ensure_parabricks_on_path' "$ROOT/scripts/write_worker_env.sh" \
+  || fail "write_worker_env must add parabricks to PATH"
+grep -q 'ensure_parabricks_on_path' "$ROOT/scripts/start_shared_worker.sh" \
+  || fail "start_shared_worker must add parabricks to PATH"
+eval "$(sed -n '/^rewrite_copied_path_line() {/,/^}/p' "$ROOT/scripts/start_shared_worker.sh")"
+got="$(rewrite_copied_path_line 'PATH=/opt/goliath/venv/bin:/usr/bin' "$work/missing-parabricks")"
+[[ "$got" == "PATH=/opt/goliath/venv/bin:/usr/bin" ]] || fail "absent parabricks dir must keep the PATH line, got $got"
+got="$(rewrite_copied_path_line 'PATH=/opt/goliath/venv/bin:/usr/bin' "$pb")"
+[[ "$got" == "PATH=$pb:/opt/goliath/venv/bin:/usr/bin" ]] || fail "present parabricks dir must be prepended, got $got"
+got="$(rewrite_copied_path_line "PATH=\"$pb:/usr/bin\"" "$pb")"
+[[ "$got" == "PATH=\"$pb:/usr/bin\"" ]] || fail "PATH that already lists parabricks must stay verbatim, got $got"
 if goliath_current_dir "$g" >/dev/null; then fail "missing current must not resolve"; fi
 : >"$g/current"
 if goliath_current_dir "$g" >/dev/null; then fail "empty 0-byte current must count as missing"; fi

@@ -115,7 +115,7 @@ def prepare_model_mc_backend_run_from_shared(
             continue
         if dst.exists():
             _replace_path(dst)
-        shutil.copy2(src, dst)
+        shutil.copyfile(src, dst)
 
     for link_name in ("centroids", "detections", "detector_step_override.json"):
         src = shared_run_dir / link_name
@@ -554,6 +554,26 @@ def incremental_centroid_update_requested(
     )
 
 
+def _copy_tree_bytes(src: Path, dst: Path) -> None:
+    """Copy a directory tree without ``shutil.copystat``.
+
+    ``shutil.copytree`` defaults to ``copy2`` and still ``copystat``s each
+    directory. geesefs returns EPERM from ``utime``/``chmod``, then copytree
+    raises ``shutil.Error`` after the files are already written.
+    """
+    if not src.is_dir():
+        raise NotADirectoryError(src)
+    if dst.exists():
+        raise FileExistsError(dst)
+    dst.mkdir()
+    for child in src.iterdir():
+        target = dst / child.name
+        if child.is_dir():
+            _copy_tree_bytes(child, target)
+        else:
+            shutil.copyfile(child, target)
+
+
 def carry_forward_centroids_from_previous_run(
     previous_run_dir: Union[str, Path],
     current_run_dir: Union[str, Path],
@@ -577,7 +597,7 @@ def carry_forward_centroids_from_previous_run(
             dst.unlink()
         else:
             shutil.rmtree(dst)
-    shutil.copytree(src, dst)
+    _copy_tree_bytes(src, dst)
     return True
 
 
@@ -609,7 +629,7 @@ def copy_centroid_seed_baseline(seed_dir: Union[str, Path], output_dir: Union[st
             dst.unlink()
         else:
             shutil.rmtree(dst)
-    shutil.copytree(src, dst)
+    _copy_tree_bytes(src, dst)
     return True
 
 

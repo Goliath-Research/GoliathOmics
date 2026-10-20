@@ -203,10 +203,11 @@ def _rename_over(src: Path, dest: Path) -> None:
 def _copy_readable(src: Path, dst: Path) -> None:
     """Copy bytes without copying mode bits.
 
-    ``shutil.copy2`` finishes with ``copystat``. On a volume that rejects
-    ``chmod`` (a Runpod global volume does) that raises and the copy aborts
-    after the bytes are already written. Callers set a world-readable umask
-    so the new files stay readable when the mode cannot be changed later.
+    ``shutil.copy2`` finishes with ``copystat`` (``utime`` then ``chmod``).
+    geesefs and a Runpod global volume return EPERM from those calls, and the
+    copy aborts after the bytes are already written. Callers set a
+    world-readable umask so the new files stay readable when the mode cannot
+    be changed later.
     """
     if src.is_dir():
         dst.mkdir()

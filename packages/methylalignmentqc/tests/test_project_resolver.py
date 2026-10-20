@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
+from methyl_alignment_qc.project_resolver import resolve_alignment_qc_config
+
 
 def test_resolve_alignment_qc_config_output_dir_and_sample_paths(tmp_path: Path):
     """resolve_alignment_qc_config returns output_dir and non-empty sample_paths from minimal project."""
-    from methyl_alignment_qc.project_resolver import resolve_alignment_qc_config
-
     out_base = tmp_path / "output"
     project = {
         "project_name": "TestProject",
@@ -37,8 +37,6 @@ def _write_site(tmp_path: Path, action_key: str, cfg: dict) -> str:
 
 def test_resolve_alignment_qc_config_site_validate_schema(tmp_path, monkeypatch):
     """alignment_qc.validate_schema from site actionConfig is applied (config-not-code)."""
-    from methyl_alignment_qc.project_resolver import resolve_alignment_qc_config
-
     out_base = tmp_path / "out"
     project = {
         "project_name": "Test",
@@ -56,8 +54,6 @@ def test_resolve_alignment_qc_config_site_validate_schema(tmp_path, monkeypatch)
 
 def test_resolve_alignment_qc_config_supports_control_and_label_filters(tmp_path, monkeypatch):
     """Canonical control/disease projects can filter QC inputs by side or group label."""
-    from methyl_alignment_qc.project_resolver import resolve_alignment_qc_config
-
     out_base = tmp_path / "out"
     project = {
         "project_name": "CanonicalQC",
@@ -84,3 +80,31 @@ def test_resolve_alignment_qc_config_supports_control_and_label_filters(tmp_path
     config = resolve_alignment_qc_config(str(project_path))
     assert config.output_dir == str(out_base / "CanonicalQC" / "alignment_qc")
     assert config.sample_paths == ["/samples/h1", "/samples/shared", "/samples/d1"]
+
+
+def test_resolve_alignment_qc_keeps_samples_without_h5_and_empty_disease(tmp_path: Path):
+    """Alignment QC runs before extraction, so missing H5 files and an empty disease group stay."""
+    sample = tmp_path / "samples" / "canary-SRR28293403-linear-subset"
+    sample.mkdir(parents=True)
+    out_base = tmp_path / "out"
+    project = {
+        "project_name": "Canary",
+        "output_base": str(out_base),
+        "samples_base_path": str(tmp_path / "samples"),
+        "chromosomes": ["1"],
+        "contexts": ["CG"],
+        "controls": {
+            "label": "controls",
+            "groups": [{"label": "canary", "sample_paths": [str(sample)]}],
+        },
+        "diseases": {
+            "label": "diseases",
+            "groups": [{"label": "unused", "sample_paths": []}],
+        },
+        "comparisons": [{"control_group": "canary", "disease_group": "unused"}],
+    }
+    project_path = tmp_path / "project.json"
+    project_path.write_text(json.dumps(project), encoding="utf-8")
+    config = resolve_alignment_qc_config(str(project_path))
+    assert config.output_dir == str(out_base / "Canary" / "alignment_qc")
+    assert config.sample_paths == [str(sample)]
