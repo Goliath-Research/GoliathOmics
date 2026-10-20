@@ -981,7 +981,7 @@ def test_run_fq2bam_meth_timeout_raises(tmp_path: Path, monkeypatch: pytest.Monk
         def communicate(self, timeout=None):
             assert timeout == 15.0
             (paths.tmp_dir / "chunk").write_text("scratch", encoding="utf-8")
-            raise subprocess.TimeoutExpired(["pbrun"], timeout, stderr="pbutils.deleteTmpDir")
+            raise subprocess.TimeoutExpired(["pbrun"], 15.0, stderr="pbutils.deleteTmpDir")
 
         def kill(self):
             killed["direct"] = True
@@ -1053,9 +1053,7 @@ def test_run_fq2bam_meth_timeout_removes_docker_container(
 
         def communicate(self, timeout=None):
             (paths.tmp_dir / "chunk").write_text("scratch", encoding="utf-8")
-            raise subprocess.TimeoutExpired(
-                ["docker"], timeout or 15, stderr="pbutils.deleteTmpDir"
-            )
+            raise subprocess.TimeoutExpired(["docker"], 15.0, stderr="pbutils.deleteTmpDir")
 
         def kill(self):
             killed["direct"] = True
