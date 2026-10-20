@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 import tarfile
 from pathlib import Path
 from unittest.mock import patch
@@ -428,12 +429,16 @@ def _assert_tmp_other_writable(path: Path) -> None:
     assert path.stat().st_mode & 0o002, oct(path.stat().st_mode)
 
 
-def test_reset_tmp_clears_leftover_children(tmp_path: Path) -> None:
+def test_reset_tmp_clears_leftover_children(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "local-pb"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
     sample_dir = tmp_path / "S_tmp"
     sample_dir.mkdir()
     ref = tmp_path / "genome.fa"
     ref.write_text(">ref\n")
     paths = runner._resolve_paths(sample_dir, "S_tmp", ref)
+    assert paths.tmp_dir.is_relative_to(local)
+    assert not paths.tmp_dir.is_relative_to(sample_dir)
     leftover = paths.tmp_dir / "ALLU26WX"
     leftover.mkdir(parents=True)
     (leftover / "stale").write_text("x")
@@ -445,7 +450,8 @@ def test_reset_tmp_clears_leftover_children(tmp_path: Path) -> None:
     _assert_tmp_other_writable(paths.tmp_dir)
 
 
-def test_reset_tmp_opens_fresh_dir_for_align_docker(tmp_path: Path) -> None:
+def test_reset_tmp_opens_fresh_dir_for_align_docker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(tmp_path / "local-pb"))
     sample_dir = tmp_path / "S_fresh"
     sample_dir.mkdir()
     ref = tmp_path / "genome.fa"
@@ -457,13 +463,14 @@ def test_reset_tmp_opens_fresh_dir_for_align_docker(tmp_path: Path) -> None:
     _assert_tmp_other_writable(paths.tmp_dir)
 
 
-def test_reset_tmp_keeps_other_writable_leftover(tmp_path: Path) -> None:
+def test_reset_tmp_keeps_other_writable_leftover(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(tmp_path / "local-pb"))
     sample_dir = tmp_path / "S_keep"
     sample_dir.mkdir()
     ref = tmp_path / "genome.fa"
     ref.write_text(">ref\n")
     paths = runner._resolve_paths(sample_dir, "S_keep", ref)
-    paths.tmp_dir.mkdir()
+    paths.tmp_dir.mkdir(parents=True)
     paths.tmp_dir.chmod(0o777)
     inode = paths.tmp_dir.stat().st_ino
     leftover = paths.tmp_dir / "ALLU26WX"
@@ -817,3 +824,151 @@ def test_host_mojo_fq2bam_meth_command(tmp_path, monkeypatch):
     assert cmd[0] == "methylGrapher"
     assert cmd[1] == "MojoFq2bamMeth"
     assert "-fq1" in cmd and str(fq1.resolve()) in cmd
+
+
+def test_pbrun_tmp_dir_stays_off_sample_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "ignored-tmp"))
+    sample_dir = tmp_path / "align.linear.parabricks"
+    sample_dir.mkdir()
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nAC\n", encoding="utf-8")
+    paths = runner._resolve_paths(sample_dir, "S 1", ref)
+    again = runner._resolve_paths(sample_dir, "S 1", ref)
+    assert paths.tmp_dir == again.tmp_dir
+    assert paths.tmp_dir.is_relative_to(local)
+    assert not paths.tmp_dir.is_relative_to(sample_dir)
+    assert paths.tmp_dir.name.startswith("S_1-")
+    other = tmp_path / "other-sample"
+    other.mkdir()
+    assert runner._resolve_paths(other, "S 1", ref).tmp_dir != paths.tmp_dir
+
+    monkeypatch.delenv("METHYL_LOCAL_TMP")
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "system-tmp"))
+    via_tmpdir = runner._resolve_paths(sample_dir, "S 1", ref)
+    assert via_tmpdir.tmp_dir.is_relative_to(tmp_path / "system-tmp" / "methyl-pb")
+
+    monkeypatch.delenv("TMPDIR")
+    default = runner._local_pbrun_tmp_root()
+    assert default == runner._DEFAULT_PB_TMP_ROOT
+
+
+def test_docker_fq2bam_tmp_dir_is_local_bind_mount(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    sample_dir = tmp_path / "S4"
+    sample_dir.mkdir()
+    ref = tmp_path / "genomes" / "genome.fa"
+    ref.parent.mkdir(parents=True)
+    ref.write_text(">ref\n", encoding="utf-8")
+    cfg = runner.ParabricksConfig(
+        image="nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
+        gpu_flags=("--gpus", "all"),
+        bwa_threads=4,
+        extra_docker_args=(),
+        cleanup_tmp=True,
+        engine="parabricks",
+    )
+    paths = runner._resolve_paths(sample_dir, "S4", ref)
+    fq1 = sample_dir / "S4_1.fastq.gz"
+    fq2 = sample_dir / "S4_2.fastq.gz"
+    fq1.write_bytes(b"1")
+    fq2.write_bytes(b"2")
+    with patch.object(runner, "_docker_bin", return_value="/usr/bin/docker"):
+        cmd = runner._build_docker_command(cfg, paths, [fq1, fq2])
+    assert f"{paths.tmp_dir.resolve()}:{runner._CONTAINER_PB_TMP}" in cmd
+    assert f"--tmp-dir={runner._CONTAINER_PB_TMP}" in cmd
+    assert "--tmp-dir=/outputdir/tmp" not in cmd
+    assert not any(arg.startswith("--tmp-dir=/outputdir/") for arg in cmd)
+
+
+def test_host_fq2bam_tmp_dir_is_local(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
+    sample_dir = tmp_path / "S4"
+    sample_dir.mkdir()
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nAC\n", encoding="utf-8")
+    cfg = runner.ParabricksConfig(
+        image="host-pbrun",
+        gpu_flags=(),
+        bwa_threads=4,
+        extra_docker_args=(),
+        cleanup_tmp=True,
+        engine="parabricks",
+    )
+    paths = runner._resolve_paths(sample_dir, "S4", ref)
+    fq1 = sample_dir / "S4_1.fastq.gz"
+    fq2 = sample_dir / "S4_2.fastq.gz"
+    fq1.write_bytes(b"1")
+    fq2.write_bytes(b"2")
+    cmd = runner._build_host_fq2bam_meth_command(cfg, paths, [fq1, fq2])
+    assert f"--tmp-dir={paths.tmp_dir.resolve()}" in cmd
+    assert sample_dir.resolve() not in paths.tmp_dir.resolve().parents
+
+
+def test_cleanup_tmp_removes_local_scratch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    sample_dir = tmp_path / "S4"
+    sample_dir.mkdir()
+    decoy = sample_dir / "tmp"
+    decoy.mkdir()
+    (decoy / "keep").write_text("on-work", encoding="utf-8")
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nA\n", encoding="utf-8")
+    paths = runner._resolve_paths(sample_dir, "S4", ref)
+    runner._reset_tmp(paths)
+    (paths.tmp_dir / "chunk").write_text("scratch", encoding="utf-8")
+    runner._cleanup_tmp(paths)
+    assert not paths.tmp_dir.exists()
+    assert (decoy / "keep").read_text(encoding="utf-8") == "on-work"
+
+
+def test_pbrun_timeout_default_and_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("METHYL_PBRUN_TIMEOUT_SEC", raising=False)
+    assert runner._pbrun_timeout_seconds() == float(runner._DEFAULT_PBRUN_TIMEOUT_SEC)
+    assert runner._DEFAULT_PBRUN_TIMEOUT_SEC >= 24 * 60 * 60
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "90")
+    assert runner._pbrun_timeout_seconds() == 90.0
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "0")
+    with pytest.raises(RuntimeError, match="METHYL_PBRUN_TIMEOUT_SEC"):
+        runner._pbrun_timeout_seconds()
+
+
+def test_run_fq2bam_meth_timeout_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "15")
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.setenv("METHYL_PARABRICKS_IMAGE", "host-pbrun")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
+    sample_dir = tmp_path / "S9"
+    sample_dir.mkdir()
+    ref = tmp_path / "genome.fa"
+    ref.write_text(">ref\n", encoding="utf-8")
+    for path in runner.bwameth_c2t_index_paths(ref):
+        path.write_bytes(b"")
+    (sample_dir / "S9_1.fastq.gz").write_bytes(b"1")
+    (sample_dir / "S9_2.fastq.gz").write_bytes(b"2")
+
+    def fake_run(cmd, **kwargs):
+        assert kwargs["timeout"] == 15.0
+        raise subprocess.TimeoutExpired(cmd, 15, stderr="pbutils.deleteTmpDir")
+
+    with patch("methyl_worker.capabilities._gpu_available", return_value=True):
+        with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+            with pytest.raises(RuntimeError, match=r"timed out after 15s \(METHYL_PBRUN_TIMEOUT_SEC\) and was killed"):
+                runner.run_fq2bam_meth(
+                    sample_id="S9",
+                    sample_dir=sample_dir,
+                    reference_fasta=ref,
+                )
+    log_text = (sample_dir / "S9.fq2bam_meth.log").read_text(encoding="utf-8")
+    assert "pbutils.deleteTmpDir" in log_text
+    assert "timed out after 15s" in log_text

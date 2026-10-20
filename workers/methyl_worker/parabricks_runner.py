@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import logging
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -36,6 +38,12 @@ logger = logging.getLogger(__name__)
 DEFAULT_MOJO_IMAGE = "goliath/methylgrapher:1.70-mojo"
 # goliath-worker installs Clara here, outside the default PATH.
 _DEFAULT_PBRUN = Path("/usr/local/parabricks/pbrun")
+# pbrun deleteTmpDir waits forever on geesefs. Keep scratch on local disk.
+_DEFAULT_PB_TMP_ROOT = Path("/tmp/methyl-pb")
+# Bind-mount target inside the Parabricks/Mojo container (not /outputdir).
+_CONTAINER_PB_TMP = "/tmp/methyl-pb"
+# A WGBS sample can take many hours. A hang must still end the task.
+_DEFAULT_PBRUN_TIMEOUT_SEC = 48 * 60 * 60
 
 
 @dataclass(frozen=True)
@@ -305,6 +313,59 @@ def _load_config(
     )
 
 
+def _local_pbrun_tmp_root() -> Path:
+    """Directory that holds per-task Parabricks scratch, never the /work mount.
+
+    ``METHYL_LOCAL_TMP`` wins. Otherwise a ``methyl-pb`` directory under
+    ``TMPDIR``. The default is ``/tmp/methyl-pb``.
+    """
+    explicit = os.environ.get("METHYL_LOCAL_TMP", "").strip()
+    if explicit:
+        return Path(explicit).expanduser()
+    tmpdir = os.environ.get("TMPDIR", "").strip()
+    if tmpdir:
+        return Path(tmpdir).expanduser() / "methyl-pb"
+    return _DEFAULT_PB_TMP_ROOT
+
+
+def _local_pbrun_tmp_dir(sample_id: str, sample_dir: Path) -> Path:
+    """One local scratch directory for this sample's align task."""
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "_", sample_id).strip("._") or "sample"
+    digest = hashlib.sha256(str(sample_dir.resolve()).encode()).hexdigest()[:10]
+    return _local_pbrun_tmp_root() / f"{slug}-{digest}"
+
+
+def _pbrun_timeout_seconds() -> float:
+    """Seconds ``pbrun`` may run before the worker kills it.
+
+    ``METHYL_PBRUN_TIMEOUT_SEC`` overrides the default (48 hours).
+    """
+    raw = os.environ.get("METHYL_PBRUN_TIMEOUT_SEC", "").strip()
+    if not raw:
+        return float(_DEFAULT_PBRUN_TIMEOUT_SEC)
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"METHYL_PBRUN_TIMEOUT_SEC must be a positive number of seconds, got {raw!r}"
+        ) from exc
+    if value <= 0:
+        raise RuntimeError(
+            f"METHYL_PBRUN_TIMEOUT_SEC must be a positive number of seconds, got {raw!r}"
+        )
+    return value
+
+
+def _subprocess_text(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
 def _resolve_paths(sample_dir: Path, sample_id: str, reference_fasta: Path) -> ParabricksPaths:
     return ParabricksPaths(
         sample_dir=sample_dir,
@@ -316,7 +377,7 @@ def _resolve_paths(sample_dir: Path, sample_id: str, reference_fasta: Path) -> P
         metrics_json=sample_dir / f"{sample_id}.json",
         dedup_metrics=sample_dir / f"{sample_id}.deduplicate_metrics.txt",
         log_path=sample_dir / f"{sample_id}.fq2bam_meth.log",
-        tmp_dir=sample_dir / "tmp",
+        tmp_dir=_local_pbrun_tmp_dir(sample_id, sample_dir),
     )
 
 
@@ -575,6 +636,11 @@ def _build_host_mojo_fq2bam_meth_command(
 
 
 
+def _docker_tmp_volume(paths: ParabricksPaths) -> List[str]:
+    """Bind the local scratch dir into the container, off the /work mount."""
+    return ["-v", f"{paths.tmp_dir.resolve()}:{_CONTAINER_PB_TMP}"]
+
+
 def _build_docker_command(
     cfg: ParabricksConfig,
     paths: ParabricksPaths,
@@ -612,6 +678,7 @@ def _build_docker_command(
             f"{paths.sample_dir.resolve()}:/workdir",
             "-v",
             f"{paths.sample_dir.resolve()}:/outputdir",
+            *_docker_tmp_volume(paths),
             "-v",
             f"{genome_dir.resolve()}:/genomes:ro",
             "-w",
@@ -639,7 +706,7 @@ def _build_docker_command(
                 "-device",
                 cfg.align_device,
                 "-work_dir",
-                f"/outputdir/{paths.tmp_dir.name}",
+                _CONTAINER_PB_TMP,
             ),
         ]
         return cmd
@@ -655,6 +722,7 @@ def _build_docker_command(
         f"{paths.sample_dir.resolve()}:/workdir",
         "-v",
         f"{paths.sample_dir.resolve()}:/outputdir",
+        *_docker_tmp_volume(paths),
         "-v",
         f"{genome_dir.resolve()}:/genomes:ro",
         "-w",
@@ -671,7 +739,7 @@ def _build_docker_command(
             f"--out-qc-metrics-dir=/outputdir/{paths.qc_metrics_dir.name}",
             f"--out-duplicate-metrics=/outputdir/{paths.dedup_metrics.name}",
             f"--logfile=/outputdir/{paths.log_path.name}",
-            f"--tmp-dir=/outputdir/{paths.tmp_dir.name}",
+            f"--tmp-dir={_CONTAINER_PB_TMP}",
             f"--bwa-cpu-thread-pool={cfg.bwa_threads}",
             "--gpusort",
             "--gpuwrite",
@@ -703,14 +771,14 @@ def _cleanup_tmp(paths: ParabricksPaths) -> None:
 
 
 def _reset_tmp(paths: ParabricksPaths) -> None:
-    """Empty leftover Align ``tmp`` and leave it other-writable for Docker.
+    """Empty leftover Align scratch on local disk and leave it other-writable.
 
-    ``pbrun`` / ``MojoFq2bamMeth`` create children under ``/outputdir/tmp``.
-    Align Docker uses ``--user 1000:1000`` (often not this host's ``ubuntu``
-    uid) and NFS ``root_squash`` maps Clara-as-root to ``nobody``. A fresh
-    umask-022 ``0755`` dir owned by the worker is not writable to either.
-    Keep an already other-writable leftover (umask ``000``) instead of
-    replacing it; always ``share_work_tree`` the directory that remains.
+    ``paths.tmp_dir`` is under ``METHYL_LOCAL_TMP`` or ``TMPDIR`` (default
+    ``/tmp/methyl-pb``), not on geesefs. ``pbrun deleteTmpDir`` hangs in the
+    kernel when that tree is on ``/work``. Docker bind-mounts this directory
+    at ``/tmp/methyl-pb`` and runs as ``--user 1000:1000``, so the directory
+    stays other-writable. Keep an already other-writable leftover instead of
+    replacing it.
     """
     if paths.tmp_dir.exists():
         share_work_tree(paths.tmp_dir)
@@ -743,6 +811,37 @@ def bwameth_c2t_index_paths(reference_fasta: str | Path) -> tuple[Path, ...]:
     """The six bwa-meth C2T FM-index siblings ``pbrun fq2bam_meth`` requires."""
     base = str(reference_fasta)
     return tuple(Path(base + suffix) for suffix in _BWAMETH_C2T_SUFFIXES)
+
+
+def _run_align_subprocess(
+    cmd: List[str],
+    *,
+    log_path: Path,
+    label: str,
+) -> subprocess.CompletedProcess[str]:
+    """Run pbrun (or the docker wrapper) and fail clearly when it exceeds the timeout."""
+    timeout = _pbrun_timeout_seconds()
+    try:
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = _subprocess_text(exc.stdout)
+        stderr = _subprocess_text(exc.stderr)
+        if stdout:
+            _append_log(log_path, stdout)
+        if stderr:
+            _append_log(log_path, stderr)
+        message = (
+            f"{label} timed out after {timeout:g}s "
+            "(METHYL_PBRUN_TIMEOUT_SEC) and was killed"
+        )
+        _append_log(log_path, message)
+        raise RuntimeError(message) from exc
 
 
 def require_bwameth_c2t_index(reference_fasta: str | Path) -> None:
@@ -814,12 +913,7 @@ def run_fq2bam_meth(
     logger.info("Running %s for %s (device=%s)", label, sample_id, cfg.align_device)
     _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in align_cmd))
 
-    proc = subprocess.run(
-        align_cmd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    proc = _run_align_subprocess(align_cmd, log_path=paths.log_path, label=label)
     if proc.stdout:
         _append_log(paths.log_path, proc.stdout)
     if proc.stderr:
