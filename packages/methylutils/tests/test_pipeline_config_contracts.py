@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from methyl_utils.pipeline_config import load_project
+from methyl_utils.pipeline_config import _resolve_sample_paths, load_project
 
 
 def test_derive_panel_and_ordered_comparison_labels_from_comparisons(tmp_path):
@@ -186,6 +186,43 @@ def test_sample_list_csv_resolves_from_samples_base_parent(tmp_path, monkeypatch
     project = load_project(str(config_path))
     resolved = project.get_group_sample_paths_by_label("healthy")
     assert resolved == [str(data_dir / "A001"), str(data_dir / "A002")]
+
+
+def test_absolute_sample_directory_is_a_sample_path(tmp_path):
+    """QC passes an absolute sample directory in group sample_paths."""
+    sample_dir = tmp_path / "work" / "samples" / "canary-SRR28293403-linear-subset"
+    sample_dir.mkdir(parents=True)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    missing = "/work/samples/canary-SRR28293403-linear-subset"
+    config_path = tmp_path / "project.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "project_name": "Canary",
+                "output_base": str(tmp_path / "out"),
+                "samples_base_path": str(data_dir),
+                "controls": {
+                    "label": "controls",
+                    "groups": [{"label": "canary", "sample_paths": [str(sample_dir)]}],
+                },
+                "diseases": {
+                    "label": "diseases",
+                    "groups": [{"label": "other", "sample_paths": ["P001"]}],
+                },
+                "comparisons": [{"control_group": "canary", "disease_group": "other"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    project = load_project(str(config_path))
+    assert project.get_group_sample_paths_by_label("canary") == [str(sample_dir)]
+    assert _resolve_sample_paths([str(sample_dir), missing], base_path=str(data_dir)) == [
+        str(sample_dir),
+        missing,
+    ]
+    with pytest.raises(FileNotFoundError, match="Sample list file not found"):
+        _resolve_sample_paths(["/work/samples/missing.csv"], base_path=str(data_dir))
 
 
 def test_resolve_detection_output_dir_case_insensitive_fallback(tmp_path):

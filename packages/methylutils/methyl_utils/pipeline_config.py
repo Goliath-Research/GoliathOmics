@@ -23,6 +23,7 @@ Comparison-driven steps use explicit comparison folders such as
 the same artifact layout consistently.
 """
 
+import csv
 import json
 import logging
 import warnings
@@ -1300,9 +1301,10 @@ def _resolve_sample_paths(
     Expand any path that points to a file (one path per line, JSON array, or single-column CSV of names)
     into a list of full paths. When base_path is set and the file contains sample names (no slashes),
     each name is resolved to base_path / name.
+
+    An existing directory is a sample path. An absolute path that is not a list file
+    (.csv, .txt, .json) is a sample path even when that directory is not on this machine.
     """
-    import csv
-    import json
     out: List[str] = []
     base = Path(base_path).resolve() if base_path else None
 
@@ -1331,6 +1333,18 @@ def _resolve_sample_paths(
                 return cand
         return None
 
+    def find_sample_dir(entry: str) -> Optional[Path]:
+        p_entry = Path(entry)
+        if p_entry.is_dir():
+            return p_entry
+        if p_entry.is_absolute():
+            return None
+        for root in deduped_roots:
+            cand = root / entry
+            if cand.is_dir():
+                return cand
+        return None
+
     def resolve_entry(entry: str) -> str:
         entry = entry.strip()
         if not entry:
@@ -1344,6 +1358,17 @@ def _resolve_sample_paths(
         if not p:
             continue
         path = find_list_file(p) or Path(p)
+        sample_dir = find_sample_dir(p)
+        entry_is_absolute = Path(p).is_absolute()
+        # A sample directory, or an absolute path that is not a list file, is
+        # the sample itself. With samples_base_path set, any slash used to
+        # mean "missing list file", which rejected /work/samples/<id>.
+        if sample_dir is not None and (entry_is_absolute or "/" in p or "\\" in p):
+            out.append(p if entry_is_absolute else str(sample_dir.resolve()))
+            continue
+        if entry_is_absolute and not _looks_like_file_path(p):
+            out.append(p)
+            continue
         if path.is_file():
             content = path.read_text().strip()
             if content.startswith("["):
