@@ -910,7 +910,9 @@ def _run_align_subprocess(
     The child is a session leader. A named ``docker run`` container is removed
     before start so a leftover name cannot block the retry. If ``communicate``
     does not return — timeout or any other error — the whole group is SIGKILLed
-    and that container is removed again so it cannot keep the GPU.
+    and that container is removed again before any ``/work`` log append. Those
+    appends chmod and can block, so they must not run while the GPU session is
+    still alive.
     """
     timeout = _pbrun_timeout_seconds()
     container_name = _docker_run_name(cmd)
@@ -924,36 +926,45 @@ def _run_align_subprocess(
         start_new_session=True,
     )
     finished = False
+    stdout = ""
+    stderr = ""
+    timeout_error: Optional[subprocess.TimeoutExpired] = None
+    communicate_error: Optional[Exception] = None
     try:
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
             finished = True
         except subprocess.TimeoutExpired as exc:
+            timeout_error = exc
             stdout = _subprocess_text(exc.stdout)
             stderr = _subprocess_text(exc.stderr)
-            if stdout:
-                _append_log(log_path, stdout)
-            if stderr:
-                _append_log(log_path, stderr)
-            message = (
-                f"{label} timed out after {timeout:g}s "
-                "(METHYL_PBRUN_TIMEOUT_SEC) and was killed"
-            )
-            _append_log(log_path, message)
-            raise RuntimeError(message) from exc
         except Exception as exc:
-            _append_log(
-                log_path,
-                f"{label} failed before exit ({type(exc).__name__}: {exc}); stopping the align session",
-            )
-            raise
-        return subprocess.CompletedProcess(
-            cmd, int(proc.returncode or 0), stdout or "", stderr or ""
-        )
+            communicate_error = exc
     finally:
         if not finished:
             _teardown_align_process(proc, cmd, log_path)
         _close_align_pipes(proc)
+
+    if timeout_error is not None:
+        if stdout:
+            _append_log(log_path, stdout)
+        if stderr:
+            _append_log(log_path, stderr)
+        message = (
+            f"{label} timed out after {timeout:g}s "
+            "(METHYL_PBRUN_TIMEOUT_SEC) and was killed"
+        )
+        _append_log(log_path, message)
+        raise RuntimeError(message) from timeout_error
+    if communicate_error is not None:
+        _append_log(
+            log_path,
+            f"{label} failed before exit ({type(communicate_error).__name__}: {communicate_error}); stopping the align session",
+        )
+        raise communicate_error
+    return subprocess.CompletedProcess(
+        cmd, int(proc.returncode or 0), stdout or "", stderr or ""
+    )
 
 
 def require_bwameth_c2t_index(reference_fasta: str | Path) -> None:

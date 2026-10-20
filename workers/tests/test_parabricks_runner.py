@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import shlex
 import shutil
 import signal
@@ -557,7 +558,9 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
             return "ok", ""
 
     removed: list[str] = []
-    real_popen = subprocess.Popen
+    # h5py's first import asks platform.processor(), which spawns uname.
+    # Cache that before Popen is patched so this stub never has to run it.
+    platform.processor()
 
     def fake_popen(cmd, **kwargs):
         argv = list(cmd)
@@ -567,11 +570,14 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
             return _RmProc(argv)
         if exe == "docker" and len(argv) >= 2 and argv[1] == "run":
             return _AlignProc(cmd, **kwargs)
-        return real_popen(argv, **kwargs)
+        raise AssertionError(f"unexpected subprocess: {argv}")
 
     with patch.dict(
         "os.environ",
-        {"METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1"},
+        {
+            "METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
+            "METHYL_PARABRICKS_MODE": "docker",
+        },
     ):
         with patch("methyl_worker.capabilities._gpu_available", return_value=True):
             with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
@@ -1189,6 +1195,79 @@ def test_align_subprocess_drops_leftover_container_before_start(
     assert completed.returncode == 0
     assert completed.stdout == "aligned"
     assert killed == []
+
+
+def test_align_subprocess_tears_down_before_work_logs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Kill the session and container before any /work log append on failure."""
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "15")
+    log_path = tmp_path / "align.log"
+    events: list[str] = []
+
+    class _HangProc:
+        pid = 4242
+        returncode = None
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            raise subprocess.TimeoutExpired(["docker"], 15.0, stderr="hung")
+
+        def kill(self) -> None:
+            events.append("kill")
+
+        def wait(self, timeout=None):
+            events.append("wait")
+            self.returncode = -signal.SIGKILL
+            return self.returncode
+
+    cmd = ["/usr/bin/docker", "run", "--rm", "--name", "methyl-pb-order", "image", "pbrun"]
+
+    def fake_popen(argv, **kwargs):
+        return _HangProc()
+
+    def fake_killpg(pid, sig):
+        events.append("killpg")
+
+    def fake_run(argv, **kwargs):
+        events.append("docker-rm")
+        return subprocess.CompletedProcess(list(argv), 0, "", "")
+
+    def fake_append(path, text):
+        events.append("log")
+        path.write_text(text, encoding="utf-8")
+
+    with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+        with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+            with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+                with patch("methyl_worker.parabricks_runner._append_log", side_effect=fake_append):
+                    with pytest.raises(RuntimeError, match="timed out after 15s"):
+                        runner._run_align_subprocess(cmd, log_path=log_path, label="align")
+    kill_at = events.index("killpg")
+    log_at = events.index("log")
+    assert kill_at < log_at
+    assert "docker-rm" in events[kill_at:log_at]
+
+    events.clear()
+
+    class _BoomProc(_HangProc):
+        def communicate(self, timeout=None):
+            raise OSError("broken pipe")
+
+    def fake_boom(argv, **kwargs):
+        return _BoomProc()
+
+    with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_boom):
+        with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+            with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+                with patch("methyl_worker.parabricks_runner._append_log", side_effect=fake_append):
+                    with pytest.raises(OSError, match="broken pipe"):
+                        runner._run_align_subprocess(cmd, log_path=log_path, label="align")
+    kill_at = events.index("killpg")
+    log_at = events.index("log")
+    assert kill_at < log_at
+    assert "docker-rm" in events[kill_at:log_at]
 
 
 def test_align_subprocess_tears_down_when_communicate_fails(
