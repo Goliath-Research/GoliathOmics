@@ -129,7 +129,7 @@ def install_to_work(force: bool) -> None:
         if dst.exists() and not force:
             print(f"skip (exists): {dst}")
             continue
-        shutil.copy2(src, dst)
+        shutil.copyfile(src, dst)
         print(f"installed: {dst}")
 
 

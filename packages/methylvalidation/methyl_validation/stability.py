@@ -1670,7 +1670,7 @@ def _write_tiered_stable_panels(
     selected = tiers[selected_tier]
 
     root_production_path = output_dir / "stable_dmps_production.csv"
-    shutil.copy2(Path(selected["stable_dmp_csv"]), root_production_path)
+    shutil.copyfile(Path(selected["stable_dmp_csv"]), root_production_path)
     selected["root_production_alias"] = str(root_production_path)
 
     return {
@@ -2111,7 +2111,7 @@ def prepare_freeze_project(
     if stable_gene_csv is not None and stable_gene_csv.is_file():
         bundle_dir.mkdir(parents=True, exist_ok=True)
         stability_gene_panel_path = bundle_dir / "stable_genes_from_stability.csv"
-        shutil.copy2(stable_gene_csv, stability_gene_panel_path)
+        shutil.copyfile(stable_gene_csv, stability_gene_panel_path)
         model_bundle_cfg = action_cfg.setdefault("model_bundle", {})
         model_bundle_cfg["stability_gene_panel"] = str(stability_gene_panel_path)
 
@@ -2473,7 +2473,7 @@ def freeze_production_model(
     if stable_gene_csv is not None and stable_gene_csv.is_file():
         bundle_dir.mkdir(parents=True, exist_ok=True)
         stability_gene_panel_path = bundle_dir / "stable_genes_from_stability.csv"
-        shutil.copy2(stable_gene_csv, stability_gene_panel_path)
+        shutil.copyfile(stable_gene_csv, stability_gene_panel_path)
         model_bundle_cfg = action_cfg.setdefault("model_bundle", {})
         model_bundle_cfg["stability_gene_panel"] = str(stability_gene_panel_path)
 

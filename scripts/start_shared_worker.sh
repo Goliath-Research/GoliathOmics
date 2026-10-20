@@ -30,6 +30,8 @@ set -euo pipefail
 set -E
 
 START_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=detect_platform.sh
+source "$START_SCRIPT_DIR/detect_platform.sh"
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 WORK_MOUNT="${GOLIATH_WORK_MOUNT:-/work}"
 ARCH="${GOLIATH_WORKER_ARCH:-amd64}"
@@ -964,6 +966,30 @@ storage_alias_key() {
   esac
 }
 
+# Copy a PATH= line from the shared env. Prepend /usr/local/parabricks when
+# that directory exists and is missing; otherwise keep the line byte-for-byte
+# (tests and older promotes assert the exact shared PATH).
+rewrite_copied_path_line() {
+  local line="$1"
+  local dir="${2:-/usr/local/parabricks}"
+  local value updated
+  if [[ ! -d "$dir" ]]; then
+    printf '%s\n' "$line"
+    return 0
+  fi
+  value="${line#*=}"
+  if [[ "$value" == \"*\" ]]; then
+    value="${value#\"}"
+    value="${value%\"}"
+  fi
+  updated="$(ensure_parabricks_on_path "$value" "$dir")"
+  if [[ "$updated" == "$value" ]]; then
+    printf '%s\n' "$line"
+    return 0
+  fi
+  printf 'PATH=%s\n' "$updated"
+}
+
 write_worker_env() {
   local shared="$ROOT/env/worker.env"
   local dest pod_env secrets old_umask tmp owned line key
@@ -1013,6 +1039,10 @@ write_worker_env() {
       if [[ "$key" =~ ^(${owned})$ ]]; then
         continue
       fi
+      if [[ "$key" == "PATH" ]]; then
+        rewrite_copied_path_line "$line" >>"$tmp"
+        continue
+      fi
       printf '%s\n' "$line" >>"$tmp"
     done <"$shared"
   fi
@@ -1053,7 +1083,7 @@ write_worker_env() {
       venv_path="$venv_path:$METHYL_EXTRACTOR_HOME/bin"
     fi
     append_kv "$tmp" GOLIATH_WORKER_VENV "$GOLIATH_WORKER_VENV"
-    append_kv "$tmp" PATH "$venv_path:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    append_kv "$tmp" PATH "$(ensure_parabricks_on_path "$venv_path:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")"
   fi
   append_kv "$tmp" WORKER_API_BASE "${WORKER_API_BASE:-}"
   append_kv "$tmp" GOLIATH_ENV "$GOLIATH_ENV"

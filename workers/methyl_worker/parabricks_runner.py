@@ -34,6 +34,8 @@ except ImportError:  # stale sister: work_share loaded before append_work_text e
 logger = logging.getLogger(__name__)
 
 DEFAULT_MOJO_IMAGE = "goliath/methylgrapher:1.70-mojo"
+# goliath-worker installs Clara here, outside the default PATH.
+_DEFAULT_PBRUN = Path("/usr/local/parabricks/pbrun")
 
 
 @dataclass(frozen=True)
@@ -367,15 +369,37 @@ def _docker_bin() -> str:
     return docker
 
 
+def resolve_pbrun() -> Optional[str]:
+    """Host ``pbrun``, or None when Clara is not installed on this machine.
+
+    ``METHYL_PBRUN_BIN`` wins. Otherwise ``PATH``, then the goliath-worker
+    image path ``/usr/local/parabricks/pbrun``.
+    """
+    explicit = os.environ.get("METHYL_PBRUN_BIN", "").strip()
+    if explicit:
+        return explicit
+    found = shutil.which("pbrun")
+    if found:
+        return found
+    if _DEFAULT_PBRUN.is_file():
+        return str(_DEFAULT_PBRUN)
+    return None
+
+
+def _host_pbrun_argv0() -> str:
+    return resolve_pbrun() or "pbrun"
+
+
 def use_host_pbrun() -> bool:
     """True when Clara ``pbrun`` should run on the worker host (no nested docker).
 
     ``METHYL_PARABRICKS_MODE=host|native`` forces host mode (requires ``pbrun``).
-    ``docker|container`` forces docker. Default ``auto``: host when ``pbrun`` is
-    on PATH (goliath-worker image), else docker (SSH VMs that still pull NGC).
+    ``docker|container`` forces docker. Default ``auto``: host when ``pbrun``
+    resolves (``PATH``, ``METHYL_PBRUN_BIN``, or ``/usr/local/parabricks/pbrun``),
+    else docker (SSH VMs that still pull NGC).
     """
     mode = os.environ.get("METHYL_PARABRICKS_MODE", "auto").strip().lower()
-    has_pbrun = shutil.which("pbrun") is not None
+    has_pbrun = resolve_pbrun() is not None
     if mode in {"host", "native", "1", "true", "yes"}:
         if not has_pbrun:
             raise RuntimeError(
@@ -454,7 +478,7 @@ def _build_host_fq2bam_meth_command(
 ) -> List[str]:
     host_fqs = [str(fq.resolve()) for fq in fastqs]
     return [
-        "pbrun",
+        _host_pbrun_argv0(),
         "fq2bam_meth",
         f"--ref={paths.reference_fasta.resolve()}",
         *_in_fq_flags(host_fqs),
@@ -478,7 +502,7 @@ def build_collectmultiplemetrics_command(
     ref = reference_fasta.resolve()
     if use_host_pbrun():
         return [
-            "pbrun",
+            _host_pbrun_argv0(),
             "collectmultiplemetrics",
             f"--ref={ref}",
             f"--bam={paths.bam_path.resolve()}",

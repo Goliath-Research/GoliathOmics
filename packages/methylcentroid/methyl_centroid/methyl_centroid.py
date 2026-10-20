@@ -2743,7 +2743,7 @@ class MethylCentroid:
         if centroid_path.exists():
             import shutil
 
-            shutil.copy2(centroid_path, backup_path)
+            shutil.copyfile(centroid_path, backup_path)
         return backup_path
 
     def _restore_centroid(self, centroid_path: Path, backup_path: Path):
@@ -2765,7 +2765,7 @@ class MethylCentroid:
         if centroid_path.exists():
             import shutil
 
-            shutil.copy2(centroid_path, backup_path)
+            shutil.copyfile(centroid_path, backup_path)
         return backup_path
 
     def _restore_centroid(self, centroid_path: Path, backup_path: Path):

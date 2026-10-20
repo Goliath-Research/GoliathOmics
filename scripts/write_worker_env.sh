@@ -150,6 +150,7 @@ WORKER_PATH="$(expand_worker_path "$VENV_DIR")"
 if [[ -x "$ME_ROOT/bin/MethylExtractor" && ":$WORKER_PATH:" != *":$ME_ROOT/bin:"* ]]; then
   WORKER_PATH="$ME_ROOT/bin:$WORKER_PATH"
 fi
+WORKER_PATH="$(ensure_parabricks_on_path "$WORKER_PATH")"
 
 if [[ -z "$WORKER_API_BASE" ]]; then
   WORKER_API_BASE="$(read_existing_worker_api_base "$ENV_DIR/worker.env")"

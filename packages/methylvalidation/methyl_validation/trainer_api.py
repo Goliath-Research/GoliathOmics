@@ -102,7 +102,7 @@ def _write_ecdf_training_metrics(project_json: Path, classifier_output_dir: Path
         out_path = classifier_output_dir / "train_metrics.json"
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
-        shutil.copy2(out_path, classifier_output_dir / "training_metrics.json")
+        shutil.copyfile(out_path, classifier_output_dir / "training_metrics.json")
         return True, str(out_path)
     except Exception as e:
         return False, f"ECDF training metrics unavailable: {e}"
@@ -232,7 +232,7 @@ def _score_classic_ecdf_partition(
             raise FileNotFoundError(f"Predictor did not write predictions.csv for {partition}")
         pred_dst = output_dir / f"{partition}_predictions.csv"
         metrics_dst = output_dir / f"{partition}_metrics.json"
-        shutil.copy2(pred_src, pred_dst)
+        shutil.copyfile(pred_src, pred_dst)
         if metrics_src.is_file():
             payload = json.loads(metrics_src.read_text(encoding="utf-8"))
         else:
@@ -243,8 +243,8 @@ def _score_classic_ecdf_partition(
         metrics_dst.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         if partition == "test":
             # metrics_dst is already test_metrics.json; only alias the legacy names.
-            shutil.copy2(pred_dst, output_dir / "predictions.csv")
-            shutil.copy2(metrics_dst, output_dir / "validation_metrics.json")
+            shutil.copyfile(pred_dst, output_dir / "predictions.csv")
+            shutil.copyfile(metrics_dst, output_dir / "validation_metrics.json")
         return {
             "partition": partition,
             "predictions_csv": str(pred_dst),

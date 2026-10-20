@@ -222,8 +222,8 @@ def predict_ecdf_gene_ovr_from_project(
     with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
     if partition == "test":
-        shutil.copy2(pred_csv, out_dir / "predictions.csv")
-        shutil.copy2(metrics_path, out_dir / "validation_metrics.json")
+        shutil.copyfile(pred_csv, out_dir / "predictions.csv")
+        shutil.copyfile(metrics_path, out_dir / "validation_metrics.json")
     report_path = out_dir / "prediction_report.json"
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(

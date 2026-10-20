@@ -317,6 +317,7 @@ if [[ -z "$WORKER_API_BASE" && -f "$ENV_DIR/worker.env" ]]; then
   WORKER_API_BASE="${WORKER_API_BASE%\"}"
 fi
 WORKER_PATH="$(expand_worker_path "$VENV_DIR")"
+WORKER_PATH="$(ensure_parabricks_on_path "$WORKER_PATH")"
 
 if [[ "$DRY_RUN" -eq 0 ]]; then
   cat >"$ENV_DIR/worker.env" <<EOF

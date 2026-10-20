@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 
-from methyl_worker.work_share import share_work_path, share_work_tree
+from methyl_worker.work_share import _copy_readable, share_work_path, share_work_tree
 
 import numpy as np
 
@@ -1610,7 +1610,7 @@ def _flatten_qc_metrics_dir(metrics_dir: Path) -> None:
         if dest.is_file() and dest.stat().st_size > 0 and dest.resolve() != src.resolve():
             # Prefer an existing non-empty root copy; do not clobber.
             continue
-        shutil.copy2(src, dest)
+        _copy_readable(src, dest)
 
 
 def _package_qc_tar(sample_dir: Path, sample_id: str, metrics_dir: Path) -> Path:
@@ -2002,7 +2002,7 @@ def _restore_original_sequences(
     except Exception:
         logger.warning("pysam unavailable; QC BAM keeps surjected sequences")
         if bam_path.resolve() != out_bam.resolve():
-            shutil.copy2(bam_path, out_bam)
+            _copy_readable(bam_path, out_bam)
         return
 
     work = out_bam.parent / f"{out_bam.stem}.restore_work"
@@ -2060,7 +2060,7 @@ def _restore_original_sequences(
                     n_restored += 1
                 out.write(aln)
 
-        shutil.copy2(tmp_out, out_bam)
+        _copy_readable(tmp_out, out_bam)
         _append_log(
             log_path,
             f"Restored original sequences into {out_bam} (n_restored={n_restored}, streaming merge-join)",
@@ -2213,7 +2213,7 @@ def run_methylgrapher_wgbs_align(
             # left behind by a failed prior attempt (alignment.0.gaf …).
             preferred = work_dir / "alignment.gaf"
             if preferred.is_file() and preferred.stat().st_size > 0:
-                shutil.copy2(preferred, gaf_path)
+                _copy_readable(preferred, gaf_path)
             else:
                 candidates = sorted(
                     (
@@ -2228,17 +2228,17 @@ def run_methylgrapher_wgbs_align(
                     raise RuntimeError(
                         f"methylGrapher Align did not produce a GAF under {work_dir}"
                     )
-                shutil.copy2(candidates[0], gaf_path)
+                _copy_readable(candidates[0], gaf_path)
             share_work_path(gaf_path)
 
         # Mojo emits GBZ chopped-node ids; MethylCall needs GFA named-coordinates.
         work_gaf = work_dir / "alignment.gaf"
         if not work_gaf.is_file() and gaf_path.is_file():
-            shutil.copy2(gaf_path, work_gaf)
+            _copy_readable(gaf_path, work_gaf)
         if work_gaf.is_file():
             ensure_gaf_named_coordinates(work_gaf, work_dir, bundle, log_path)
             if gaf_path.resolve() != work_gaf.resolve():
-                shutil.copy2(work_gaf, gaf_path)
+                _copy_readable(work_gaf, gaf_path)
         elif gaf_path.is_file():
             ensure_gaf_named_coordinates(gaf_path, work_dir, bundle, log_path)
 
@@ -2417,7 +2417,7 @@ def run_methylgrapher_wgbs_align(
             log_path,
             step="samtools.markdup",
         )
-        shutil.copy2(marked, bam_path)
+        _copy_readable(marked, bam_path)
         share_work_path(bam_path)
         ensure_qc_bam_read_group(bam_path, sample_id, log_path)
         _run(["samtools", "index", str(bam_path)], log_path, step="samtools.index")
@@ -2429,7 +2429,7 @@ def run_methylgrapher_wgbs_align(
         # Capture conversion / mapping reports if present.
         for report in work_dir.glob("*report*"):
             if report.is_file():
-                shutil.copy2(report, conversion_report)
+                _copy_readable(report, conversion_report)
                 break
         if not conversion_report.is_file():
             conversion_report.write_text(
@@ -3323,15 +3323,15 @@ def run_methylgrapher_wgbs_extract(
         work_gaf = work_dir / "alignment.gaf"
         if not work_gaf.is_file() and gaf_path.is_file():
             if gaf_path.resolve() != work_gaf.resolve():
-                shutil.copy2(gaf_path, work_gaf)
+                _copy_readable(gaf_path, work_gaf)
         # Translate Mojo GBZ-node GAF → GFA named-coordinates before MethylCall.
         if work_gaf.is_file():
             ensure_gaf_named_coordinates(work_gaf, work_dir, bundle, log_path)
             if gaf_path.resolve() != work_gaf.resolve():
-                shutil.copy2(work_gaf, gaf_path)
+                _copy_readable(work_gaf, gaf_path)
         elif gaf_path.is_file():
             ensure_gaf_named_coordinates(gaf_path, work_dir, bundle, log_path)
-            shutil.copy2(gaf_path, work_gaf)
+            _copy_readable(gaf_path, work_gaf)
 
         image = None if use_host_methylgrapher() else _resolve_image(bundle)
         methyl_cmd = build_methylcall_command(
@@ -3393,7 +3393,7 @@ def run_methylgrapher_wgbs_extract(
             str(bundle.linear_cpg_tsv) if bundle.linear_cpg_tsv else None
         )
         if projected and Path(str(projected)).is_file():
-            shutil.copy2(Path(str(projected)), linear_tsv)
+            _copy_readable(Path(str(projected)), linear_tsv)
         else:
             graph_cpg = work_dir / "graph.cpg.tsv"
             if not graph_cpg.is_file():
@@ -3410,7 +3410,7 @@ def run_methylgrapher_wgbs_extract(
             peek = graph_cpg.read_text(encoding="utf-8", errors="replace").splitlines()[:3]
             header = peek[0].lower() if peek else ""
             if "chrom" in header and "pos" in header:
-                shutil.copy2(graph_cpg, linear_tsv)
+                _copy_readable(graph_cpg, linear_tsv)
             else:
                 logger.info(
                     "Projecting graph CpGs onto GRCh38 paths from %s", wl_gfa

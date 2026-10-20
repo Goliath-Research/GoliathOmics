@@ -141,7 +141,8 @@ def _upload_one(
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         if dest_path.is_file() and dest_path.stat().st_size == local.stat().st_size:
             return False, md5
-        shutil.copy2(local, dest_path)
+        # copyfile, not copy2: a file destination on geesefs /work rejects copystat.
+        shutil.copyfile(local, dest_path)
         return True, md5
 
     if target.scheme == "s3":

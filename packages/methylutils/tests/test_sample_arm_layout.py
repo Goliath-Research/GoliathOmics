@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import stat
 from pathlib import Path
 
 from methyl_utils.sample_arm_layout import (
@@ -12,6 +14,7 @@ from methyl_utils.sample_arm_layout import (
     ensure_sample_dir_fastq_links,
     is_default_sample_dir,
     is_mode_leaf_dirname,
+    link_paths_into_dir,
     link_root_fastqs_into_dir,
     sample_root_from_sample_dir,
 )
@@ -103,6 +106,32 @@ def test_bind_production_sample_arms_skips_rnaseq(tmp_path: Path) -> None:
     bind_production_sample_arms(ctx)
     assert ctx["samples"][0]["sampleDir"] == str(root)
     assert "align." not in ctx["samples"][0]["sampleDir"]
+
+
+def test_link_paths_into_dir_copies_when_hardlink_fails(tmp_path: Path, monkeypatch) -> None:
+    """Cross-device or FUSE link failure must leave a regular file, not a symlink."""
+    src_dir = tmp_path / "root"
+    src_dir.mkdir()
+    src = src_dir / "S1_1.fastq.gz"
+    src.write_bytes(b"reads")
+    dest = tmp_path / "align.linear.parabricks"
+
+    def _reject_link(*_args: object, **_kwargs: object) -> None:
+        raise OSError("Invalid cross-device link")
+
+    dest.mkdir()
+    # A prior fallback left the absolute symlink Clara cannot follow.
+    os.symlink(src, dest / "S1_1.fastq.gz")
+
+    monkeypatch.setattr("methyl_utils.sample_arm_layout.os.link", _reject_link)
+    linked = link_paths_into_dir([src], dest)
+
+    target = dest / "S1_1.fastq.gz"
+    assert linked == [target]
+    assert stat.S_ISREG(target.lstat().st_mode)
+    assert not target.is_symlink()
+    assert target.read_bytes() == b"reads"
+    assert os.path.samefile(src, target) is False
 
 
 def test_link_root_fastqs_into_dir(tmp_path: Path) -> None:

@@ -77,7 +77,15 @@ def _is_folder_uri(key_or_prefix: str) -> bool:
 
 
 def _touch_mtime(local: Path, remote_mtime: float) -> None:
-    os.utime(local, (remote_mtime, remote_mtime))
+    """Stamp local mtime so a later run can skip an unchanged object.
+
+    geesefs (S3-backed FUSE on ``/work``) returns EPERM from ``utime``.
+    The bytes are already in place; a rejected stamp must not fail the fetch.
+    """
+    try:
+        os.utime(local, (remote_mtime, remote_mtime))
+    except OSError as exc:
+        logger.warning("Could not set mtime on %s (%s); download kept", local, exc)
 
 
 def _dt_to_mtime(value: datetime) -> float:
@@ -224,7 +232,9 @@ def _fetch_object(
             raise RuntimeError("local FASTQ source is missing local_root")
         src = root / obj.locator if root.is_dir() else root
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, target)
+        # copyfile, not copy2: copystat calls utime/chmod, and geesefs returns
+        # EPERM after the bytes are written.
+        shutil.copyfile(src, target)
         return
     if source.scheme == "s3":
         if clients.s3 is None:

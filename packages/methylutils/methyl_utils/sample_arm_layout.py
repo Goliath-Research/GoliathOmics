@@ -21,6 +21,7 @@ that is already an arm (or legacy mode) leaf is left unchanged.
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
@@ -240,7 +241,13 @@ def link_paths_into_dir(
     *,
     method: str = "hardlink",
 ) -> List[Path]:
-    """Hardlink (or symlink/copy) existing files into ``dest_dir`` by basename."""
+    """Place existing files into ``dest_dir`` by basename.
+
+    Default ``hardlink`` uses ``os.link`` and, when that fails, copies bytes
+    with ``shutil.copyfile``. An absolute symlink is unreadable after Clara
+    bind-mounts the arm at ``/workdir``. Pass ``method="symlink"`` or
+    ``method="copy"`` to choose those explicitly.
+    """
     dest = Path(dest_dir).expanduser().resolve()
     dest.mkdir(parents=True, exist_ok=True)
     linked: List[Path] = []
@@ -250,7 +257,11 @@ def link_paths_into_dir(
         if target == src:
             linked.append(target)
             continue
-        if target.exists() or target.is_symlink():
+        if target.is_symlink():
+            # A previous fallback stored an absolute link. Clara follows that
+            # path after the arm is mounted at /workdir and then sees nothing.
+            target.unlink()
+        elif target.exists():
             if target.is_file() and target.stat().st_size > 0:
                 linked.append(target)
                 continue
@@ -258,14 +269,12 @@ def link_paths_into_dir(
         if method == "symlink":
             os.symlink(src, target)
         elif method == "copy":
-            import shutil
-
-            shutil.copy2(src, target)
+            shutil.copyfile(src, target)
         else:
             try:
                 os.link(src, target)
             except OSError:
-                os.symlink(src, target)
+                shutil.copyfile(src, target)
         linked.append(target)
     return linked
 

@@ -660,18 +660,21 @@ def test_resolve_parabricks_from_project_action_config(tmp_path: Path) -> None:
 
 def test_use_host_pbrun_auto_when_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("METHYL_PARABRICKS_MODE", raising=False)
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
     monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
     assert runner.use_host_pbrun() is True
 
 
 def test_use_host_pbrun_docker_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("METHYL_PARABRICKS_MODE", "docker")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
     monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
     assert runner.use_host_pbrun() is False
 
 
 def test_host_pbrun_fq2bam_meth_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
     monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
     sample = tmp_path / "s"
     sample.mkdir()
@@ -691,7 +694,7 @@ def test_host_pbrun_fq2bam_meth_command(tmp_path: Path, monkeypatch: pytest.Monk
     )
     paths = runner._resolve_paths(sample, "s", ref)
     cmd = runner._build_host_fq2bam_meth_command(cfg, paths, [fq1, fq2])
-    assert cmd[0] == "pbrun"
+    assert cmd[0] == "/usr/bin/pbrun"
     assert "fq2bam_meth" in cmd
     assert any(str(ref) in a for a in cmd)
     assert "docker" not in cmd
@@ -699,6 +702,7 @@ def test_host_pbrun_fq2bam_meth_command(tmp_path: Path, monkeypatch: pytest.Monk
 
 def test_collectmultiplemetrics_host_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
     monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
     sample = tmp_path / "s"
     sample.mkdir()
@@ -716,8 +720,46 @@ def test_collectmultiplemetrics_host_command(tmp_path: Path, monkeypatch: pytest
         engine="parabricks",
     )
     cmd = runner.build_collectmultiplemetrics_command(cfg, paths, ref)
-    assert cmd[:2] == ["pbrun", "collectmultiplemetrics"]
+    assert cmd[:2] == ["/usr/bin/pbrun", "collectmultiplemetrics"]
     assert all(a != "docker" for a in cmd)
+
+
+def test_use_host_pbrun_falls_back_to_image_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pbrun = tmp_path / "pbrun"
+    pbrun.write_text("#!/bin/sh\n", encoding="utf-8")
+    pbrun.chmod(0o755)
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(runner, "_DEFAULT_PBRUN", pbrun)
+    assert runner.resolve_pbrun() == str(pbrun)
+    assert runner.use_host_pbrun() is True
+    sample = tmp_path / "s"
+    sample.mkdir()
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nACGT\n", encoding="utf-8")
+    paths = runner._resolve_paths(sample, "s", ref)
+    cfg = runner.ParabricksConfig(
+        image="host-pbrun",
+        gpu_flags=(),
+        bwa_threads=4,
+        extra_docker_args=(),
+        cleanup_tmp=True,
+        engine="parabricks",
+    )
+    cmd = runner.build_collectmultiplemetrics_command(cfg, paths, ref)
+    assert cmd[0] == str(pbrun)
+
+    custom = tmp_path / "custom-pbrun"
+    custom.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setenv("METHYL_PBRUN_BIN", str(custom))
+    monkeypatch.setattr(runner, "_DEFAULT_PBRUN", tmp_path / "missing")
+    assert runner.resolve_pbrun() == str(custom)
+    assert runner.use_host_pbrun() is True
+
+    monkeypatch.delenv("METHYL_PBRUN_BIN")
+    with pytest.raises(RuntimeError, match="pbrun is not on PATH"):
+        runner.use_host_pbrun()
 
 
 def test_use_host_methylgrapher_auto_when_on_path(tmp_path, monkeypatch):

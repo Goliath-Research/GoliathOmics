@@ -100,6 +100,31 @@ expand_worker_path() {
   echo "${venv_bin}:${base}"
 }
 
+# Prepend Clara Parabricks when the image installs pbrun off the default PATH.
+# goliath-worker puts the binary at /usr/local/parabricks/pbrun. systemd
+# EnvironmentFile does not expand variables, so the directory is written
+# literally. A missing directory leaves the path unchanged.
+ensure_parabricks_on_path() {
+  local path="${1-}"
+  local dir="${2:-/usr/local/parabricks}"
+  if [[ ! -d "$dir" ]]; then
+    printf '%s\n' "$path"
+    return 0
+  fi
+  case ":${path}:" in
+    *":${dir}:"*)
+      printf '%s\n' "$path"
+      ;;
+    *)
+      if [[ -n "$path" ]]; then
+        printf '%s\n' "${dir}:${path}"
+      else
+        printf '%s\n' "$dir"
+      fi
+      ;;
+  esac
+}
+
 # Strip optional leading "v" from git tags (v2026.6.1 -> 2026.6.1).
 normalize_release_version() {
   local ver="${1:?version required}"

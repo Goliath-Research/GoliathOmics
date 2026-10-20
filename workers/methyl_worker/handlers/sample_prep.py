@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -47,7 +46,12 @@ from ..task_models.sample_prep_models import (
     TrimFastqTaskInput,
     TrimFastqTaskOutput,
 )
-from ..work_share import ensure_work_writable, run_with_work_write, share_work_path
+from ..work_share import (
+    _copy_readable,
+    ensure_work_writable,
+    run_with_work_write,
+    share_work_path,
+)
 from .common import resolve_reference_fasta
 
 logger = logging.getLogger(__name__)
@@ -99,16 +103,17 @@ def _handle_methyl_qc(
         dest = sample_path / f"{resolved_sample_id}.alignment_qc.json"
         if qc_path.resolve() == dest.resolve():
             return
-        # copy2/copystat chmod on a root-owned NFS file raises EPERM even when
-        # mode is 0666. Share first, copy contents only, then open the dest.
+        # copystat/copymode (utime/chmod) on geesefs or a root-owned NFS file
+        # raises EPERM even when the bytes are writable. Share first, copy
+        # contents only, then open the dest.
         ensure_work_writable(dest)
         try:
-            shutil.copy(qc_path, dest)
+            _copy_readable(qc_path, dest)
         except OSError:
             ensure_work_writable(dest)
             if dest.exists():
                 dest.unlink()
-            shutil.copy(qc_path, dest)
+            _copy_readable(qc_path, dest)
         share_work_path(dest)
 
     def _build_result(qc_path: Path) -> MethylQcTaskOutput:
