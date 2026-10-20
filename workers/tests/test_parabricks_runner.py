@@ -500,6 +500,8 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
     sample_dir.mkdir()
     ref = tmp_path / "genome.fa"
     ref.write_text(">ref\n")
+    for path in runner.bwameth_c2t_index_paths(ref):
+        path.write_bytes(b"")
     (sample_dir / "S7_1.fastq.gz").write_bytes(b"1")
     (sample_dir / "S7_2.fastq.gz").write_bytes(b"2")
 
