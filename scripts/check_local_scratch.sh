@@ -6,8 +6,12 @@
 # mount (geesefs on RunPod) and must not be used for scratch.
 #
 #   METHYL_LOCAL_TMP          scratch root (default /tmp/methyl-pb)
-#   METHYL_LOCAL_TMP_MIN_GB   free-space floor in GB (default 80; 1024-based,
-#                             the same unit as `df -BG`)
+#   METHYL_LOCAL_TMP_MIN_GB   free-space floor in GB (default 60; 1024-based,
+#                             the same unit as `df -BG`). Create refuses a
+#                             container disk under 150 GB so this floor still
+#                             holds after MethylExtractor, GoliathAlign, and
+#                             the venv are installed. Start runs this check
+#                             before those installs.
 #   GOLIATH_WORK_MOUNT        shared mount to reject (default /work)
 #
 # On success, prints one line to stdout and creates the scratch root.
@@ -18,7 +22,7 @@ set -euo pipefail
 
 WORK_MOUNT="${GOLIATH_WORK_MOUNT:-/work}"
 SCRATCH="${METHYL_LOCAL_TMP:-/tmp/methyl-pb}"
-MIN_GB="${METHYL_LOCAL_TMP_MIN_GB:-80}"
+MIN_GB="${METHYL_LOCAL_TMP_MIN_GB:-60}"
 
 die() { printf '[local-scratch] ERROR: %s\n' "$*" >&2; exit 1; }
 
@@ -69,7 +73,7 @@ min_bytes=$((MIN_GB * 1024 * 1024 * 1024))
 refuse_if_below() {
   local bytes="$1"
   [[ "$bytes" -ge "$min_bytes" ]] && return 0
-  die "local scratch ${SCRATCH} has $(gb_text "$bytes") GB free, below the minimum of ${MIN_GB} GB (METHYL_LOCAL_TMP_MIN_GB). Workers stage FASTQ.gz files larger than 25 GB, BAMs, Parabricks tmp, logs, venvs, and docker layers on this disk. ${WORK_MOUNT} is shared storage and is not scratch. Raise the container disk (worker profile local_disk_gb, default 200) or free space on ${SCRATCH}."
+  die "local scratch ${SCRATCH} has $(gb_text "$bytes") GB free, below the minimum of ${MIN_GB} GB (METHYL_LOCAL_TMP_MIN_GB). Workers stage FASTQ.gz files larger than 25 GB, BAMs, Parabricks tmp, logs, venvs, and docker layers on this disk. ${WORK_MOUNT} is shared storage and is not scratch. Raise the container disk (worker profile local_disk_gb, default 200, minimum 150) or free space on ${SCRATCH}."
 }
 
 avail="$(free_bytes "$probe")" || die "could not read free space for ${SCRATCH} (df ${probe})"

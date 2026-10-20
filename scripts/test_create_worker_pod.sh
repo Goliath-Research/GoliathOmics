@@ -193,11 +193,11 @@ imgreg_body="$(sed -n '/^{/,/^}/p' "$TMP/imgreg.out")"
 jq -e '.image == "ghcr.io/example/goliath-worker:t" and .registry == "reg_test123"' <<<"$imgreg_body" >/dev/null \
   || { echo "$imgreg_body"; fail "body must carry v2 image + registry"; }
 
-# 11. --local-disk-gb is the v2 disk field (containerDiskInGb). Below 100 is refused
+# 11. --local-disk-gb is the v2 disk field (containerDiskInGb). Below 150 is refused
 # before any create, and the value overrides the template's 30 GB disk.
 run tinyd --dry-run --local-disk-gb 30
 [[ "$(rc tinyd)" != 0 ]] || fail "30 GB container disk must be refused"
-grep -q 'at least 100' "$TMP/tinyd.out" || { cat "$TMP/tinyd.out"; fail "minimum disk message"; }
+grep -q 'at least 150' "$TMP/tinyd.out" || { cat "$TMP/tinyd.out"; fail "minimum disk message"; }
 no_post || fail "a too-small disk must not POST"
 run disk150 --dry-run --local-disk-gb 150
 [[ "$(rc disk150)" == 0 ]] || { cat "$TMP/disk150.out"; fail "150 GB disk should be accepted"; }

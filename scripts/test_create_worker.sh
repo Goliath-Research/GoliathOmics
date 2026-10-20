@@ -151,13 +151,13 @@ if grep -inE 'runpod|lambda|nebius|aws|azure|gcp|google|https?://|/v2/' "$SCRIPT
   fail "generic code must not mention providers, URLs or API paths"
 fi
 
-# 12. local_disk_gb: default 200, minimum 100, profile, and env.
-run small --provider fake --dry-run --local-disk-gb 99
-[[ "$(rc small)" != 0 ]] && grep -q 'at least 100' "$TMP/small.err" || { cat "$TMP/small.err"; fail "disk below 100 must fail"; }
+# 12. local_disk_gb: default 200, minimum 150, profile, and env.
+run small --provider fake --dry-run --local-disk-gb 149
+[[ "$(rc small)" != 0 ]] && grep -q 'at least 150' "$TMP/small.err" || { cat "$TMP/small.err"; fail "disk below 150 must fail"; }
 created && fail "a too-small disk must not create"
-run floor --provider fake --dry-run --local-disk-gb 100
-[[ "$(rc floor)" == 0 ]] && jq -e '.local_disk_gb == 100' "$TMP/floor.out" >/dev/null \
-  || { cat "$TMP/floor.err"; fail "100 GB is the minimum and must be accepted"; }
+run floor --provider fake --dry-run --local-disk-gb 150
+[[ "$(rc floor)" == 0 ]] && jq -e '.local_disk_gb == 150' "$TMP/floor.out" >/dev/null \
+  || { cat "$TMP/floor.err"; fail "150 GB is the minimum and must be accepted"; }
 cat >"$TMP/profile.json" <<'EOF'
 {"workers":[{"name":"pool","self_provision":true,"local_disk_gb":250}]}
 EOF
@@ -171,7 +171,7 @@ cat >"$TMP/small-profile.json" <<'EOF'
 {"workers":[{"self_provision":true,"local_disk_gb":40}]}
 EOF
 run psmall --provider fake --dry-run --profile "$TMP/small-profile.json"
-[[ "$(rc psmall)" != 0 ]] && grep -q 'at least 100' "$TMP/psmall.err" || fail "profile disk below 100 must fail"
+[[ "$(rc psmall)" != 0 ]] && grep -q 'at least 150' "$TMP/psmall.err" || fail "profile disk below 150 must fail"
 cat >"$TMP/ambig.json" <<'EOF'
 {"workers":[{"self_provision":true,"local_disk_gb":200},{"self_provision":true,"local_disk_gb":300}]}
 EOF

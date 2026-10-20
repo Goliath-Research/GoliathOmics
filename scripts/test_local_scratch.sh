@@ -10,7 +10,18 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 [[ -x "$CHECK" || -f "$CHECK" ]] || fail "missing $CHECK"
 grep -q 'METHYL_LOCAL_TMP:-/tmp/methyl-pb' "$CHECK" || fail "default scratch root must be /tmp/methyl-pb"
-grep -q 'METHYL_LOCAL_TMP_MIN_GB:-80' "$CHECK" || fail "default free-space floor must be 80 GB"
+grep -q 'METHYL_LOCAL_TMP_MIN_GB:-60' "$CHECK" || fail "default free-space floor must be 60 GB"
+grep -q 'LOCAL_DISK_GB_MIN=150' "$ROOT/deploy/workers/create_worker.sh" || fail "minimum container disk must be 150 GB"
+awk '
+  /^main\(\) \{/ { in_main = 1 }
+  in_main && /^}/ { in_main = 0 }
+  in_main && /require_local_scratch/ && !seen_install { pre = 1 }
+  in_main && /install_local_(extractor|goliath_align|venv)/ {
+    if (!pre) bad = 1
+    seen_install = 1
+  }
+  END { exit (pre && seen_install && !bad) ? 0 : 1 }
+' "$START" || fail "start must check local scratch before extractor, GoliathAlign, and venv installs"
 grep -q 'check_local_scratch.sh' "$START" || fail "start_shared_worker.sh must run the scratch preflight"
 grep -q 'check_local_scratch.sh' "$PROVISION" || fail "provision_worker_node.sh must run the scratch preflight"
 grep -q 'does not skip this check' "$PROVISION" || fail "provision usage must say --skip-preflight does not skip the scratch check"

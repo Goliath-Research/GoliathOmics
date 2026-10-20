@@ -26,8 +26,10 @@
 # Do not run it under set -x.
 #
 # Local scratch (METHYL_LOCAL_TMP, default /tmp/methyl-pb) is checked before
-# anything else waits on /work. Free space below METHYL_LOCAL_TMP_MIN_GB
-# (default 80) refuses to start. /work is the shared mount and is not scratch.
+# anything else waits on /work, and before MethylExtractor, GoliathAlign, and
+# the venv are installed. Free space below METHYL_LOCAL_TMP_MIN_GB (default
+# 60) refuses to start. The create minimum disk is 150 GB so that floor still
+# holds after those installs. /work is the shared mount and is not scratch.
 
 set +x
 set -euo pipefail
@@ -1468,12 +1470,13 @@ finish_exec() {
 }
 
 # Container-local scratch must be large enough for a real WGBS sample before
-# this boot downloads a release or starts methyl-worker. The check creates
-# METHYL_LOCAL_TMP and exits non-zero with a [local-scratch] ERROR line.
+# this boot downloads a release, installs MethylExtractor / GoliathAlign / the
+# venv, or starts methyl-worker. The check creates METHYL_LOCAL_TMP and exits
+# non-zero with a [local-scratch] ERROR line.
 require_local_scratch() {
   local checker="" candidate
   export METHYL_LOCAL_TMP="${METHYL_LOCAL_TMP:-/tmp/methyl-pb}"
-  export METHYL_LOCAL_TMP_MIN_GB="${METHYL_LOCAL_TMP_MIN_GB:-80}"
+  export METHYL_LOCAL_TMP_MIN_GB="${METHYL_LOCAL_TMP_MIN_GB:-60}"
   for candidate in \
     "${GOLIATH_LOCAL_SCRATCH_CHECK:-}" \
     "$START_SCRIPT_DIR/check_local_scratch.sh" \

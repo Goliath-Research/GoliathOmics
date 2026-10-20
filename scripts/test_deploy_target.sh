@@ -17,7 +17,7 @@ schema="$ROOT/deploy/targets/target.schema.json"
 [[ -f "$schema" ]] || fail "missing schema"
 start_script="$ROOT/deploy/runpod/goliath-worker-start.sh"
 [[ -f "$start_script" ]] || fail "missing RunPod start script"
-# These boots run on the test machine. The 80 GB floor is covered by
+# These boots run on the test machine. The 60 GB floor is covered by
 # scripts/test_local_scratch.sh. Here the preflight only has to pass.
 export METHYL_LOCAL_TMP_MIN_GB=1
 
@@ -242,15 +242,20 @@ if real["workers"][0].get("local_disk_gb") != 200:
 low = json.loads(json.dumps(real))
 low["workers"][0]["local_disk_gb"] = 50
 if not list(validator.iter_errors(low)):
-    print("local_disk_gb 50 must fail the schema minimum of 100", file=sys.stderr)
+    print("local_disk_gb 50 must fail the schema minimum of 150", file=sys.stderr)
+    sys.exit(1)
+below = json.loads(json.dumps(real))
+below["workers"][0]["local_disk_gb"] = 100
+if not list(validator.iter_errors(below)):
+    print("local_disk_gb 100 must fail the schema minimum of 150", file=sys.stderr)
     sys.exit(1)
 floor = json.loads(json.dumps(real))
-floor["workers"][0]["local_disk_gb"] = 100
+floor["workers"][0]["local_disk_gb"] = 150
 floor_errors = sorted(validator.iter_errors(floor), key=lambda item: list(item.path))
 if floor_errors:
     for err in floor_errors:
-        print(f"local_disk_gb 100: {list(err.path)}: {err.message}", file=sys.stderr)
-    sys.exit(1)
+        print(f"local_disk_gb 150: {list(err.path)}: {err.message}", file=sys.stderr)
+        sys.exit(1)
 PY
 
 if jq -e '[.. | strings | select(test("secret:") | not) | select(test("(?i)(password|api[_-]?key|secret_access|BEGIN .*PRIVATE KEY)\\s*[:=]\\s*\\S"))] | length == 0' "$real" >/dev/null; then

@@ -33,8 +33,11 @@ OPT_TEMPLATE_SET=0 OPT_STORAGE_SET=0 OPT_GPU_SET=0 OPT_CLOUD_SET=0 OPT_IMAGE_SET
 OPT_GPU_COUNT=1
 # Container-local disk for FASTQs, BAMs, Parabricks tmp, logs, venvs, and
 # docker layers. /work is the shared volume and is not this disk.
+# Minimum 150 leaves the 60 GB free-space floor (METHYL_LOCAL_TMP_MIN_GB)
+# after the image, MethylExtractor, GoliathAlign, and the venv land on this
+# disk. Boot checks that floor before those installs. Default remains 200.
 LOCAL_DISK_GB_DEFAULT=200
-LOCAL_DISK_GB_MIN=100
+LOCAL_DISK_GB_MIN=150
 LOCAL_DISK_GB=""
 LOCAL_DISK_GB_SET=0
 PROFILE_LOCAL_DISK_GB=""
@@ -77,7 +80,7 @@ Create a goliath-worker with the shared storage mounted at /work.
   --gpu GPU_TYPE            GPU / instance type (provider default)
   --gpu-count N             GPUs per worker (default: 1)
   --cloud TIER              Provider-specific cloud tier (provider default)
-  --local-disk-gb N         Container-local disk in GB (default: 200, minimum: 100)
+  --local-disk-gb N         Container-local disk in GB (default: 200, minimum: 150)
   --profile FILE            Worker profile JSON. When --local-disk-gb is omitted,
                             local_disk_gb on its self-provision worker is used
   --wait SECS               Seconds to wait for SSH / public IP (default: 180)

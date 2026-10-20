@@ -79,7 +79,7 @@ See [`workflow_engine/contract/sample_prep_capabilities.md`](../../workflow_engi
 
 ## Local scratch
 
-WGBS FASTQ.gz files are larger than 25 GB each. Stage them, the BAM, and Parabricks tmp on container-local disk (`METHYL_LOCAL_TMP`, default `/tmp/methyl-pb`). `/work` is the shared mount and is not scratch. The worker profile `local_disk_gb` (default 200, minimum 100) is the container disk requested at create time. Boot runs `scripts/check_local_scratch.sh` and refuses to start when free space is below `METHYL_LOCAL_TMP_MIN_GB` (default 80).
+WGBS FASTQ.gz files are larger than 25 GB each. Stage them, the BAM, and Parabricks tmp on container-local disk (`METHYL_LOCAL_TMP`, default `/tmp/methyl-pb`). `/work` is the shared mount and is not scratch. The worker profile `local_disk_gb` (default 200, minimum 150) is the container disk requested at create time. Boot runs `scripts/check_local_scratch.sh` before MethylExtractor, GoliathAlign, and the venv are installed, and refuses to start when free space is below `METHYL_LOCAL_TMP_MIN_GB` (default 60). The 150 GB minimum leaves that 60 GB floor after those installs.
 
 ## Host mode (goliath-worker)
 

@@ -49,8 +49,10 @@ The portal must preregister this VM (cluster, worker key, public IP) before enro
 Enroll is refused until that row exists; this script does not insert it.
 
 Local scratch: METHYL_LOCAL_TMP (default /tmp/methyl-pb) must have
-METHYL_LOCAL_TMP_MIN_GB free (default 80). A smaller disk refuses to start.
+METHYL_LOCAL_TMP_MIN_GB free (default 60). A smaller disk refuses to start.
 The shared work mount is not scratch. --skip-preflight does not skip this check.
+Create's minimum container disk is 150 GB, so this floor still holds after
+MethylExtractor, GoliathAlign, and the venv are installed.
 EOF
 }
 
@@ -194,7 +196,7 @@ require_local_scratch() {
   local scratch_check="$SCRIPTS/check_local_scratch.sh"
   [[ -f "$scratch_check" ]] || scratch_check="$SCRIPT_DIR/check_local_scratch.sh"
   [[ -f "$scratch_check" ]] || die "check_local_scratch.sh not found; refusing to provision without a local scratch preflight"
-  echo "=== Local scratch (${METHYL_LOCAL_TMP:-/tmp/methyl-pb}, minimum ${METHYL_LOCAL_TMP_MIN_GB:-80} GB) ==="
+  echo "=== Local scratch (${METHYL_LOCAL_TMP:-/tmp/methyl-pb}, minimum ${METHYL_LOCAL_TMP_MIN_GB:-60} GB) ==="
   run bash "$scratch_check"
 }
 require_local_scratch

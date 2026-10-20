@@ -8,8 +8,10 @@ GoliathOmics worker. It owns everything that is the same on every cloud:
   `--local-disk-gb`, `--profile`, `--wait`, `--dry-run`, `--yes`);
 - container-local disk size: `local_disk_gb` from `--local-disk-gb`, else the
   self-provision worker in `--profile`, else `GOLIATH_LOCAL_DISK_GB`, else
-  200. Values below 100 are refused. The resolved value is `LOCAL_DISK_GB`.
-  A provider that sizes a container disk puts that value on the create request;
+  200. Values below 150 are refused, so the 60 GB free-space floor still
+  holds after MethylExtractor, GoliathAlign, and the venv are installed. The
+  resolved value is `LOCAL_DISK_GB`. A provider that sizes a container disk
+  puts that value on the create request;
 - picking the lowest free `goliath-worker-N` name and refusing a duplicate `--name`;
 - the shared-storage policy: the shared volume must be mounted at `/work`
   (anything else needs `--allow-nonstandard-path`), and the request is checked
