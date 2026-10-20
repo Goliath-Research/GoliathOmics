@@ -182,7 +182,11 @@ No Align BAM or `.bai` is ever on `/work`. `sample.parabricks_fq2bam`, `sample.p
 
 MethylExtractor (`sample.methyl_extract`) writes to worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`. On success only `*.h5` and `*.json` (per-context stats, native manifest) are copied into `sampleDir`: bytes go to a sibling `.tmp-*` file and one rename publishes it, with no `utime`, `chmod` or hardlink (geesefs-safe). The local directory is removed on success and failure, so partial output never reaches `/work`.
 
-At boot `scripts/check_local_scratch.sh` deletes `{METHYL_LOCAL_TMP}/bam/*` and `/extract/*` directories with nothing modified in `METHYL_LOCAL_STALE_HOURS` (default 72; 0 disables). This frees BAMs a dead worker process could not delete.
+**FASTQ staging (`stageFastqs: "local"`).** Every Align node in the program (fq2bam incl. GoliathAlign/Mojo, giraffe, methylGrapher, and `sample.docker_align` when used) sets `with: {"stageFastqs": "local"}`. The Align task copies the resolved pair (trimmed when present) from `/work` into `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/fastq/` (geesefs-safe read + local rename) and aligns from there; the copies are freed with the BAM by `delete_bam` and failure / remediation cleanup. Staging happens inside the exclusive Align, so the copies are on the worker the pin starts on. The `/work` FASTQs stay until the sample finishes: `archive_sample` (unpinned, soft affinity, no GPU capability) uploads them from `/work`, then `delete_fastqs` (unpinned) removes the `/work` copies. A remediation re-Align re-stages from `/work` (trimmed FASTQs are written to `sampleDir`).
+
+**methylGrapher extract (`workDirMode: "local"`).** Both `methylgrapher_wgbs_extract` nodes run MethylCall/MergeCpG and write H5, patterns and the manifest under `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`, then publish only `*.h5` / `*.json` to `sampleDir` like MethylExtractor; the local directory is removed on success and failure.
+
+At boot `scripts/check_local_scratch.sh` deletes `{METHYL_LOCAL_TMP}/bam/*` (including staged `fastq/`) and `/extract/*` directories with nothing modified in `METHYL_LOCAL_STALE_HOURS` (default 72; 0 disables). This frees BAMs a dead worker process could not delete.
 
 ```text
 /work/samples/{sample_id}/

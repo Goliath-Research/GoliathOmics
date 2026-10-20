@@ -22,6 +22,7 @@ from methyl_utils.local_align import (
     remove_local_align,
     sample_scratch_name,
 )
+from methyl_worker.fastq_stage import stage_fastqs
 from methyl_worker.fastq_pairs import (  # noqa: F401 — re-export for aligner callers/tests
     FASTQ_SUFFIXES,
     canonical_trimmed_fastqs,
@@ -656,6 +657,18 @@ def _docker_bam_volume(paths: ParabricksPaths) -> List[str]:
     return ["-v", f"{paths.bam_path.parent.resolve()}:{_CONTAINER_BAM_DIR}"]
 
 
+def container_fastq_arg(fastq: Path, paths: ParabricksPaths) -> str:
+    """Container path for *fastq*: staged under the BAM mount, else ``/workdir``."""
+    bam_dir = paths.bam_path.parent
+    try:
+        rel = fastq.relative_to(bam_dir)
+    except ValueError:
+        rel = None
+    if rel is not None:
+        return f"{_CONTAINER_BAM_DIR}/{rel.as_posix()}"
+    return f"/workdir/{fastq.relative_to(paths.sample_dir).as_posix()}"
+
+
 def _build_docker_command(
     cfg: ParabricksConfig,
     paths: ParabricksPaths,
@@ -665,10 +678,7 @@ def _build_docker_command(
     ref_basename = paths.reference_fasta.name
     docker_user = align_docker_user()
 
-    in_fq_args: List[str] = []
-    for fastq in fastqs:
-        rel = fastq.relative_to(paths.sample_dir)
-        in_fq_args.append(f"/workdir/{rel.as_posix()}")
+    in_fq_args = [container_fastq_arg(fastq, paths) for fastq in fastqs]
 
     if cfg.engine == "mojo":
         if len(in_fq_args) != 2:
@@ -1037,21 +1047,24 @@ def run_fq2bam_meth(
     fastqs = resolve_paired_fastqs(sample_path, sample_id)
     if cfg.engine == "parabricks":
         require_bwameth_c2t_index(reference_path)
-    if cfg.engine == "mojo" and use_host_methylgrapher():
-        align_cmd = _build_host_mojo_fq2bam_meth_command(cfg, paths, fastqs)
-        label = "MojoFq2bamMeth (host)"
-    elif cfg.engine == "parabricks" and use_host_pbrun():
-        align_cmd = _build_host_fq2bam_meth_command(cfg, paths, fastqs)
-        label = "Parabricks fq2bam_meth (host pbrun)"
-    else:
-        align_cmd = _build_docker_command(cfg, paths, fastqs)
-        label = "MojoFq2bamMeth (docker)" if cfg.engine == "mojo" else "Parabricks fq2bam_meth (docker)"
     paths.sample_dir.mkdir(parents=True, exist_ok=True)
     _reset_tmp(paths)
     _reset_local_bam_dir(paths)
-
     succeeded = False
     try:
+        # Optional stageFastqs=local: copy the pair into the (fresh) local BAM dir.
+        fastqs = stage_fastqs(
+            fastqs, sample_id=paths.sample_id, sample_dir=paths.sample_dir, input_json=input_json
+        )
+        if cfg.engine == "mojo" and use_host_methylgrapher():
+            align_cmd = _build_host_mojo_fq2bam_meth_command(cfg, paths, fastqs)
+            label = "MojoFq2bamMeth (host)"
+        elif cfg.engine == "parabricks" and use_host_pbrun():
+            align_cmd = _build_host_fq2bam_meth_command(cfg, paths, fastqs)
+            label = "Parabricks fq2bam_meth (host pbrun)"
+        else:
+            align_cmd = _build_docker_command(cfg, paths, fastqs)
+            label = "MojoFq2bamMeth (docker)" if cfg.engine == "mojo" else "Parabricks fq2bam_meth (docker)"
         logger.info("Running %s for %s (device=%s)", label, sample_id, cfg.align_device)
         _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in align_cmd))
 
