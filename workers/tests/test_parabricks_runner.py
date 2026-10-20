@@ -517,6 +517,30 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
     (sample_dir / "S7_1.fastq.gz").write_bytes(b"1")
     (sample_dir / "S7_2.fastq.gz").write_bytes(b"2")
 
+    class _RmProc:
+        """``subprocess.run`` for ``docker rm`` uses ``Popen`` as a context manager."""
+
+        def __init__(self, args: list[str]) -> None:
+            self.args = args
+            self.returncode = 0
+            self.stdout = ""
+            self.stderr = ""
+
+        def communicate(self, input=None, timeout=None):
+            return "", ""
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self) -> None:
+            self.returncode = -9
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args: object) -> bool:
+            return False
+
     class _AlignProc:
         def __init__(self, cmd, **kwargs):
             assert kwargs.get("start_new_session") is True
@@ -532,17 +556,32 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
         def communicate(self, timeout=None):
             return "ok", ""
 
+    removed: list[str] = []
+    real_popen = subprocess.Popen
+
+    def fake_popen(cmd, **kwargs):
+        argv = list(cmd)
+        exe = Path(argv[0]).name if argv else ""
+        if exe == "docker" and len(argv) >= 2 and argv[1] == "rm":
+            removed.append(argv[-1])
+            return _RmProc(argv)
+        if exe == "docker" and len(argv) >= 2 and argv[1] == "run":
+            return _AlignProc(cmd, **kwargs)
+        return real_popen(argv, **kwargs)
+
     with patch.dict(
         "os.environ",
         {"METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1"},
     ):
         with patch("methyl_worker.capabilities._gpu_available", return_value=True):
-            with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=_AlignProc):
+            with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
                 out = runner.run_fq2bam_meth(
                     sample_id="S7",
                     sample_dir=sample_dir,
                     reference_fasta=ref,
                 )
+
+    assert removed and removed[0].startswith("methyl-pb-")
 
     assert out["bamPath"] == str(sample_dir / "S7.bam")
     assert out["qcMetricsTar"] == str(sample_dir / "S7.qc-metrics.tar")
