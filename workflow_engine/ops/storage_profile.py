@@ -149,10 +149,8 @@ def apply_storage_to_planner_payload(
         or DEFAULT_ARCHIVE_PROFILE_KEY
     )
     cfg_store = store if store is not None else GatewayConfigStore(db)
-    try:
-        expanded = expand_storage_profile(cfg_store, profile_key)
-    except KeyError as exc:
-        raise KeyError(f"storage_profile not found: {profile_key}") from exc
+    # Missing profiles, endpoints, and credentials each raise their own KeyError.
+    expanded = expand_storage_profile(cfg_store, profile_key)
 
     if not has_fastq:
         fastq = expanded.get("fastqStorage")

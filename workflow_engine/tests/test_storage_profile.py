@@ -93,3 +93,47 @@ def test_missing_profile_names_the_key(tmp_path) -> None:
             {"archiveProfileKey": "missing"},
             store=_store(tmp_path),
         )
+
+
+def test_missing_endpoint_is_not_reported_as_a_missing_profile(tmp_path) -> None:
+    store = _store(tmp_path)
+    store.upsert(
+        "storage_profile",
+        "broken",
+        {"fastqStorageEndpoint": "does-not-exist"},
+        status="published",
+    )
+    with pytest.raises(KeyError, match="storage_endpoint not found: does-not-exist"):
+        apply_storage_to_planner_payload(
+            None,
+            {"archiveProfileKey": "broken"},
+            store=store,
+        )
+
+
+def test_missing_credential_is_not_reported_as_a_missing_profile(tmp_path) -> None:
+    store = _store(tmp_path)
+    store.upsert(
+        "storage_endpoint",
+        "orphan",
+        {
+            "type": "s3",
+            "bucket": "orphan-bucket",
+            "region": "us-east-1",
+            "credentialName": "missing-cred",
+        },
+        status="published",
+        extra={"provider": "s3", "credentialName": "missing-cred"},
+    )
+    store.upsert(
+        "storage_profile",
+        "broken-cred",
+        {"fastqStorageEndpoint": "orphan"},
+        status="published",
+    )
+    with pytest.raises(KeyError, match="credential not found: missing-cred"):
+        apply_storage_to_planner_payload(
+            None,
+            {"archiveProfileKey": "broken-cred"},
+            store=store,
+        )
