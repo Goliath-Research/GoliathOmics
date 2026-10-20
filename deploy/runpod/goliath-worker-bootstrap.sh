@@ -541,6 +541,10 @@ main() {
   install_companion "scripts/start_shared_worker.sh" "start_shared_worker"
   install_companion "scripts/check_local_scratch.sh" "local-scratch"
   install_companion "deploy/runpod/keepalive.sh" "goliath-runpod"
+  # start_shared_worker.sh sources detect_platform.sh from its own dir, and
+  # detect_platform.sh reads platform_matrix.env from its own dir.
+  install_companion "scripts/detect_platform.sh" "goliath_current_dir"
+  install_companion "scripts/platform_matrix.env" "Architecture-specific defaults"
   if [[ -n "$WANTED_TAG" && "$STALE_SCRIPTS" == 0 && "$(installed_release)" != "$WANTED_TAG" ]]; then
     record_release "$WANTED_TAG"
   fi

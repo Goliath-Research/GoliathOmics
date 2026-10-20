@@ -110,6 +110,7 @@ jobs:
           bash scripts/test_local_scratch.sh
           bash scripts/test_install_system_deps.sh
           bash scripts/test_release_bundles.sh
+          bash scripts/test_bootstrap_companions.sh
 
   pr:
     runs-on: ubuntu-latest
