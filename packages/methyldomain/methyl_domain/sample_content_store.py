@@ -5,8 +5,9 @@ study ``{project_root}/.caas/``. That store exists to skip repeated GPU/IO work
 (FASTQ download, Parabricks/Mojo/methylGrapher align, QC, extract).
 
 The store is keyed by sample identity (``sampleRoot`` / ``{samples_base}/{id}``),
-not by an ``align.*`` arm leaf. Products (``{id}.qc-metrics.tar``, metrics JSON)
-are restored next to the bound ``sampleDir``. Parabricks Align
+not by an ``align.*`` arm leaf. Restored products are the methylGrapher WGBS
+``{id}.bam`` (still written beside the arm), ``{id}.qc-metrics.tar``, and
+metrics JSON. Parabricks Align
 (``sample.parabricks_fq2bam``, ``sample.parabricks_giraffe``) is a hard opt-out: its BAM stays on the align
 worker's local scratch and is never harvested into or restored from ``.caas``.
 

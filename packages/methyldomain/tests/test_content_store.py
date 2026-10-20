@@ -710,7 +710,7 @@ def test_restore_sample_align_products_relinks_bam_and_tar(tmp_path: Path) -> No
 
     sample_dir = tmp_path / "samples" / "S1"
     sample_dir.mkdir(parents=True)
-    key = sample_dir / ".caas" / "sample_parabricks_fq2bam" / "abc123"
+    key = sample_dir / ".caas" / "sample_methylgrapher_wgbs_align" / "abc123"
     key.mkdir(parents=True)
     (key / "S1.bam").write_bytes(b"BAM")
     (key / "S1.qc-metrics.tar").write_bytes(b"TAR")
@@ -718,8 +718,8 @@ def test_restore_sample_align_products_relinks_bam_and_tar(tmp_path: Path) -> No
         json.dumps(
             {
                 "schema_version": "1.2",
-                "action_name": "sample.parabricks_fq2bam",
-                "capability": "parabricks.fq2bam",
+                "action_name": "sample.methylgrapher_wgbs_align",
+                "capability": "methylgrapher.wgbs_align",
                 "started_at_utc": "2026-08-21T00:00:00Z",
                 "finished_at_utc": "2026-08-21T00:00:00Z",
                 "duration_ms": 1,
@@ -1053,7 +1053,7 @@ def test_restore_sample_align_products_from_parent_caas_into_arm(tmp_path: Path)
     sample_root = tmp_path / "samples" / "S1"
     arm = sample_root / "align.linear.parabricks"
     arm.mkdir(parents=True)
-    key = sample_root / ".caas" / "sample_parabricks_fq2bam" / "abc123"
+    key = sample_root / ".caas" / "sample_methylgrapher_wgbs_align" / "abc123"
     key.mkdir(parents=True)
     (key / "S1.bam").write_bytes(b"BAM")
     (key / "S1.qc-metrics.tar").write_bytes(b"TAR")
@@ -1062,8 +1062,8 @@ def test_restore_sample_align_products_from_parent_caas_into_arm(tmp_path: Path)
         json.dumps(
             {
                 "schema_version": "1.2",
-                "action_name": "sample.parabricks_fq2bam",
-                "capability": "parabricks.fq2bam",
+                "action_name": "sample.methylgrapher_wgbs_align",
+                "capability": "methylgrapher.wgbs_align",
                 "started_at_utc": "2026-08-21T00:00:00Z",
                 "finished_at_utc": "2026-08-21T00:00:00Z",
                 "duration_ms": 1,
