@@ -556,7 +556,7 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
             self.returncode = 0
             self.stdout = None
             self.stderr = None
-            bam = sample_dir / "S7.bam"
+            bam = runner.local_bam_path("S7", sample_dir)
             qc_dir = sample_dir / "S7.qc-metrics"
             qc_dir.mkdir()
             (qc_dir / "summary.txt").write_text("qc")
@@ -585,6 +585,7 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
         {
             "METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
             "METHYL_PARABRICKS_MODE": "docker",
+            "METHYL_LOCAL_TMP": str(tmp_path / "local"),
         },
     ):
         with patch("methyl_worker.capabilities._gpu_available", return_value=True):
@@ -597,7 +598,9 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
 
     assert removed and removed[0].startswith("methyl-pb-")
 
-    assert out["bamPath"] == str(sample_dir / "S7.bam")
+    local_bam = tmp_path / "local" / "bam"
+    assert out["bamPath"].startswith(str(local_bam))
+    assert not (sample_dir / "S7.bam").exists()
     assert out["qcMetricsTar"] == str(sample_dir / "S7.qc-metrics.tar")
 
 

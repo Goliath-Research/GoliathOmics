@@ -148,7 +148,9 @@ def test_run_giraffe_align_invokes_giraffe_then_metrics(tmp_path: Path) -> None:
         joined = " ".join(cmd)
         if " giraffe " in joined or joined.endswith(" giraffe"):
             calls.append("giraffe")
-            (sample_dir / "S3.bam").write_bytes(b"BAM")
+            from methyl_utils.local_align import local_bam_path
+
+            local_bam_path("S3", sample_dir).write_bytes(b"BAM")
             (sample_dir / "S3.deduplicate_metrics.txt").write_text("ok")
         elif "collectmultiplemetrics" in joined:
             calls.append("metrics")
@@ -159,7 +161,10 @@ def test_run_giraffe_align_invokes_giraffe_then_metrics(tmp_path: Path) -> None:
 
     with patch.dict(
         "os.environ",
-        {"METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1"},
+        {
+            "METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
+            "METHYL_LOCAL_TMP": str(tmp_path / "local"),
+        },
     ):
         with patch("methyl_worker.capabilities._gpu_available", return_value=True):
             with patch("methyl_worker.giraffe_runner.subprocess.run", side_effect=fake_run):
@@ -170,7 +175,8 @@ def test_run_giraffe_align_invokes_giraffe_then_metrics(tmp_path: Path) -> None:
                 )
 
     assert calls == ["giraffe", "metrics"]
-    assert out["bamPath"] == str(sample_dir / "S3.bam")
+    assert out["bamPath"].startswith(str(tmp_path / "local" / "bam"))
+    assert not (sample_dir / "S3.bam").exists()
     assert out["qcMetricsTar"] == str(sample_dir / "S3.qc-metrics.tar")
 
 

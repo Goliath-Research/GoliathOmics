@@ -45,14 +45,16 @@ scratch (see Storage contract). `sample.parabricks_fq2bam`, `sample.parabricks_g
 `sample.methyl_extract`, `sample.methylgrapher_wgbs_extract`, `sample.extraction_qc` and
 `sample.delete_bam` also set `dispatch.require_previous_worker: true`. Once one of these
 actions has `SUCCEEDED` for a `sampleId`, every later one for that `sampleId` can only be
-claimed by the worker that completed the most recent one. The first pinned action
-(Align) may go to any capable worker. Unpinned steps (download, trim, archive,
+claimed by the worker that completed the most recent one. The Align actions are also
+`exclusive_worker`, and an exclusive pinned action is never constrained: Align (first
+run, remediation re-Align, or a restart) may go to any capable worker and starts a new
+pin that QC / fragmentomics / extract / delete_bam then follow. Unpinned steps (download, trim, archive,
 delete_fastqs) keep soft affinity.
 
 **Lost pinned worker.** If that worker dies or is removed, the remaining pinned tasks for
 the sample stay `READY` and no other worker will claim them; the BAM is gone with the
 worker. Cancel those tasks and restart the sample from Align (re-run SamplePrep for that
-sample). A pinned task that fails on its worker deletes the local BAM, so the retry path
+sample); the new Align may run on any worker. A pinned task that fails on its worker deletes the local BAM, so the retry path
 is also a restart from Align.
 
 `wf` only sees opaque keys and catalog flags — no SamplePrep node names in SQL.
