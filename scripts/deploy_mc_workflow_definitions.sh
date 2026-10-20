@@ -42,30 +42,18 @@ done
 PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
 [[ -x "$PYTHON_BIN" ]] || PYTHON_BIN=python3
 
-# Prefer runtime-bundle fixtures when present (no-git workers / operators).
-# Print the release directory ROOT/current points at, or nothing (exit 1)
-# when it is missing, empty or invalid. Shared /work volumes cannot store
-# symlinks (ln -s left a 0-byte regular file), so current is a pointer file
-# holding the release path; a symlink or a real directory (older layouts) is
-# still accepted.
-goliath_current_dir() {
-  local root="${1%/}" cur target=""
-  cur="$root/current"
-  if [[ -d "$cur" ]]; then
-    target="$(cd "$cur" 2>/dev/null && pwd -P)" || return 1
-  elif [[ -f "$cur" && -s "$cur" ]]; then
-    target="$(head -n 1 "$cur" 2>/dev/null | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-    [[ -z "$target" || "$target" == /* ]] || target="$root/$target"
-  fi
-  [[ -n "$target" && -d "$target" ]] || return 1
-  printf '%s\n' "$target"
-}
-_cur="$(goliath_current_dir "${GOLIATH_ROOT:-/work/goliath}" 2>/dev/null || echo "${GOLIATH_ROOT:-/work/goliath}/current")"
-RUNTIME_DOMAIN="${METHYL_RUNTIME_ROOT:-$_cur/runtime-bundle}/domain"
-if [[ -d "$RUNTIME_DOMAIN/fixtures" ]]; then
-  DOMAIN_ROOT="$RUNTIME_DOMAIN"
-else
+# Fixtures travel with this checkout or this release. Do not follow
+# /work/goliath/current: that pointer still names the previous release
+# until promote.
+if [[ -d "$REPO_ROOT/workflow_engine/domain/fixtures" ]]; then
   DOMAIN_ROOT="$REPO_ROOT/workflow_engine/domain"
+elif [[ -d "$REPO_ROOT/domain/fixtures" ]]; then
+  DOMAIN_ROOT="$REPO_ROOT/domain"
+elif [[ -d "$REPO_ROOT/runtime-bundle/domain/fixtures" ]]; then
+  DOMAIN_ROOT="$REPO_ROOT/runtime-bundle/domain"
+else
+  echo "DomainProgram fixtures not found under $REPO_ROOT" >&2
+  exit 1
 fi
 
 COMPILE="$REPO_ROOT/scripts/compile_workflow_program.py"

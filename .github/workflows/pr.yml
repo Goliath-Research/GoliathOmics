@@ -126,12 +126,23 @@ jobs:
       - name: Install host CLIs
         run: sudo apt-get update && sudo apt-get install -y samtools
 
+      - name: Check out GoliathApp domain compiler
+        uses: actions/checkout@v6
+        with:
+          repository: Goliath-Research/GoliathApp
+          ref: main
+          path: _goliathapp
+
       - name: Install science packages and the methyl worker
         run: |
           python -m venv .venv
           . .venv/bin/activate
           python -m pip install -U pip pytest
           bash scripts/install_packages.sh --with-deps
+          # domain.program / domain.compiler ship on GoliathApp main (PR #7,
+          # 1d4e28c). --no-deps: science packages already installed pydantic;
+          # the gateway's pyodbc extra is not needed to import the compiler.
+          python -m pip install --no-deps "${{ github.workspace }}/_goliathapp/workflow_engine"
 
       - name: Worker unit tests
         run: |

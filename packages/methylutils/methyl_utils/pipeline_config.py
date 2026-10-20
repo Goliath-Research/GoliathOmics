@@ -663,13 +663,27 @@ class ProjectConfig(BaseModel):
             )
         self._write_sample_qc_artifacts(ordered_records, eligible_paths, ineligible_paths)
 
-        emptied = [f"{side}:{label}" for label, paths, side in filtered if len(paths) == 0]
-        if emptied:
-            raise ValueError(
-                "Sample QC removed all samples from cohort(s): "
-                + ", ".join(emptied)
-                + ". Check sample names/paths and required H5 files."
-            )
+        declared_empty: List[str] = []
+        qc_emptied: List[str] = []
+        for (label, original, side), (_, kept, _) in zip(groups_with_side, filtered):
+            if kept:
+                continue
+            key = f"{side}:{label}"
+            if len(original) == 0:
+                declared_empty.append(key)
+            else:
+                qc_emptied.append(key)
+        if declared_empty or qc_emptied:
+            parts: List[str] = []
+            if declared_empty:
+                parts.append("Cohort group has no samples: " + ", ".join(declared_empty) + ".")
+            if qc_emptied:
+                parts.append(
+                    "Sample QC removed all samples from cohort(s): "
+                    + ", ".join(qc_emptied)
+                    + ". Check sample names/paths and required H5 files."
+                )
+            raise ValueError(" ".join(parts))
 
         self._sample_qc_cache[cache_key] = [(lbl, list(paths), side) for lbl, paths, side in filtered]
         return [(lbl, list(paths), side) for lbl, paths, side in filtered]
@@ -799,6 +813,30 @@ class ProjectConfig(BaseModel):
             for i, (label, paths) in enumerate(resolved)
         ]
         return self._apply_sample_qc_with_side(with_side, cache_key="with_side:flat")
+
+    def cohort_group_labels(self) -> List[str]:
+        """Group labels for instance context, without resolving paths or H5 files.
+
+        SamplePrep copies these onto ``context.groups``. Centroid and detection
+        still call ``get_resolved_groups``, which applies H5 eligibility.
+        """
+        if self.control is not None and self.disease is not None:
+            control = self._expand_side_groups(
+                self.control.groups, self._base_for, resolve_paths=False
+            )
+            disease = self._expand_side_groups(
+                self.disease.groups, self._base_for, resolve_paths=False
+            )
+            return [label for label, _ in control] + [label for label, _ in disease]
+        if self.groups:
+            expanded = self._expand_side_groups(self.groups, self._base_for, resolve_paths=False)
+            return [label for label, _ in expanded]
+        labels: List[str] = []
+        if self.group1 is not None:
+            labels.append(self.group1.label)
+        if self.group2 is not None:
+            labels.append(self.group2.label)
+        return labels
 
     def _get_resolved_groups(self, expand_subclusters: bool = False) -> List[Tuple[str, List[str]]]:
         """

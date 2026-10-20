@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from ops._paths import ensure_import_paths
 
@@ -33,20 +33,16 @@ def _apply_project_path_scope_default(spec: Dict[str, Any], project_path: str) -
 
 
 def compile_program_spec(program: Path, *, project_path: Optional[str] = None) -> Dict[str, Any]:
-    ensure_import_paths()
-    from compiler import compile_domain_program
-    from methyl_domain.program import DomainProgram
+    from ops.platform_compiler import compile_domain_program_file
 
-    program_model = DomainProgram.model_validate(
-        json.loads(program.read_text(encoding="utf-8"))
+    data = json.loads(program.read_text(encoding="utf-8"))
+    effective_path = project_path or data.get("projectPath")
+    result = compile_domain_program_file(
+        program,
+        enrich_context=False,
+        project_path=str(effective_path) if effective_path else None,
     )
-    effective_path = project_path or program_model.projectPath
-    if effective_path:
-        program_model = program_model.model_copy(
-            update={"projectPath": str(Path(str(effective_path)).expanduser().resolve())}
-        )
-    result = compile_domain_program(program_model, enrich_context=False)
-    spec = result.workflow.model_dump(mode="json")
+    spec = cast(Dict[str, Any], result.workflow.model_dump(mode="json"))
     if effective_path:
         _apply_project_path_scope_default(spec, effective_path)
     return spec

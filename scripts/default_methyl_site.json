@@ -16,5 +16,17 @@
   "methyl_mapper_home": "__WORK__/cache/methyl_mapper",
   "caches": {
     "mojo_segments": "__WORK__/cache/mojo_segments"
+  },
+  "parabricks": {
+    "engine": "parabricks",
+    "image": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
+    "bwa_threads": 16
+  },
+  "actionConfig": {
+    "parabricks": {
+      "engine": "parabricks",
+      "image": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
+      "bwa_threads": 16
+    }
   }
 }

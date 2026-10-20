@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 
-from methyl_domain.program import (
+from domain.program import (
     ActionStep,
     AssignStep,
     CollectionInSpec,

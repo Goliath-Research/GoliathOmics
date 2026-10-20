@@ -37,8 +37,7 @@ printf 'releases/2026.10.9\n' >"$g/current"
 # The standalone copies of the resolver match detect_platform.sh.
 want_fn="$(sed -n '/^goliath_current_dir() {/,/^}/p' "$ROOT/scripts/detect_platform.sh")"
 for f in scripts/start_shared_worker.sh deploy/runpod/goliath-worker-bootstrap.sh \
-         deploy/runpod/goliath-worker-start.sh scripts/report_deploy.sh \
-         scripts/deploy_workflow_definitions.sh scripts/deploy_mc_workflow_definitions.sh; do
+         deploy/runpod/goliath-worker-start.sh scripts/report_deploy.sh; do
   [[ "$(sed -n '/^goliath_current_dir() {/,/^}/p' "$ROOT/$f")" == "$want_fn" ]] || fail "$f resolver differs"
 done
 grep -q 'goliath_write_current "\$ROOT" "\$RELEASE_DIR"' "$ROOT/scripts/promote_release.sh" || fail "promote must write the pointer"

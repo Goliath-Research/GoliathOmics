@@ -160,8 +160,9 @@ def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
             out["centroid1Dir"] = project.get_centroid_dir("control", str(control))
 
     if not out.get("groups"):
-        resolved = project.get_resolved_groups()
-        out["groups"] = [{"label": label} for label, _ in resolved]
+        # Labels only. H5 eligibility stays on get_resolved_groups for centroid
+        # and detection. SamplePrep runs before those files exist.
+        out["groups"] = [{"label": label} for label in project.cohort_group_labels()]
 
     if not out.get("siteConfig"):
         site_path = out.get("siteConfigPath")

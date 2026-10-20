@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from ops._paths import REPO_ROOT, ensure_import_paths
+from ops.storage_profile import apply_storage_to_planner_payload
 from ops.study_lifecycle import resolve_workflow_version_id
 
 _DEFAULT_SAMPLE_PREP_PROGRAM = (
@@ -31,36 +32,11 @@ def plan_sample_prep_instance_context(db: Any, body: Dict[str, Any]) -> Dict[str
         raise ValueError("projectPath is required")
 
     ensure_import_paths()
-    from archive_profile_resolver import (
-        apply_archive_profile_storage,
-        apply_named_storage_locations,
-        study_storage_defaults,
-    )
     from methyl_validation.sample_prep_planner import plan_sample_prep_context
-    from resource_profile import DEFAULT_ARCHIVE_PROFILE_KEY, ResourceProfileReader
     from workflow_context import finalize_instance_context
 
-    planner_payload = dict(body)
+    planner_payload = apply_storage_to_planner_payload(db, body)
     planner_payload.setdefault("projectPath", project_path)
-
-    profile_key = str(
-        body.get("archiveProfileKey")
-        or body.get("archiveStorageKey")
-        or body.get("storageKey")
-        or DEFAULT_ARCHIVE_PROFILE_KEY
-    )
-    profile_reader = ResourceProfileReader(db)
-    planner_payload = apply_named_storage_locations(
-        planner_payload,
-        expand_endpoint=profile_reader.expand_endpoint,
-        load_profile=profile_reader.get_storage_profile,
-        study_defaults=study_storage_defaults(str(project_path)),
-    )
-    planner_payload = apply_archive_profile_storage(
-        planner_payload,
-        profile_reader.h5_storage_defaults,
-        profile_key=profile_key,
-    )
 
     context = plan_sample_prep_context(planner_payload)
     # Profile / alignment overlays from the start request must survive planning so

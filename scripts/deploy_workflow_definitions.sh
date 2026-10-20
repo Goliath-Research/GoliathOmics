@@ -58,31 +58,20 @@ if [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
   PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
 fi
 
-# Print the release directory ROOT/current points at, or nothing (exit 1)
-# when it is missing, empty or invalid. Shared /work volumes cannot store
-# symlinks (ln -s left a 0-byte regular file), so current is a pointer file
-# holding the release path; a symlink or a real directory (older layouts) is
-# still accepted.
-goliath_current_dir() {
-  local root="${1%/}" cur target=""
-  cur="$root/current"
-  if [[ -d "$cur" ]]; then
-    target="$(cd "$cur" 2>/dev/null && pwd -P)" || return 1
-  elif [[ -f "$cur" && -s "$cur" ]]; then
-    target="$(head -n 1 "$cur" 2>/dev/null | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-    [[ -z "$target" || "$target" == /* ]] || target="$root/$target"
-  fi
-  [[ -n "$target" && -d "$target" ]] || return 1
-  printf '%s\n' "$target"
-}
-_cur="$(goliath_current_dir "${GOLIATH_ROOT:-/work/goliath}" 2>/dev/null || echo "${GOLIATH_ROOT:-/work/goliath}/current")"
-RUNTIME_DOMAIN="${METHYL_RUNTIME_ROOT:-$_cur/runtime-bundle}/domain"
-REPO_FIXTURES="$REPO_ROOT/workflow_engine/domain/fixtures"
-if [[ -f "$RUNTIME_DOMAIN/fixtures/sample_prep.program.json" ]]; then
-  FIXTURES="$RUNTIME_DOMAIN/fixtures"
+# Fixtures travel with this checkout or this release. Do not follow
+# /work/goliath/current: that pointer still names the previous release
+# until promote, and compiling it deploys a stale program.
+if [[ -d "$REPO_ROOT/workflow_engine/domain/fixtures" ]]; then
+  FIXTURES="$REPO_ROOT/workflow_engine/domain/fixtures"
+elif [[ -d "$REPO_ROOT/domain/fixtures" ]]; then
+  FIXTURES="$REPO_ROOT/domain/fixtures"
+elif [[ -d "$REPO_ROOT/runtime-bundle/domain/fixtures" ]]; then
+  FIXTURES="$REPO_ROOT/runtime-bundle/domain/fixtures"
 else
-  FIXTURES="$REPO_FIXTURES"
+  echo "DomainProgram fixtures not found under $REPO_ROOT" >&2
+  exit 1
 fi
+REPO_FIXTURES="$FIXTURES"
 SAMPLE_PREP="$FIXTURES/sample_prep.program.json"
 REMEDIATE="$FIXTURES/sample_prep_remediate.program.json"
 LIFECYCLE="$FIXTURES/study_validation_lifecycle.program.json"
@@ -104,22 +93,48 @@ done
 mkdir -p "$OUTPUT_DIR" "$(dirname "$VERSIONS_OUT")"
 
 COMPILE="$REPO_ROOT/scripts/compile_workflow_program.py"
-"$PYTHON_BIN" "$COMPILE" "$SAMPLE_PREP" -o "$OUTPUT_DIR/sample_prep_compiled.json"
-"$PYTHON_BIN" "$COMPILE" "$REMEDIATE" -o "$OUTPUT_DIR/sample_prep_remediate_compiled.json"
-"$PYTHON_BIN" "$COMPILE" "$LIFECYCLE" -o "$OUTPUT_DIR/study_validation_lifecycle_compiled.json"
+if [[ ! -f "$COMPILE" && -f "$REPO_ROOT/runtime-bundle/scripts/compile_workflow_program.py" ]]; then
+  COMPILE="$REPO_ROOT/runtime-bundle/scripts/compile_workflow_program.py"
+fi
+SOURCES_TSV="$OUTPUT_DIR/program_sources.tsv"
+: >"$SOURCES_TSV"
+compile_one() {
+  local src="$1" dest="$2"
+  "$PYTHON_BIN" "$COMPILE" "$src" -o "$dest"
+  printf '%s\t%s\n' "$dest" "$src" >>"$SOURCES_TSV"
+}
+compile_one "$SAMPLE_PREP" "$OUTPUT_DIR/sample_prep_compiled.json"
+compile_one "$REMEDIATE" "$OUTPUT_DIR/sample_prep_remediate_compiled.json"
+compile_one "$LIFECYCLE" "$OUTPUT_DIR/study_validation_lifecycle_compiled.json"
 # RNA-Seq process pack (optional; compiled when fixtures are present).
 if [[ -f "$RNA_PREP" ]]; then
-  "$PYTHON_BIN" "$COMPILE" "$RNA_PREP" -o "$OUTPUT_DIR/sample_prep_rnaseq_compiled.json"
+  compile_one "$RNA_PREP" "$OUTPUT_DIR/sample_prep_rnaseq_compiled.json"
 fi
 if [[ -f "$RNA_LIFECYCLE" ]]; then
-  "$PYTHON_BIN" "$COMPILE" "$RNA_LIFECYCLE" -o "$OUTPUT_DIR/rnaseq_study_lifecycle_compiled.json"
+  compile_one "$RNA_LIFECYCLE" "$OUTPUT_DIR/rnaseq_study_lifecycle_compiled.json"
 fi
 if [[ -f "$PROT_PREP" ]]; then
-  "$PYTHON_BIN" "$COMPILE" "$PROT_PREP" -o "$OUTPUT_DIR/sample_prep_proteomics_compiled.json"
+  compile_one "$PROT_PREP" "$OUTPUT_DIR/sample_prep_proteomics_compiled.json"
 fi
 if [[ -f "$PROT_LIFECYCLE" ]]; then
-  "$PYTHON_BIN" "$COMPILE" "$PROT_LIFECYCLE" -o "$OUTPUT_DIR/proteomics_study_lifecycle_compiled.json"
+  compile_one "$PROT_LIFECYCLE" "$OUTPUT_DIR/proteomics_study_lifecycle_compiled.json"
 fi
+
+CATALOG_JSON=""
+for candidate in \
+  "$REPO_ROOT/schemas/actions/catalog.json" \
+  "$REPO_ROOT/runtime-bundle/schemas/actions/catalog.json"
+do
+  if [[ -f "$candidate" ]]; then
+    CATALOG_JSON="$candidate"
+    break
+  fi
+done
+if [[ -z "$CATALOG_JSON" ]]; then
+  echo "Action catalog not found under $REPO_ROOT/schemas/actions/catalog.json" >&2
+  exit 1
+fi
+export CATALOG_JSON SOURCES_TSV
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "Dry-run: compiled specs in $OUTPUT_DIR"
@@ -130,7 +145,9 @@ rollouts_begin workflow-definitions "workflow definitions ($(hostname -s 2>/dev/
 
 export GOLIATH_DEPLOY_KEEP_INSTANCES="$KEEP_INSTANCES"
 "$PYTHON_BIN" - "$REPO_ROOT" "$OUTPUT_DIR" "$VERSIONS_OUT" <<'PY'
+import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -143,6 +160,18 @@ from ops.workflow_deploy import deploy_workflow_definition
 from rest.connection import resolve_connection_config
 from rest.db import open_gateway_db
 from rest.db_client import create_workflow_definition, delete_workflow_definition
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+catalog_sha = _sha256(Path(os.environ["CATALOG_JSON"]))
+sources: dict[str, Path] = {}
+for line in Path(os.environ["SOURCES_TSV"]).read_text(encoding="utf-8").splitlines():
+    if not line.strip():
+        continue
+    dest, src = line.split("\t", 1)
+    sources[Path(dest).name] = Path(src)
 
 config = resolve_connection_config()
 db = open_gateway_db(config)
@@ -186,8 +215,17 @@ try:
                 results[name] = {"skipped": True, "error": str(exc)}
                 continue
             raise
-        results[name] = result
-        print(f"deployed {name}: workflow_version_id={result.get('workflow_version_id')}")
+        recorded = dict(result)
+        program_path = sources.get(path.name)
+        if program_path is not None:
+            recorded["program_sha256"] = _sha256(program_path)
+        recorded["catalog_sha256"] = catalog_sha
+        results[name] = recorded
+        print(
+            f"deployed {name}: workflow_version_id={recorded.get('workflow_version_id')} "
+            f"program_sha256={recorded.get('program_sha256', '')} "
+            f"catalog_sha256={catalog_sha}"
+        )
     missing = _REQUIRED_STEMS - {p.stem for p in required}
     if missing:
         raise SystemExit(f"required compiled specs missing: {sorted(missing)}")

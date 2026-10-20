@@ -17,7 +17,7 @@ Workers consume **`resolvedConfig`** only (Universal Action Input Contract). Tun
 - `actionConfig.parabricks` — linear / stock pangenome image, `engine` (`clara` \| `mojo`), threads, references
 - `actionConfig.methylgrapher_wgbs` — image (`:1.70-mojo-cuda` / `:1.70-mojo-rocm`), `engine=mojo`, `align_engine`, `giraffe_device`, threads, graph assets
 
-Site materialization (`METHYL_SITE_CONFIG` / `methyl-cfg`) supplies genome and image pins; profiles/procedures select `alignmentMode`.
+Site materialization (`METHYL_SITE_CONFIG` / `methyl-cfg`) supplies genome and image pins; profiles/procedures select `alignmentMode`. The goliath-test site seed (`scripts/default_methyl_site.json`, installed as `/work/site/methyl_site.json`) pins `reference_genome.fasta` to `linear/GRCh38/ensembl-116` and `actionConfig.parabricks.image` to `nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1`. Clara `fq2bam_meth` reads the bwa-meth C2T index next to that FASTA (`${FASTA}.bwameth.c2t` plus `.amb`, `.ann`, `.bwt`, `.pac`, `.sa`).
 
 Linear `engine=mojo` can write Bismark-style `XM:Z` / `XG:Z` when `actionConfig.parabricks.write_methylation_tags` is true (`METHYLGRAPHER_WRITE_METH_TAGS=1`). MethylExtractor and native MHL prefer those tags and fall back to sequence+`XG` when they are absent (Clara `fq2bam_meth` today). Default off except on `cfdna_emseq_mhl_survival`. See [workers/docs/parabricks.md](../../workers/docs/parabricks.md).
 

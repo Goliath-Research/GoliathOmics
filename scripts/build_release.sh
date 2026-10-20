@@ -372,7 +372,18 @@ build_runtime_bundle() {
   done
   if [[ -d "$REPO_ROOT/workflow_engine/domain" ]]; then
     mkdir -p "$RUNTIME_DIR/domain"
-    "${rsync_safe[@]}" "$REPO_ROOT/workflow_engine/domain/" "$RUNTIME_DIR/domain/"
+    # Product fixtures, profiles, analytes, and checks only. The platform
+    # compiler and DomainProgram IR ship in the methyl-gateway wheel
+    # (domain.compiler / domain.program). Copying them here shadowed that
+    # package on workers that put runtime-bundle/domain on PYTHONPATH.
+    "${rsync_safe[@]}" \
+      --exclude '/compiler.py' \
+      --exclude '/workflow_context.py' \
+      --exclude '/verify_workflow.py' \
+      --exclude '/program.py' \
+      --exclude '/__init__.py' \
+      --exclude '__pycache__/' \
+      "$REPO_ROOT/workflow_engine/domain/" "$RUNTIME_DIR/domain/"
   fi
   if [[ -f "$REPO_ROOT/requirements-pipeline.txt" ]]; then
     cp -f "$REPO_ROOT/requirements-pipeline.txt" "$RUNTIME_DIR/"

@@ -30,7 +30,9 @@ Implementation: [`methyl_worker/parabricks_runner.py`](../methyl_worker/parabric
 
 ## Configuration (site / profile → resolvedConfig)
 
-Prefer DB-backed `actionConfig.parabricks` (not host env for science knobs):
+Prefer the site pin `actionConfig.parabricks.image` (goliath-test: `nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1` in `scripts/default_methyl_site.json`). `METHYL_PARABRICKS_IMAGE` overrides that pin for a single process. The linear reference pin is `reference_genome.fasta` = `linear/GRCh38/ensembl-116`.
+
+Before `pbrun fq2bam_meth`, the runner requires all six bwa-meth C2T siblings of that FASTA: `${FASTA}.bwameth.c2t`, `.c2t.amb`, `.c2t.ann`, `.c2t.bwt`, `.c2t.pac`, `.c2t.sa`. A missing file fails with its path. A plain BWA index of the FASTA is not used.
 
 ```json
 "parabricks": {

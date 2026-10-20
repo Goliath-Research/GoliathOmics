@@ -40,15 +40,91 @@ def _sample_prep_version_id(versions: Mapping[str, Any]) -> int:
     return int(vid)
 
 
-def _write_project(project_path: Path, *, samples_base: Path, output_base: Path, reference_fasta: str) -> None:
+# Ensembl primary-assembly contig names (not UCSC chr*). A 2M-read canary
+# extracts this pair; the actionConfig overlay relaxes QC to match.
+_CANARY_CHROMOSOMES = ["1", "21"]
+
+# Downsampled canary reads will not meet production WGBS guardrails.
+_CANARY_ACTION_CONFIG: Dict[str, Any] = {
+    "alignment_qc": {
+        "core_guardrails": {
+            "min_pf_percent": 0,
+            "min_q30_percent": 0,
+            "min_mean_quality": 0,
+            "min_quality_post20": 0,
+            "max_at_dropout": 100,
+            "max_gc_dropout": 100,
+            "median_insert_min_bp": 1,
+            "median_insert_max_bp": 100000,
+            "max_deamination_qscore": 100,
+            "min_oxog_qscore": 0,
+        }
+    },
+    "extraction_qc": {
+        "expected_chromosomes": list(_CANARY_CHROMOSOMES),
+        "guardrails": {
+            "min_cpg_weighted_mean_coverage": 0,
+            "max_chh_methylation_level": 1,
+            "max_chg_methylation_level": 1,
+            "min_autosomal_coverage_uniformity_ratio": 0,
+            "max_discard_fraction": 1,
+        },
+    },
+}
+
+_DEFAULT_LINEAR_FASTA = (
+    "/work/genomes/linear/GRCh38/ensembl-116/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
+)
+
+
+def _site_reference_fasta(site: Mapping[str, Any]) -> Optional[str]:
+    ref = site.get("reference_genome")
+    if isinstance(ref, Mapping) and ref.get("fasta"):
+        return str(ref["fasta"])
+    genomes = site.get("genomes") if isinstance(site.get("genomes"), Mapping) else {}
+    linear_raw = genomes.get("linear") if isinstance(genomes, Mapping) else None
+    linear = linear_raw if isinstance(linear_raw, Mapping) else {}
+    if isinstance(linear, Mapping):
+        fasta = linear.get("fasta") or linear.get("path")
+        if fasta:
+            return str(fasta)
+    return None
+
+
+def _canary_action_config(extra: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    merged: Dict[str, Any] = json.loads(json.dumps(_CANARY_ACTION_CONFIG))
+    if not extra:
+        return merged
+    for key, value in extra.items():
+        current = merged.get(key)
+        if isinstance(current, dict) and isinstance(value, Mapping):
+            merged[key] = {**current, **dict(value)}
+        else:
+            merged[key] = value
+    return merged
+
+
+def _write_project(
+    project_path: Path,
+    *,
+    samples_base: Path,
+    output_base: Path,
+    reference_fasta: str,
+    analyte: str,
+) -> None:
+    """Prep-only project: cohort labels, no sample lists, Ensembl contig names."""
     payload = {
         "project_name": "SamplePrep_real_canary",
         "output_base": str(output_base),
         "samples_base_path": str(samples_base),
-        "chromosomes": ["1", "21"],
+        "chromosomes": list(_CANARY_CHROMOSOMES),
         "contexts": ["CG"],
-        "controls": {"label": "healthy", "groups": [{"label": "all", "sample_paths": []}]},
-        "diseases": {"label": "cancer", "groups": [{"label": "PCa", "sample_paths": []}]},
+        "regulatory": {
+            "primary_modality": "methylation",
+            "primary_analyte": analyte,
+        },
+        "controls": {"label": "healthy", "groups": [{"label": "all"}]},
+        "diseases": {"label": "cancer", "groups": [{"label": "PCa"}]},
     }
     project_path.parent.mkdir(parents=True, exist_ok=True)
     project_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -193,17 +269,16 @@ def run_canary(args: argparse.Namespace) -> int:
         site_path = Path(os.environ.get("METHYL_SITE_CONFIG") or "/work/site/methyl_site.json")
         if site_path.is_file():
             site = json.loads(site_path.read_text(encoding="utf-8"))
-            genomes = site.get("genomes") if isinstance(site.get("genomes"), dict) else {}
-            linear = genomes.get("linear") if isinstance(genomes.get("linear"), dict) else {}
-            reference_fasta = linear.get("fasta") or linear.get("path")
+            reference_fasta = _site_reference_fasta(site)
     if not reference_fasta:
-        # Fall back to common site layout; planner still validates existence at start.
-        reference_fasta = "/work/genomes/homo_sapiens/grch38/fasta/genome.fa"
+        reference_fasta = _DEFAULT_LINEAR_FASTA
+    analyte = config.analyte or "buffy_coat"
     _write_project(
         project_path,
         samples_base=samples_base,
         output_base=output_base,
         reference_fasta=str(reference_fasta),
+        analyte=str(analyte),
     )
 
     pair = config.subset if tier == "subset" else config.full
@@ -282,10 +357,10 @@ def run_canary(args: argparse.Namespace) -> int:
             },
             "deleteFastqs": False,
         }
+        extra_action: Dict[str, Any] = {}
         if config.directional is not None and mode == "pangenome_wgbs":
-            body["actionConfig"] = {
-                "methylgrapher_wgbs": {"directional": bool(config.directional)}
-            }
+            extra_action["methylgrapher_wgbs"] = {"directional": bool(config.directional)}
+        body["actionConfig"] = _canary_action_config(extra_action)
 
         print(json.dumps({"starting_mode": mode, "sample_id": sample_id}, indent=2), flush=True)
         proc = subprocess.run(

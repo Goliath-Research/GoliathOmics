@@ -705,6 +705,31 @@ def _reset_tmp(paths: ParabricksPaths) -> None:
     share_work_tree(paths.tmp_dir)
 
 
+_BWAMETH_C2T_SUFFIXES = (
+    ".bwameth.c2t",
+    ".bwameth.c2t.amb",
+    ".bwameth.c2t.ann",
+    ".bwameth.c2t.bwt",
+    ".bwameth.c2t.pac",
+    ".bwameth.c2t.sa",
+)
+
+
+def bwameth_c2t_index_paths(reference_fasta: str | Path) -> tuple[Path, ...]:
+    """The six bwa-meth C2T FM-index siblings ``pbrun fq2bam_meth`` requires."""
+    base = str(reference_fasta)
+    return tuple(Path(base + suffix) for suffix in _BWAMETH_C2T_SUFFIXES)
+
+
+def require_bwameth_c2t_index(reference_fasta: str | Path) -> None:
+    """Fail before ``pbrun fq2bam_meth`` when any C2T sibling is missing."""
+    missing = [path for path in bwameth_c2t_index_paths(reference_fasta) if not path.is_file()]
+    if not missing:
+        return
+    listed = ", ".join(str(path) for path in missing)
+    raise RuntimeError(f"bwa-meth C2T index missing for {reference_fasta}: {listed}")
+
+
 def run_fq2bam_meth(
     *,
     sample_id: str,
@@ -748,6 +773,8 @@ def run_fq2bam_meth(
         assert_execute_gpu_prereqs("parabricks.fq2bam", "sample.parabricks_fq2bam")
 
     fastqs = resolve_paired_fastqs(sample_path, sample_id)
+    if cfg.engine == "parabricks":
+        require_bwameth_c2t_index(reference_path)
     if cfg.engine == "mojo" and use_host_methylgrapher():
         align_cmd = _build_host_mojo_fq2bam_meth_command(cfg, paths, fastqs)
         label = "MojoFq2bamMeth (host)"
