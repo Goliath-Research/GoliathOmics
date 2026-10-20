@@ -188,11 +188,12 @@ def _caas_host_roots(sample_path: Path) -> list[Path]:
 
 
 def restore_sample_align_products(sample_dir: Path | str, sample_id: str) -> list[Path]:
-    """Restore qc-metrics.tar / metrics product symlinks from sample-scoped CAAS.
+    """Restore BAM / qc-metrics.tar product symlinks from sample-scoped CAAS.
 
-    After a harvest whose relink skipped dual-mount product paths, methyl_qc
-    looks at an empty ``sampleDir`` even though the blobs remain under
-    ``.caas/``. BAMs are never restored from here. Call this before those actions. Products are
+    After a harvest whose relink skipped dual-mount product paths, methyl_qc and
+    extract look at empty ``{sampleDir}/{id}.bam`` locations even though the
+    blobs remain under ``.caas/``. Only methylGrapher WGBS align is harvested;
+    Parabricks BAMs are worker-local and never in CAAS. Call this before those actions. Products are
     always restored next to the bound ``sampleDir`` (flat root or arm leaf).
     """
     from .action_result import caas_action_safe_name, caas_root
@@ -204,6 +205,7 @@ def restore_sample_align_products(sample_dir: Path | str, sample_id: str) -> lis
         return restored
 
     product_names = (
+        f"{sample_id}.bam",
         f"{sample_id}.qc-metrics.tar",
         f"{sample_id}.json",
         f"{sample_id}.deduplicate_metrics.txt",
@@ -251,8 +253,8 @@ def restore_sample_align_products(sample_dir: Path | str, sample_id: str) -> lis
                         restored.append(dest)
                     except OSError:
                         continue
-                if (sample_path / f"{sample_id}.qc-metrics.tar").is_file() or (
-                    sample_path / f"{sample_id}.json"
+                if (sample_path / f"{sample_id}.bam").is_file() or (
+                    sample_path / f"{sample_id}.qc-metrics.tar"
                 ).is_file():
                     return restored
     return restored

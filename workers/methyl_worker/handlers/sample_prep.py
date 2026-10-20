@@ -68,21 +68,30 @@ def _drop_local_bam_on_failure(sample_id: Optional[str], sample_dir: Optional[st
     try:
         yield
     except BaseException:
-        if sample_id and sample_dir:
-            from methyl_utils.local_align import remove_local_align
-
-            try:
-                remove_local_align(str(sample_id), str(sample_dir))
-            except OSError:
-                logger.warning("Could not remove local BAM for %s", sample_id, exc_info=True)
+        _remove_local_bam(sample_id, sample_dir)
         raise
+
+
+def _remove_local_bam(sample_id: Optional[str], sample_dir: Optional[str]) -> None:
+    if not (sample_id and sample_dir):
+        return
+    from methyl_utils.local_align import remove_local_align
+
+    try:
+        remove_local_align(str(sample_id), str(sample_dir))
+    except OSError:
+        logger.warning("Could not remove local BAM for %s", sample_id, exc_info=True)
 
 
 def _handle_methyl_qc(
     _capability: str, _action_name: str, input: MethylQcTaskInput
 ) -> MethylQcTaskOutput:
     with _drop_local_bam_on_failure(input.sampleId, input.sampleDir):
-        return _run_methyl_qc(_capability, _action_name, input)
+        out = _run_methyl_qc(_capability, _action_name, input)
+    if out.remediateAlignment:
+        # Remediation re-runs Align, which may land on another worker; this BAM is dead.
+        _remove_local_bam(input.sampleId, input.sampleDir)
+    return out
 
 
 def _run_methyl_qc(

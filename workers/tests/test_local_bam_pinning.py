@@ -214,16 +214,16 @@ def test_bam_consumers_resolve_local_bam(tmp_path: Path, local_root: Path) -> No
     assert resolve_sample_bam(arm, "S1") == bam
 
 
-def test_caas_align_restore_never_links_bam(tmp_path: Path) -> None:
-    from methyl_domain.sample_content_store import restore_sample_align_products
+def test_methyl_qc_remediation_removes_local_bam(tmp_path: Path, local_root: Path) -> None:
+    """Remediation re-runs Align (possibly on another worker), so the old BAM is freed."""
+    from methyl_worker.handlers import sample_prep
+    from methyl_worker.task_models.sample_prep_models import MethylQcTaskInput, MethylQcTaskOutput
 
-    root = tmp_path / "samples" / "S1"
-    arm = root / "align.parabricks"
-    arm.mkdir(parents=True)
-    key = root / ".caas" / "sample.methylgrapher_wgbs_align" / "k1"
-    key.mkdir(parents=True)
-    (key / "manifest.json").write_text("{}", encoding="utf-8")
-    (key / "S1.bam").write_bytes(b"BAM")
-    (key / "S1.qc-metrics.tar").write_bytes(b"TAR")
-    restore_sample_align_products(arm, "S1")
-    assert not (arm / "S1.bam").exists()
+    arm = _arm(tmp_path)
+    bam = _write_local_bam("S1", arm)
+    task = MethylQcTaskInput(sampleId="S1", sampleDir=str(arm))
+    for remediate, kept in ((False, True), (True, False)):
+        out = MethylQcTaskOutput.model_construct(status="ok", sampleId="S1", remediateAlignment=remediate)
+        with patch.object(sample_prep, "_run_methyl_qc", return_value=out):
+            sample_prep._handle_methyl_qc("methyl-qc", "sample.methyl_qc", task)
+        assert bam.exists() is kept
