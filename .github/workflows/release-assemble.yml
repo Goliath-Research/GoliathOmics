@@ -79,6 +79,8 @@ jobs:
           test -s deploy/runpod/keepalive.sh
           test -s scripts/start_shared_worker.sh
           test -s scripts/check_local_scratch.sh
+          test -s scripts/detect_platform.sh
+          test -s scripts/platform_matrix.env
 
       - name: Publish goliathomics GitHub Release
         env:
