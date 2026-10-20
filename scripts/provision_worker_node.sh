@@ -47,6 +47,10 @@ has the CUDA stack, and systemd may be absent. See deploy/runpod/README.md.
 Env: WORKER_API_BASE (required for enroll).
 The portal must preregister this VM (cluster, worker key, public IP) before enroll.
 Enroll is refused until that row exists; this script does not insert it.
+
+Local scratch: METHYL_LOCAL_TMP (default /tmp/methyl-pb) must have
+METHYL_LOCAL_TMP_MIN_GB free (default 80). A smaller disk refuses to start.
+The shared work mount is not scratch. --skip-preflight does not skip this check.
 EOF
 }
 
@@ -183,6 +187,17 @@ RUNTIME="$(readlink -f "$RELEASE_DIR/runtime-bundle" 2>/dev/null || true)"
 [[ -d "${RUNTIME:-}" ]] || RUNTIME="$REPO_ROOT"
 SCRIPTS="$RUNTIME/scripts"
 [[ -d "$SCRIPTS" ]] || SCRIPTS="$SCRIPT_DIR"
+
+# Always, including --skip-preflight: a worker that cannot stage a FASTQ on
+# local disk must not enroll. --dry-run prints the command and does not check.
+require_local_scratch() {
+  local scratch_check="$SCRIPTS/check_local_scratch.sh"
+  [[ -f "$scratch_check" ]] || scratch_check="$SCRIPT_DIR/check_local_scratch.sh"
+  [[ -f "$scratch_check" ]] || die "check_local_scratch.sh not found; refusing to provision without a local scratch preflight"
+  echo "=== Local scratch (${METHYL_LOCAL_TMP:-/tmp/methyl-pb}, minimum ${METHYL_LOCAL_TMP_MIN_GB:-80} GB) ==="
+  run bash "$scratch_check"
+}
+require_local_scratch
 
 resolve_venv_python() {
   local cand

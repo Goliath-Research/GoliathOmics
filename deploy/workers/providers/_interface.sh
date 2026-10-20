@@ -20,6 +20,9 @@
 #   OPT_GPU           --gpu value (or the provider default)
 #   OPT_GPU_COUNT     --gpu-count value (positive integer)
 #   OPT_CLOUD         --cloud value (provider-defined tier; may be empty)
+#   LOCAL_DISK_GB     container-local disk in GB (worker profile local_disk_gb;
+#                     default 200, minimum 100). Providers that size a container
+#                     disk put this value on the create request.
 #   WAIT_SECS POLL_SECS  readiness wait budget and poll interval
 # Helpers available to providers: log MSG, die MSG.
 #

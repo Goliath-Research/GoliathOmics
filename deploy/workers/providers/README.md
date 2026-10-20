@@ -4,8 +4,12 @@
 GoliathOmics worker. It owns everything that is the same on every cloud:
 
 - option parsing (`--name`, `--template`, `--volume`, `--mount-path`,
-  `--allow-nonstandard-path`, `--gpu`, `--gpu-count`, `--cloud`, `--wait`,
-  `--dry-run`, `--yes`);
+  `--allow-nonstandard-path`, `--gpu`, `--gpu-count`, `--cloud`,
+  `--local-disk-gb`, `--profile`, `--wait`, `--dry-run`, `--yes`);
+- container-local disk size: `local_disk_gb` from `--local-disk-gb`, else the
+  self-provision worker in `--profile`, else `GOLIATH_LOCAL_DISK_GB`, else
+  200. Values below 100 are refused. The resolved value is `LOCAL_DISK_GB`.
+  A provider that sizes a container disk puts that value on the create request;
 - picking the lowest free `goliath-worker-N` name and refusing a duplicate `--name`;
 - the shared-storage policy: the shared volume must be mounted at `/work`
   (anything else needs `--allow-nonstandard-path`), and the request is checked
@@ -47,9 +51,10 @@ provider, a URL or an API path.
 
 Inputs available to hooks: `PROVIDER`, `CW_TMP` (private scratch dir, removed on
 exit), `WORKER_NAME`, `OPT_TEMPLATE`, `OPT_STORAGE`, `OPT_GPU`, `OPT_GPU_COUNT`,
-`OPT_CLOUD`, `MOUNT_PATH`, `WAIT_SECS`, `POLL_SECS`, and the helpers `log` and
-`die`. Keep provider-private helpers and variables prefixed with the provider
-name (`_runpod_api`, `RUNPOD_RESP`).
+`OPT_CLOUD`, `LOCAL_DISK_GB` (container-local disk in GB), `MOUNT_PATH`,
+`WAIT_SECS`, `POLL_SECS`, and the helpers `log` and `die`. Keep provider-private
+helpers and variables prefixed with the provider name (`_runpod_api`,
+`RUNPOD_RESP`).
 
 ## Adding a provider
 

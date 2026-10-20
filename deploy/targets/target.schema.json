@@ -299,6 +299,11 @@
           "minimum": 1,
           "description": "Node RAM in GiB. GPU memory lives on gpu.memory_gb."
         },
+        "local_disk_gb": {
+          "type": "integer",
+          "minimum": 100,
+          "description": "Container-local disk in GB for scratch (FASTQs, BAMs, Parabricks tmp, logs, venvs, docker layers). Default 200 when omitted. Minimum 100. /work is the shared volume and is not this disk. RunPod create sends it as the v2 disk field (v1 containerDiskInGb)."
+        },
         "volume_mount": {
           "type": "string"
         },

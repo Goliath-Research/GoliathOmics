@@ -539,6 +539,7 @@ main() {
   resolve_wanted_tag
   install_start_script
   install_companion "scripts/start_shared_worker.sh" "start_shared_worker"
+  install_companion "scripts/check_local_scratch.sh" "local-scratch"
   install_companion "deploy/runpod/keepalive.sh" "goliath-runpod"
   if [[ -n "$WANTED_TAG" && "$STALE_SCRIPTS" == 0 && "$(installed_release)" != "$WANTED_TAG" ]]; then
     record_release "$WANTED_TAG"
