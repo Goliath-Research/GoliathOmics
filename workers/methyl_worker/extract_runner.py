@@ -10,12 +10,13 @@ import shlex
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from methyl_worker.work_share import (
+    copy_to_work,
     append_work_text,
     ensure_work_writable,
     replace_work_file,
@@ -62,6 +63,8 @@ class MethylExtractPaths:
     sample_id: str
     bam_path: Path
     log_path: Path
+    # MethylExtractor --output-dir; worker-local scratch, published to sample_dir after.
+    output_dir: Optional[Path] = None
 
 
 def _normalize_contexts(raw: Any) -> tuple[str, ...]:
@@ -636,15 +639,10 @@ def ensure_extraction_manifest(
 
 
 def _bam_candidates(sample_dir: Path, sample_id: str) -> List[Path]:
-    """Worker-local Align BAM first (linear Parabricks/Mojo), then arm-local BAMs."""
+    """The Align BAM only ever lives on this (pinned) worker's local scratch."""
     from methyl_utils.local_align import local_bam_path
 
-    return [
-        local_bam_path(sample_id, sample_dir),
-        sample_dir / f"{sample_id}.bam",
-        sample_dir / f"{sample_id}.BAM",
-        sample_dir / f"{sample_id}.clara_parabrics.duplicates_marked.bam",
-    ]
+    return [local_bam_path(sample_id, sample_dir)]
 
 
 def resolve_bam_path(sample_dir: Path, sample_id: str) -> Path:
@@ -820,7 +818,7 @@ def build_methyl_extractor_command(cfg: MethylExtractConfig, paths: MethylExtrac
                 "upgrade MethylExtractor for haplotype sidecars",
                 bin_path,
             )
-    cmd.append(f"--output-dir={paths.sample_dir}")
+    cmd.append(f"--output-dir={paths.output_dir or paths.sample_dir}")
     cmd.append(str(paths.bam_path))
     # With --output-dir set, MethylExtractor treats the next positional as ref.fa only
     # (see MethylExtractor/src/main.c: output_dir positional is skipped when -o is used).
@@ -830,6 +828,20 @@ def build_methyl_extractor_command(cfg: MethylExtractConfig, paths: MethylExtrac
 
 def _append_log(log_path: Path, text: str) -> None:
     append_work_text(log_path, text)
+
+
+# MethylExtractor products copied from local scratch to sampleDir: HDF5s and
+# their per-context JSON stats / manifests. Nothing else (no BAM) reaches /work.
+_PUBLISHED_SUFFIXES = (".h5", ".json")
+
+
+def _publish_extract_outputs(local_out: Path, sample_dir: Path) -> List[str]:
+    published: List[str] = []
+    for src in sorted(local_out.iterdir()):
+        if src.is_file() and src.name.endswith(_PUBLISHED_SUFFIXES):
+            copy_to_work(src, sample_dir / src.name, task="methyl_extract")
+            published.append(src.name)
+    return published
 
 
 def run_methyl_extract(
@@ -924,20 +936,31 @@ def run_methyl_extract(
             log_path=paths.log_path,
         )
         paths = _resolve_paths(cfg.sample_dir, cfg.sample_id, panel_bam)
-    cmd = build_methyl_extractor_command(cfg, paths)
 
-    logger.info("Running MethylExtractor for %s", cfg.sample_id)
-    _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in cmd))
+    from methyl_utils.local_align import local_extract_dir
 
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if proc.stdout:
-        _append_log(paths.log_path, proc.stdout)
-    if proc.stderr:
-        _append_log(paths.log_path, proc.stderr)
-    if proc.returncode != 0:
-        raise RuntimeError(
-            proc.stderr.strip() or proc.stdout.strip() or "MethylExtractor failed"
-        )
+    local_out = local_extract_dir(cfg.sample_id, cfg.sample_dir)
+    shutil.rmtree(local_out, ignore_errors=True)
+    local_out.mkdir(parents=True)
+    paths = replace(paths, output_dir=local_out)
+    try:
+        cmd = build_methyl_extractor_command(cfg, paths)
+
+        logger.info("Running MethylExtractor for %s", cfg.sample_id)
+        _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in cmd))
+
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if proc.stdout:
+            _append_log(paths.log_path, proc.stdout)
+        if proc.stderr:
+            _append_log(paths.log_path, proc.stderr)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                proc.stderr.strip() or proc.stdout.strip() or "MethylExtractor failed"
+            )
+        _publish_extract_outputs(local_out, cfg.sample_dir)
+    finally:
+        shutil.rmtree(local_out, ignore_errors=True)
 
     h5_files = [name for name in expected if (cfg.sample_dir / name).is_file()]
     if pattern_expected:
@@ -970,7 +993,6 @@ def run_methyl_extract(
         h5_files=h5_files,
         pattern_files=pattern_files,
     )
-    share_work_tree(cfg.sample_dir)
 
     return {
         "sampleId": cfg.sample_id,

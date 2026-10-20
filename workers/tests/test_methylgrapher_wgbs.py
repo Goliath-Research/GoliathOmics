@@ -540,6 +540,11 @@ def test_dry_run_align_and_extract(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         input_json={"resolvedConfig": cfg},
     )
     assert Path(align["bamPath"]).is_file()
+    # The QC BAM is worker-local; nothing BAM-like lands in sampleDir (/work).
+    from methyl_utils.local_align import local_bam_path
+
+    assert align["bamPath"] == str(local_bam_path("S1", sample_dir))
+    assert not list(sample_dir.rglob("*.bam"))
     assert Path(align["gafPath"]).is_file()
     assert Path(align["qcMetricsTar"]).is_file()
     assert Path(align["dedupMetricsPath"]).is_file()

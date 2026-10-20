@@ -75,7 +75,9 @@ def test_sample_caas_enabled_defaults_on(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.delenv("METHYL_SAMPLE_CAAS_ENABLED", raising=False)
     monkeypatch.setenv("METHYL_SAMPLES_BASE", str(tmp_path))
     assert sample_caas_enabled() is True
-    assert sample_caas_enabled_for_action("sample.parabricks_fq2bam") is True
+    assert sample_caas_enabled_for_action("sample.methyl_qc") is True
+    for action in ("sample.parabricks_fq2bam", "sample.methylgrapher_wgbs_align", "sample.docker_align"):
+        assert sample_caas_enabled_for_action(action) is False
     assert sample_caas_enabled({"sampleCaasEnabled": False}) is False
     assert sample_caas_enabled({"caasEnabled": False}) is False
     monkeypatch.setenv("METHYL_SAMPLE_CAAS_ENABLED", "0")
@@ -84,7 +86,7 @@ def test_sample_caas_enabled_defaults_on(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.delenv("METHYL_SAMPLE_CAAS_ENABLED", raising=False)
     root = resolve_caas_root(
         {"sampleId": "S1"},
-        action_name="sample.parabricks_fq2bam",
+        action_name="sample.methyl_qc",
     )
     assert root == (tmp_path / "S1").resolve()
 
@@ -705,45 +707,6 @@ def test_paths_equivalent_dual_mount_prefixes() -> None:
     )
 
 
-def test_restore_sample_align_products_relinks_bam_and_tar(tmp_path: Path) -> None:
-    from methyl_domain.sample_content_store import restore_sample_align_products
-
-    sample_dir = tmp_path / "samples" / "S1"
-    sample_dir.mkdir(parents=True)
-    key = sample_dir / ".caas" / "sample_methylgrapher_wgbs_align" / "abc123"
-    key.mkdir(parents=True)
-    (key / "S1.bam").write_bytes(b"BAM")
-    (key / "S1.qc-metrics.tar").write_bytes(b"TAR")
-    (key / "manifest.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "1.2",
-                "action_name": "sample.methylgrapher_wgbs_align",
-                "capability": "methylgrapher.wgbs_align",
-                "started_at_utc": "2026-08-21T00:00:00Z",
-                "finished_at_utc": "2026-08-21T00:00:00Z",
-                "duration_ms": 1,
-                "result_code": 0,
-                "exit_code": 0,
-                "artifacts": [
-                    {"path": str(key / "S1.bam"), "kind": "file", "bytes": 3},
-                    {"path": str(key / "S1.qc-metrics.tar"), "kind": "file", "bytes": 3},
-                ],
-                "task_output": {
-                    "bamPath": str(sample_dir / "S1.bam"),
-                    "qcMetricsTar": str(sample_dir / "S1.qc-metrics.tar"),
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    restored = restore_sample_align_products(sample_dir, "S1")
-    assert (sample_dir / "S1.bam").is_file()
-    assert (sample_dir / "S1.bam").read_bytes() == b"BAM"
-    assert (sample_dir / "S1.qc-metrics.tar").read_bytes() == b"TAR"
-    assert restored
-
-
 def _write_align_products(sample_dir: Path, sample_id: str = "S1") -> tuple[Path, Path, Path]:
     bam = sample_dir / f"{sample_id}.bam"
     tar = sample_dir / f"{sample_id}.qc-metrics.tar"
@@ -1044,50 +1007,6 @@ def test_sample_commit_keeps_arm_leaf_products_off_sample_root(
     )
     assert linked is not None
     _assert_in_place_product(bam, b"BAMDATA")
-    assert not (sample_root / "S1.bam").exists()
-
-
-def test_restore_sample_align_products_from_parent_caas_into_arm(tmp_path: Path) -> None:
-    from methyl_domain.sample_content_store import restore_sample_align_products
-
-    sample_root = tmp_path / "samples" / "S1"
-    arm = sample_root / "align.linear.parabricks"
-    arm.mkdir(parents=True)
-    key = sample_root / ".caas" / "sample_methylgrapher_wgbs_align" / "abc123"
-    key.mkdir(parents=True)
-    (key / "S1.bam").write_bytes(b"BAM")
-    (key / "S1.qc-metrics.tar").write_bytes(b"TAR")
-    (key / "S1.json").write_text("{}", encoding="utf-8")
-    (key / "manifest.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "1.2",
-                "action_name": "sample.methylgrapher_wgbs_align",
-                "capability": "methylgrapher.wgbs_align",
-                "started_at_utc": "2026-08-21T00:00:00Z",
-                "finished_at_utc": "2026-08-21T00:00:00Z",
-                "duration_ms": 1,
-                "result_code": 0,
-                "exit_code": 0,
-                "artifacts": [
-                    {"path": str(key / "S1.bam"), "kind": "file", "bytes": 3},
-                    {"path": str(key / "S1.qc-metrics.tar"), "kind": "file", "bytes": 3},
-                    {"path": str(key / "S1.json"), "kind": "file", "bytes": 2},
-                ],
-                "task_output": {
-                    "bamPath": str(arm / "S1.bam"),
-                    "qcMetricsTar": str(arm / "S1.qc-metrics.tar"),
-                    "jsonPath": str(arm / "S1.json"),
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    restored = restore_sample_align_products(arm, "S1")
-    assert restored
-    assert (arm / "S1.bam").read_bytes() == b"BAM"
-    assert (arm / "S1.qc-metrics.tar").read_bytes() == b"TAR"
-    assert (arm / "S1.json").read_bytes() == b"{}"
     assert not (sample_root / "S1.bam").exists()
 
 

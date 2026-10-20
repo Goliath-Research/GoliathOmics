@@ -38,14 +38,15 @@ def test_sample_align_caas_default_on(monkeypatch) -> None:
     assert entry is not None
     assert idempotency_enabled_for(entry) is True
     assert idempotency_opt_out_reason_for(entry) is None
-    align = find_catalog_entry("sample.methylgrapher_wgbs_align")
-    assert align is not None
-    assert idempotency_enabled_for(align) is True
-    assert idempotency_opt_out_reason_for(align) is None
 
 
-def test_parabricks_align_is_worker_local_bam_opt_out() -> None:
-    for action in ("sample.parabricks_fq2bam", "sample.parabricks_giraffe"):
+def test_bam_align_is_worker_local_bam_opt_out() -> None:
+    for action in (
+        "sample.parabricks_fq2bam",
+        "sample.parabricks_giraffe",
+        "sample.methylgrapher_wgbs_align",
+        "sample.docker_align",
+    ):
         entry = find_catalog_entry(action)
         assert entry is not None
         assert idempotency_opt_out_reason_for(entry) == "worker_local_bam"
@@ -186,7 +187,7 @@ def test_sample_caas_explicit_opt_out(monkeypatch) -> None:
     assert entry is not None
     assert idempotency_enabled_for(entry) is False
     assert idempotency_opt_out_reason_for(entry) == "sample_caas_disabled"
-    align = find_catalog_entry("sample.methylgrapher_wgbs_align")
+    align = find_catalog_entry("sample.methyl_qc")
     assert align is not None
     assert idempotency_enabled_for(align, {"sampleCaasEnabled": True}) is True
     assert idempotency_enabled_for(align, {"sampleCaasEnabled": False}) is False

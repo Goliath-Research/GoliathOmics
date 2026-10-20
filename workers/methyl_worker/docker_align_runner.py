@@ -83,8 +83,14 @@ def run_docker_align(
             "(list of strings with {r1},{r2},{bam},{reference},{sample_dir} placeholders)."
         )
 
+    from methyl_utils.local_align import local_align_dir, local_bam_path, remove_local_align
+
     r1, r2 = _find_pair(sample_path)
-    bam_path = sample_path / f"{sample_id}.bam"
+    # The BAM stays on this worker's local scratch; pinned consumers read it here.
+    remove_local_align(sample_id, sample_path)
+    bam_dir = local_align_dir(sample_id, sample_path)
+    bam_dir.mkdir(parents=True)
+    bam_path = local_bam_path(sample_id, sample_path)
     metrics_dir = sample_path / "qc-metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
     metrics_json = sample_path / f"{sample_id}.alignment_metrics.json"
@@ -96,6 +102,7 @@ def run_docker_align(
         "r1": str(r1),
         "r2": str(r2),
         "bam": str(bam_path),
+        "bam_dir": str(bam_dir),
         "reference": str(ref),
         "metrics_dir": str(metrics_dir),
     }
@@ -114,20 +121,25 @@ def run_docker_align(
         f"{sample_path}:{sample_path}",
         "-v",
         f"{ref.parent}:{ref.parent}",
+        "-v",
+        f"{bam_dir}:{bam_dir}",
     ]
     cmd = ["docker", "run", "--rm", *gpu_flags, *docker_extra, *mounts, str(image), *inner_argv]
     logger.info("docker_align: %s", " ".join(shlex.quote(c) for c in cmd))
-    subprocess.run(cmd, check=True)
-
-    if not bam_path.is_file():
-        # Allow operator to write BAM under a configured relative name
-        alt = resolved.get("bam_name")
-        if alt:
-            candidate = sample_path / str(alt)
-            if candidate.is_file():
-                bam_path = candidate
+    try:
+        subprocess.run(cmd, check=True)
         if not bam_path.is_file():
-            raise RuntimeError(f"docker_align did not produce BAM at {bam_path}")
+            # Allow operator to write BAM under a configured name inside {bam_dir}.
+            alt = resolved.get("bam_name")
+            if alt:
+                candidate = bam_dir / str(alt)
+                if candidate.is_file():
+                    candidate.rename(bam_path)
+            if not bam_path.is_file():
+                raise RuntimeError(f"docker_align did not produce BAM at {bam_path}")
+    except BaseException:
+        remove_local_align(sample_id, sample_path)
+        raise
 
     # Ensure a qc-metrics tar exists for sample.methyl_qc (empty placeholder OK).
     if not qc_tar.is_file():

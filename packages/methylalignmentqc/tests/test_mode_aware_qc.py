@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from conftest import local_bam
 import json
 import tarfile
 from pathlib import Path
@@ -42,7 +43,7 @@ def _setup_wgbs_sample(tmp: Path, sample: str, *, with_linear_tar: bool = False)
     d.mkdir(parents=True)
     _write_text(d / f"{sample}.deduplicate_metrics.txt", _dedup_metrics())
     # Non-empty BAM / GAF stubs (content not parsed when flagstat disabled)
-    (d / f"{sample}.bam").write_bytes(b"BAM\x01fake")
+    local_bam(d, sample).write_bytes(b"BAM\x01fake")
     (d / f"{sample}.alignment.gaf").write_text("s\t*\t*\n", encoding="utf-8")
     prov = {
         "tool": "methylGrapher",
@@ -52,7 +53,7 @@ def _setup_wgbs_sample(tmp: Path, sample: str, *, with_linear_tar: bool = False)
         "directional": True,
         "asset_fingerprints": {"c2t.gbz": "abc123", "g2a.gbz": "def456"},
         "gaf": str(d / f"{sample}.alignment.gaf"),
-        "bam": str(d / f"{sample}.bam"),
+        "bam": str(local_bam(d, sample)),
     }
     (d / f"{sample}.alignment_metrics.json").write_text(json.dumps(prov), encoding="utf-8")
     if with_linear_tar:
@@ -125,7 +126,7 @@ def test_build_qc_wgbs_ignores_linear_properly_paired(tmp_path: Path, monkeypatc
     sample = "HBCST-PAIR0"
     d = _setup_wgbs_sample(tmp_path, sample)
     # Preflight accepts gzip magic; content unused because flagstat is mocked.
-    (d / f"{sample}.bam").write_bytes(b"\x1f\x8b" + b"\x00" * 64)
+    local_bam(d, sample).write_bytes(b"\x1f\x8b" + b"\x00" * 64)
 
     def _fake_flagstat(sample_dir, sid, force=False):
         return AlignmentFlagstat(
@@ -266,7 +267,7 @@ def test_detect_mojo_linear_family(tmp_path: Path):
     d = tmp_path / sample
     d.mkdir()
     _write_text(d / f"{sample}.deduplicate_metrics.txt", _dedup_metrics())
-    (d / f"{sample}.bam").write_bytes(b"BAM\x01fake")
+    local_bam(d, sample).write_bytes(b"BAM\x01fake")
     mojo_json = {
         "sample_id": sample,
         "engine": "mojo_fq2bam_meth",
@@ -299,7 +300,7 @@ def test_build_qc_mojo_linear_skips_placeholder_hard_fails(tmp_path: Path):
     d = tmp_path / sample
     d.mkdir()
     _write_text(d / f"{sample}.deduplicate_metrics.txt", _dedup_metrics())
-    (d / f"{sample}.bam").write_bytes(b"BAM\x01fake")
+    local_bam(d, sample).write_bytes(b"BAM\x01fake")
     mojo_json = {
         "sample_id": sample,
         "engine": "mojo_fq2bam_meth",

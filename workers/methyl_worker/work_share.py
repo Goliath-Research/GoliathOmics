@@ -237,6 +237,35 @@ def _write_completion_marker(dest: Path) -> Path:
     return marker
 
 
+def copy_to_work(local_src: Path | str, dest: Path | str, *, task: str = "task") -> Path:
+    """Copy one local-scratch file onto ``/work`` with a single rename at the end.
+
+    Bytes go to the sibling ``<dest>.tmp-<node>-<task>`` with ``copyfile`` (no
+    ``copystat``), then ``os.replace`` publishes ``dest``. No ``utime``,
+    ``chmod`` or hardlink is attempted, so it is safe on geesefs; the umask
+    alone makes the file readable. The local source is left in place.
+    """
+    src_p = Path(local_src)
+    dest_p = Path(dest)
+    if not src_p.is_file():
+        raise FileNotFoundError(src_p)
+    dest_p.parent.mkdir(parents=True, exist_ok=True)
+    staging = dest_p.with_name(
+        f"{dest_p.name}.tmp-{publisher_id()}-{_safe_component(task)}"
+    )
+    staging.unlink(missing_ok=True)
+    previous_umask = os.umask(_work_umask())
+    try:
+        shutil.copyfile(src_p, staging)
+        os.replace(staging, dest_p)
+    except BaseException:
+        staging.unlink(missing_ok=True)
+        raise
+    finally:
+        os.umask(previous_umask)
+    return dest_p
+
+
 def publish_to_work(local_src: Path | str, dest: Path | str, *, task: str = "task") -> Path:
     """Publish a workflow output onto ``/work`` so every pod can read it.
 

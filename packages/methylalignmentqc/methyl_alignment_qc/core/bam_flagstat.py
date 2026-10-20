@@ -108,17 +108,13 @@ def flagstat_bam_preflight_error(bam_path: Path) -> Optional[str]:
 
 
 def resolve_sample_bam(sample_dir: Path, sample_id: str) -> Path:
-    """Worker-local Align BAM when present, else ``{sample_dir}/{sample_id}.bam``.
+    """The Align BAM, which only lives on the align worker's local scratch.
 
-    Linear Parabricks/Mojo Align keeps its BAM on worker scratch
-    (``methyl_utils.local_align``); other aligners still write beside the arm.
+    See ``methyl_utils.local_align``; alignment QC is pinned to that worker.
     """
-    from methyl_utils.local_align import find_local_bam
+    from methyl_utils.local_align import local_bam_path
 
-    local = find_local_bam(sample_id, sample_dir)
-    if local is not None:
-        return local
-    return Path(sample_dir) / f"{sample_id}.bam"
+    return local_bam_path(sample_id, sample_dir)
 
 
 def run_flagstat(

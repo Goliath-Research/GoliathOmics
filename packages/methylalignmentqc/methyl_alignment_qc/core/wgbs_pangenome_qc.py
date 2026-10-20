@@ -56,9 +56,11 @@ def build_wgbs_pangenome_guardrail_report(
         message="Dual-graph Align must produce a non-empty alignment.gaf.",
     )
 
-    bam_path = Path(str(bam_field)) if bam_field else sample_dir / f"{sample_id}.bam"
+    from .bam_flagstat import resolve_sample_bam
+
+    bam_path = Path(str(bam_field)) if bam_field else resolve_sample_bam(sample_dir, sample_id)
     if not bam_path.is_absolute():
-        bam_path = sample_dir / bam_path.name
+        bam_path = resolve_sample_bam(sample_dir, sample_id)
     bam_ok = _path_exists_nonempty(bam_path)
     details["wgbs_bam_present"] = _make_guardrail_metric(
         value=float(bam_path.stat().st_size) if bam_ok else 0.0,

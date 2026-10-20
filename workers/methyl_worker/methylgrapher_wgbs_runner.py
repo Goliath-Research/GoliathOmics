@@ -1761,7 +1761,9 @@ def _maybe_collect_picard_metrics(
 
 
 def _alignment_complete(sample_dir: Path, sample_id: str) -> bool:
-    bam = sample_dir / f"{sample_id}.bam"
+    from methyl_utils.local_align import local_bam_path
+
+    bam = local_bam_path(sample_id, sample_dir)
     dedup = sample_dir / f"{sample_id}.deduplicate_metrics.txt"
     gaf = sample_dir / f"{sample_id}.alignment.gaf"
     qc_tar = sample_dir / f"{sample_id}.qc-metrics.tar"
@@ -1769,9 +1771,10 @@ def _alignment_complete(sample_dir: Path, sample_id: str) -> bool:
 
 
 def _clear_alignment_outputs(sample_dir: Path, sample_id: str) -> None:
+    from methyl_utils.local_align import remove_local_align
+
+    remove_local_align(sample_id, sample_dir)
     for name in (
-        f"{sample_id}.bam",
-        f"{sample_id}.bam.bai",
         f"{sample_id}.deduplicate_metrics.txt",
         f"{sample_id}.alignment.gaf",
         f"{sample_id}.qc-metrics.tar",
@@ -2093,11 +2096,13 @@ def run_methylgrapher_wgbs_align(
         logger.info("forceRealign: clearing methylGrapher outputs for %s", sample_id)
         _clear_alignment_outputs(sample_path, sample_id)
 
+    from methyl_utils.local_align import local_bam_path, remove_local_align
+
     if _alignment_complete(sample_path, sample_id):
         logger.info("Skipping methylGrapher align; outputs present for %s", sample_id)
         return {
             "sampleId": sample_id,
-            "bamPath": str(sample_path / f"{sample_id}.bam"),
+            "bamPath": str(local_bam_path(sample_id, sample_path)),
             "gafPath": str(sample_path / f"{sample_id}.alignment.gaf"),
             "metricsJson": str(sample_path / f"{sample_id}.alignment_metrics.json"),
             "qcMetricsTar": str(sample_path / f"{sample_id}.qc-metrics.tar"),
@@ -2108,6 +2113,22 @@ def run_methylgrapher_wgbs_align(
                 else None
             ),
         }
+
+    try:
+        return _align_wgbs(sample_id, sample_path, payload, resolved)
+    except BaseException:
+        # The QC BAM and its intermediates are worker-local; a failed Align frees them.
+        remove_local_align(sample_id, sample_path)
+        raise
+
+
+def _align_wgbs(
+    sample_id: str,
+    sample_path: Path,
+    payload: Dict[str, Any],
+    resolved: Dict[str, Any],
+) -> Dict[str, Optional[str]]:
+    from methyl_utils.local_align import local_align_dir, local_bam_path
 
     bundle = resolve_wgbs_bundle_from_resolved(resolved)
     log_path = sample_path / f"{sample_id}.methylgrapher_align.log"
@@ -2127,7 +2148,11 @@ def run_methylgrapher_wgbs_align(
     # Dry / unit-test hook: skip external tools when METHYL_METHYLGRAPHER_DRY_RUN=1
     dry = os.environ.get("METHYL_METHYLGRAPHER_DRY_RUN", "").strip() in {"1", "true", "yes"}
     gaf_path = sample_path / f"{sample_id}.alignment.gaf"
-    bam_path = sample_path / f"{sample_id}.bam"
+    # QC BAM, index and every BAM intermediate stay on worker-local scratch
+    # (never /work); pinned QC / extract / delete_bam run on this worker.
+    bam_dir = local_align_dir(sample_id, sample_path)
+    bam_dir.mkdir(parents=True, exist_ok=True)
+    bam_path = local_bam_path(sample_id, sample_path)
     metrics_dir = sample_path / f"{sample_id}.qc-metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
     metrics_json = sample_path / f"{sample_id}.alignment_metrics.json"
@@ -2168,6 +2193,7 @@ def run_methylgrapher_wgbs_align(
             bundle.linear_ref_fasta.parent.resolve(),
             fq1.parent.resolve(),
             Path(index_prefix).parent,
+            bam_dir.resolve(),
         }
         # Align + QC MojoGiraffe both need segment packs (even when science GAF is reused).
         add_mojo_segment_cache_mounts(mount_roots, bundle)
@@ -2250,8 +2276,8 @@ def run_methylgrapher_wgbs_align(
                 sample_id,
             )
 
-        qc_bam = work_dir / f"{sample_id}.giraffe.bam"
-        restored = work_dir / f"{sample_id}.restored.bam"
+        qc_bam = bam_dir / f"{sample_id}.giraffe.bam"
+        restored = bam_dir / f"{sample_id}.restored.bam"
 
         def _bam_reusable(path: Path) -> bool:
             """Reject truncated/corrupt BAM leftovers from killed Aligns."""
@@ -2298,9 +2324,9 @@ def run_methylgrapher_wgbs_align(
                     qc_bam.unlink(missing_ok=True)
                     mojo_qc_sam_provenance_path(qc_bam).unlink(missing_ok=True)
                     # Stale GAF packer intermediate — never resume that path.
-                    (work_dir / f"{sample_id}.qc_mojo.gaf").unlink(missing_ok=True)
-                c2t_r1 = work_dir / f"{sample_id}.C2T.R1.fastq"
-                g2a_r2 = work_dir / f"{sample_id}.G2A.R2.fastq"
+                    (bam_dir / f"{sample_id}.qc_mojo.gaf").unlink(missing_ok=True)
+                c2t_r1 = bam_dir / f"{sample_id}.C2T.R1.fastq"
+                g2a_r2 = bam_dir / f"{sample_id}.G2A.R2.fastq"
                 _write_bs_converted_fastq(
                     fq1, c2t_r1, base_from="C", base_to="T", log_path=log_path
                 )
@@ -2309,7 +2335,7 @@ def run_methylgrapher_wgbs_align(
                 )
                 used_vg_fallback = False
                 if qc_engine == "mojo":
-                    qc_sam = work_dir / f"{sample_id}.qc_mojo.sam"
+                    qc_sam = bam_dir / f"{sample_id}.qc_mojo.sam"
                     index_prefix_qc = resolve_index_prefix(bundle)
                     offsets_dir = resolve_grch38_offsets_dir(bundle, index_prefix_qc)
                     mojo_qc_cmd = build_qc_bam_mojo_sam_command(
@@ -2393,7 +2419,7 @@ def run_methylgrapher_wgbs_align(
 
         # Restored BAM is name-ordered (merge-join walks a -N sorted stream).
         # fixmate must see that order so markdup gets the MC/ms tags it needs.
-        fixed = work_dir / f"{sample_id}.fixmate.bam"
+        fixed = bam_dir / f"{sample_id}.fixmate.bam"
         _run(
             [
                 "samtools",
@@ -2405,23 +2431,23 @@ def run_methylgrapher_wgbs_align(
             log_path,
             step="samtools.fixmate",
         )
-        sorted_bam = work_dir / f"{sample_id}.sorted.bam"
+        sorted_bam = bam_dir / f"{sample_id}.sorted.bam"
         _run(
             ["samtools", "sort", "-o", str(sorted_bam), str(fixed)],
             log_path,
             step="samtools.sort",
         )
-        marked = work_dir / f"{sample_id}.markdup.bam"
+        marked = bam_dir / f"{sample_id}.markdup.bam"
         markdup_stderr = _run_capturing_stderr(
             ["samtools", "markdup", "-s", str(sorted_bam), str(marked)],
             log_path,
             step="samtools.markdup",
         )
-        _copy_readable(marked, bam_path)
-        share_work_path(bam_path)
+        os.replace(marked, bam_path)
+        for intermediate in (fixed, sorted_bam):
+            intermediate.unlink(missing_ok=True)
         ensure_qc_bam_read_group(bam_path, sample_id, log_path)
         _run(["samtools", "index", str(bam_path)], log_path, step="samtools.index")
-        share_work_path(Path(str(bam_path) + ".bai"))
         _write_dedup_metrics(
             dedup_path, sample_id, **_dedup_metrics_from_markdup_stderr(markdup_stderr)
         )
