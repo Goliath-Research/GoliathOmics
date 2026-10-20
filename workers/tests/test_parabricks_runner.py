@@ -599,7 +599,7 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
     assert removed and removed[0].startswith("methyl-pb-")
 
     local_bam = tmp_path / "local" / "bam"
-    assert out["bamPath"].startswith(str(local_bam))
+    assert str(out["bamPath"]).startswith(str(local_bam))
     assert not (sample_dir / "S7.bam").exists()
     assert out["qcMetricsTar"] == str(sample_dir / "S7.qc-metrics.tar")
 

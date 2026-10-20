@@ -175,7 +175,7 @@ def test_run_giraffe_align_invokes_giraffe_then_metrics(tmp_path: Path) -> None:
                 )
 
     assert calls == ["giraffe", "metrics"]
-    assert out["bamPath"].startswith(str(tmp_path / "local" / "bam"))
+    assert str(out["bamPath"]).startswith(str(tmp_path / "local" / "bam"))
     assert not (sample_dir / "S3.bam").exists()
     assert out["qcMetricsTar"] == str(sample_dir / "S3.qc-metrics.tar")
 
