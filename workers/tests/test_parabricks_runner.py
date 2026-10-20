@@ -1095,8 +1095,181 @@ def test_run_fq2bam_meth_timeout_removes_docker_container(
                         )
     assert killed["pid"] == 515151
     assert killed["sig"] == signal.SIGKILL
-    assert rm_cmds == [["/usr/bin/docker", "rm", "-f", container_name]]
+    assert rm_cmds == [
+        ["/usr/bin/docker", "rm", "-f", container_name],
+        ["/usr/bin/docker", "rm", "-f", container_name],
+    ]
     assert not paths.tmp_dir.exists()
+
+
+def test_align_subprocess_drops_leftover_container_before_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stable --name from a crashed run is removed before the next docker run."""
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "30")
+    log_path = tmp_path / "align.log"
+    order: list[str] = []
+    killed: list[int] = []
+
+    class _OkProc:
+        pid = 101
+        returncode = 0
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            order.append("communicate")
+            return "aligned", ""
+
+        def kill(self) -> None:
+            killed.append(self.pid)
+
+        def wait(self, timeout=None):
+            return 0
+
+    cmd = ["/usr/bin/docker", "run", "--rm", "--name", "methyl-pb-retry", "image", "pbrun"]
+
+    def fake_popen(argv, **kwargs):
+        order.append("popen")
+        assert kwargs.get("start_new_session") is True
+        return _OkProc()
+
+    def fake_run(argv, **kwargs):
+        order.append("rm")
+        assert list(argv) == ["/usr/bin/docker", "rm", "-f", "methyl-pb-retry"]
+        return subprocess.CompletedProcess(list(argv), 0, "", "")
+
+    def fake_killpg(pid, sig):
+        killed.append(pid)
+
+    with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+        with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+            with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+                completed = runner._run_align_subprocess(cmd, log_path=log_path, label="align")
+    assert order == ["rm", "popen", "communicate"]
+    assert completed.returncode == 0
+    assert completed.stdout == "aligned"
+    assert killed == []
+
+
+def test_align_subprocess_tears_down_when_communicate_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-timeout communicate error still kills the session and the GPU container."""
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "30")
+    log_path = tmp_path / "align.log"
+    killed: dict[str, object] = {}
+    rm_cmds: list[list[str]] = []
+
+    class _BoomProc:
+        pid = 303
+        returncode = None
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            raise OSError("broken pipe")
+
+        def kill(self) -> None:
+            killed["direct"] = True
+
+        def wait(self, timeout=None):
+            self.returncode = -signal.SIGKILL
+            return self.returncode
+
+    cmd = ["/usr/bin/docker", "run", "--rm", "--name", "methyl-pb-boom", "image", "pbrun"]
+
+    def fake_popen(argv, **kwargs):
+        assert kwargs.get("start_new_session") is True
+        return _BoomProc()
+
+    def fake_killpg(pid, sig):
+        killed["pid"] = pid
+        killed["sig"] = sig
+
+    def fake_run(argv, **kwargs):
+        rm_cmds.append(list(argv))
+        return subprocess.CompletedProcess(list(argv), 0, "", "")
+
+    with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+        with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+            with patch("methyl_worker.parabricks_runner.subprocess.run", side_effect=fake_run):
+                with pytest.raises(OSError, match="broken pipe"):
+                    runner._run_align_subprocess(cmd, log_path=log_path, label="align")
+    assert killed["pid"] == 303
+    assert killed["sig"] == signal.SIGKILL
+    assert rm_cmds == [
+        ["/usr/bin/docker", "rm", "-f", "methyl-pb-boom"],
+        ["/usr/bin/docker", "rm", "-f", "methyl-pb-boom"],
+    ]
+    log_text = log_path.read_text(encoding="utf-8")
+    assert "failed before exit (OSError: broken pipe)" in log_text
+
+
+def test_run_fq2bam_meth_communicate_error_kills_and_cleans(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scratch is removed only after the host align session is killed."""
+    local = tmp_path / "scratch"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    monkeypatch.setenv("METHYL_PBRUN_TIMEOUT_SEC", "30")
+    monkeypatch.setenv("METHYL_PARABRICKS_MODE", "host")
+    monkeypatch.setenv("METHYL_PARABRICKS_IMAGE", "host-pbrun")
+    monkeypatch.delenv("METHYL_PBRUN_BIN", raising=False)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/pbrun" if name == "pbrun" else None)
+    sample_dir = tmp_path / "S11"
+    sample_dir.mkdir()
+    ref = tmp_path / "genome.fa"
+    ref.write_text(">ref\n", encoding="utf-8")
+    for path in runner.bwameth_c2t_index_paths(ref):
+        path.write_bytes(b"")
+    (sample_dir / "S11_1.fastq.gz").write_bytes(b"1")
+    (sample_dir / "S11_2.fastq.gz").write_bytes(b"2")
+    paths = runner._resolve_paths(sample_dir, "S11", ref)
+    killed: dict[str, object] = {}
+
+    class _BoomProc:
+        pid = 616161
+        returncode = None
+        stdout = None
+        stderr = None
+
+        def communicate(self, timeout=None):
+            (paths.tmp_dir / "chunk").write_text("scratch", encoding="utf-8")
+            raise OSError("broken pipe")
+
+        def kill(self) -> None:
+            killed["direct"] = True
+
+        def wait(self, timeout=None):
+            self.returncode = -signal.SIGKILL
+            return self.returncode
+
+    def fake_popen(cmd, **kwargs):
+        argv = list(cmd)
+        if argv and str(argv[0]).endswith("pbrun"):
+            assert kwargs.get("start_new_session") is True
+            return _BoomProc()
+        raise AssertionError(argv)
+
+    def fake_killpg(pid, sig):
+        killed["pid"] = pid
+        killed["sig"] = sig
+
+    with patch("methyl_worker.capabilities._gpu_available", return_value=True):
+        with patch("methyl_worker.parabricks_runner.subprocess.Popen", side_effect=fake_popen):
+            with patch("methyl_worker.parabricks_runner.os.killpg", side_effect=fake_killpg):
+                with pytest.raises(OSError, match="broken pipe"):
+                    runner.run_fq2bam_meth(
+                        sample_id="S11",
+                        sample_dir=sample_dir,
+                        reference_fasta=ref,
+                    )
+    assert killed["pid"] == 616161
+    assert killed["sig"] == signal.SIGKILL
+    assert not paths.tmp_dir.exists()
+    log_text = (sample_dir / "S11.fq2bam_meth.log").read_text(encoding="utf-8")
+    assert "failed before exit (OSError: broken pipe)" in log_text
 
 
 def test_align_subprocess_timeout_kills_process_group(

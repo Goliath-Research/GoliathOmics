@@ -637,7 +637,11 @@ def _build_host_mojo_fq2bam_meth_command(
 
 
 def _docker_container_name(paths: ParabricksPaths) -> str:
-    """Stable ``docker run --name`` so a killed CLI can still drop the GPU container."""
+    """Stable ``docker run --name`` so a killed CLI can still drop the GPU container.
+
+    The same name is removed before the next ``docker run``, so a leftover from
+    a crash or a failed ``docker rm`` does not block the retry.
+    """
     return f"methyl-pb-{paths.tmp_dir.name}"
 
 
@@ -887,6 +891,14 @@ def _close_align_pipes(proc: subprocess.Popen) -> None:
             pass
 
 
+def _teardown_align_process(proc: subprocess.Popen, cmd: Sequence[str], log_path: Path) -> None:
+    """SIGKILL the align session and drop a named GPU container if one was started."""
+    _kill_process_group(proc)
+    container_name = _docker_run_name(cmd)
+    if container_name:
+        _force_remove_docker_container(cmd[0], container_name, log_path)
+
+
 def _run_align_subprocess(
     cmd: List[str],
     *,
@@ -895,10 +907,15 @@ def _run_align_subprocess(
 ) -> subprocess.CompletedProcess[str]:
     """Run pbrun (or the docker wrapper) and fail clearly when it exceeds the timeout.
 
-    The child is a session leader. On timeout the whole group is SIGKILLed, and
-    a named ``docker run`` container is removed so it cannot keep the GPU.
+    The child is a session leader. A named ``docker run`` container is removed
+    before start so a leftover name cannot block the retry. If ``communicate``
+    does not return — timeout or any other error — the whole group is SIGKILLed
+    and that container is removed again so it cannot keep the GPU.
     """
     timeout = _pbrun_timeout_seconds()
+    container_name = _docker_run_name(cmd)
+    if container_name:
+        _force_remove_docker_container(cmd[0], container_name, log_path)
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
@@ -906,14 +923,12 @@ def _run_align_subprocess(
         text=True,
         start_new_session=True,
     )
+    finished = False
     try:
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
+            finished = True
         except subprocess.TimeoutExpired as exc:
-            _kill_process_group(proc)
-            container_name = _docker_run_name(cmd)
-            if container_name:
-                _force_remove_docker_container(cmd[0], container_name, log_path)
             stdout = _subprocess_text(exc.stdout)
             stderr = _subprocess_text(exc.stderr)
             if stdout:
@@ -926,10 +941,18 @@ def _run_align_subprocess(
             )
             _append_log(log_path, message)
             raise RuntimeError(message) from exc
+        except Exception as exc:
+            _append_log(
+                log_path,
+                f"{label} failed before exit ({type(exc).__name__}: {exc}); stopping the align session",
+            )
+            raise
         return subprocess.CompletedProcess(
             cmd, int(proc.returncode or 0), stdout or "", stderr or ""
         )
     finally:
+        if not finished:
+            _teardown_align_process(proc, cmd, log_path)
         _close_align_pipes(proc)
 
 
