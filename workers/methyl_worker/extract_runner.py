@@ -635,13 +635,20 @@ def ensure_extraction_manifest(
     return path
 
 
-def resolve_bam_path(sample_dir: Path, sample_id: str) -> Path:
-    candidates = [
+def _bam_candidates(sample_dir: Path, sample_id: str) -> List[Path]:
+    """Worker-local Align BAM first (linear Parabricks/Mojo), then arm-local BAMs."""
+    from methyl_utils.local_align import local_bam_path
+
+    return [
+        local_bam_path(sample_id, sample_dir),
         sample_dir / f"{sample_id}.bam",
         sample_dir / f"{sample_id}.BAM",
         sample_dir / f"{sample_id}.clara_parabrics.duplicates_marked.bam",
     ]
-    for path in candidates:
+
+
+def resolve_bam_path(sample_dir: Path, sample_id: str) -> Path:
+    for path in _bam_candidates(sample_dir, sample_id):
         if path.is_file():
             return path
     raise RuntimeError(f"BAM not found for methyl extract under {sample_dir}")
@@ -649,12 +656,7 @@ def resolve_bam_path(sample_dir: Path, sample_id: str) -> Path:
 
 def find_bam_path(sample_dir: Path, sample_id: str) -> Optional[Path]:
     """Return BAM path if present; None otherwise (no error)."""
-    candidates = [
-        sample_dir / f"{sample_id}.bam",
-        sample_dir / f"{sample_id}.BAM",
-        sample_dir / f"{sample_id}.clara_parabrics.duplicates_marked.bam",
-    ]
-    for path in candidates:
+    for path in _bam_candidates(sample_dir, sample_id):
         if path.is_file():
             return path
     return None
@@ -684,7 +686,8 @@ def _filter_bam_to_panel(
             "samtools is required to apply methyl_extract.target_panel_bed "
             "(EM-Seq / hybrid-capture restricted extract)"
         )
-    out_bam = sample_dir / f"{sample_id}.panel.bam"
+    # Beside the source BAM: worker-local for linear Align, never pushed to /work.
+    out_bam = bam_path.parent / f"{sample_id}.panel.bam"
     cmd = [
         samtools,
         "view",

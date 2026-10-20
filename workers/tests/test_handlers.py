@@ -94,10 +94,16 @@ def test_download_requires_fastq_source() -> None:
         )
 
 
-def test_parabricks_idempotent_when_outputs_exist(tmp_path: Path) -> None:
+def test_parabricks_idempotent_when_outputs_exist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(tmp_path / "local"))
+    from methyl_utils.local_align import local_bam_path
+
     sample_dir = tmp_path / "S1"
     sample_dir.mkdir()
-    bam = sample_dir / "S1.bam"
+    bam = local_bam_path("S1", sample_dir)
+    bam.parent.mkdir(parents=True)
     metrics = sample_dir / "S1.json"
     ref = tmp_path / "genome.fa"
     ref.write_text(">ref\n")

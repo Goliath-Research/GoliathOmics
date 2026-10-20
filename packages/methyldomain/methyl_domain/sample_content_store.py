@@ -5,8 +5,11 @@ study ``{project_root}/.caas/``. That store exists to skip repeated GPU/IO work
 (FASTQ download, Parabricks/Mojo/methylGrapher align, QC, extract).
 
 The store is keyed by sample identity (``sampleRoot`` / ``{samples_base}/{id}``),
-not by an ``align.*`` arm leaf. Products (``{id}.bam``, ``{id}.qc-metrics.tar``)
-are restored next to the bound ``sampleDir``.
+not by an ``align.*`` arm leaf. Restored products are the methylGrapher WGBS
+``{id}.bam`` (still written beside the arm), ``{id}.qc-metrics.tar``, and
+metrics JSON. Parabricks Align
+(``sample.parabricks_fq2bam``, ``sample.parabricks_giraffe``) is a hard opt-out: its BAM stays on the align
+worker's local scratch and is never harvested into or restored from ``.caas``.
 
 CAAS is **on by default**. Operators may reject it with task
 ``sampleCaasEnabled: false`` / ``caasEnabled: false``, or
@@ -25,6 +28,8 @@ from typing import Any, Mapping, Optional, Set
 SAMPLE_CAAS_OPT_OUT: dict[str, str] = {
     "sample.delete_fastqs": "destructive",
     "sample.delete_bam": "destructive",
+    "sample.parabricks_fq2bam": "worker_local_bam",
+    "sample.parabricks_giraffe": "worker_local_bam",
     "sample.archive_sample": "remote_upload_etag_only",
     "sample.qc_failed": "control_flow",
 }
@@ -157,8 +162,6 @@ def opted_out_sample_actions() -> Set[str]:
 
 
 _ALIGN_CAAS_ACTIONS = (
-    "sample.parabricks_fq2bam",
-    "sample.parabricks_giraffe",
     "sample.methylgrapher_wgbs_align",
 )
 
@@ -190,7 +193,8 @@ def restore_sample_align_products(sample_dir: Path | str, sample_id: str) -> lis
 
     After a harvest whose relink skipped dual-mount product paths, methyl_qc and
     extract look at empty ``{sampleDir}/{id}.bam`` locations even though the
-    blobs remain under ``.caas/``. Call this before those actions. Products are
+    blobs remain under ``.caas/``. Only methylGrapher WGBS align is harvested;
+    Parabricks BAMs are worker-local and never in CAAS. Call this before those actions. Products are
     always restored next to the bound ``sampleDir`` (flat root or arm leaf).
     """
     from .action_result import caas_action_safe_name, caas_root

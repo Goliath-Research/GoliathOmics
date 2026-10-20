@@ -193,159 +193,53 @@ def _assert_sample_ledger_only(sample_root: Path, *product_globs: str) -> None:
         assert not list(caas.rglob(pattern)), f"{pattern} must not be harvested into {caas}"
 
 
-def test_sample_caas_commit_keeps_bam_in_sample_dir(tmp_path: Path, monkeypatch) -> None:
-    """Parabricks CAAS is a ledger: BAM stays at sampleDir, not under .caas or configs/."""
+def test_parabricks_align_never_harvests_local_bam(tmp_path: Path, monkeypatch) -> None:
+    """Parabricks Align is a CAAS opt-out: the worker-local BAM never reaches .caas."""
     monkeypatch.delenv("METHYL_SAMPLE_CAAS_ENABLED", raising=False)
     monkeypatch.setenv("METHYL_CAAS_ENABLED", "true")
     monkeypatch.setenv("METHYL_SAMPLES_BASE", str(tmp_path / "samples"))
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(tmp_path / "local"))
 
-    sample_dir = tmp_path / "samples" / "S1"
-    sample_dir.mkdir(parents=True)
-    bam = sample_dir / "S1.bam"
-    bam.write_bytes(b"BAMDATA")
-    fastq = sample_dir / "S1_1.fastq.gz"
-    fastq.write_bytes(b"FASTQ")
-
-    configs = tmp_path / "projects" / "study" / "configs"
-    project = configs / "project.json"
-    _write_study_project(project, tmp_path)
-
-    entry = find_catalog_entry("sample.parabricks_fq2bam")
-    assert entry is not None
-    input_json = {
-        "tool": "ParabricksFq2Bam",
-        "sampleId": "S1",
-        "sampleDir": str(sample_dir),
-        "projectPath": str(project),
-        "caasEnabled": True,
-    }
-    from methyl_worker.task_models.sample_prep_models import ParabricksTaskOutput
-
-    input_model = validate_input(entry, strip_runtime_input(input_json))
-    output = ParabricksTaskOutput(
-        status="ok",
-        sampleId="S1",
-        bamPath=str(bam),
-    )
-    record_action_execution(
-        entry, input_json, input_model, execution_result_from_output(output)
-    )
-
-    _assert_in_place_product(bam, b"BAMDATA")
-    assert bam.resolve().parent == sample_dir.resolve()
-    # FASTQ in the shared sampleDir must not be stolen into the align CAAS entry.
-    _assert_in_place_product(fastq, b"FASTQ")
-    _assert_sample_ledger_only(sample_dir, "*.bam", "*.fastq.gz")
-    assert not list(configs.rglob("*.bam"))
-
-
-def test_sample_caas_skip_keeps_in_place_products(tmp_path: Path, monkeypatch) -> None:
-    """Skip-replay of an in-place sample ledger leaves BAM/tar at sampleDir."""
-    monkeypatch.delenv("METHYL_SAMPLE_CAAS_ENABLED", raising=False)
-    monkeypatch.setenv("METHYL_CAAS_ENABLED", "true")
-    monkeypatch.setenv("METHYL_SAMPLES_BASE", str(tmp_path / "samples"))
-
-    sample_dir = tmp_path / "samples" / "S1"
-    sample_dir.mkdir(parents=True)
-    bam = sample_dir / "S1.bam"
-    tar = sample_dir / "S1.qc-metrics.tar"
-    bam.write_bytes(b"BAMDATA")
-    tar.write_bytes(b"TAR")
-    (sample_dir / "S1_1.fastq.gz").write_bytes(b"FASTQ")
-
-    configs = tmp_path / "projects" / "study" / "configs"
-    project = configs / "project.json"
-    _write_study_project(project, tmp_path)
-
-    entry = find_catalog_entry("sample.parabricks_fq2bam")
-    assert entry is not None
-    input_json = {
-        "tool": "ParabricksFq2Bam",
-        "sampleId": "S1",
-        "sampleDir": str(sample_dir),
-        "projectPath": str(project),
-        "caasEnabled": True,
-    }
-    from methyl_worker.task_models.sample_prep_models import ParabricksTaskOutput
-
-    input_model = validate_input(entry, strip_runtime_input(input_json))
-    output = ParabricksTaskOutput(
-        status="ok",
-        sampleId="S1",
-        bamPath=str(bam),
-        qcMetricsTar=str(tar),
-    )
-    record_action_execution(
-        entry, input_json, input_model, execution_result_from_output(output)
-    )
-    _assert_in_place_product(bam, b"BAMDATA")
-    _assert_in_place_product(tar, b"TAR")
-    _assert_sample_ledger_only(sample_dir, "*.bam", "*.tar")
-
-    skipped = maybe_skip_action(entry, input_json)
-    assert skipped is not None
-    assert skipped.output.status == "skipped"
-    _assert_in_place_product(bam, b"BAMDATA")
-    _assert_in_place_product(tar, b"TAR")
-
-    # Ledger-only CAAS cannot recreate multi-GB products after they are removed.
-    bam.unlink()
-    tar.unlink()
-    assert maybe_skip_action(entry, input_json) is None
-
-
-def test_sample_caas_skip_keeps_arm_leaf_products(tmp_path: Path, monkeypatch) -> None:
-    """CAAS ledger stays on sample identity; BAM/tar stay on the arm sampleDir."""
-    monkeypatch.delenv("METHYL_SAMPLE_CAAS_ENABLED", raising=False)
-    monkeypatch.setenv("METHYL_CAAS_ENABLED", "true")
-    monkeypatch.setenv("METHYL_SAMPLES_BASE", str(tmp_path / "samples"))
+    from methyl_utils.local_align import local_bam_path
 
     sample_root = tmp_path / "samples" / "S1"
     arm = sample_root / "align.linear.parabricks"
     arm.mkdir(parents=True)
-    bam = arm / "S1.bam"
-    tar = arm / "S1.qc-metrics.tar"
+    bam = local_bam_path("S1", arm)
+    bam.parent.mkdir(parents=True)
     bam.write_bytes(b"BAMDATA")
+    tar = arm / "S1.qc-metrics.tar"
     tar.write_bytes(b"TAR")
-    (arm / "S1_1.fastq.gz").write_bytes(b"FASTQ")
 
     configs = tmp_path / "projects" / "study" / "configs"
     project = configs / "project.json"
     _write_study_project(project, tmp_path)
 
-    entry = find_catalog_entry("sample.parabricks_fq2bam")
-    assert entry is not None
-    input_json = {
-        "tool": "ParabricksFq2Bam",
-        "sampleId": "S1",
-        "sampleDir": str(arm),
-        "projectPath": str(project),
-        "caasEnabled": True,
-    }
-    from methyl_worker.task_models.sample_prep_models import ParabricksTaskOutput
+    for action in ("sample.parabricks_fq2bam", "sample.parabricks_giraffe"):
+        entry = find_catalog_entry(action)
+        assert entry is not None
+        input_json = {
+            "tool": "ParabricksFq2Bam",
+            "sampleId": "S1",
+            "sampleDir": str(arm),
+            "projectPath": str(project),
+            "caasEnabled": True,
+        }
+        from methyl_worker.task_models.sample_prep_models import ParabricksTaskOutput
 
-    input_model = validate_input(entry, strip_runtime_input(input_json))
-    output = ParabricksTaskOutput(
-        status="ok",
-        sampleId="S1",
-        bamPath=str(bam),
-        qcMetricsTar=str(tar),
-    )
-    record_action_execution(
-        entry, input_json, input_model, execution_result_from_output(output)
-    )
+        input_model = validate_input(entry, strip_runtime_input(input_json))
+        output = ParabricksTaskOutput(
+            status="ok", sampleId="S1", bamPath=str(bam), qcMetricsTar=str(tar)
+        )
+        record_action_execution(
+            entry, input_json, input_model, execution_result_from_output(output)
+        )
+        assert maybe_skip_action(entry, input_json) is None
+
     _assert_in_place_product(bam, b"BAMDATA")
     _assert_in_place_product(tar, b"TAR")
-    _assert_sample_ledger_only(sample_root, "*.bam", "*.tar")
-    assert not (sample_root / "S1.bam").exists()
-    assert not list(configs.rglob("*.bam"))
-
-    skipped = maybe_skip_action(entry, input_json)
-    assert skipped is not None
-    assert skipped.output.status == "skipped"
-    _assert_in_place_product(bam, b"BAMDATA")
-    _assert_in_place_product(tar, b"TAR")
-    assert not (sample_root / "S1.bam").exists()
+    assert not list(tmp_path.rglob(".caas/**/*.bam"))
+    assert not list((tmp_path / "samples").rglob("*.bam"))
 
 
 def test_download_caas_skip_relinks_arm_from_root_fastqs(tmp_path: Path, monkeypatch) -> None:

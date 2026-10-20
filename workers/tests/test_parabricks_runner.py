@@ -394,19 +394,26 @@ def test_build_docker_command_mounts_and_flags(tmp_path: Path) -> None:
     idx = cmd.index("--in-fq")
     assert cmd[idx + 1] == "/workdir/S4_1.fastq.gz"
     assert cmd[idx + 2] == "/workdir/S4_2.fastq.gz"
-    assert "--out-bam=/outputdir/S4.bam" in cmd
+    assert "--out-bam=/bamdir/S4.bam" in cmd
+    assert f"{paths.bam_path.parent.resolve()}:/bamdir" in cmd
+    assert not paths.bam_path.is_relative_to(sample_dir)
     assert "--out-qc-metrics-dir=/outputdir/S4.qc-metrics" in cmd
     assert "--bwa-cpu-thread-pool=8" in cmd
     assert "--gpusort" in cmd
     assert "--gpuwrite" in cmd
 
 
-def test_idempotent_skip_when_bam_and_qc_tar_exist(tmp_path: Path) -> None:
+def test_idempotent_skip_when_bam_and_qc_tar_exist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(tmp_path / "local"))
     sample_dir = tmp_path / "S5"
     sample_dir.mkdir()
     ref = tmp_path / "genome.fa"
     ref.write_text(">ref\n")
-    (sample_dir / "S5.bam").write_bytes(b"BAM")
+    local_bam = runner.local_bam_path("S5", sample_dir)
+    local_bam.parent.mkdir(parents=True)
+    local_bam.write_bytes(b"BAM")
     (sample_dir / "S5.qc-metrics.tar").write_bytes(b"TAR")
 
     with patch.dict(
@@ -426,7 +433,8 @@ def test_idempotent_skip_when_bam_and_qc_tar_exist(tmp_path: Path) -> None:
         if c.args and any("docker" in str(x) or "pbrun" in str(x) for x in c.args[0])
     ]
     assert not docker_calls
-    assert out["bamPath"] == str(sample_dir / "S5.bam")
+    assert out["bamPath"] == str(local_bam)
+    assert not (sample_dir / "S5.bam").exists()
     assert out["qcMetricsTar"] == str(sample_dir / "S5.qc-metrics.tar")
 
 
@@ -548,7 +556,7 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
             self.returncode = 0
             self.stdout = None
             self.stderr = None
-            bam = sample_dir / "S7.bam"
+            bam = runner.local_bam_path("S7", sample_dir)
             qc_dir = sample_dir / "S7.qc-metrics"
             qc_dir.mkdir()
             (qc_dir / "summary.txt").write_text("qc")
@@ -577,6 +585,7 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
         {
             "METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
             "METHYL_PARABRICKS_MODE": "docker",
+            "METHYL_LOCAL_TMP": str(tmp_path / "local"),
         },
     ):
         with patch("methyl_worker.capabilities._gpu_available", return_value=True):
@@ -589,7 +598,9 @@ def test_run_fq2bam_meth_invokes_docker(tmp_path: Path) -> None:
 
     assert removed and removed[0].startswith("methyl-pb-")
 
-    assert out["bamPath"] == str(sample_dir / "S7.bam")
+    local_bam = tmp_path / "local" / "bam"
+    assert str(out["bamPath"]).startswith(str(local_bam))
+    assert not (sample_dir / "S7.bam").exists()
     assert out["qcMetricsTar"] == str(sample_dir / "S7.qc-metrics.tar")
 
 

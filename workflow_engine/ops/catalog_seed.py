@@ -20,6 +20,7 @@ def _dispatch_fields(action: dict[str, Any]) -> dict[str, Any]:
         "affinity_key_field": str(affinity_key_field) if affinity_key_field else None,
         "prefer_previous_worker": bool(dispatch.get("prefer_previous_worker", False)),
         "prefer_continue_group": bool(dispatch.get("prefer_continue_group", False)),
+        "require_previous_worker": bool(dispatch.get("require_previous_worker", False)),
     }
 
 

@@ -22,7 +22,7 @@ methyl-cfg verify-workflow --check-db
 
 **Legacy SQL seed** [`deprecated/wf_sample_prep_pipeline_seed.sql`](deprecated/wf_sample_prep_pipeline_seed.sql) is **deprecated**; use DomainProgram deploy above.
 
-## Worker affinity (soft, catalog-driven)
+## Worker affinity (catalog-driven)
 
 Sample stickiness is **not** hard-wired into the engine or DomainProgram IR. Sample-scoped
 catalog actions declare `dispatch.affinity_key_field: "sampleId"` plus
@@ -38,6 +38,24 @@ The claim SP then:
    any capable worker may claim (shared `/work` remains the correctness path).
 3. Refuses a second claim while an exclusive Align is leased — do **not** park QC/extract/trim
    at `PENDING` to steer GPUs.
+
+**Hard pin for the BAM chain.** The aligned BAM lives only on the align worker's local
+scratch (see Storage contract). `sample.parabricks_fq2bam`, `sample.parabricks_giraffe`,
+`sample.methylgrapher_wgbs_align`, `sample.methyl_qc`, `sample.fragmentomics`,
+`sample.methyl_extract`, `sample.methylgrapher_wgbs_extract`, `sample.extraction_qc` and
+`sample.delete_bam` also set `dispatch.require_previous_worker: true`. Once one of these
+actions has `SUCCEEDED` for a `sampleId`, every later one for that `sampleId` can only be
+claimed by the worker that completed the most recent one. The Align actions are also
+`exclusive_worker`, and an exclusive pinned action is never constrained: Align (first
+run, remediation re-Align, or a restart) may go to any capable worker and starts a new
+pin that QC / fragmentomics / extract / delete_bam then follow. Unpinned steps (download, trim, archive,
+delete_fastqs) keep soft affinity.
+
+**Lost pinned worker.** If that worker dies or is removed, the remaining pinned tasks for
+the sample stay `READY` and no other worker will claim them; the BAM is gone with the
+worker. Cancel those tasks and restart the sample from Align (re-run SamplePrep for that
+sample); the new Align may run on any worker. A pinned task that fails on its worker deletes the local BAM, so the retry path
+is also a restart from Align.
 
 `wf` only sees opaque keys and catalog flags — no SamplePrep node names in SQL.
 
@@ -160,12 +178,13 @@ Examples:
 
 Per sample under `/work/samples/{sample_id}/`. FASTQs stay at the **sample root**; alignment/extract products live in the **arm leaf** (`sampleDir` = `{sampleRoot}/align.{mode}.{engine}/`). Switching engines must not overwrite another arm.
 
+The Parabricks Align BAM and its `.bai` are **never** on `/work`. `sample.parabricks_fq2bam` and `sample.parabricks_giraffe` write them to worker-local scratch at `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/{sample_id}.bam` (`METHYL_LOCAL_TMP` defaults to `$TMPDIR/methyl-pb`, else `/tmp/methyl-pb`; `digest` hashes the resolved `sampleDir`). `bamPath` in task output is that worker-local path. Alignment QC, fragmentomics and MethylExtractor read it there on the pinned worker. `sample.delete_bam` removes the local BAM, index and directory on the pass and every reject path, and a failing align, QC, fragmentomics, extract or extraction-QC task removes it as well. Alignment QC that returns `remediateAlignment` also removes it on success: the remediating Align is exclusive and may run on another worker, which cannot delete this copy. Align is a hard CAAS opt-out (`worker_local_bam`): the BAM is never harvested into or restored from `.caas`.
+
 ```text
 /work/samples/{sample_id}/
   *.fastq.gz                          sampleRoot; retained until archive_sample, then deleted
   .caas/                              sample-identity skip store
   align.linear.parabricks/            example sampleDir (linear + Clara)
-    {sample_id}.bam                   deleted after archive (pass or reject)
     {sample_id}.alignment.gaf         methylGrapher WGBS mode (retained)
     {sample_id}.alignment_metrics.json  methylGrapher align provenance (retained)
     {sample_id}.json                  Parabricks / align metrics (retained)
@@ -176,7 +195,7 @@ Per sample under `/work/samples/{sample_id}/`. FASTQs stay at the **sample root*
     {chr}-{ctx}.h5                    methylation matrices (retained; optional remote copy)
 ```
 
-`delete_fastqs` targets `sampleRoot`. `delete_bam` and BAM/H5 archive target `sampleDir`. After a historical flat-root Clara run, `scripts/relocate_root_clara_products.py` moves root products into `align.linear.parabricks/` without deleting existing `align.*` trees.
+`delete_fastqs` targets `sampleRoot`. `delete_bam` targets the worker-local BAM directory (and any BAM a non-linear aligner wrote to `sampleDir`); H5 archive targets `sampleDir`. After a historical flat-root Clara run, `scripts/relocate_root_clara_products.py` moves root products into `align.linear.parabricks/` without deleting existing `align.*` trees.
 
 Alignment QC export path when project-scoped: `{output_base}/{project}/alignment_qc/{sampleId}.json`.
 

@@ -93,7 +93,8 @@ def test_build_giraffe_docker_command_mounts_graph_and_ref_paths(tmp_path: Path)
     assert graph.mount_root.resolve() == (tmp_path / "pangenome").resolve()
     assert "--gbz-name=/pangenome/graph.gbz" in cmd
     assert "--ref-paths=/pangenome/graph.paths.sub" in cmd
-    assert "--out-bam=/outputdir/S1.bam" in cmd
+    assert "--out-bam=/bamdir/S1.bam" in cmd
+    assert f"{paths.bam_path.parent.resolve()}:/bamdir" in cmd
     assert "--out-duplicate-metrics=/outputdir/S1.deduplicate_metrics.txt" in cmd
 
 
@@ -113,7 +114,11 @@ def test_build_collect_metrics_docker_command(tmp_path: Path) -> None:
     paths = runner._resolve_paths(sample_dir, "S2", ref)
     (sample_dir / "S2.bam").write_bytes(b"BAM")
 
-    with patch.object(runner, "_docker_bin", return_value="/usr/bin/docker"):
+    with patch(
+        "methyl_worker.parabricks_runner._docker_bin", return_value="/usr/bin/docker"
+    ), patch(
+        "methyl_worker.parabricks_runner.use_host_pbrun", return_value=False
+    ):
         cmd = runner._build_collect_metrics_docker_command(cfg, paths, ref)
 
     assert "collectmultiplemetrics" in cmd
@@ -121,7 +126,8 @@ def test_build_collect_metrics_docker_command(tmp_path: Path) -> None:
     assert "umask 000" in " ".join(cmd)
     assert "--gen-all-metrics" in cmd
     assert f"--ref=/genomes/{ref.name}" in cmd
-    assert "--bam=/workdir/S2.bam" in cmd
+    assert "--bam=/bamdir/S2.bam" in cmd
+    assert f"{paths.bam_path.parent.resolve()}:/bamdir" in cmd
     assert "--out-qc-metrics-dir=/outputdir/S2.qc-metrics" in cmd
 
 
@@ -142,7 +148,9 @@ def test_run_giraffe_align_invokes_giraffe_then_metrics(tmp_path: Path) -> None:
         joined = " ".join(cmd)
         if " giraffe " in joined or joined.endswith(" giraffe"):
             calls.append("giraffe")
-            (sample_dir / "S3.bam").write_bytes(b"BAM")
+            from methyl_utils.local_align import local_bam_path
+
+            local_bam_path("S3", sample_dir).write_bytes(b"BAM")
             (sample_dir / "S3.deduplicate_metrics.txt").write_text("ok")
         elif "collectmultiplemetrics" in joined:
             calls.append("metrics")
@@ -153,7 +161,10 @@ def test_run_giraffe_align_invokes_giraffe_then_metrics(tmp_path: Path) -> None:
 
     with patch.dict(
         "os.environ",
-        {"METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1"},
+        {
+            "METHYL_PARABRICKS_IMAGE": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
+            "METHYL_LOCAL_TMP": str(tmp_path / "local"),
+        },
     ):
         with patch("methyl_worker.capabilities._gpu_available", return_value=True):
             with patch("methyl_worker.giraffe_runner.subprocess.run", side_effect=fake_run):
@@ -164,7 +175,8 @@ def test_run_giraffe_align_invokes_giraffe_then_metrics(tmp_path: Path) -> None:
                 )
 
     assert calls == ["giraffe", "metrics"]
-    assert out["bamPath"] == str(sample_dir / "S3.bam")
+    assert str(out["bamPath"]).startswith(str(tmp_path / "local" / "bam"))
+    assert not (sample_dir / "S3.bam").exists()
     assert out["qcMetricsTar"] == str(sample_dir / "S3.qc-metrics.tar")
 
 

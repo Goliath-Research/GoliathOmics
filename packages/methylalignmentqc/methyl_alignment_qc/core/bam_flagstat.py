@@ -107,6 +107,20 @@ def flagstat_bam_preflight_error(bam_path: Path) -> Optional[str]:
     return None
 
 
+def resolve_sample_bam(sample_dir: Path, sample_id: str) -> Path:
+    """Worker-local Align BAM when present, else ``{sample_dir}/{sample_id}.bam``.
+
+    Linear Parabricks/Mojo Align keeps its BAM on worker scratch
+    (``methyl_utils.local_align``); other aligners still write beside the arm.
+    """
+    from methyl_utils.local_align import find_local_bam
+
+    local = find_local_bam(sample_id, sample_dir)
+    if local is not None:
+        return local
+    return Path(sample_dir) / f"{sample_id}.bam"
+
+
 def run_flagstat(
     sample_dir: Path,
     sample_id: str,
@@ -120,7 +134,7 @@ def run_flagstat(
     or samtools/flagstat fails.
     """
     sample_dir = Path(sample_dir)
-    bam_path = sample_dir / f"{sample_id}.bam"
+    bam_path = resolve_sample_bam(sample_dir, sample_id)
     cache_path = sample_dir / f"{sample_id}.flagstat.txt"
 
     if not bam_path.is_file():

@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import logging
 import os
-import re
 import shlex
 import shutil
 import signal
@@ -17,6 +15,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from methyl_utils.local_align import (
+    DEFAULT_LOCAL_TMP_ROOT,
+    local_bam_path,
+    local_tmp_root,
+    remove_local_align,
+    sample_scratch_name,
+)
 from methyl_worker.fastq_pairs import (  # noqa: F401 — re-export for aligner callers/tests
     FASTQ_SUFFIXES,
     canonical_trimmed_fastqs,
@@ -40,9 +45,11 @@ DEFAULT_MOJO_IMAGE = "goliath/methylgrapher:1.70-mojo"
 # goliath-worker installs Clara here, outside the default PATH.
 _DEFAULT_PBRUN = Path("/usr/local/parabricks/pbrun")
 # pbrun deleteTmpDir waits forever on geesefs. Keep scratch on local disk.
-_DEFAULT_PB_TMP_ROOT = Path("/tmp/methyl-pb")
+_DEFAULT_PB_TMP_ROOT = DEFAULT_LOCAL_TMP_ROOT
 # Bind-mount target inside the Parabricks/Mojo container (not /outputdir).
 _CONTAINER_PB_TMP = "/tmp/methyl-pb"
+# Worker-local BAM directory inside the container (never the /work mount).
+_CONTAINER_BAM_DIR = "/bamdir"
 # A WGBS sample can take many hours. A hang must still end the task.
 _DEFAULT_PBRUN_TIMEOUT_SEC = 48 * 60 * 60
 
@@ -320,20 +327,12 @@ def _local_pbrun_tmp_root() -> Path:
     ``METHYL_LOCAL_TMP`` wins. Otherwise a ``methyl-pb`` directory under
     ``TMPDIR``. The default is ``/tmp/methyl-pb``.
     """
-    explicit = os.environ.get("METHYL_LOCAL_TMP", "").strip()
-    if explicit:
-        return Path(explicit).expanduser()
-    tmpdir = os.environ.get("TMPDIR", "").strip()
-    if tmpdir:
-        return Path(tmpdir).expanduser() / "methyl-pb"
-    return _DEFAULT_PB_TMP_ROOT
+    return local_tmp_root()
 
 
 def _local_pbrun_tmp_dir(sample_id: str, sample_dir: Path) -> Path:
     """One local scratch directory for this sample's align task."""
-    slug = re.sub(r"[^A-Za-z0-9._-]+", "_", sample_id).strip("._") or "sample"
-    digest = hashlib.sha256(str(sample_dir.resolve()).encode()).hexdigest()[:10]
-    return _local_pbrun_tmp_root() / f"{slug}-{digest}"
+    return _local_pbrun_tmp_root() / sample_scratch_name(sample_id, sample_dir)
 
 
 def _pbrun_timeout_seconds() -> float:
@@ -372,7 +371,8 @@ def _resolve_paths(sample_dir: Path, sample_id: str, reference_fasta: Path) -> P
         sample_dir=sample_dir,
         sample_id=sample_id,
         reference_fasta=reference_fasta.resolve(),
-        bam_path=sample_dir / f"{sample_id}.bam",
+        # Worker-local; QC / fragmentomics / extract / delete_bam are pinned here.
+        bam_path=local_bam_path(sample_id, sample_dir),
         qc_metrics_dir=sample_dir / f"{sample_id}.qc-metrics",
         qc_metrics_tar=sample_dir / f"{sample_id}.qc-metrics.tar",
         metrics_json=sample_dir / f"{sample_id}.json",
@@ -403,8 +403,8 @@ def _has_qc_artifact(paths: ParabricksPaths) -> bool:
 
 
 def _clear_alignment_outputs(paths: ParabricksPaths) -> None:
+    remove_local_align(paths.sample_id, paths.sample_dir)
     for path in (
-        paths.bam_path,
         paths.metrics_json,
         paths.qc_metrics_tar,
         paths.dedup_metrics,
@@ -583,6 +583,7 @@ def build_collectmultiplemetrics_command(
         f"{paths.sample_dir.resolve()}:/workdir",
         "-v",
         f"{paths.sample_dir.resolve()}:/outputdir",
+        *_docker_bam_volume(paths),
         "-v",
         f"{genome_dir}:/genomes:ro",
         "-w",
@@ -594,7 +595,7 @@ def build_collectmultiplemetrics_command(
             "pbrun",
             "collectmultiplemetrics",
             f"--ref=/genomes/{ref.name}",
-            f"--bam=/workdir/{paths.bam_path.name}",
+            f"--bam={_CONTAINER_BAM_DIR}/{paths.bam_path.name}",
             f"--out-qc-metrics-dir=/outputdir/{paths.qc_metrics_dir.name}",
             "--gen-all-metrics",
         ),
@@ -650,6 +651,11 @@ def _docker_tmp_volume(paths: ParabricksPaths) -> List[str]:
     return ["-v", f"{paths.tmp_dir.resolve()}:{_CONTAINER_PB_TMP}"]
 
 
+def _docker_bam_volume(paths: ParabricksPaths) -> List[str]:
+    """Bind the worker-local BAM directory into the container."""
+    return ["-v", f"{paths.bam_path.parent.resolve()}:{_CONTAINER_BAM_DIR}"]
+
+
 def _build_docker_command(
     cfg: ParabricksConfig,
     paths: ParabricksPaths,
@@ -690,6 +696,7 @@ def _build_docker_command(
             "-v",
             f"{paths.sample_dir.resolve()}:/outputdir",
             *_docker_tmp_volume(paths),
+            *_docker_bam_volume(paths),
             "-v",
             f"{genome_dir.resolve()}:/genomes:ro",
             "-w",
@@ -707,7 +714,7 @@ def _build_docker_command(
                 "-ref",
                 f"/genomes/{ref_basename}",
                 "-out_bam",
-                f"/outputdir/{paths.bam_path.name}",
+                f"{_CONTAINER_BAM_DIR}/{paths.bam_path.name}",
                 "-out_qc_dir",
                 f"/outputdir/{paths.qc_metrics_dir.name}",
                 "-sample_id",
@@ -736,6 +743,7 @@ def _build_docker_command(
         "-v",
         f"{paths.sample_dir.resolve()}:/outputdir",
         *_docker_tmp_volume(paths),
+        *_docker_bam_volume(paths),
         "-v",
         f"{genome_dir.resolve()}:/genomes:ro",
         "-w",
@@ -748,7 +756,7 @@ def _build_docker_command(
             "fq2bam_meth",
             f"--ref=/genomes/{ref_basename}",
             *_in_fq_flags(in_fq_args),
-            f"--out-bam=/outputdir/{paths.bam_path.name}",
+            f"--out-bam={_CONTAINER_BAM_DIR}/{paths.bam_path.name}",
             f"--out-qc-metrics-dir=/outputdir/{paths.qc_metrics_dir.name}",
             f"--out-duplicate-metrics=/outputdir/{paths.dedup_metrics.name}",
             f"--logfile=/outputdir/{paths.log_path.name}",
@@ -781,6 +789,14 @@ def _package_qc_metrics(paths: ParabricksPaths) -> Optional[Path]:
 def _cleanup_tmp(paths: ParabricksPaths) -> None:
     if paths.tmp_dir.is_dir():
         shutil.rmtree(paths.tmp_dir, ignore_errors=True)
+
+
+def _reset_local_bam_dir(paths: ParabricksPaths) -> None:
+    """Fresh, other-writable worker-local BAM dir (docker runs as a non-root user)."""
+    remove_local_align(paths.sample_id, paths.sample_dir)
+    bam_dir = paths.bam_path.parent
+    bam_dir.mkdir(parents=True, exist_ok=True)
+    share_work_tree(bam_dir)
 
 
 def _reset_tmp(paths: ParabricksPaths) -> None:
@@ -1032,7 +1048,9 @@ def run_fq2bam_meth(
         label = "MojoFq2bamMeth (docker)" if cfg.engine == "mojo" else "Parabricks fq2bam_meth (docker)"
     paths.sample_dir.mkdir(parents=True, exist_ok=True)
     _reset_tmp(paths)
+    _reset_local_bam_dir(paths)
 
+    succeeded = False
     try:
         logger.info("Running %s for %s (device=%s)", label, sample_id, cfg.align_device)
         _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in align_cmd))
@@ -1057,8 +1075,12 @@ def run_fq2bam_meth(
                 f"{paths.qc_metrics_dir} or {paths.qc_metrics_tar}"
             )
 
+        succeeded = True
         return _result_payload(paths)
     finally:
+        if not succeeded:
+            # A failed align must not leave a partial BAM on the worker.
+            remove_local_align(paths.sample_id, paths.sample_dir)
         # Timeout raises before a successful BAM/QC write. The hang this limit
         # exists for is deleteTmpDir, so the local scratch tree is still full.
         if cfg.cleanup_tmp:

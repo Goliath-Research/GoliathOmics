@@ -86,8 +86,9 @@ def _upsert_action_psql(
     affinity_key_field: str | None = None,
     prefer_previous_worker: bool = False,
     prefer_continue_group: bool = False,
+    require_previous_worker: bool = False,
 ) -> None:
-    """Upsert via 12-arg ``wf_repo_upsert_workflow_action`` (dispatch + affinity)."""
+    """Upsert via 13-arg ``wf_repo_upsert_workflow_action`` (dispatch + affinity)."""
     cap = _sql_literal(capability) if capability else "NULL"
     ref = _sql_literal(payload_schema_ref) if payload_schema_ref else "NULL"
     mode = _sql_literal(execution_mode) if execution_mode else "NULL"
@@ -99,11 +100,12 @@ def _upsert_action_psql(
     aff = _sql_literal(affinity_key_field) if affinity_key_field else "NULL"
     pref_prev = "true" if prefer_previous_worker else "false"
     pref_cont = "true" if prefer_continue_group else "false"
+    req_prev = "true" if require_previous_worker else "false"
     _exec_psql(
         dsn,
         "CALL wf.wf_repo_upsert_workflow_action("
         f"{_sql_literal(action_name)}, {cap}, {ref}, {mode}, {tool}, {handler}, {argv}, "
-        f"{max_pw}, {excl}, {aff}, {pref_prev}, {pref_cont});",
+        f"{max_pw}, {excl}, {aff}, {pref_prev}, {pref_cont}, {req_prev});",
     )
 
 
@@ -153,6 +155,7 @@ def _seed_via_db() -> tuple[int, int]:
                 affinity_key_field=str(affinity_key_field) if affinity_key_field else None,
                 prefer_previous_worker=bool(dispatch.get("prefer_previous_worker", False)),
                 prefer_continue_group=bool(dispatch.get("prefer_continue_group", False)),
+                require_previous_worker=bool(dispatch.get("require_previous_worker", False)),
             )
             action_count += 1
             print(f"Upserted action {action['action_name']}")
@@ -188,6 +191,7 @@ def _seed_via_psql(dsn: str) -> tuple[int, int]:
             affinity_key_field=str(affinity_key_field) if affinity_key_field else None,
             prefer_previous_worker=bool(dispatch.get("prefer_previous_worker", False)),
             prefer_continue_group=bool(dispatch.get("prefer_continue_group", False)),
+            require_previous_worker=bool(dispatch.get("require_previous_worker", False)),
         )
         action_count += 1
         print(f"Upserted action {action['action_name']}")
