@@ -25,6 +25,7 @@
     },
     "parabricks": {
       "engine": "parabricks",
+      "image": "nvcr.io/nvidia/clara/clara-parabricks:4.7.0-1",
       "align_device": "auto",
       "bwa_threads": 16
     },
