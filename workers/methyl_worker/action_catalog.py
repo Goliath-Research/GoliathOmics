@@ -203,6 +203,10 @@ class ActionDispatch:
     affinity_key_field: Optional[str] = None
     prefer_previous_worker: bool = False
     prefer_continue_group: bool = False
+    # Hard pin: once a pinned action of the affinity key has SUCCEEDED, later
+    # pinned actions of that key may only be claimed by the worker that
+    # completed the most recent one (worker-local products, e.g. a BAM).
+    require_previous_worker: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         out: Dict[str, Any] = {}
@@ -216,6 +220,8 @@ class ActionDispatch:
             out["prefer_previous_worker"] = True
         if self.prefer_continue_group:
             out["prefer_continue_group"] = True
+        if self.require_previous_worker:
+            out["require_previous_worker"] = True
         return out
 
 
@@ -236,6 +242,25 @@ DISPATCH_EXCLUSIVE_ONE = ActionDispatch(
     affinity_key_field="sampleId",
     prefer_previous_worker=True,
     prefer_continue_group=True,
+)
+
+# SamplePrep BAM chain: the aligned BAM lives only on the align worker's local
+# scratch, so align, alignment QC, fragmentomics, extract, extraction QC and
+# delete_bam are hard-pinned to one worker. If that worker is lost the pinned
+# tasks cannot run elsewhere; the sample must be restarted from Align.
+DISPATCH_SAMPLE_PINNED = ActionDispatch(
+    affinity_key_field="sampleId",
+    prefer_previous_worker=True,
+    prefer_continue_group=True,
+    require_previous_worker=True,
+)
+DISPATCH_EXCLUSIVE_PINNED = ActionDispatch(
+    max_per_worker=1,
+    exclusive_worker=True,
+    affinity_key_field="sampleId",
+    prefer_previous_worker=True,
+    prefer_continue_group=True,
+    require_previous_worker=True,
 )
 
 
@@ -1076,7 +1101,7 @@ ACTION_CATALOG: Sequence[ActionCatalogEntry] = (
         domain_effects=_DE_PARABRICKS,
         action_config_key="parabricks",
         control=CONTROL_STOPPABLE,
-        dispatch=DISPATCH_EXCLUSIVE_ONE,
+        dispatch=DISPATCH_EXCLUSIVE_PINNED,
     ),
     _in_process(
         "sample.parabricks_giraffe",
@@ -1094,7 +1119,7 @@ ACTION_CATALOG: Sequence[ActionCatalogEntry] = (
         domain_effects=_DE_PARABRICKS,
         action_config_key="parabricks",
         control=CONTROL_STOPPABLE,
-        dispatch=DISPATCH_EXCLUSIVE_ONE,
+        dispatch=DISPATCH_EXCLUSIVE_PINNED,
     ),
     _in_process(
         "sample.methylgrapher_wgbs_align",
@@ -1112,7 +1137,7 @@ ACTION_CATALOG: Sequence[ActionCatalogEntry] = (
         domain_effects=_DE_PARABRICKS,
         action_config_key="methylgrapher_wgbs",
         control=CONTROL_STOPPABLE,
-        dispatch=DISPATCH_EXCLUSIVE_ONE,
+        dispatch=DISPATCH_EXCLUSIVE_PINNED,
     ),
     _in_process(
         "sample.parabricks_rna_fq2bam",
@@ -1392,7 +1417,7 @@ ACTION_CATALOG: Sequence[ActionCatalogEntry] = (
         context_vars=("projectPath", "sampleId", "sampleDir", "primaryAnalyte", "alignmentMode"),
         domain_effects=_DE_METHYL_QC,
         control=CONTROL_STOPPABLE,
-        dispatch=DISPATCH_SAMPLE_AFFINITY,
+        dispatch=DISPATCH_SAMPLE_PINNED,
     ),
     _in_process(
         "sample.fragmentomics",
@@ -1411,7 +1436,7 @@ ACTION_CATALOG: Sequence[ActionCatalogEntry] = (
         context_vars=("projectPath", "sampleId", "sampleDir"),
         domain_effects=_DE_FRAGMENTOMICS,
         control=CONTROL_STOPPABLE,
-        dispatch=DISPATCH_SAMPLE_AFFINITY,
+        dispatch=DISPATCH_SAMPLE_PINNED,
     ),
     _in_process(
         "sample.methyl_extract",
@@ -1429,7 +1454,7 @@ ACTION_CATALOG: Sequence[ActionCatalogEntry] = (
         context_vars=("sampleId", "sampleDir", "projectPath"),
         domain_effects=_DE_METHYL_EXTRACT,
         control=CONTROL_STOPPABLE,
-        dispatch=DISPATCH_SAMPLE_AFFINITY,
+        dispatch=DISPATCH_SAMPLE_PINNED,
     ),
     _in_process(
         "sample.methylgrapher_wgbs_extract",
@@ -1447,7 +1472,7 @@ ACTION_CATALOG: Sequence[ActionCatalogEntry] = (
         context_vars=("sampleId", "sampleDir", "projectPath"),
         domain_effects=_DE_METHYL_EXTRACT,
         control=CONTROL_STOPPABLE,
-        dispatch=DISPATCH_SAMPLE_AFFINITY,
+        dispatch=DISPATCH_SAMPLE_PINNED,
     ),
     _in_process(
         "sample.extraction_qc",
@@ -1466,7 +1491,7 @@ ACTION_CATALOG: Sequence[ActionCatalogEntry] = (
         context_vars=("projectPath", "sampleId", "sampleDir"),
         domain_effects=_DE_EXTRACTION_QC,
         control=CONTROL_STOPPABLE,
-        dispatch=DISPATCH_SAMPLE_AFFINITY,
+        dispatch=DISPATCH_SAMPLE_PINNED,
     ),
     _in_process(
         "sample.archive_sample",
@@ -1509,7 +1534,7 @@ ACTION_CATALOG: Sequence[ActionCatalogEntry] = (
         tool="SampleDeleteBam",
         context_vars=("sampleId", "sampleDir"),
         control=CONTROL_DRAIN_ONLY,
-        dispatch=DISPATCH_SAMPLE_AFFINITY,
+        dispatch=DISPATCH_SAMPLE_PINNED,
     ),
     _in_process(
         "sample.qc_failed",
@@ -1886,6 +1911,9 @@ _HARD_IDEMPOTENCY_OPT_OUT: Dict[str, str] = {
     "sample.delete_bam": "destructive",
     "sample.archive_sample": "remote_upload_etag_only",
     "sample.qc_failed": "control_flow",
+    # BAM stays on the align worker's local scratch; never harvested into .caas.
+    "sample.parabricks_fq2bam": "worker_local_bam",
+    "sample.parabricks_giraffe": "worker_local_bam",
 }
 
 _SAMPLE_SCOPED_PREFIXES = (

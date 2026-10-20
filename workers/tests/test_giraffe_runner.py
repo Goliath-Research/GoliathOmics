@@ -93,7 +93,8 @@ def test_build_giraffe_docker_command_mounts_graph_and_ref_paths(tmp_path: Path)
     assert graph.mount_root.resolve() == (tmp_path / "pangenome").resolve()
     assert "--gbz-name=/pangenome/graph.gbz" in cmd
     assert "--ref-paths=/pangenome/graph.paths.sub" in cmd
-    assert "--out-bam=/outputdir/S1.bam" in cmd
+    assert "--out-bam=/bamdir/S1.bam" in cmd
+    assert f"{paths.bam_path.parent.resolve()}:/bamdir" in cmd
     assert "--out-duplicate-metrics=/outputdir/S1.deduplicate_metrics.txt" in cmd
 
 
@@ -113,7 +114,11 @@ def test_build_collect_metrics_docker_command(tmp_path: Path) -> None:
     paths = runner._resolve_paths(sample_dir, "S2", ref)
     (sample_dir / "S2.bam").write_bytes(b"BAM")
 
-    with patch.object(runner, "_docker_bin", return_value="/usr/bin/docker"):
+    with patch(
+        "methyl_worker.parabricks_runner._docker_bin", return_value="/usr/bin/docker"
+    ), patch(
+        "methyl_worker.parabricks_runner.use_host_pbrun", return_value=False
+    ):
         cmd = runner._build_collect_metrics_docker_command(cfg, paths, ref)
 
     assert "collectmultiplemetrics" in cmd
@@ -121,7 +126,8 @@ def test_build_collect_metrics_docker_command(tmp_path: Path) -> None:
     assert "umask 000" in " ".join(cmd)
     assert "--gen-all-metrics" in cmd
     assert f"--ref=/genomes/{ref.name}" in cmd
-    assert "--bam=/workdir/S2.bam" in cmd
+    assert "--bam=/bamdir/S2.bam" in cmd
+    assert f"{paths.bam_path.parent.resolve()}:/bamdir" in cmd
     assert "--out-qc-metrics-dir=/outputdir/S2.qc-metrics" in cmd
 
 

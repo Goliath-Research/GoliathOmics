@@ -7,8 +7,9 @@ import logging
 import os
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, Iterator, List, Mapping, Optional
 
 from ..handler_helpers import (
     guardrails_from_payload,
@@ -57,7 +58,34 @@ from .common import resolve_reference_fasta
 logger = logging.getLogger(__name__)
 
 
+@contextmanager
+def _drop_local_bam_on_failure(sample_id: Optional[str], sample_dir: Optional[str]) -> Iterator[None]:
+    """Delete the worker-local Align BAM when a pinned BAM consumer raises.
+
+    The BAM exists only on the align worker. A failed task cannot be resumed
+    elsewhere, so the sample restarts from Align and the local copy is freed now.
+    """
+    try:
+        yield
+    except BaseException:
+        if sample_id and sample_dir:
+            from methyl_utils.local_align import remove_local_align
+
+            try:
+                remove_local_align(str(sample_id), str(sample_dir))
+            except OSError:
+                logger.warning("Could not remove local BAM for %s", sample_id, exc_info=True)
+        raise
+
+
 def _handle_methyl_qc(
+    _capability: str, _action_name: str, input: MethylQcTaskInput
+) -> MethylQcTaskOutput:
+    with _drop_local_bam_on_failure(input.sampleId, input.sampleDir):
+        return _run_methyl_qc(_capability, _action_name, input)
+
+
+def _run_methyl_qc(
     _capability: str, _action_name: str, input: MethylQcTaskInput
 ) -> MethylQcTaskOutput:
     input_json: Dict[str, Any] = input.model_dump(mode="json")
@@ -226,6 +254,13 @@ def _handle_methyl_qc(
 def _handle_methyl_extraction_qc(
     _capability: str, _action_name: str, input: ExtractionQcTaskInput
 ) -> ExtractionQcTaskOutput:
+    with _drop_local_bam_on_failure(input.sampleId, input.sampleDir):
+        return _run_methyl_extraction_qc(_capability, _action_name, input)
+
+
+def _run_methyl_extraction_qc(
+    _capability: str, _action_name: str, input: ExtractionQcTaskInput
+) -> ExtractionQcTaskOutput:
     input_json: Dict[str, Any] = input.model_dump(mode="json")
     sample_dir = input.sampleDir
     sample_id = input.sampleId
@@ -300,6 +335,13 @@ def _handle_methyl_extraction_qc(
 def _handle_methyl_fragmentomics(
     _capability: str, _action_name: str, input: FragmentomicsTaskInput
 ) -> FragmentomicsTaskOutput:
+    with _drop_local_bam_on_failure(input.sampleId, input.sampleDir):
+        return _run_methyl_fragmentomics(_capability, _action_name, input)
+
+
+def _run_methyl_fragmentomics(
+    _capability: str, _action_name: str, input: FragmentomicsTaskInput
+) -> FragmentomicsTaskOutput:
     project = input.project or input.projectPath
     sample_dir = input.sampleDir
     sample_id = input.sampleId
@@ -315,6 +357,14 @@ def _handle_methyl_fragmentomics(
     from methyl_utils import load_project
 
     cfg, _sample_dirs, out_dir = resolve_fragmentomics_step_config(str(project))
+    from methyl_utils.local_align import find_local_bam
+
+    local_bam = find_local_bam(str(sample_id), sample_path) if sample_id else None
+    if local_bam is not None:
+        # Linear Align keeps the BAM on this (pinned) worker, not in sampleDir.
+        cfg = cfg.model_copy(
+            update={"sample_bam_paths": {str(sample_id): str(local_bam)}}
+        )
     project_obj = load_project(str(project))
     summary = run_fragmentomics_for_samples(
         [str(sample_path)],
@@ -619,7 +669,9 @@ def _handle_delete_bam(
     sample_dir = input.sampleDir
     sample_id = input.sampleId
     sample_path = Path(sample_dir)
-    removed = 0
+    from methyl_utils.local_align import remove_local_align
+
+    removed = remove_local_align(str(sample_id), str(sample_dir))
     for name in (f"{sample_id}.bam", f"{sample_id}.BAM", f"{sample_id}.json"):
         path = sample_path / name
         if path.is_file():
@@ -634,6 +686,13 @@ def _handle_delete_bam(
 
 
 def _handle_methyl_extract(
+    _capability: str, _action_name: str, input: MethylExtractTaskInput
+) -> MethylExtractTaskOutput:
+    with _drop_local_bam_on_failure(input.sampleId, input.sampleDir):
+        return _run_methyl_extract(_capability, _action_name, input)
+
+
+def _run_methyl_extract(
     _capability: str, _action_name: str, input: MethylExtractTaskInput
 ) -> MethylExtractTaskOutput:
     from ..extract_runner import run_methyl_extract

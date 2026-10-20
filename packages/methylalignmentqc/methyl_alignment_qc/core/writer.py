@@ -24,7 +24,7 @@ from ..models.config import (
 )
 from .alignment_derived_qc import apply_alignment_derived_guardrails, compute_alignment_stats
 from .bisulfite_conversion import apply_bisulfite_conversion_to_payload, nested_guardrail_group_failed
-from .bam_flagstat import apply_flagstat_guardrails, run_flagstat
+from .bam_flagstat import apply_flagstat_guardrails, resolve_sample_bam, run_flagstat
 from .cycle_quality_screening import (
     apply_screening_recommendations,
     failed_guardrail_keys,
@@ -672,7 +672,7 @@ def build_sample_qc_v2_dict(
     flagstat_metrics = None
     flagstat_error: Optional[str] = None
     if align_cfg.enabled and align_cfg.flagstat_enabled:
-        bam_path = sample_dir / f"{sample_name}.bam"
+        bam_path = resolve_sample_bam(sample_dir, sample_name)
         if bam_path.is_file() and bam_path.stat().st_size > 0:
             try:
                 flagstat_metrics = run_flagstat(sample_dir, sample_name, force=force_flagstat)

@@ -47,7 +47,7 @@ def test_validate_input_keeps_alignment_mode() -> None:
 
 
 def test_qc_handler_reads_typed_alignment_mode() -> None:
-    src = inspect.getsource(sample_prep_handlers._handle_methyl_qc)
+    src = inspect.getsource(sample_prep_handlers._run_methyl_qc)
     assert "getattr(input, \"alignmentMode\"" not in src
     assert "input.alignmentMode" in src
     assert 'resolvedConfig or {}).get("alignmentMode")' not in src

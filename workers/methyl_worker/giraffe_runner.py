@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
+from methyl_utils.local_align import remove_local_align
 from methyl_worker.parabricks_runner import (
     use_host_pbrun,
     build_collectmultiplemetrics_command,
@@ -18,10 +19,13 @@ from methyl_worker.parabricks_runner import (
     ParabricksPaths,
     _append_log,
     _clear_alignment_outputs,
+    _docker_bam_volume,
     _docker_bin,
     _package_qc_metrics,
     _pick_bool,
+    _reset_local_bam_dir,
     _resolve_paths,
+    _CONTAINER_BAM_DIR,
     alignment_outputs_complete,
     resolve_paired_fastqs,
     resolve_parabricks_config,
@@ -153,6 +157,7 @@ def _build_giraffe_docker_command(
         f"{paths.sample_dir.resolve()}:/workdir",
         "-v",
         f"{paths.sample_dir.resolve()}:/outputdir",
+        *_docker_bam_volume(paths),
         "-v",
         f"{mount_root.resolve()}:/pangenome:ro",
         "-w",
@@ -176,7 +181,7 @@ def _build_giraffe_docker_command(
             "--in-fq",
             in_fq_args[0],
             in_fq_args[1],
-            f"--out-bam=/outputdir/{paths.bam_path.name}",
+            f"--out-bam={_CONTAINER_BAM_DIR}/{paths.bam_path.name}",
             f"--out-duplicate-metrics=/outputdir/{paths.dedup_metrics.name}",
             f"--logfile=/outputdir/{paths.log_path.name}",
         ),
@@ -234,7 +239,22 @@ def run_giraffe_align(
     fastqs = resolve_paired_fastqs(sample_path, sample_id)
     paths.sample_dir.mkdir(parents=True, exist_ok=True)
     paths.tmp_dir.mkdir(parents=True, exist_ok=True)
+    _reset_local_bam_dir(paths)
+    try:
+        return _align_and_collect(cfg, paths, graph, fastqs)
+    except BaseException:
+        # A failed align must not leave a partial BAM on the worker.
+        remove_local_align(paths.sample_id, paths.sample_dir)
+        raise
 
+
+def _align_and_collect(
+    cfg: ParabricksConfig,
+    paths: ParabricksPaths,
+    graph: PangenomeGraphBundle,
+    fastqs: Sequence[Path],
+) -> Dict[str, Optional[str]]:
+    sample_id = paths.sample_id
     if use_host_pbrun():
         giraffe_cmd = _build_host_giraffe_command(cfg, paths, graph, fastqs)
         logger.info("Running Parabricks giraffe (host pbrun) for %s", sample_id)

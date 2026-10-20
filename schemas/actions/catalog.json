@@ -828,7 +828,8 @@
         "exclusive_worker": true,
         "max_per_worker": 1,
         "prefer_continue_group": true,
-        "prefer_previous_worker": true
+        "prefer_previous_worker": true,
+        "require_previous_worker": true
       },
       "domain_effects": {
         "output_bindings": [
@@ -859,7 +860,8 @@
         ]
       },
       "execution_mode": "in_process",
-      "idempotency_enabled": true,
+      "idempotency_enabled": false,
+      "idempotency_opt_out_reason": "worker_local_bam",
       "in_process_handler": "_handle_parabricks_fq2bam",
       "input_schema_ref": "schemas/tasks/sample_parabricks_fq2bam.input.schema.json",
       "output_schema_ref": "schemas/tasks/sample_parabricks_fq2bam.output.schema.json",
@@ -889,7 +891,8 @@
         "exclusive_worker": true,
         "max_per_worker": 1,
         "prefer_continue_group": true,
-        "prefer_previous_worker": true
+        "prefer_previous_worker": true,
+        "require_previous_worker": true
       },
       "domain_effects": {
         "output_bindings": [
@@ -920,7 +923,8 @@
         ]
       },
       "execution_mode": "in_process",
-      "idempotency_enabled": true,
+      "idempotency_enabled": false,
+      "idempotency_opt_out_reason": "worker_local_bam",
       "in_process_handler": "_handle_parabricks_giraffe",
       "input_schema_ref": "schemas/tasks/sample_parabricks_giraffe.input.schema.json",
       "output_schema_ref": "schemas/tasks/sample_parabricks_giraffe.output.schema.json",
@@ -950,7 +954,8 @@
         "exclusive_worker": true,
         "max_per_worker": 1,
         "prefer_continue_group": true,
-        "prefer_previous_worker": true
+        "prefer_previous_worker": true,
+        "require_previous_worker": true
       },
       "domain_effects": {
         "output_bindings": [
@@ -1517,7 +1522,8 @@
       "dispatch": {
         "affinity_key_field": "sampleId",
         "prefer_continue_group": true,
-        "prefer_previous_worker": true
+        "prefer_previous_worker": true,
+        "require_previous_worker": true
       },
       "domain_effects": {
         "output_bindings": [
@@ -1608,7 +1614,8 @@
       "dispatch": {
         "affinity_key_field": "sampleId",
         "prefer_continue_group": true,
-        "prefer_previous_worker": true
+        "prefer_previous_worker": true,
+        "require_previous_worker": true
       },
       "domain_effects": {
         "output_bindings": [
@@ -1657,7 +1664,8 @@
       "dispatch": {
         "affinity_key_field": "sampleId",
         "prefer_continue_group": true,
-        "prefer_previous_worker": true
+        "prefer_previous_worker": true,
+        "require_previous_worker": true
       },
       "domain_effects": {
         "output_bindings": [
@@ -1706,7 +1714,8 @@
       "dispatch": {
         "affinity_key_field": "sampleId",
         "prefer_continue_group": true,
-        "prefer_previous_worker": true
+        "prefer_previous_worker": true,
+        "require_previous_worker": true
       },
       "domain_effects": {
         "output_bindings": [
@@ -1756,7 +1765,8 @@
       "dispatch": {
         "affinity_key_field": "sampleId",
         "prefer_continue_group": true,
-        "prefer_previous_worker": true
+        "prefer_previous_worker": true,
+        "require_previous_worker": true
       },
       "domain_effects": {
         "output_bindings": [
@@ -1868,7 +1878,8 @@
       "dispatch": {
         "affinity_key_field": "sampleId",
         "prefer_continue_group": true,
-        "prefer_previous_worker": true
+        "prefer_previous_worker": true,
+        "require_previous_worker": true
       },
       "execution_mode": "in_process",
       "idempotency_enabled": false,
