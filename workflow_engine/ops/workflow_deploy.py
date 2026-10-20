@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from contextlib import contextmanager
+from typing import Any, Callable, Dict, Iterator, Optional
 
 from ops._paths import ensure_import_paths
 
@@ -34,11 +35,20 @@ def deploy_workflow_definition(
     if replace:
         delete_instances = bool(body.get("delete_instances", True))
         if hasattr(db, "_connection"):
-            kept = replace_delete_workflow_graph(db, name, delete_instances)
-            created = create_workflow_definition(db, spec)
-            if kept["kept_version_count"]:
-                return attach_new_version(db, created, int(kept["workflow_def_id"]))
-            return created
+            # delete_instances=false must deactivate, create, and attach in one
+            # commit. create_workflow_definition opens db._connection() and
+            # commits; committing the deactivate first leaves the kept
+            # definition with no active version and a second workflow_def of
+            # the same name when create or attach fails.
+            if delete_instances:
+                replace_delete_workflow_graph(db, name, True)
+                return create_workflow_definition(db, spec)
+            with _one_transaction(db):
+                kept = replace_delete_workflow_graph(db, name, False)
+                created = create_workflow_definition(db, spec)
+                if kept["kept_version_count"]:
+                    return attach_new_version(db, created, int(kept["workflow_def_id"]))
+                return created
         try:
             delete_workflow_definition(db, name, delete_instances)
         except Exception as exc:  # noqa: BLE001 — gateway raises DatabaseError/KeyError
@@ -78,6 +88,68 @@ _DEACTIVATE_VERSIONS_SQL = (
 
 _ALL_VERSIONS_SQL = "SELECT v.id FROM wf.workflow_version v WHERE v.workflow_def_id = %s"
 
+# workflow_def.name is not unique. A failed keep-instances deploy used to leave
+# a temporary def with the same name; fetchone() could then rewrite that row
+# and leave the instance-referenced def inactive. Prefer the def instances
+# still point at, then the oldest id.
+_DEF_BY_NAME_SQL = """
+SELECT d.id
+FROM wf.workflow_def d
+WHERE d.name = %s
+ORDER BY (
+    EXISTS (
+        SELECT 1
+        FROM wf.workflow_version v
+        INNER JOIN wf.workflow_instance wi ON wi.workflow_version_id = v.id
+        WHERE v.workflow_def_id = d.id
+    )
+) DESC, d.id
+LIMIT 1
+"""
+
+
+class _DeferredCommit:
+    """Connection proxy that ignores commit until the outer transaction ends."""
+
+    def __init__(self, conn: Any) -> None:
+        self._conn = conn
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._conn, name)
+
+    def commit(self) -> None:
+        return None
+
+
+@contextmanager
+def _one_transaction(db: Any) -> Iterator[Any]:
+    """Run every db._connection() user on one connection and commit it once.
+
+    Methods such as create_workflow_definition call db._connection() on the
+    same instance and commit that connection. Rebinding the attribute keeps
+    those writes in this transaction so a later failure rolls them back.
+    """
+    outer = db._connection()
+    real = outer.__enter__()
+    previous = db._connection
+
+    @contextmanager
+    def _same() -> Iterator[Any]:
+        yield _DeferredCommit(real)
+
+    db._connection = _same
+    exc_info: tuple[Any, Any, Any] = (None, None, None)
+    try:
+        yield real
+        real.commit()
+    except BaseException as exc:
+        exc_info = (type(exc), exc, exc.__traceback__)
+        real.rollback()
+        raise
+    finally:
+        db._connection = previous
+        outer.__exit__(*exc_info)
+
 
 def _col(row: Any, key: str, idx: int = 0) -> Any:
     return row[key] if isinstance(row, dict) else row[idx]
@@ -105,7 +177,7 @@ def replace_delete_workflow_graph(
     }
     with db._connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM wf.workflow_def WHERE name = %s", (name,))
+            cur.execute(_DEF_BY_NAME_SQL, (name,))
             def_row = cur.fetchone()
             if def_row is None:
                 conn.rollback()

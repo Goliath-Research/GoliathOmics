@@ -73,7 +73,7 @@ class _FakeCursor:
         self.db.params.append(params)
 
     def fetchone(self) -> Any:
-        if "FROM wf.workflow_def WHERE name" in self._last:
+        if "wf.workflow_def" in self._last and "name = %s" in self._last:
             return {"id": 5} if self.db.def_exists else None
         if "sp_delete_workflow_def" in self._last:
             return {"deleted_instance_count": 2, "deleted_version_count": 2}
@@ -202,7 +202,12 @@ def test_keep_instances_keeps_referenced_version_and_adds_new_version() -> None:
     assert db.params[drop_tmp] == (99,)
     assert attach < drop_tmp
     assert db.log.index("DELETE FROM wf.workflow_def WHERE id = %s") == drop_tmp
-    assert db.log.count("COMMIT") == 2
+    lookup = next(s for s in db.log if "wf.workflow_def" in s and "name = %s" in s)
+    assert "workflow_instance" in lookup
+    assert "ORDER BY" in lookup
+    assert db.log.count("COMMIT") == 1
+    assert db.log[-1] == "COMMIT"
+    assert drop_tmp < db.log.index("COMMIT")
 
 
 def test_keep_instances_all_versions_referenced_deletes_no_graph_rows() -> None:
@@ -215,6 +220,52 @@ def test_keep_instances_all_versions_referenced_deletes_no_graph_rows() -> None:
     )
     assert not any(s.startswith("DELETE FROM wf.workflow_edge") for s in db.log)
     assert not any(s.startswith("DELETE FROM wf.workflow_version") for s in db.log)
+
+
+def test_keep_instances_create_commit_is_not_visible_before_attach() -> None:
+    db = _ConnDb(def_exists=True, versions=(11, 12), referenced=(12,))
+
+    def _create_and_commit(_db: Any, spec: Dict[str, Any]) -> Dict[str, Any]:
+        with _db._connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT wf.wf_repo_create_workflow_graph(%s)", ("{}",))
+            conn.commit()
+        return {"workflow_def_id": 99, "workflow_version_id": 13, "root_node_id": 1}
+
+    deploy_workflow_definition(
+        db,
+        {"spec": _sample_prep_spec(), "replace": True, "delete_instances": False},
+        create_workflow_definition=_create_and_commit,
+        delete_workflow_definition=_no_delete,
+    )
+    create_idx = _index(db.log, "SELECT wf.wf_repo_create_workflow_graph")
+    deact = _index(db.log, "UPDATE wf.workflow_version SET is_active = false")
+    attach = _index(db.log, "UPDATE wf.workflow_version SET workflow_def_id")
+    assert deact < create_idx < attach < db.log.index("COMMIT")
+    assert db.log.count("COMMIT") == 1
+
+
+def test_keep_instances_create_failure_rolls_back_deactivation() -> None:
+    db = _ConnDb(def_exists=True, versions=(11, 12), referenced=(12,))
+
+    def _boom(_db: Any, spec: Dict[str, Any]) -> Dict[str, Any]:
+        raise RuntimeError("create failed")
+
+    try:
+        deploy_workflow_definition(
+            db,
+            {"spec": _sample_prep_spec(), "replace": True, "delete_instances": False},
+            create_workflow_definition=_boom,
+            delete_workflow_definition=_no_delete,
+        )
+    except RuntimeError as exc:
+        assert "create failed" in str(exc)
+    else:
+        raise AssertionError("create failure must propagate")
+    deact = _index(db.log, "UPDATE wf.workflow_version SET is_active = false")
+    assert deact < db.log.index("ROLLBACK")
+    assert "COMMIT" not in db.log
+    assert getattr(db._connection, "__func__", None) is _ConnDb._connection
 
 
 def test_replace_missing_definition_with_connection_is_noop() -> None:
