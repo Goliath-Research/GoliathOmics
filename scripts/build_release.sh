@@ -403,7 +403,7 @@ build_runtime_bundle() {
            install_reclaim_leases_timer.sh provision_gateway_node.sh \
            setup_gateway_nginx.sh \
            provision_worker_node.sh preflight_worker_join.sh init_work_layout.sh \
-           start_shared_worker.sh install_system_deps.sh system_tools.list goliath_align_local.sh check_goliath_align_host.sh download_goliath_align_artifacts.sh bundle_system_deps.sh \
+           start_shared_worker.sh check_local_scratch.sh install_system_deps.sh system_tools.list goliath_align_local.sh check_goliath_align_host.sh download_goliath_align_artifacts.sh bundle_system_deps.sh \
            check_system_deps_bundle.sh \
            bundle_sdist_wheels.py check_offline_wheels.sh \
            install_methyl_extractor_tarball.sh methyl_extractor_local.sh worker_venv_local.sh \

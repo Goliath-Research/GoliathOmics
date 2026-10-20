@@ -35,8 +35,8 @@ provider_list_worker_names() { printf '%s\n' ${FAKE_NAMES:-}; }
 provider_price() { log "price: fake \$0.50/hr"; }
 provider_build_request() {
   jq -n --arg n "$WORKER_NAME" --arg t "$TEMPLATE_ID" --arg s "$STORAGE_ID" --arg p "$MOUNT_PATH" \
-    --arg g "$OPT_GPU" --argjson c "$OPT_GPU_COUNT" \
-    '{name:$n, image:$t, gpu:$g, count:$c, storage:{id:$s, at:$p}}' >"$1"
+    --arg g "$OPT_GPU" --argjson c "$OPT_GPU_COUNT" --argjson disk "$LOCAL_DISK_GB" \
+    '{name:$n, image:$t, gpu:$g, count:$c, local_disk_gb:$disk, storage:{id:$s, at:$p}}' >"$1"
   [[ -z "${FAKE_BAD_REQUEST:-}" ]] || jq '.storage = null' "$1" >"$1.x" && mv "$1.x" "$1" 2>/dev/null || true
 }
 provider_check_request() { jq -e --arg s "$STORAGE_ID" --arg p "$MOUNT_PATH" '.storage.id == $s and .storage.at == $p' "$1" >/dev/null; }
@@ -82,8 +82,9 @@ grep -q 'fake' "$TMP/badprov.err" || fail "unknown provider should list availabl
 FAKE_NAMES="goliath-worker-1 goliath-worker-3 other" run dry --provider fake --dry-run
 [[ "$(rc dry)" == 0 ]] || { cat "$TMP/dry.err"; fail "dry run should succeed"; }
 created && fail "dry run must not create"
-jq -e '.name == "goliath-worker-2" and .storage == {"id":"vol-123","at":"/work"} and .image == "tpl-img-default"' "$TMP/dry.out" >/dev/null \
+jq -e '.name == "goliath-worker-2" and .storage == {"id":"vol-123","at":"/work"} and .image == "tpl-img-default" and .local_disk_gb == 200' "$TMP/dry.out" >/dev/null \
   || { cat "$TMP/dry.out"; fail "dry-run request"; }
+grep -q 'local disk: 200 GB' "$TMP/dry.err" || fail "default local disk should be logged"
 grep -q 'price: fake' "$TMP/dry.err" || fail "price must be shown"
 
 # 3. Provider env check runs; failures stop before anything else.
@@ -149,5 +150,43 @@ done
 if grep -inE 'runpod|lambda|nebius|aws|azure|gcp|google|https?://|/v2/' "$SCRIPT" "$ROOT/deploy/workers/providers/_interface.sh"; then
   fail "generic code must not mention providers, URLs or API paths"
 fi
+
+# 12. local_disk_gb: default 200, minimum 150, profile, and env.
+run small --provider fake --dry-run --local-disk-gb 149
+[[ "$(rc small)" != 0 ]] && grep -q 'at least 150' "$TMP/small.err" || { cat "$TMP/small.err"; fail "disk below 150 must fail"; }
+created && fail "a too-small disk must not create"
+run floor --provider fake --dry-run --local-disk-gb 150
+[[ "$(rc floor)" == 0 ]] && jq -e '.local_disk_gb == 150' "$TMP/floor.out" >/dev/null \
+  || { cat "$TMP/floor.err"; fail "150 GB is the minimum and must be accepted"; }
+cat >"$TMP/profile.json" <<'EOF'
+{"workers":[{"name":"pool","self_provision":true,"local_disk_gb":250}]}
+EOF
+run prof --provider fake --dry-run --profile "$TMP/profile.json"
+[[ "$(rc prof)" == 0 ]] && jq -e '.local_disk_gb == 250' "$TMP/prof.out" >/dev/null \
+  || { cat "$TMP/prof.err"; fail "profile local_disk_gb should win over the default"; }
+run over --provider fake --dry-run --profile "$TMP/profile.json" --local-disk-gb 180
+[[ "$(rc over)" == 0 ]] && jq -e '.local_disk_gb == 180' "$TMP/over.out" >/dev/null \
+  || fail "--local-disk-gb must override the profile"
+cat >"$TMP/small-profile.json" <<'EOF'
+{"workers":[{"self_provision":true,"local_disk_gb":40}]}
+EOF
+run psmall --provider fake --dry-run --profile "$TMP/small-profile.json"
+[[ "$(rc psmall)" != 0 ]] && grep -q 'at least 150' "$TMP/psmall.err" || fail "profile disk below 150 must fail"
+cat >"$TMP/ambig.json" <<'EOF'
+{"workers":[{"self_provision":true,"local_disk_gb":200},{"self_provision":true,"local_disk_gb":300}]}
+EOF
+run ambig --provider fake --dry-run --profile "$TMP/ambig.json"
+[[ "$(rc ambig)" != 0 ]] && grep -q 'more than one local_disk_gb' "$TMP/ambig.err" || fail "disagreeing profile disks must fail"
+cat >"$TMP/omit.json" <<'EOF'
+{"workers":[{"self_provision":true,"name":"pool"}]}
+EOF
+run omit --provider fake --dry-run --profile "$TMP/omit.json"
+[[ "$(rc omit)" == 0 ]] && jq -e '.local_disk_gb == 200' "$TMP/omit.out" >/dev/null \
+  || fail "a profile that omits local_disk_gb uses 200"
+GOLIATH_LOCAL_DISK_GB=180 run envs --provider fake --dry-run
+[[ "$(rc envs)" == 0 ]] && jq -e '.local_disk_gb == 180' "$TMP/envs.out" >/dev/null \
+  || fail "GOLIATH_LOCAL_DISK_GB should set the disk when no flag or profile value is set"
+run badnum --provider fake --dry-run --local-disk-gb 200gb
+[[ "$(rc badnum)" != 0 ]] && grep -q 'integer' "$TMP/badnum.err" || fail "non-integer disk must fail"
 
 echo "PASS: create_worker (generic, fake provider)"

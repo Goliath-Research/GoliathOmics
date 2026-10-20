@@ -45,7 +45,7 @@ Two pods must not publish the same release at once. The downloader extracts into
 
 Docker overlay storage does not work on the volume. The runtime data-root stays at `/var/lib/docker` on the container disk. `/work/goliath/images` is only a shared image cache. The start script logs a warning when `daemon.json` or `DOCKER_DATA_ROOT` points at `/work`.
 
-Container-local disk (the pod scratch / NVMe, about 30 GB on this template) is for secrets and for a workflow step's temporary compute. It is too small for shared results and it disappears when the container is replaced. `/work` is the shared result volume.
+Container-local disk is the pod scratch. Workers stage FASTQ.gz files larger than 25 GB each, BAMs, Parabricks tmp, logs, venvs, and docker layers here. `/work` is a shared geesefs mount and must not be used for scratch. The worker profile setting `local_disk_gb` (default 200, minimum 150) is the size `create_worker.sh` requests. The v2 create field is `disk` (v1 name `containerDiskInGb`). It overrides a template that still says 30 GB. The disk disappears when the container is replaced. `/work` is the shared result volume. On boot, before MethylExtractor, GoliathAlign, and the venv are installed, `scripts/check_local_scratch.sh` refuses to start when free space on `METHYL_LOCAL_TMP` (default `/tmp/methyl-pb`) is below `METHYL_LOCAL_TMP_MIN_GB` (default 60). The 150 GB minimum leaves that floor after those installs.
 
 Publishing a result is a workflow-step action, not something the pod boot scripts do. `methyl_worker.work_share.publish_to_work(local_src, dest)` is the helper a step calls after it finishes computing:
 
@@ -63,8 +63,9 @@ A fresh volume does not need a manual copy of the start script. If the template 
 1. In the RunPod console, open **Templates** and find the template whose image is `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404`. That template is `runpod-torch-v280`.
 2. **Clone** it. Name the clone `goliath-worker`.
 3. Set the container image to `ghcr.io/goliath-research/goliath-worker:4.7.0-1` (Clara Parabricks host `pbrun`; see `deploy/workers/image/`). Alternatively keep the template image and pass `deploy/workers/create_worker.sh --provider runpod --image ghcr.io/goliath-research/goliath-worker:4.7.0-1` so the create body sets `imageName`. Private GHCR (required — Parabricks EULA) needs a Runpod container registry credential: set `RUNPOD_REGISTRY_AUTH_ID` or `create_worker.sh --registry-auth <id>` (v2 create body field `registry`). Legacy: `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404` cannot run nested Clara Docker.
-4. Do not add a volume to the template. Templates can only hold a host-local `persistent` mount, and a template persistent mount cannot be combined with the global volume (`create_worker_pod.sh` refuses such a template). The global volume is attached per pod, at creation, by the script below.
-5. Do not deploy pods from this template in the console. Use [Create a worker pod](#create-a-worker-pod).
+4. Set the container disk to 200 GB. That matches the worker profile `local_disk_gb`. `create_worker.sh` also sends `disk` on the create body, so a template left at 30 GB does not win. This repository does not update the live template.
+5. Do not add a volume to the template. Templates can only hold a host-local `persistent` mount, and a template persistent mount cannot be combined with the global volume (`create_worker_pod.sh` refuses such a template). The global volume is attached per pod, at creation, by the script below.
+6. Do not deploy pods from this template in the console. Use [Create a worker pod](#create-a-worker-pod).
 
 ## Create a worker pod
 
@@ -86,12 +87,13 @@ The script calls the Runpod REST API v2 (`POST https://api.runpod.io/v2/pods`), 
   "templateId": "nw0judtfil",
   "cloud": "SECURE",
   "gpu": {"id": "NVIDIA L40S", "count": 1},
+  "disk": 200,
   "mounts": {"global": [{"volumeId": "<id of the global volume named work>", "path": "/work"}]},
   "startSsh": true
 }
 ```
 
-The template supplies the image, start command, disk, ports, `{{ RUNPOD_SECRET_* }}` env, and CUDA constraint. `startSsh` injects the account's registered SSH keys so the printed SSH command works.
+`disk` is the container disk in GB (v1 name `containerDiskInGb`). It comes from the provider-neutral worker profile setting `local_disk_gb` (default 200, minimum 150) via `--local-disk-gb`, `--profile`, or `GOLIATH_LOCAL_DISK_GB`. It overrides the template disk. The template still supplies the image, start command, ports, `{{ RUNPOD_SECRET_* }}` env, and CUDA constraint. `startSsh` injects the account's registered SSH keys so the printed SSH command works.
 
 Needs `curl`, `jq`, and `RUNPOD_API_KEY` in the environment (a key with pod read/write). The key is passed to `curl` through a private config file, not the command line, and is never printed.
 
@@ -101,6 +103,7 @@ deploy/runpod/create_worker_pod.sh --dry-run
 
 # Create it (billable). Defaults: --template goliath-worker --volume work
 # --mount-path /work --gpu 'NVIDIA L40S' --gpu-count 1 --cloud SECURE
+# --local-disk-gb 200
 deploy/runpod/create_worker_pod.sh --yes
 
 # Another GPU type or an explicit name

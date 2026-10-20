@@ -17,6 +17,9 @@ schema="$ROOT/deploy/targets/target.schema.json"
 [[ -f "$schema" ]] || fail "missing schema"
 start_script="$ROOT/deploy/runpod/goliath-worker-start.sh"
 [[ -f "$start_script" ]] || fail "missing RunPod start script"
+# These boots run on the test machine. The 60 GB floor is covered by
+# scripts/test_local_scratch.sh. Here the preflight only has to pass.
+export METHYL_LOCAL_TMP_MIN_GB=1
 
 real_backup=""
 hide_real_profile() {
@@ -232,6 +235,27 @@ for name in ("goliath-test.json", "goliath-test.example.json"):
         for err in errors:
             print(f"{name}: {list(err.path)}: {err.message}", file=sys.stderr)
         sys.exit(1)
+real = json.loads((root / "deploy/targets/goliath-test.json").read_text(encoding="utf-8"))
+if real["workers"][0].get("local_disk_gb") != 200:
+    print("goliath-test local_disk_gb must be 200", file=sys.stderr)
+    sys.exit(1)
+low = json.loads(json.dumps(real))
+low["workers"][0]["local_disk_gb"] = 50
+if not list(validator.iter_errors(low)):
+    print("local_disk_gb 50 must fail the schema minimum of 150", file=sys.stderr)
+    sys.exit(1)
+below = json.loads(json.dumps(real))
+below["workers"][0]["local_disk_gb"] = 100
+if not list(validator.iter_errors(below)):
+    print("local_disk_gb 100 must fail the schema minimum of 150", file=sys.stderr)
+    sys.exit(1)
+floor = json.loads(json.dumps(real))
+floor["workers"][0]["local_disk_gb"] = 150
+floor_errors = sorted(validator.iter_errors(floor), key=lambda item: list(item.path))
+if floor_errors:
+    for err in floor_errors:
+        print(f"local_disk_gb 150: {list(err.path)}: {err.message}", file=sys.stderr)
+        sys.exit(1)
 PY
 
 if jq -e '[.. | strings | select(test("secret:") | not) | select(test("(?i)(password|api[_-]?key|secret_access|BEGIN .*PRIVATE KEY)\\s*[:=]\\s*\\S"))] | length == 0' "$real" >/dev/null; then
@@ -316,6 +340,7 @@ env -u NEON_TEST_PASSWORD -u B2_ACCESS_KEY_ID -u B2_SECRET_ACCESS_KEY \
 grep -q 'self-provision worker goliath-worker-1' "$out" || fail "workers component should describe the pool"
 grep -q 'did not SSH' "$out" || fail "workers component should say it did not SSH"
 grep -q 'RTX 6000 Ada' "$out" || fail "workers component should print the GPU spec"
+grep -q 'local_disk_gb=200' "$out" || fail "workers component should print local_disk_gb"
 grep -q 'deploy/runpod/goliath-worker-start.sh' "$out" || fail "workers component should name the start script"
 if [[ -s "$ssh_log" ]]; then
   fail "workers component invoked ssh"
@@ -630,6 +655,7 @@ command -v shellcheck >/dev/null 2>&1 || fail "shellcheck is required"
 shellcheck -S warning -e SC1091 \
   "$start_script" \
   "$ROOT/scripts/start_shared_worker.sh" \
+  "$ROOT/scripts/check_local_scratch.sh" \
   "$ROOT/scripts/worker_venv_local.sh" \
   "$ROOT/scripts/test_worker_venv_local.sh" \
   "$ROOT/deploy/runpod/keepalive.sh" \
@@ -765,6 +791,7 @@ grep -q 'arch=amd64' "$report_log" || fail "report should include arch"
 grep -q 'GPU=NVIDIA RTX 6000 Ada Generation' "$report_log" || fail "report should include the nvidia-smi GPU name"
 grep -q 'host=' "$report_log" || fail "report should include host"
 grep -q 'GPU detected via nvidia-smi' "$out" || fail "start script should log nvidia-smi detection"
+grep -q 'local scratch preflight:' "$out" || fail "start script should run the local scratch preflight"
 [[ "$(stat -c %a "$token_file")" == "600" ]] || fail "worker token file must be mode 600"
 grep -q '^WORKER_ID=7$' "$token_file" || fail "enroll token should be kept"
 supervisor_pid="$(cat "$worker_local/logs/methyl-worker.supervisor.pid")"
@@ -1210,6 +1237,9 @@ case "\$url" in
   *"/contents/scripts/start_shared_worker.sh?ref="*)
     python3 -c 'import base64,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); b=b"#!/usr/bin/env bash\n# start_shared_worker\n"; p.write_text(json.dumps({"encoding":"base64","content":base64.b64encode(b).decode()}))' "\$out"
     ;;
+  *"/contents/scripts/check_local_scratch.sh?ref="*)
+    python3 -c 'import base64,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); b=b"#!/usr/bin/env bash\n# local-scratch\n"; p.write_text(json.dumps({"encoding":"base64","content":base64.b64encode(b).decode()}))' "\$out"
+    ;;
   *"/contents/deploy/runpod/keepalive.sh?ref="*)
     python3 -c 'import base64,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); b=b"#!/usr/bin/env bash\n# goliath-runpod\n"; p.write_text(json.dumps({"encoding":"base64","content":base64.b64encode(b).decode()}))' "\$out"
     ;;
@@ -1418,6 +1448,8 @@ grep -q 'test -s deploy/runpod/goliath-worker-start.sh' "$assemble" \
   || fail "release assemble should require the start script on the tagged commit"
 grep -q 'test -s scripts/start_shared_worker.sh' "$assemble" \
   || fail "release assemble should require the shared worker start on the tagged commit"
+grep -q 'test -s scripts/check_local_scratch.sh' "$assemble" \
+  || fail "release assemble should require the local scratch preflight on the tagged commit"
 if grep -q 'RUNPOD_' "$ROOT/scripts/start_shared_worker.sh"; then
   fail "shared worker start must not reference RUNPOD_ variables"
 fi

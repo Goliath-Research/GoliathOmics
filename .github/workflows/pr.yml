@@ -58,6 +58,7 @@ jobs:
             scripts/verify_e2e_node.sh \
             scripts/init_work_layout.sh \
             scripts/start_shared_worker.sh \
+            scripts/check_local_scratch.sh \
             scripts/install_system_deps.sh \
             scripts/test_install_system_deps.sh \
             scripts/bundle_system_deps.sh \
@@ -106,6 +107,7 @@ jobs:
           bash scripts/test_enroll_wait.sh
           bash scripts/test_create_worker.sh
           bash scripts/test_create_worker_pod.sh
+          bash scripts/test_local_scratch.sh
           bash scripts/test_install_system_deps.sh
           bash scripts/test_release_bundles.sh
 

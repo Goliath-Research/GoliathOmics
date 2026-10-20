@@ -917,7 +917,7 @@ worker_env_file() {
 describe_self_provision_worker() {
   local i="$1"
   local purpose="$2"
-  local name provider arch template image mount gpu vcpu ram root
+  local name provider arch template image mount gpu vcpu ram disk root
   name="$(jq -r --argjson i "$i" '.workers[$i].name' "$PROFILE")"
   provider="$(jq -r --argjson i "$i" '.workers[$i].provider // "unknown"' "$PROFILE")"
   arch="$(jq -r --argjson i "$i" '.workers[$i].arch' "$PROFILE")"
@@ -926,6 +926,7 @@ describe_self_provision_worker() {
   mount="$(jq -r --argjson i "$i" '.workers[$i].volume_mount // "/work"' "$PROFILE")"
   vcpu="$(jq -r --argjson i "$i" '.workers[$i].vcpu // ""' "$PROFILE")"
   ram="$(jq -r --argjson i "$i" '.workers[$i].memory_gb // ""' "$PROFILE")"
+  disk="$(jq -r --argjson i "$i" 'if (.workers[$i] | has("local_disk_gb")) then .workers[$i].local_disk_gb else 200 end' "$PROFILE")"
   root="$(jq -r --argjson i "$i" '.workers[$i].install_root // "/work/goliath"' "$PROFILE")"
   gpu="$(jq -r --argjson i "$i" '
     .workers[$i].gpu
@@ -939,7 +940,8 @@ describe_self_provision_worker() {
   info "self-provision worker ${name} (${purpose}): no SSH"
   info "  provider=${provider} arch=${arch} template=${template}"
   info "  image=${image}"
-  info "  gpu=${gpu} vcpu=${vcpu} memory_gb=${ram} volume=${mount} install_root=${root}"
+  [[ "$disk" =~ ^[0-9]+$ && "$disk" -ge 150 ]] || die "worker ${name} local_disk_gb must be an integer >= 150 (got '${disk}')"
+  info "  gpu=${gpu} vcpu=${vcpu} memory_gb=${ram} local_disk_gb=${disk} volume=${mount} install_root=${root}"
   info "  boot: template start command fetches deploy/runpod/goliath-worker-bootstrap.sh, which installs deploy/runpod/goliath-worker-start.sh and scripts/start_shared_worker.sh onto an empty /work"
   info "  the node enrolls with WORKER_API_BASE and reports goliath-worker (node id, host, arch, GPU). The RunPod adapter sets the node id from RUNPOD_POD_ID."
 }

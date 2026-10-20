@@ -120,8 +120,10 @@ body="$(sed -n '/^{/,/^}/p' "$TMP/dry.out")"
 jq -e '.mounts.global == [{"volumeId":"cmueim6m6000006i69kwh1xax","path":"/work"}]' <<<"$body" >/dev/null \
   || { echo "$body"; fail "dry-run body must mount global volume work at /work"; }
 jq -e '.templateId == "nw0judtfil" and .name == "goliath-worker-2" and .cloud == "SECURE"
-       and .gpu == {"id":"NVIDIA L40S","count":1} and (.mounts | keys) == ["global"]' <<<"$body" >/dev/null \
-  || { echo "$body"; fail "dry-run body fields (template, next free name, gpu, cloud)"; }
+       and .gpu == {"id":"NVIDIA L40S","count":1} and .disk == 200 and (.mounts | keys) == ["global"]' <<<"$body" >/dev/null \
+  || { echo "$body"; fail "dry-run body fields (template, next free name, gpu, cloud, disk)"; }
+grep -q 'template disk is 30 GB; requesting container disk 200 GB (containerDiskInGb)' "$TMP/dry.out" \
+  || fail "a 30 GB template disk must be overridden by local_disk_gb"
 grep -qF "price: NVIDIA L40S on SECURE cloud: \$1.09/hr" "$TMP/dry.out" || fail "price should be printed"
 
 # 2. Missing key fails before any request.
@@ -191,7 +193,20 @@ imgreg_body="$(sed -n '/^{/,/^}/p' "$TMP/imgreg.out")"
 jq -e '.image == "ghcr.io/example/goliath-worker:t" and .registry == "reg_test123"' <<<"$imgreg_body" >/dev/null \
   || { echo "$imgreg_body"; fail "body must carry v2 image + registry"; }
 
-# 11. The generic entry point gives the identical body.
+# 11. --local-disk-gb is the v2 disk field (containerDiskInGb). Below 150 is refused
+# before any create, and the value overrides the template's 30 GB disk.
+run tinyd --dry-run --local-disk-gb 30
+[[ "$(rc tinyd)" != 0 ]] || fail "30 GB container disk must be refused"
+grep -q 'at least 150' "$TMP/tinyd.out" || { cat "$TMP/tinyd.out"; fail "minimum disk message"; }
+no_post || fail "a too-small disk must not POST"
+run disk150 --dry-run --local-disk-gb 150
+[[ "$(rc disk150)" == 0 ]] || { cat "$TMP/disk150.out"; fail "150 GB disk should be accepted"; }
+sed -n '/^{/,/^}/p' "$TMP/disk150.out" | jq -e '.disk == 150' >/dev/null \
+  || fail "create body disk must follow --local-disk-gb"
+grep -q 'requesting container disk 150 GB (containerDiskInGb)' "$TMP/disk150.out" \
+  || fail "template disk warning should name the requested size"
+
+# 12. The generic entry point gives the identical body.
 
 SCRIPT="$ROOT/deploy/workers/create_worker.sh"
 run generic --provider runpod --dry-run

@@ -123,6 +123,13 @@ provider_resolve_template() {
     die "template $TEMPLATE_ID has a persistent mount ($(jq -c '.mounts.persistent' "$tpl")); remove it, a global volume cannot be combined with it"
   fi
   log "template: $name ($TEMPLATE_ID), image $(jq -r '.image // "?"' "$tpl")"
+  # The create body sets disk (v1 name: containerDiskInGb) from LOCAL_DISK_GB.
+  # A template that still reports a smaller disk does not win.
+  local tpl_disk
+  tpl_disk="$(jq -r '.disk // empty' "$tpl")"
+  if [[ "$tpl_disk" =~ ^[0-9]+$ && "$tpl_disk" -lt "${LOCAL_DISK_GB:-0}" ]]; then
+    log "template disk is ${tpl_disk} GB; requesting container disk ${LOCAL_DISK_GB} GB (containerDiskInGb)"
+  fi
 }
 
 provider_resolve_storage() {
@@ -172,12 +179,15 @@ provider_build_request() {
   # OPT_IMAGE → v2 "image" (overrides template). OPT_REGISTRY_AUTH / env
   # RUNPOD_REGISTRY_AUTH_ID → v2 "registry" (private GHCR credential id).
   local registry="${OPT_REGISTRY_AUTH:-${RUNPOD_REGISTRY_AUTH_ID:-${PROVIDER_DEFAULT_REGISTRY_AUTH:-}}}"
+  # v2 field "disk" is the container disk in GB. v1 calls it containerDiskInGb.
+  # It overrides the template disk. /work is the global volume, not this disk.
   jq -n \
     --arg name "$WORKER_NAME" \
     --arg templateId "$TEMPLATE_ID" \
     --arg cloud "$OPT_CLOUD" \
     --arg gpu "$OPT_GPU" \
     --argjson count "$OPT_GPU_COUNT" \
+    --argjson disk "$LOCAL_DISK_GB" \
     --arg volumeId "$STORAGE_ID" \
     --arg path "$MOUNT_PATH" \
     --arg image "${OPT_IMAGE:-}" \
@@ -187,6 +197,7 @@ provider_build_request() {
        templateId: $templateId,
        cloud: $cloud,
        gpu: {id: $gpu, count: $count},
+       disk: $disk,
        mounts: {global: [{volumeId: $volumeId, path: $path}]},
        startSsh: true
      }

@@ -33,6 +33,7 @@
       },
       "vcpu": 16,
       "memory_gb": 62,
+      "local_disk_gb": 200,
       "volume_mount": "/work",
       "template": "goliath-worker",
       "image": "ghcr.io/goliath-research/goliath-worker:4.7.0-1",

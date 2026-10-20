@@ -27,9 +27,20 @@ NAME_PREFIX=goliath-worker
 
 PROVIDER=""
 NAME=""
+PROFILE=""
 OPT_TEMPLATE="" OPT_STORAGE="" OPT_GPU="" OPT_CLOUD="" OPT_IMAGE="" OPT_REGISTRY_AUTH=""
 OPT_TEMPLATE_SET=0 OPT_STORAGE_SET=0 OPT_GPU_SET=0 OPT_CLOUD_SET=0 OPT_IMAGE_SET=0 OPT_REGISTRY_AUTH_SET=0
 OPT_GPU_COUNT=1
+# Container-local disk for FASTQs, BAMs, Parabricks tmp, logs, venvs, and
+# docker layers. /work is the shared volume and is not this disk.
+# Minimum 150 leaves the 60 GB free-space floor (METHYL_LOCAL_TMP_MIN_GB)
+# after the image, MethylExtractor, GoliathAlign, and the venv land on this
+# disk. Boot checks that floor before those installs. Default remains 200.
+LOCAL_DISK_GB_DEFAULT=200
+LOCAL_DISK_GB_MIN=150
+LOCAL_DISK_GB=""
+LOCAL_DISK_GB_SET=0
+PROFILE_LOCAL_DISK_GB=""
 MOUNT_PATH="$STANDARD_MOUNT_PATH"
 DRY_RUN=0
 YES=0
@@ -69,6 +80,9 @@ Create a goliath-worker with the shared storage mounted at /work.
   --gpu GPU_TYPE            GPU / instance type (provider default)
   --gpu-count N             GPUs per worker (default: 1)
   --cloud TIER              Provider-specific cloud tier (provider default)
+  --local-disk-gb N         Container-local disk in GB (default: 200, minimum: 150)
+  --profile FILE            Worker profile JSON. When --local-disk-gb is omitted,
+                            local_disk_gb on its self-provision worker is used
   --wait SECS               Seconds to wait for SSH / public IP (default: 180)
   --dry-run                 Resolve everything, print the request, create nothing
   --yes                     Actually create the worker (billable)
@@ -93,6 +107,8 @@ while [[ $# -gt 0 ]]; do
     --gpu) need_arg "$@"; OPT_GPU="$2"; OPT_GPU_SET=1; shift 2 ;;
     --gpu-count) need_arg "$@"; OPT_GPU_COUNT="$2"; shift 2 ;;
     --cloud) need_arg "$@"; OPT_CLOUD="$2"; OPT_CLOUD_SET=1; shift 2 ;;
+    --local-disk-gb) need_arg "$@"; LOCAL_DISK_GB="$2"; LOCAL_DISK_GB_SET=1; shift 2 ;;
+    --profile) need_arg "$@"; PROFILE="$2"; shift 2 ;;
     --wait) need_arg "$@"; WAIT_SECS="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --yes) YES=1; shift ;;
@@ -133,6 +149,44 @@ fi
 if [[ -n "$NAME" && ! "$NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
   die "--name must be letters, digits, '.', '_' or '-' (got '$NAME')"
 fi
+
+# local_disk_gb is provider-neutral. Precedence: --local-disk-gb, then the
+# self-provision worker in --profile, then GOLIATH_LOCAL_DISK_GB, then 200.
+# A profile worker that omits the field does not block the env or the default.
+read_profile_local_disk_gb() {
+  local file="$1" raw=""
+  [[ -f "$file" ]] || die "--profile not found: $file"
+  raw="$(jq -r '
+    (.workers // []) as $all
+    | ([$all[] | select(.self_provision == true)]) as $self
+    | (if ($self | length) > 0 then $self else $all end) as $pick
+    | ([$pick[] | select(has("local_disk_gb")) | .local_disk_gb] | unique) as $vals
+    | if ($vals | length) == 0 then ""
+      elif ($vals | length) > 1 then "AMBIGUOUS"
+      else ($vals[0] | tostring)
+      end
+  ' "$file")" || die "--profile is not valid JSON: $file"
+  if [[ "$raw" == "AMBIGUOUS" ]]; then
+    die "--profile $file sets more than one local_disk_gb; pass --local-disk-gb"
+  fi
+  PROFILE_LOCAL_DISK_GB="$raw"
+}
+
+if [[ "$LOCAL_DISK_GB_SET" != 1 && -n "$PROFILE" ]]; then
+  read_profile_local_disk_gb "$PROFILE"
+fi
+if [[ "$LOCAL_DISK_GB_SET" != 1 ]]; then
+  if [[ -n "$PROFILE_LOCAL_DISK_GB" ]]; then
+    LOCAL_DISK_GB="$PROFILE_LOCAL_DISK_GB"
+  elif [[ -n "${GOLIATH_LOCAL_DISK_GB:-}" ]]; then
+    LOCAL_DISK_GB="$GOLIATH_LOCAL_DISK_GB"
+  else
+    LOCAL_DISK_GB="$LOCAL_DISK_GB_DEFAULT"
+  fi
+fi
+[[ "$LOCAL_DISK_GB" =~ ^[0-9]+$ ]] || die "local_disk_gb must be an integer number of GB (got '$LOCAL_DISK_GB')"
+[[ "$LOCAL_DISK_GB" -ge "$LOCAL_DISK_GB_MIN" ]] || die "local_disk_gb must be at least ${LOCAL_DISK_GB_MIN} GB (got ${LOCAL_DISK_GB}); FASTQ.gz files are larger than 25 GB each and local scratch cannot live on the shared /work mount"
+log "local disk: ${LOCAL_DISK_GB} GB"
 
 CW_TMP="$(umask 077 && mktemp -d)"
 trap 'rm -rf "$CW_TMP"' EXIT
