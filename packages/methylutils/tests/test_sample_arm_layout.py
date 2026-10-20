@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import stat
 from pathlib import Path
 
@@ -132,6 +133,48 @@ def test_link_paths_into_dir_copies_when_hardlink_fails(tmp_path: Path, monkeypa
     assert not target.is_symlink()
     assert target.read_bytes() == b"reads"
     assert os.path.samefile(src, target) is False
+
+
+def test_link_paths_into_dir_replaces_truncated_or_stale_copy(tmp_path: Path, monkeypatch) -> None:
+    """A nonempty arm file is not done unless it still matches the root FASTQ."""
+    src_dir = tmp_path / "root"
+    src_dir.mkdir()
+    src = src_dir / "S1_1.fastq.gz"
+    src.write_bytes(b"complete-reads")
+    dest = tmp_path / "align.linear.parabricks"
+    dest.mkdir()
+    target = dest / "S1_1.fastq.gz"
+
+    def _reject_link(*_args: object, **_kwargs: object) -> None:
+        raise OSError("Invalid cross-device link")
+
+    monkeypatch.setattr("methyl_utils.sample_arm_layout.os.link", _reject_link)
+
+    target.write_bytes(b"comp")
+    linked = link_paths_into_dir([src], dest)
+    assert linked == [target]
+    assert target.read_bytes() == b"complete-reads"
+
+    # Same-size root refresh (re-download or CAAS restore) must replace the arm.
+    os.utime(target, (1_000_000_000, 1_000_000_000))
+    src.write_bytes(b"replaced-reads")
+    linked = link_paths_into_dir([src], dest)
+    assert linked == [target]
+    assert target.read_bytes() == b"replaced-reads"
+    assert os.path.samefile(src, target) is False
+
+    calls = {"n": 0}
+    real_copyfile = shutil.copyfile
+
+    def _counting_copyfile(source, copied, *args, **kwargs):
+        calls["n"] += 1
+        return real_copyfile(source, copied, *args, **kwargs)
+
+    monkeypatch.setattr("methyl_utils.sample_arm_layout.shutil.copyfile", _counting_copyfile)
+    again = link_paths_into_dir([src], dest)
+    assert again == [target]
+    assert calls["n"] == 0
+    assert target.read_bytes() == b"replaced-reads"
 
 
 def test_link_root_fastqs_into_dir(tmp_path: Path) -> None:

@@ -235,6 +235,29 @@ def discover_root_fastqs(sample_root: Path | str, sample_id: str) -> List[Path]:
     return found
 
 
+def _existing_dest_matches_src(src: Path, dest: Path) -> bool:
+    """True when ``dest`` is already a current nonempty snapshot of ``src``.
+
+    A hardlink is the same inode. ``shutil.copyfile`` leaves a separate file, so
+    a short write can be non-empty but truncated, and a later root refresh must
+    replace that snapshot when ``src`` is newer or a different size.
+    """
+    try:
+        dest_stat = dest.stat()
+        if dest_stat.st_size <= 0:
+            return False
+        if os.path.samefile(src, dest):
+            return True
+        src_stat = src.stat()
+    except OSError:
+        return False
+    if dest_stat.st_size != src_stat.st_size:
+        return False
+    # copyfile does not preserve mtime, so a finished snapshot is newer than
+    # src. A root rewrite (re-download or CAAS restore) makes src newer.
+    return dest_stat.st_mtime_ns >= src_stat.st_mtime_ns
+
+
 def link_paths_into_dir(
     sources: Sequence[Path | str],
     dest_dir: Path | str,
@@ -245,8 +268,10 @@ def link_paths_into_dir(
 
     Default ``hardlink`` uses ``os.link`` and, when that fails, copies bytes
     with ``shutil.copyfile``. An absolute symlink is unreadable after Clara
-    bind-mounts the arm at ``/workdir``. Pass ``method="symlink"`` or
-    ``method="copy"`` to choose those explicitly.
+    bind-mounts the arm at ``/workdir``. An existing regular file is reused
+    only when it is that hardlink or a same-size snapshot not older than the
+    source. Pass ``method="symlink"`` or ``method="copy"`` to choose those
+    explicitly.
     """
     dest = Path(dest_dir).expanduser().resolve()
     dest.mkdir(parents=True, exist_ok=True)
@@ -262,7 +287,7 @@ def link_paths_into_dir(
             # path after the arm is mounted at /workdir and then sees nothing.
             target.unlink()
         elif target.exists():
-            if target.is_file() and target.stat().st_size > 0:
+            if target.is_file() and _existing_dest_matches_src(src, target):
                 linked.append(target)
                 continue
             target.unlink(missing_ok=True)
