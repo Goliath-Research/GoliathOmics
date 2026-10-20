@@ -1240,6 +1240,12 @@ case "\$url" in
   *"/contents/scripts/check_local_scratch.sh?ref="*)
     python3 -c 'import base64,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); b=b"#!/usr/bin/env bash\n# local-scratch\n"; p.write_text(json.dumps({"encoding":"base64","content":base64.b64encode(b).decode()}))' "\$out"
     ;;
+  *"/contents/scripts/detect_platform.sh?ref="*)
+    python3 -c 'import base64,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); b=b"#!/usr/bin/env bash\ngoliath_current_dir() { :; }\n"; p.write_text(json.dumps({"encoding":"base64","content":base64.b64encode(b).decode()}))' "\$out"
+    ;;
+  *"/contents/scripts/platform_matrix.env?ref="*)
+    python3 -c 'import base64,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); b=b"# Architecture-specific defaults\n"; p.write_text(json.dumps({"encoding":"base64","content":base64.b64encode(b).decode()}))' "\$out"
+    ;;
   *"/contents/deploy/runpod/keepalive.sh?ref="*)
     python3 -c 'import base64,json,pathlib,sys; p=pathlib.Path(sys.argv[1]); b=b"#!/usr/bin/env bash\n# goliath-runpod\n"; p.write_text(json.dumps({"encoding":"base64","content":base64.b64encode(b).decode()}))' "\$out"
     ;;
