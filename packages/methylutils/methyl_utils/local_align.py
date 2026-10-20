@@ -46,6 +46,11 @@ def local_align_dir(sample_id: str, sample_dir: Path | str) -> Path:
     return local_tmp_root() / "bam" / sample_scratch_name(sample_id, sample_dir)
 
 
+def local_extract_dir(sample_id: str, sample_dir: Path | str) -> Path:
+    """Worker-local MethylExtractor output directory for one sample arm."""
+    return local_tmp_root() / "extract" / sample_scratch_name(sample_id, sample_dir)
+
+
 def local_bam_path(sample_id: str, sample_dir: Path | str) -> Path:
     return local_align_dir(sample_id, sample_dir) / f"{sample_id}.bam"
 

@@ -178,7 +178,11 @@ Examples:
 
 Per sample under `/work/samples/{sample_id}/`. FASTQs stay at the **sample root**; alignment/extract products live in the **arm leaf** (`sampleDir` = `{sampleRoot}/align.{mode}.{engine}/`). Switching engines must not overwrite another arm.
 
-The Parabricks Align BAM and its `.bai` are **never** on `/work`. `sample.parabricks_fq2bam` and `sample.parabricks_giraffe` write them to worker-local scratch at `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/{sample_id}.bam` (`METHYL_LOCAL_TMP` defaults to `$TMPDIR/methyl-pb`, else `/tmp/methyl-pb`; `digest` hashes the resolved `sampleDir`). `bamPath` in task output is that worker-local path. Alignment QC, fragmentomics and MethylExtractor read it there on the pinned worker. `sample.delete_bam` removes the local BAM, index and directory on the pass and every reject path, and a failing align, QC, fragmentomics, extract or extraction-QC task removes it as well. Alignment QC that returns `remediateAlignment` also removes it on success: the remediating Align is exclusive and may run on another worker, which cannot delete this copy. Align is a hard CAAS opt-out (`worker_local_bam`): the BAM is never harvested into or restored from `.caas`.
+No Align BAM or `.bai` is ever on `/work`. `sample.parabricks_fq2bam`, `sample.parabricks_giraffe`, `sample.methylgrapher_wgbs_align` (QC BAM and every BAM intermediate) and `sample.docker_align` (argv placeholders `{bam}` / `{bam_dir}`) write them to worker-local scratch at `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/{sample_id}.bam` (`METHYL_LOCAL_TMP` defaults to `$TMPDIR/methyl-pb`, else `/tmp/methyl-pb`; `digest` hashes the resolved `sampleDir`). `bamPath` in task output is that worker-local path. Alignment QC, fragmentomics and MethylExtractor read it there on the pinned worker. `sample.delete_bam` removes the local BAM, index and directory on the pass and every reject path, and a failing align, QC, fragmentomics, extract or extraction-QC task removes it as well. Alignment QC that returns `remediateAlignment` also removes it on success: the remediating Align is exclusive and may run on another worker, which cannot delete this copy. Every BAM-producing Align is a hard CAAS opt-out (`worker_local_bam`): the BAM is never harvested into or restored from `.caas`.
+
+MethylExtractor (`sample.methyl_extract`) writes to worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`. On success only `*.h5` and `*.json` (per-context stats, native manifest) are copied into `sampleDir`: bytes go to a sibling `.tmp-*` file and one rename publishes it, with no `utime`, `chmod` or hardlink (geesefs-safe). The local directory is removed on success and failure, so partial output never reaches `/work`.
+
+At boot `scripts/check_local_scratch.sh` deletes `{METHYL_LOCAL_TMP}/bam/*` and `/extract/*` directories with nothing modified in `METHYL_LOCAL_STALE_HOURS` (default 72; 0 disables). This frees BAMs a dead worker process could not delete.
 
 ```text
 /work/samples/{sample_id}/
@@ -195,7 +199,7 @@ The Parabricks Align BAM and its `.bai` are **never** on `/work`. `sample.parabr
     {chr}-{ctx}.h5                    methylation matrices (retained; optional remote copy)
 ```
 
-`delete_fastqs` targets `sampleRoot`. `delete_bam` targets the worker-local BAM directory (and any BAM a non-linear aligner wrote to `sampleDir`); H5 archive targets `sampleDir`. After a historical flat-root Clara run, `scripts/relocate_root_clara_products.py` moves root products into `align.linear.parabricks/` without deleting existing `align.*` trees.
+`delete_fastqs` targets `sampleRoot`. `delete_bam` targets the worker-local BAM directory; H5 archive targets `sampleDir`. After a historical flat-root Clara run, `scripts/relocate_root_clara_products.py` moves root products into `align.linear.parabricks/` without deleting existing `align.*` trees.
 
 Alignment QC export path when project-scoped: `{output_base}/{project}/alignment_qc/{sampleId}.json`.
 

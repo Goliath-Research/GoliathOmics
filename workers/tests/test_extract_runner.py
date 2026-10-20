@@ -12,6 +12,15 @@ import pytest
 from methyl_worker import extract_runner as runner
 
 
+def _write_local_bam(sample_dir: Path, sample_id: str) -> Path:
+    from methyl_utils.local_align import local_bam_path
+
+    bam = local_bam_path(sample_id, sample_dir)
+    bam.parent.mkdir(parents=True, exist_ok=True)
+    bam.write_bytes(b"BAM")
+    return bam
+
+
 def _write_sidecar_stats(
     sample_dir: Path,
     chrom: str,
@@ -449,7 +458,7 @@ def test_complete_native_manifest_survives_post_extract_rewrite(tmp_path: Path) 
     ref, action_config = _write_min_project(project, chromosomes=["1"])
     sample_dir = tmp_path / "S_native_run"
     sample_dir.mkdir()
-    (sample_dir / "S_native_run.bam").write_bytes(b"BAM")
+    _write_local_bam(sample_dir, "S_native_run")
     native = _complete_native_manifest(sample_id="S_native_run", chromosomes=["1"])
 
     def fake_run(cmd, **kwargs):
@@ -542,20 +551,12 @@ def test_build_manifest_from_stats_covers_all_chroms(tmp_path: Path) -> None:
     assert manifest["summary"]["cpg_weighted_mean_coverage"] > 0
 
 
-def test_resolve_bam_legacy_name(tmp_path: Path) -> None:
-    sample_dir = tmp_path / "S4"
-    sample_dir.mkdir()
-    legacy = sample_dir / "S4.clara_parabrics.duplicates_marked.bam"
-    legacy.write_bytes(b"BAM")
-    assert runner.resolve_bam_path(sample_dir, "S4") == legacy
-
-
 def test_run_invokes_methyl_extractor(tmp_path: Path) -> None:
     project = tmp_path / "project.json"
     ref, action_config = _write_min_project(project, chromosomes=["1"])
     sample_dir = tmp_path / "S5"
     sample_dir.mkdir()
-    (sample_dir / "S5.bam").write_bytes(b"BAM")
+    _write_local_bam(sample_dir, "S5")
 
     def fake_run(cmd, **kwargs):
         for name in ("1-CG.h5", "1-CHG.h5", "1-CHH.h5"):
@@ -588,3 +589,94 @@ def test_run_invokes_methyl_extractor(tmp_path: Path) -> None:
     manifest = json.loads((sample_dir / "S5.extraction_manifest.json").read_text(encoding="utf-8"))
     assert manifest["per_chromosome"]["1"]["CG"]["mean_coverage"] == 11.0
     assert out["extractionManifest"].endswith("S5.extraction_manifest.json")
+
+
+def test_extractor_writes_local_then_copies_only_h5_and_json_to_work(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """MethylExtractor output lands on local scratch; /work gets only .h5 + JSON."""
+    import os
+
+    from methyl_utils.local_align import local_bam_path, local_extract_dir
+
+    local = tmp_path / "local"
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(local))
+    project = tmp_path / "project.json"
+    ref, action_config = _write_min_project(project, chromosomes=["1"])
+    sample_dir = tmp_path / "work" / "S_local"
+    sample_dir.mkdir(parents=True)
+    bam = local_bam_path("S_local", sample_dir)
+    bam.parent.mkdir(parents=True)
+    bam.write_bytes(b"BAM")
+    seen: dict[str, Path] = {}
+
+    def fake_run(cmd, **kwargs):
+        out_dir = Path(next(c for c in cmd if c.startswith("--output-dir=")).split("=", 1)[1])
+        seen["out"] = out_dir
+        for name in ("1-CG.h5", "1-CHG.h5", "1-CHH.h5"):
+            (out_dir / name).write_bytes(b"h5")
+        _write_sidecar_stats(out_dir, "1", avg_coverage=9.0)
+        (out_dir / "scratch.tmp").write_bytes(b"x")
+        return type("P", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
+
+    forbidden = []
+    monkeypatch.setattr(os, "utime", lambda *a, **k: forbidden.append("utime"))
+    monkeypatch.setattr(os, "link", lambda *a, **k: forbidden.append("link"))
+    real_chmod = os.chmod
+
+    def no_work_chmod(path, *a, **k):
+        if str(path).startswith(str(sample_dir)) and Path(path).suffix == ".h5":
+            forbidden.append("chmod")
+        return real_chmod(path, *a, **k)
+
+    monkeypatch.setattr(os, "chmod", no_work_chmod)
+    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/MethylExtractor"):
+        with patch("methyl_worker.extract_runner.subprocess.run", side_effect=fake_run):
+            out = runner.run_methyl_extract(
+                sample_id="S_local",
+                sample_dir=sample_dir,
+                project=project,
+                input_json=_task_input("S_local", sample_dir, ref, action_config),
+            )
+
+    assert seen["out"] == local_extract_dir("S_local", sample_dir)
+    assert not seen["out"].exists(), "local extract scratch is removed after publish"
+    assert out["h5Files"] == ["1-CG.h5", "1-CHG.h5", "1-CHH.h5"]
+    for name in out["h5Files"]:
+        assert (sample_dir / name).is_file()
+    assert (sample_dir / "1-CG.json").is_file()
+    assert (sample_dir / "S_local.extraction_manifest.json").is_file()
+    assert not (sample_dir / "scratch.tmp").exists()
+    assert not list(sample_dir.glob("*.bam")) and not list(sample_dir.glob("*.tmp-*"))
+    assert forbidden == []
+    assert bam.is_file(), "BAM stays for sample.delete_bam"
+
+
+def test_extractor_failure_removes_local_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from methyl_utils.local_align import local_bam_path, local_extract_dir
+
+    monkeypatch.setenv("METHYL_LOCAL_TMP", str(tmp_path / "local"))
+    project = tmp_path / "project.json"
+    ref, action_config = _write_min_project(project, chromosomes=["1"])
+    sample_dir = tmp_path / "work" / "S_fail"
+    sample_dir.mkdir(parents=True)
+    bam = local_bam_path("S_fail", sample_dir)
+    bam.parent.mkdir(parents=True)
+    bam.write_bytes(b"BAM")
+
+    def fake_run(cmd, **kwargs):
+        out_dir = Path(next(c for c in cmd if c.startswith("--output-dir=")).split("=", 1)[1])
+        (out_dir / "1-CG.h5").write_bytes(b"partial")
+        return type("P", (), {"returncode": 3, "stdout": "", "stderr": "boom"})()
+
+    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/MethylExtractor"):
+        with patch("methyl_worker.extract_runner.subprocess.run", side_effect=fake_run):
+            with pytest.raises(RuntimeError, match="boom"):
+                runner.run_methyl_extract(
+                    sample_id="S_fail",
+                    sample_dir=sample_dir,
+                    project=project,
+                    input_json=_task_input("S_fail", sample_dir, ref, action_config),
+                )
+    assert not local_extract_dir("S_fail", sample_dir).exists()
+    assert not (sample_dir / "1-CG.h5").exists(), "partial output never reaches /work"

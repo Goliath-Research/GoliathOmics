@@ -143,4 +143,20 @@ fi
 # Dry-run still plans later steps; it must not die inside the scratch check.
 [[ "$dry_rc" != 124 ]] || fail "provision dry-run hung"
 
+# Boot sweep: stale per-sample BAM / extract dirs go, recent ones stay.
+sweep="$work/sweep"
+mkdir -p "$sweep/bam/old-1" "$sweep/bam/new-1" "$sweep/extract/old-2" "$sweep/keep"
+touch -d '5 days ago' "$sweep/bam/old-1/S1.bam" "$sweep/extract/old-2/1-CG.h5" "$sweep/keep/x"
+touch -d '5 days ago' "$sweep/bam/old-1" "$sweep/extract/old-2"
+touch "$sweep/bam/new-1/S2.bam"
+run_check sweep METHYL_LOCAL_TMP="$sweep" METHYL_LOCAL_TMP_MIN_GB=0 GOLIATH_WORK_MOUNT="$work/work"
+[[ "$(cat "$work/sweep.rc")" == 0 ]] || { cat "$work/sweep.err"; fail "sweep run should pass"; }
+[[ ! -e "$sweep/bam/old-1" && ! -e "$sweep/extract/old-2" ]] || fail "stale local BAM/extract dirs must be swept"
+[[ -f "$sweep/bam/new-1/S2.bam" ]] || fail "recent local BAM must be kept"
+[[ -f "$sweep/keep/x" ]] || fail "sweep only touches bam/ and extract/"
+grep -q 'removed stale' "$work/sweep.err" || fail "sweep should log removals"
+mkdir -p "$sweep/bam/old-3" && touch -d '5 days ago' "$sweep/bam/old-3/S3.bam" "$sweep/bam/old-3"
+run_check nosweep METHYL_LOCAL_TMP="$sweep" METHYL_LOCAL_TMP_MIN_GB=0 METHYL_LOCAL_STALE_HOURS=0 GOLIATH_WORK_MOUNT="$work/work"
+[[ -f "$sweep/bam/old-3/S3.bam" ]] || fail "METHYL_LOCAL_STALE_HOURS=0 disables the sweep"
+
 echo "PASS: local scratch preflight"

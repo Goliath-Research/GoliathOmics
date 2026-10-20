@@ -766,8 +766,11 @@
       "description": "Align bisulfite FASTQs with a config-described Docker image (epi-GBS / alternate aligners).",
       "dispatch": {
         "affinity_key_field": "sampleId",
+        "exclusive_worker": true,
+        "max_per_worker": 1,
         "prefer_continue_group": true,
-        "prefer_previous_worker": true
+        "prefer_previous_worker": true,
+        "require_previous_worker": true
       },
       "domain_effects": {
         "output_bindings": [
@@ -798,7 +801,8 @@
         ]
       },
       "execution_mode": "in_process",
-      "idempotency_enabled": true,
+      "idempotency_enabled": false,
+      "idempotency_opt_out_reason": "worker_local_bam",
       "in_process_handler": "_handle_docker_align",
       "input_schema_ref": "schemas/tasks/sample_docker_align.input.schema.json",
       "output_schema_ref": "schemas/tasks/sample_docker_align.output.schema.json",
@@ -986,7 +990,8 @@
         ]
       },
       "execution_mode": "in_process",
-      "idempotency_enabled": true,
+      "idempotency_enabled": false,
+      "idempotency_opt_out_reason": "worker_local_bam",
       "in_process_handler": "_handle_methylgrapher_wgbs_align",
       "input_schema_ref": "schemas/tasks/sample_methylgrapher_wgbs_align.input.schema.json",
       "output_schema_ref": "schemas/tasks/sample_methylgrapher_wgbs_align.output.schema.json",

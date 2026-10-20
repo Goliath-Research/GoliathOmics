@@ -5,11 +5,11 @@ study ``{project_root}/.caas/``. That store exists to skip repeated GPU/IO work
 (FASTQ download, Parabricks/Mojo/methylGrapher align, QC, extract).
 
 The store is keyed by sample identity (``sampleRoot`` / ``{samples_base}/{id}``),
-not by an ``align.*`` arm leaf. Restored products are the methylGrapher WGBS
-``{id}.bam`` (still written beside the arm), ``{id}.qc-metrics.tar``, and
-metrics JSON. Parabricks Align
-(``sample.parabricks_fq2bam``, ``sample.parabricks_giraffe``) is a hard opt-out: its BAM stays on the align
-worker's local scratch and is never harvested into or restored from ``.caas``.
+not by an ``align.*`` arm leaf. Every BAM-producing Align
+(``sample.parabricks_fq2bam``, ``sample.parabricks_giraffe``,
+``sample.methylgrapher_wgbs_align``, ``sample.docker_align``) is a hard opt-out:
+its BAM stays on the align worker's local scratch and is never harvested into
+``.caas``.
 
 CAAS is **on by default**. Operators may reject it with task
 ``sampleCaasEnabled: false`` / ``caasEnabled: false``, or
@@ -30,6 +30,8 @@ SAMPLE_CAAS_OPT_OUT: dict[str, str] = {
     "sample.delete_bam": "destructive",
     "sample.parabricks_fq2bam": "worker_local_bam",
     "sample.parabricks_giraffe": "worker_local_bam",
+    "sample.methylgrapher_wgbs_align": "worker_local_bam",
+    "sample.docker_align": "worker_local_bam",
     "sample.archive_sample": "remote_upload_etag_only",
     "sample.qc_failed": "control_flow",
 }
@@ -161,11 +163,6 @@ def opted_out_sample_actions() -> Set[str]:
     return set(SAMPLE_CAAS_OPT_OUT)
 
 
-_ALIGN_CAAS_ACTIONS = (
-    "sample.methylgrapher_wgbs_align",
-)
-
-
 def _caas_host_roots(sample_path: Path) -> list[Path]:
     """Directories that may hold ``.caas`` for this bound sampleDir.
 
@@ -186,79 +183,6 @@ def _caas_host_roots(sample_path: Path) -> list[Path]:
         seen.add(key)
         unique.append(root)
     return unique
-
-
-def restore_sample_align_products(sample_dir: Path | str, sample_id: str) -> list[Path]:
-    """Restore BAM / qc-metrics.tar product symlinks from sample-scoped CAAS.
-
-    After a harvest whose relink skipped dual-mount product paths, methyl_qc and
-    extract look at empty ``{sampleDir}/{id}.bam`` locations even though the
-    blobs remain under ``.caas/``. Only methylGrapher WGBS align is harvested;
-    Parabricks BAMs are worker-local and never in CAAS. Call this before those actions. Products are
-    always restored next to the bound ``sampleDir`` (flat root or arm leaf).
-    """
-    from .action_result import caas_action_safe_name, caas_root
-    from .content_store import _ensure_symlink, link_entry_into_place
-
-    sample_path = Path(sample_dir)
-    restored: list[Path] = []
-    if not sample_path.is_dir() or not sample_id:
-        return restored
-
-    product_names = (
-        f"{sample_id}.bam",
-        f"{sample_id}.qc-metrics.tar",
-        f"{sample_id}.json",
-        f"{sample_id}.deduplicate_metrics.txt",
-    )
-    for host in _caas_host_roots(sample_path):
-        caas = caas_root(host)
-        for action in _ALIGN_CAAS_ACTIONS:
-            action_dir = caas / caas_action_safe_name(action)
-            if not action_dir.is_dir():
-                continue
-            key_dirs = sorted(
-                (
-                    path
-                    for path in action_dir.iterdir()
-                    if path.is_dir() and (path / "manifest.json").is_file()
-                ),
-                key=lambda path: path.stat().st_mtime,
-                reverse=True,
-            )
-            for key_dir in key_dirs:
-                try:
-                    link_entry_into_place(
-                        host,
-                        action,
-                        key_dir.name,
-                        output_dir=sample_path,
-                    )
-                except OSError:
-                    pass
-                for name in product_names:
-                    blob = key_dir / name
-                    dest = sample_path / name
-                    if not blob.is_file() or blob.is_symlink():
-                        continue
-                    if dest.is_file() and not dest.is_symlink():
-                        continue
-                    if dest.is_file():
-                        try:
-                            if dest.resolve() == blob.resolve():
-                                continue
-                        except OSError:
-                            pass
-                    try:
-                        _ensure_symlink(dest, blob)
-                        restored.append(dest)
-                    except OSError:
-                        continue
-                if (sample_path / f"{sample_id}.bam").is_file() or (
-                    sample_path / f"{sample_id}.qc-metrics.tar"
-                ).is_file():
-                    return restored
-    return restored
 
 
 _FASTQ_SUFFIXES = (".fastq.gz", ".fq.gz", ".fastq", ".fq")

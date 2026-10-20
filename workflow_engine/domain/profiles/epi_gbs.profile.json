@@ -18,7 +18,7 @@
     "docker_align": {
       "image": null,
       "argv": [],
-      "note": "Operators must set image + argv template (placeholders: {r1},{r2},{bam},{reference},{sample_dir})."
+      "note": "Operators must set image + argv template (placeholders: {r1},{r2},{bam},{bam_dir},{reference},{sample_dir}; {bam} is worker-local scratch, never /work)."
     },
     "alignment_qc": {
       "guardrails": {

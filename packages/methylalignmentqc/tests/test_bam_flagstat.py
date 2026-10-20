@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from conftest import local_bam
 import pytest
 
 from methyl_alignment_qc.core.bam_flagstat import (
@@ -136,7 +137,7 @@ def test_run_flagstat_rejects_empty_bam(tmp_path) -> None:
 
     sample_dir = tmp_path / "sampleZ"
     sample_dir.mkdir()
-    (sample_dir / "sampleZ.bam").write_bytes(b"")
+    local_bam(sample_dir, 'sampleZ').write_bytes(b"")
     with pytest.raises(RuntimeError, match="BAM is empty"):
         run_flagstat(sample_dir, "sampleZ")
 

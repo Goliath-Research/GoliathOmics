@@ -16,6 +16,7 @@ PINNED = (
     "sample.parabricks_fq2bam",
     "sample.parabricks_giraffe",
     "sample.methylgrapher_wgbs_align",
+    "sample.docker_align",
     "sample.methyl_qc",
     "sample.fragmentomics",
     "sample.methyl_extract",
@@ -208,7 +209,7 @@ def test_bam_consumers_resolve_local_bam(tmp_path: Path, local_root: Path) -> No
 
     arm = _arm(tmp_path)
     assert find_bam_path(arm, "S1") is None
-    assert resolve_sample_bam(arm, "S1") == arm / "S1.bam"
+    assert resolve_sample_bam(arm, "S1") == local_align.local_bam_path("S1", arm)
     bam = _write_local_bam("S1", arm)
     assert resolve_bam_path(arm, "S1") == bam
     assert resolve_sample_bam(arm, "S1") == bam
@@ -227,3 +228,73 @@ def test_methyl_qc_remediation_removes_local_bam(tmp_path: Path, local_root: Pat
         with patch.object(sample_prep, "_run_methyl_qc", return_value=out):
             sample_prep._handle_methyl_qc("methyl-qc", "sample.methyl_qc", task)
         assert bam.exists() is kept
+
+
+def test_docker_align_writes_bam_to_local_scratch(tmp_path: Path, local_root: Path) -> None:
+    from methyl_worker import docker_align_runner as dar
+
+    arm = _arm(tmp_path)
+    (arm / "S1_R1.fastq.gz").write_bytes(b"r1")
+    (arm / "S1_R2.fastq.gz").write_bytes(b"r2")
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nACGT\n", encoding="utf-8")
+    seen: list[list[str]] = []
+
+    def fake_run(cmd, check):
+        seen.append(list(cmd))
+        Path(cmd[-1]).write_bytes(b"BAM")
+        return subprocess.CompletedProcess(cmd, 0)
+
+    with patch.object(dar.subprocess, "run", side_effect=fake_run):
+        out = dar.run_docker_align(
+            sample_id="S1",
+            sample_dir=arm,
+            reference_fasta=ref,
+            input_json={"resolvedConfig": {"image": "img", "argv": ["align", "{bam}"]}},
+        )
+    local = local_align.local_bam_path("S1", arm)
+    assert out["bamPath"] == str(local) and local.is_file()
+    assert f"{local.parent}:{local.parent}" in seen[0]
+    assert not (arm / "S1.bam").exists()
+
+
+def test_docker_align_failure_removes_local_bam(tmp_path: Path, local_root: Path) -> None:
+    from methyl_worker import docker_align_runner as dar
+
+    arm = _arm(tmp_path)
+    (arm / "S1_R1.fastq.gz").write_bytes(b"r1")
+    (arm / "S1_R2.fastq.gz").write_bytes(b"r2")
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nACGT\n", encoding="utf-8")
+
+    def fake_run(cmd, check):
+        Path(cmd[-1]).write_bytes(b"partial")
+        raise subprocess.CalledProcessError(1, cmd)
+
+    with patch.object(dar.subprocess, "run", side_effect=fake_run):
+        with pytest.raises(subprocess.CalledProcessError):
+            dar.run_docker_align(
+                sample_id="S1",
+                sample_dir=arm,
+                reference_fasta=ref,
+                input_json={"resolvedConfig": {"image": "img", "argv": ["align", "{bam}"]}},
+            )
+    assert not local_align.local_align_dir("S1", arm).exists()
+
+
+def test_copy_to_work_is_rename_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import os
+
+    from methyl_worker.work_share import copy_to_work
+
+    src = tmp_path / "local" / "1-CG.h5"
+    src.parent.mkdir()
+    src.write_bytes(b"h5")
+    dest = tmp_path / "work" / "S1" / "1-CG.h5"
+    calls: list[str] = []
+    for name in ("utime", "chmod", "link", "symlink"):
+        monkeypatch.setattr(os, name, lambda *a, _n=name, **k: calls.append(_n))
+    assert copy_to_work(src, dest, task="t") == dest
+    assert dest.read_bytes() == b"h5" and src.is_file()
+    assert calls == []
+    assert [p.name for p in dest.parent.iterdir()] == ["1-CG.h5"]

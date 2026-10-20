@@ -1,3 +1,4 @@
+from conftest import local_bam
 import json
 from pathlib import Path
 
@@ -245,7 +246,7 @@ def test_process_samples_to_qc_jsons_align_arm_uses_sample_id_not_dirname(
     (arm_dir / f"{sample_id}.json").write_text(
         json.dumps(_parabricks_json_fixture(sample_id)), encoding="utf-8"
     )
-    (arm_dir / f"{sample_id}.bam").write_bytes(b"\x1f\x8b" + b"\x00" * 64)
+    local_bam(arm_dir, sample_id).write_bytes(b"\x1f\x8b" + b"\x00" * 64)
 
     def _fake_flagstat(sample_dir, sid, force=False):
         from methyl_alignment_qc.models.sample_qc import AlignmentFlagstat
@@ -304,7 +305,7 @@ def test_process_samples_to_qc_jsons_mode_subdir_uses_sample_id_not_dirname(
         json.dumps(_parabricks_json_fixture(sample_id)), encoding="utf-8"
     )
     # Minimal BAM-shaped file so preflight does not fail on magic (gzip header).
-    (mode_dir / f"{sample_id}.bam").write_bytes(b"\x1f\x8b" + b"\x00" * 64)
+    local_bam(mode_dir, sample_id).write_bytes(b"\x1f\x8b" + b"\x00" * 64)
 
     flagstat_calls: list[tuple[str, str]] = []
 

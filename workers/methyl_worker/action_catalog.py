@@ -1083,7 +1083,7 @@ ACTION_CATALOG: Sequence[ActionCatalogEntry] = (
         domain_effects=_DE_PARABRICKS,
         action_config_key="docker_align",
         control=CONTROL_STOPPABLE,
-        dispatch=DISPATCH_SAMPLE_AFFINITY,
+        dispatch=DISPATCH_EXCLUSIVE_PINNED,
     ),
     _in_process(
         "sample.parabricks_fq2bam",
@@ -1914,6 +1914,8 @@ _HARD_IDEMPOTENCY_OPT_OUT: Dict[str, str] = {
     # BAM stays on the align worker's local scratch; never harvested into .caas.
     "sample.parabricks_fq2bam": "worker_local_bam",
     "sample.parabricks_giraffe": "worker_local_bam",
+    "sample.methylgrapher_wgbs_align": "worker_local_bam",
+    "sample.docker_align": "worker_local_bam",
 }
 
 _SAMPLE_SCOPED_PREFIXES = (
