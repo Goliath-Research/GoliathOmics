@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from ops.workflow_deploy import deploy_workflow_definition
 
@@ -57,9 +57,8 @@ def test_replace_treats_missing_delete_as_noop() -> None:
 
 
 class _FakeCursor:
-    def __init__(self, log: list, def_exists: bool) -> None:
-        self.log = log
-        self.def_exists = def_exists
+    def __init__(self, db: "_ConnDb") -> None:
+        self.db = db
         self._last = ""
 
     def __enter__(self) -> "_FakeCursor":
@@ -69,21 +68,28 @@ class _FakeCursor:
         return None
 
     def execute(self, sql: str, params: Any = ()) -> None:
-        self._last = sql
-        self.log.append(" ".join(sql.split()))
+        self._last = " ".join(sql.split())
+        self.db.log.append(self._last)
+        self.db.params.append(params)
 
     def fetchone(self) -> Any:
-        if "FROM wf.workflow_def WHERE" in self._last:
-            return (1,) if self.def_exists else None
+        if "FROM wf.workflow_def WHERE name" in self._last:
+            return {"id": 5} if self.db.def_exists else None
         if "sp_delete_workflow_def" in self._last:
-            return {"deleted_instance_count": 0, "deleted_version_count": 1}
+            return {"deleted_instance_count": 2, "deleted_version_count": 2}
         return None
+
+    def fetchall(self) -> Any:
+        if "NOT EXISTS" in self._last:
+            return [{"id": v} for v in self.db.versions if v not in self.db.referenced]
+        if "FROM wf.workflow_version v WHERE" in self._last:
+            return [{"id": v} for v in self.db.versions]
+        return []
 
 
 class _FakeConn:
-    def __init__(self, log: list, def_exists: bool) -> None:
-        self.log = log
-        self.def_exists = def_exists
+    def __init__(self, db: "_ConnDb") -> None:
+        self.db = db
 
     def __enter__(self) -> "_FakeConn":
         return self
@@ -92,22 +98,32 @@ class _FakeConn:
         return None
 
     def cursor(self) -> _FakeCursor:
-        return _FakeCursor(self.log, self.def_exists)
+        return _FakeCursor(self.db)
 
     def commit(self) -> None:
-        self.log.append("COMMIT")
+        self.db.log.append("COMMIT")
+        self.db.params.append(None)
 
     def rollback(self) -> None:
-        self.log.append("ROLLBACK")
+        self.db.log.append("ROLLBACK")
+        self.db.params.append(None)
 
 
 class _ConnDb:
-    def __init__(self, def_exists: bool) -> None:
-        self.log: list = []
+    def __init__(
+        self,
+        def_exists: bool,
+        versions: tuple = (11, 12),
+        referenced: tuple = (),
+    ) -> None:
+        self.log: List[str] = []
+        self.params: List[Any] = []
         self.def_exists = def_exists
+        self.versions = versions
+        self.referenced = referenced
 
     def _connection(self) -> _FakeConn:
-        return _FakeConn(self.log, self.def_exists)
+        return _FakeConn(self)
 
 
 def _sample_prep_spec() -> Dict[str, Any]:
@@ -121,19 +137,84 @@ def _no_delete(*_a: Any) -> Dict[str, int]:
     raise AssertionError("gateway delete must not be used when db has a connection")
 
 
-def test_replace_deletes_edges_before_nodes_in_one_transaction() -> None:
+def _create(_db: Any, spec: Dict[str, Any]) -> Dict[str, Any]:
+    return {"workflow_def_id": 99, "workflow_version_id": 13, "root_node_id": 1}
+
+
+def _index(log: List[str], prefix: str) -> int:
+    return next(i for i, s in enumerate(log) if s.startswith(prefix))
+
+
+def test_replace_with_delete_instances_removes_edges_then_calls_procedure() -> None:
+    db = _ConnDb(def_exists=True)
+    result = deploy_workflow_definition(
+        db,
+        {"spec": _sample_prep_spec(), "replace": True, "delete_instances": True},
+        create_workflow_definition=_create,
+        delete_workflow_definition=_no_delete,
+    )
+    assert result["workflow_version_id"] == 13
+    edge_idx = _index(db.log, "DELETE FROM wf.workflow_edge")
+    sp_idx = next(i for i, s in enumerate(db.log) if "sp_delete_workflow_def" in s)
+    assert edge_idx < sp_idx < db.log.index("COMMIT")
+    assert db.params[edge_idx] == ([11, 12],)
+    assert db.log.count("COMMIT") == 1
+
+
+def test_keep_instances_without_references_drops_whole_definition() -> None:
     db = _ConnDb(def_exists=True)
     result = deploy_workflow_definition(
         db,
         {"spec": _sample_prep_spec(), "replace": True, "delete_instances": False},
-        create_workflow_definition=lambda _db, spec: {"workflow_version_id": 9},
+        create_workflow_definition=_create,
         delete_workflow_definition=_no_delete,
     )
-    assert result["workflow_version_id"] == 9
-    edge_idx = next(i for i, s in enumerate(db.log) if s.startswith("DELETE FROM wf.workflow_edge"))
-    sp_idx = next(i for i, s in enumerate(db.log) if "sp_delete_workflow_def" in s)
-    assert edge_idx < sp_idx < db.log.index("COMMIT")
-    assert db.log.count("COMMIT") == 1
+    assert result["workflow_def_id"] == 99
+    assert not any("sp_delete_workflow_def" in s for s in db.log)
+    edge_idx = _index(db.log, "DELETE FROM wf.workflow_edge")
+    ver_idx = _index(db.log, "DELETE FROM wf.workflow_version")
+    def_idx = _index(db.log, "DELETE FROM wf.workflow_def")
+    assert edge_idx < ver_idx < def_idx
+    assert db.params[ver_idx] == ([11, 12],)
+    assert not any(s.startswith("UPDATE wf.workflow_version") for s in db.log)
+
+
+def test_keep_instances_keeps_referenced_version_and_adds_new_version() -> None:
+    db = _ConnDb(def_exists=True, versions=(11, 12), referenced=(12,))
+    result = deploy_workflow_definition(
+        db,
+        {"spec": _sample_prep_spec(), "replace": True, "delete_instances": False},
+        create_workflow_definition=_create,
+        delete_workflow_definition=_no_delete,
+    )
+    assert result["workflow_def_id"] == 5
+    assert result["workflow_version_id"] == 13
+    edge_idx = _index(db.log, "DELETE FROM wf.workflow_edge")
+    ver_idx = _index(db.log, "DELETE FROM wf.workflow_version")
+    assert edge_idx < ver_idx
+    assert db.params[edge_idx] == ([11],)
+    assert db.params[ver_idx] == ([11],)
+    deact = _index(db.log, "UPDATE wf.workflow_version SET is_active = false")
+    assert db.params[deact] == (5,)
+    attach = _index(db.log, "UPDATE wf.workflow_version SET workflow_def_id")
+    assert db.params[attach] == (5, 5, 13)
+    drop_tmp = len(db.log) - 1 - db.log[::-1].index("DELETE FROM wf.workflow_def WHERE id = %s")
+    assert db.params[drop_tmp] == (99,)
+    assert attach < drop_tmp
+    assert db.log.index("DELETE FROM wf.workflow_def WHERE id = %s") == drop_tmp
+    assert db.log.count("COMMIT") == 2
+
+
+def test_keep_instances_all_versions_referenced_deletes_no_graph_rows() -> None:
+    db = _ConnDb(def_exists=True, versions=(12,), referenced=(12,))
+    deploy_workflow_definition(
+        db,
+        {"spec": _sample_prep_spec(), "replace": True, "delete_instances": False},
+        create_workflow_definition=_create,
+        delete_workflow_definition=_no_delete,
+    )
+    assert not any(s.startswith("DELETE FROM wf.workflow_edge") for s in db.log)
+    assert not any(s.startswith("DELETE FROM wf.workflow_version") for s in db.log)
 
 
 def test_replace_missing_definition_with_connection_is_noop() -> None:
