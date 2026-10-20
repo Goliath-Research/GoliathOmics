@@ -1,7 +1,7 @@
 {
   "programVersion": 2,
   "name": "SamplePrepPipeline",
-  "description": "Per-sample upstream preprocessing with alignment QC screening, trim remediation, extraction QC, and sample archive. Gate booleans are typed DomainProgram variables (catalog scope_bindings write them; FOREACH+IF remains the control flow \u2014 hybrid typed assign, not science-in-assign).",
+  "description": "Per-sample upstream preprocessing with alignment QC screening, trim remediation, extraction QC, and sample archive. Gate booleans are typed DomainProgram variables (catalog scope_bindings write them; FOREACH+IF remains the control flow \u2014 hybrid typed assign, not science-in-assign). Align nodes set stageFastqs=local (FASTQs copied from /work to the pinned worker's local BAM dir); methylGrapher extract sets workDirMode=local (local scratch, publish *.h5/*.json to sampleDir).",
   "projectPath": "${var.projectPath}",
   "variables": {
     "qcPass": {
@@ -44,7 +44,10 @@
           "then": [
             {
               "action": "sample.methylgrapher_wgbs_align",
-              "node_key": "methylgrapher_wgbs_align"
+              "node_key": "methylgrapher_wgbs_align",
+              "with": {
+                "stageFastqs": "local"
+              }
             }
           ],
           "else": [
@@ -53,13 +56,19 @@
               "then": [
                 {
                   "action": "sample.parabricks_giraffe",
-                  "node_key": "parabricks_giraffe"
+                  "node_key": "parabricks_giraffe",
+                  "with": {
+                    "stageFastqs": "local"
+                  }
                 }
               ],
               "else": [
                 {
                   "action": "sample.parabricks_fq2bam",
-                  "node_key": "parabricks_fq2bam"
+                  "node_key": "parabricks_fq2bam",
+                  "with": {
+                    "stageFastqs": "local"
+                  }
                 }
               ]
             }
@@ -86,7 +95,10 @@
               "then": [
                 {
                   "action": "sample.methylgrapher_wgbs_extract",
-                  "node_key": "methylgrapher_wgbs_extract"
+                  "node_key": "methylgrapher_wgbs_extract",
+                  "with": {
+                    "workDirMode": "local"
+                  }
                 }
               ],
               "else": [
@@ -183,7 +195,8 @@
                         "forceRealign": true,
                         "alignmentPass": "post_trim_realign",
                         "remediationReason": "${var.qcAttemptReason}",
-                        "workflowNodeKey": "methylgrapher_wgbs_realign"
+                        "workflowNodeKey": "methylgrapher_wgbs_realign",
+                        "stageFastqs": "local"
                       }
                     }
                   ],
@@ -198,7 +211,8 @@
                             "forceRealign": true,
                             "alignmentPass": "post_trim_realign",
                             "remediationReason": "${var.qcAttemptReason}",
-                            "workflowNodeKey": "parabricks_realign"
+                            "workflowNodeKey": "parabricks_realign",
+                            "stageFastqs": "local"
                           }
                         }
                       ],
@@ -210,7 +224,8 @@
                             "forceRealign": true,
                             "alignmentPass": "post_trim_realign",
                             "remediationReason": "${var.qcAttemptReason}",
-                            "workflowNodeKey": "parabricks_realign"
+                            "workflowNodeKey": "parabricks_realign",
+                            "stageFastqs": "local"
                           }
                         }
                       ]
@@ -252,7 +267,10 @@
                       "then": [
                         {
                           "action": "sample.methylgrapher_wgbs_extract",
-                          "node_key": "methylgrapher_wgbs_extract_retry"
+                          "node_key": "methylgrapher_wgbs_extract_retry",
+                          "with": {
+                            "workDirMode": "local"
+                          }
                         }
                       ],
                       "else": [
@@ -274,7 +292,7 @@
                           "node_key": "archive_sample_retry",
                           "with": {
                             "mode": "full",
-                    "rejectReason": null
+                            "rejectReason": null
                           }
                         },
                         {

@@ -91,6 +91,16 @@ def run_docker_align(
     bam_dir = local_align_dir(sample_id, sample_path)
     bam_dir.mkdir(parents=True)
     bam_path = local_bam_path(sample_id, sample_path)
+    # Optional stageFastqs=local: align from copies in the local BAM dir (mounted below).
+    from methyl_worker.fastq_stage import stage_fastqs
+
+    try:
+        r1, r2 = stage_fastqs(
+            [r1, r2], sample_id=sample_id, sample_dir=sample_path, input_json=payload
+        )
+    except BaseException:
+        remove_local_align(sample_id, sample_path)
+        raise
     metrics_dir = sample_path / "qc-metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
     metrics_json = sample_path / f"{sample_id}.alignment_metrics.json"

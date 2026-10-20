@@ -235,6 +235,20 @@
       "title": "Sampleid",
       "type": "string"
     },
+    "stageFastqs": {
+      "anyOf": [
+        {
+          "const": "local",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When 'local', copy the resolved FASTQ pair (trimmed when present) from /work into the worker-local BAM dir and align from there; freed by delete_bam / failed-task cleanup.",
+      "title": "Stagefastqs"
+    },
     "tool": {
       "default": "ParabricksFq2Bam",
       "title": "Tool",

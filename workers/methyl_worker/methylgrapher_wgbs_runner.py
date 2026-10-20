@@ -2153,6 +2153,12 @@ def _align_wgbs(
     bam_dir = local_align_dir(sample_id, sample_path)
     bam_dir.mkdir(parents=True, exist_ok=True)
     bam_path = local_bam_path(sample_id, sample_path)
+    # Optional stageFastqs=local: align from copies in the local BAM dir.
+    from methyl_worker.fastq_stage import stage_fastqs
+
+    fq1, fq2 = stage_fastqs(
+        [fq1, fq2], sample_id=sample_id, sample_dir=sample_path, input_json=payload
+    )
     metrics_dir = sample_path / f"{sample_id}.qc-metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
     metrics_json = sample_path / f"{sample_id}.alignment_metrics.json"
@@ -3312,8 +3318,6 @@ def run_methylgrapher_wgbs_extract(
     bundle = resolve_wgbs_bundle_from_resolved(resolved)
     contexts = list(bundle.contexts) or ["CG"]
     log_path = sample_path / f"{sample_id}.methylgrapher_extract.log"
-    work_dir = sample_path / "methylgrapher_work"
-    work_dir.mkdir(parents=True, exist_ok=True)
     gaf_path = sample_path / f"{sample_id}.alignment.gaf"
     if not gaf_path.is_file() and not force:
         # Still allow extract when operator supplies projected linear calls.
@@ -3335,6 +3339,85 @@ def run_methylgrapher_wgbs_extract(
             "patternFiles": [str(p) for p in pattern_files],
         }
 
+    if extract_work_dir_mode(payload) is None:
+        work_dir = sample_path / "methylgrapher_work"
+        work_dir.mkdir(parents=True, exist_ok=True)
+        return _extract_wgbs(
+            sample_id=sample_id,
+            sample_path=sample_path,
+            out_dir=sample_path,
+            work_dir=work_dir,
+            project=project,
+            resolved=resolved,
+            bundle=bundle,
+            contexts=contexts,
+            log_path=log_path,
+            gaf_path=gaf_path,
+        )
+
+    # workDirMode=local: MethylCall/MergeCpG scratch and every output live in the
+    # worker-local extract dir; only *.h5 / *.json are published to sampleDir
+    # (single-rename copy, geesefs-safe), like MethylExtractor.
+    from methyl_utils.local_align import local_extract_dir
+
+    from methyl_worker.extract_runner import _publish_extract_outputs
+
+    local_root = local_extract_dir(sample_id, sample_path)
+    shutil.rmtree(local_root, ignore_errors=True)
+    local_out = local_root / "out"
+    work_dir = local_root / "methylgrapher_work"
+    local_out.mkdir(parents=True)
+    work_dir.mkdir(parents=True)
+    try:
+        result = _extract_wgbs(
+            sample_id=sample_id,
+            sample_path=sample_path,
+            out_dir=local_out,
+            work_dir=work_dir,
+            project=project,
+            resolved=resolved,
+            bundle=bundle,
+            contexts=contexts,
+            log_path=log_path,
+            gaf_path=gaf_path,
+        )
+        _publish_extract_outputs(local_out, sample_path)
+    finally:
+        shutil.rmtree(local_root, ignore_errors=True)
+    return result
+
+
+def extract_work_dir_mode(input_json: Optional[Mapping[str, Any]]) -> Optional[str]:
+    """Return ``"local"`` when methylGrapher extract should run on local scratch."""
+    raw = (input_json or {}).get("workDirMode")
+    if raw is None:
+        return None
+    mode = str(raw).strip().lower()
+    if mode in {"", "work", "none"}:
+        return None
+    if mode != "local":
+        raise ValueError(f"workDirMode must be 'local' when set; got {raw!r}")
+    return mode
+
+
+def _extract_wgbs(
+    *,
+    sample_id: str,
+    sample_path: Path,
+    out_dir: Path,
+    work_dir: Path,
+    project: str | Path,
+    resolved: Dict[str, Any],
+    bundle: Any,
+    contexts: List[str],
+    log_path: Path,
+    gaf_path: Path,
+) -> Dict[str, Any]:
+    """MethylCall → MergeCpG → H5/patterns/manifest written under *out_dir*.
+
+    Returned and manifest paths always name ``sample_path`` (where the files
+    live after publishing when *out_dir* is local scratch).
+    """
     dry = os.environ.get("METHYL_METHYLGRAPHER_DRY_RUN", "").strip() in {"1", "true", "yes"}
     index_prefix = resolve_index_prefix(bundle)
     work_dir = work_dir.resolve()
@@ -3464,7 +3547,7 @@ def run_methylgrapher_wgbs_extract(
     if not by_chrom:
         raise RuntimeError(f"No CpG calls parsed from {linear_tsv}")
 
-    h5_files = _write_marginal_h5(sample_path, by_chrom, contexts)
+    h5_files = _write_marginal_h5(out_dir, by_chrom, contexts)
     pattern_files: List[str] = []
     patterns_source = "none"
     if bundle.read_level_enabled:
@@ -3478,7 +3561,7 @@ def run_methylgrapher_wgbs_extract(
                 logger.warning("GAF pattern offsets unavailable: %s", exc)
             if gaf_path.is_file() and offsets:
                 pattern_files = _build_patterns_from_gaf(
-                    sample_path,
+                    out_dir,
                     gaf_path,
                     by_chrom,
                     contexts,
@@ -3494,15 +3577,18 @@ def run_methylgrapher_wgbs_extract(
             )
         if not pattern_files:
             pattern_files = _build_patterns_from_linear_calls(
-                sample_path, by_chrom, contexts, tile_size=bundle.tile_size
+                out_dir, by_chrom, contexts, tile_size=bundle.tile_size
             )
             patterns_source = "marginal_surrogate"
     else:
         pattern_files = _write_empty_patterns(
-            sample_path, list(by_chrom.keys()), contexts, tile_size=bundle.tile_size
+            out_dir, list(by_chrom.keys()), contexts, tile_size=bundle.tile_size
         )
         patterns_source = "empty"
 
+    # Name the published location (identity when out_dir is sampleDir).
+    h5_files = [str(sample_path / Path(p).name) for p in h5_files]
+    pattern_files = [str(sample_path / Path(p).name) for p in pattern_files]
     manifest = build_canonical_extraction_manifest(
         sample_id=sample_id,
         project=project,
@@ -3513,10 +3599,11 @@ def run_methylgrapher_wgbs_extract(
         gaf_path=gaf_path if gaf_path.is_file() else None,
         graph_assets=fingerprint_wgbs_assets(bundle),
     )
-    manifest_path = sample_path / f"{sample_id}.extraction_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    if not manifest_path.is_file() or manifest_path.stat().st_size <= 0:
-        raise RuntimeError(f"Extraction manifest not written: {manifest_path}")
+    local_manifest = out_dir / f"{sample_id}.extraction_manifest.json"
+    local_manifest.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    if not local_manifest.is_file() or local_manifest.stat().st_size <= 0:
+        raise RuntimeError(f"Extraction manifest not written: {local_manifest}")
+    manifest_path = sample_path / local_manifest.name
 
     return {
         "sampleId": sample_id,

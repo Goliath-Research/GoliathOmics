@@ -629,6 +629,20 @@
       "default": "MethylGrapherWgbsExtract",
       "title": "Tool",
       "type": "string"
+    },
+    "workDirMode": {
+      "anyOf": [
+        {
+          "const": "local",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When 'local', run MethylCall/MergeCpG and write H5/patterns/manifest in the worker-local extract dir, then publish only *.h5/*.json to sampleDir.",
+      "title": "Workdirmode"
     }
   },
   "required": [

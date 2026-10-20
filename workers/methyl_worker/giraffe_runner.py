@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from methyl_utils.local_align import remove_local_align
+from methyl_worker.fastq_stage import stage_fastqs
 from methyl_worker.parabricks_runner import (
+    container_fastq_arg,
     use_host_pbrun,
     build_collectmultiplemetrics_command,
     ParabricksConfig,
@@ -140,10 +142,7 @@ def _build_giraffe_docker_command(
     fastqs: Sequence[Path],
 ) -> List[str]:
     mount_root = graph.mount_root
-    in_fq_args: List[str] = []
-    for fastq in fastqs:
-        rel = fastq.relative_to(paths.sample_dir)
-        in_fq_args.append(f"/workdir/{rel.as_posix()}")
+    in_fq_args = [container_fastq_arg(fastq, paths) for fastq in fastqs]
 
     read_group = f"{paths.sample_id}_rg"
     return [
@@ -241,6 +240,10 @@ def run_giraffe_align(
     paths.tmp_dir.mkdir(parents=True, exist_ok=True)
     _reset_local_bam_dir(paths)
     try:
+        # Optional stageFastqs=local: copy the pair into the (fresh) local BAM dir.
+        fastqs = stage_fastqs(
+            fastqs, sample_id=paths.sample_id, sample_dir=paths.sample_dir, input_json=input_json
+        )
         return _align_and_collect(cfg, paths, graph, fastqs)
     except BaseException:
         # A failed align must not leave a partial BAM on the worker.

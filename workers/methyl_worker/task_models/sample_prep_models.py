@@ -129,6 +129,14 @@ class ParabricksFq2bamTaskInput(BaseModel):
     alignmentPass: Optional[str] = None
     remediationReason: Optional[str] = None
     workflowNodeKey: Optional[str] = None
+    stageFastqs: Optional[Literal["local"]] = Field(
+        default=None,
+        description=(
+            "When 'local', copy the resolved FASTQ pair (trimmed when present) from "
+            "/work into the worker-local BAM dir and align from there; freed by "
+            "delete_bam / failed-task cleanup."
+        ),
+    )
 
 
 class ParabricksGiraffeTaskInput(BaseModel):
@@ -157,6 +165,14 @@ class ParabricksGiraffeTaskInput(BaseModel):
     alignmentPass: Optional[str] = None
     remediationReason: Optional[str] = None
     workflowNodeKey: Optional[str] = None
+    stageFastqs: Optional[Literal["local"]] = Field(
+        default=None,
+        description=(
+            "When 'local', copy the resolved FASTQ pair (trimmed when present) from "
+            "/work into the worker-local BAM dir and align from there; freed by "
+            "delete_bam / failed-task cleanup."
+        ),
+    )
 
 
 class MethylGrapherGraphIndexFiles(BaseModel):
@@ -408,6 +424,14 @@ class MethylGrapherWgbsAlignTaskInput(BaseModel):
     alignmentPass: Optional[str] = None
     remediationReason: Optional[str] = None
     workflowNodeKey: Optional[str] = None
+    stageFastqs: Optional[Literal["local"]] = Field(
+        default=None,
+        description=(
+            "When 'local', copy the resolved FASTQ pair (trimmed when present) from "
+            "/work into the worker-local BAM dir and align from there; freed by "
+            "delete_bam / failed-task cleanup."
+        ),
+    )
     resolvedConfig: Optional[MethylGrapherWgbsStepConfig] = Field(
         default=None,
         description="Merged actionConfig.methylgrapher_wgbs (assets + tool pins).",
@@ -427,6 +451,13 @@ class MethylGrapherWgbsExtractTaskInput(BaseModel):
     )
     executionScopeId: Optional[str] = None
     forceRealign: Optional[bool] = None
+    workDirMode: Optional[Literal["local"]] = Field(
+        default=None,
+        description=(
+            "When 'local', run MethylCall/MergeCpG and write H5/patterns/manifest in "
+            "the worker-local extract dir, then publish only *.h5/*.json to sampleDir."
+        ),
+    )
     resolvedConfig: Optional[MethylGrapherWgbsStepConfig] = Field(
         default=None,
         description="Merged actionConfig.methylgrapher_wgbs (+ extract overlays).",
@@ -469,6 +500,14 @@ class DockerAlignTaskInput(BaseModel):
     alignmentPass: Optional[str] = None
     remediationReason: Optional[str] = None
     workflowNodeKey: Optional[str] = None
+    stageFastqs: Optional[Literal["local"]] = Field(
+        default=None,
+        description=(
+            "When 'local', copy the resolved FASTQ pair (trimmed when present) from "
+            "/work into the worker-local BAM dir and align from there; freed by "
+            "delete_bam / failed-task cleanup."
+        ),
+    )
     resolvedConfig: Optional[dict] = Field(
         default=None,
         description="Merged docker_align actionConfig (image, argv, gpu_flags).",
