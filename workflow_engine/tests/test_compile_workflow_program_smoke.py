@@ -34,3 +34,9 @@ def test_compile_sample_prep_cli(tmp_path: Path) -> None:
     spec = json.loads(out.read_text(encoding="utf-8"))
     assert spec.get("name") == "SamplePrepPipeline"
     assert isinstance(spec.get("nodes"), list) and len(spec["nodes"]) > 0
+    extraction = [n for n in spec["nodes"] if n.get("action_name") == "sample.extraction_qc"]
+    assert extraction
+    for node in extraction:
+        template = node["input_template"]
+        assert template["resolvedConfig"] == "${var.resolvedConfig__extraction_qc}"
+        assert template["sampleContext"] == "${var.sample}"

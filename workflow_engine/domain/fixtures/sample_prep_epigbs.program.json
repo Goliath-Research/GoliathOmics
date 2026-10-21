@@ -85,7 +85,10 @@
             },
             {
               "action": "sample.extraction_qc",
-              "node_key": "extraction_qc"
+              "node_key": "extraction_qc",
+              "with": {
+                "sampleContext": "${var.sample}"
+              }
             },
             {
               "if": "${extractionQcPass}",
@@ -218,7 +221,10 @@
                     },
                     {
                       "action": "sample.extraction_qc",
-                      "node_key": "extraction_qc_retry"
+                      "node_key": "extraction_qc_retry",
+                      "with": {
+                        "sampleContext": "${var.sample}"
+                      }
                     },
                     {
                       "if": "${extractionQcPass}",
