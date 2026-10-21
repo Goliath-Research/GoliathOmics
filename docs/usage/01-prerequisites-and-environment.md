@@ -52,7 +52,7 @@ python -m pip install -r requirements-docs.txt
 mkdocs serve
 ```
 
-The site is optional. CI builds it and does not publish it.
+Published from `main` at <https://goliath-research.github.io/GoliathOmics/>. Pull request CI builds the site and does not deploy.
 
 ## Common failures and fixes
 

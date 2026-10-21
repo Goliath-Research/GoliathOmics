@@ -1,0 +1,62 @@
+# Publish the MkDocs site to GitHub Pages (source: GitHub Actions).
+# Pull request CI in pr.yml builds the same site and does not deploy.
+# This workflow does not build releases, move tags, or use the goliath-test environment.
+
+name: Publish docs
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# pages: write and id-token: write are the GitHub Pages OIDC permissions.
+# They apply only to this workflow.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One docs deployment at a time. Let an in-progress publish finish.
+# No other workflow uses this group, including release deploy on goliath-test.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Install docs dependencies
+        run: python -m pip install -U -r requirements-docs.txt
+
+      - name: Build docs site
+        run: mkdocs build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

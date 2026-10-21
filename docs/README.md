@@ -20,7 +20,7 @@ Release **2026.10.27** follows the tag, assemble, and deploy process in [operato
 | [deploy-targets](deploy-targets.md) | Deploy profiles |
 | [rollouts](rollouts.md) | Deploy reporting |
 
-The optional MkDocs Material site builds this tree and is not published. From the repository root: `python -m pip install -r requirements-docs.txt && mkdocs serve`.
+The MkDocs Material site is published from `main` at <https://goliath-research.github.io/GoliathOmics/>. Pull request CI builds it and does not deploy. Local preview from the repository root: `python -m pip install -r requirements-docs.txt && mkdocs serve`.
 
 ## Ownership
 

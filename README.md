@@ -39,7 +39,7 @@ GoliathOmics calls GoliathAlign and MethylExtractor through a pinned image and b
 
 ## Docs site
 
-An optional MkDocs Material site renders `docs/`. It is not published.
+The MkDocs Material site renders `docs/` and is published from `main` at <https://goliath-research.github.io/GoliathOmics/>. Pull request CI builds it and does not deploy.
 
 ```bash
 python -m pip install -r requirements-docs.txt
