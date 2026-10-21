@@ -4,46 +4,48 @@
 
 **SamplePrepPipeline** is the per-sample upstream workflow that turns raw WGBS FASTQs into methylation HDF5 files (`{chromosome}-CG.h5`) that downstream stages consume. Every sample passes through **two automated guardrails** before it enters stability, freeze, or discovery workflows:
 
-1. **Alignment QC** (`methyl-qc`) — mode-aware guardrails over Parabricks or methylGrapher metrics (shared checks + tool-specific); may trigger focused trim/realign on the **same** align mode.
-2. **Extraction QC** (`methyl-extraction-qc`) — confirms MethylExtractor or native-Mojo methylGrapher extract produced sufficient coverage and conversion-quality signal across chromosomes.
+1. **Alignment QC** (`sample.methyl_qc`) — mode-aware guardrails over Parabricks or methylGrapher metrics (shared checks + tool-specific); may trigger focused trim/realign on the **same** align path.
+2. **Extraction QC** (`sample.extraction_qc`) — confirms MethylExtractor or methylGrapher extract produced sufficient coverage and conversion-quality signal across chromosomes.
 
-Without these gates, bad alignments would waste GPU cycles, and under-covered or poorly converted extractions would pollute centroids, DMP discovery, and classifiers.
+Both gates honor the `resolvedConfig` window baked by `finalize_instance_context`, then a per-sample overlay. See [Baked QC window](#baked-qc-window).
 
-Each sample is aligned using **linear** or **stock pangenome** (NVIDIA Clara Parabricks — **explicit** config) or **WGBS pangenome** (native-Mojo methylGrapher on NVIDIA CUDA or AMD HIP), then passes through mode-aware QC gates below. **Alignment is GPU** (Clara or GoliathAlign). **Extraction is CPU:** MethylExtractor (C/HTSlib/HDF5) for linear/stock pangenome, or native-Mojo methylGrapher extract for WGBS pangenome.
+Without these gates, bad alignments would spend worker time, and under-covered or poorly converted extractions would pollute centroids, DMP discovery, and classifiers.
+
+Each sample takes one of four align paths: linear Clara Parabricks, linear GoliathAlign, stock Giraffe, or methylGrapher. The BAM stays on that worker's local scratch until `sample.delete_bam`. Extraction for linear and stock pangenome is MethylExtractor. Extraction for WGBS pangenome is methylGrapher MethylCall / MergeCpG. Both publish `*.h5` and `*.json` into `sampleDir`.
+
+**Start an instance:** [Start a SamplePrep instance](../operators/start-sample-prep.md)
 
 **Workflow source of truth:** [`workflow_engine/domain/fixtures/sample_prep.program.json`](../../workflow_engine/domain/fixtures/sample_prep.program.json)
 
-**Full study path (prep → MC → DeConv/info → holdouts):** [`docs/architecture/end-to-end-workflow.md`](../architecture/end-to-end-workflow.md)
+**Storage contract:** [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md)
 
-**Operator reference:** [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md)
+**Tooling:** [sample-prep-tooling.md](../architecture/sample-prep-tooling.md)
 
-**Implementation detail (alignment modes, storage, guardrails):** [`docs/implementation/sample-preparation-flow.md`](../implementation/sample-preparation-flow.md)
+## Alignment paths
 
-**WGBS pangenome plan:** [`docs/plans/wgbs-pangenome-sample-prep.plan.md`](../plans/wgbs-pangenome-sample-prep.plan.md)
+After FASTQ download, SamplePrep chooses **one alignment path** per sample (and the same path on fastp remediation realign). Scope flags come from the procedure and from `finalize_instance_context`. The full matrix, scratch paths, and pin rules are in [Start a SamplePrep instance](../operators/start-sample-prep.md).
 
-## Alignment modes (linear / stock pangenome / WGBS pangenome)
+| Path | Scope flags | Worker action | Tool |
+|------|-------------|---------------|------|
+| **Linear Clara** | `usePangenome: false`, `useWgbsPangenome: false`, `parabricks.engine` `parabricks` (runner default) | `sample.parabricks_fq2bam` | `pbrun fq2bam_meth` |
+| **Linear GoliathAlign** | Same flags, `parabricks.engine` `mojo` | `sample.parabricks_fq2bam` | MojoFq2bamMeth. `align_device` may be `cpu`. Procedure `buffy_wgbs_linear_mojo_gene_fc`. |
+| **Stock Giraffe** | `usePangenome: true`, `useWgbsPangenome: false` | `sample.parabricks_giraffe` | `pbrun giraffe` |
+| **methylGrapher** | `useWgbsPangenome: true` | `sample.methylgrapher_wgbs_align` | methylGrapher Align. `align_engine` defaults to `cpu_vg` when unset; procedures set `gpu_giraffe` or `mojo_giraffe`. |
 
-After FASTQ download, SamplePrep chooses **one alignment path** per sample (and the same path on fastp remediation realign):
-
-| Mode | Scope flags | Worker action | Tool | Compute | Reference |
-|------|-------------|---------------|------|---------|-----------|
-| **Linear** | `usePangenome: false`, `useWgbsPangenome: false` | `sample.parabricks_fq2bam` | `pbrun fq2bam_meth` (or MojoFq2bamMeth when `parabricks.engine=mojo`) | NVIDIA GPU (Clara **explicit**) | Site `reference_genome.fasta` |
-| **Stock pangenome** | `usePangenome: true`, `useWgbsPangenome: false` | `sample.parabricks_giraffe` | `pbrun giraffe` + `collectmultiplemetrics` | NVIDIA GPU (Clara **explicit**) | Site `pangenome_genome` |
-| **WGBS pangenome** | `usePangenome: true`, `useWgbsPangenome: true` | `sample.methylgrapher_wgbs_align` | native-Mojo Align (C2T+G2A) → GAF + QC BAM | **NVIDIA CUDA or AMD HIP** (one DeviceContext impl; fail-closed on known GPUs) | Site `actionConfig.methylgrapher_wgbs` / `pangenome_wgbs_genome` (QNAP `d9-bs/1.70`) |
-
-: Alignment modes {tbl-colwidths="[12,18,18,18,14,20]"}
-
-**Cost note:** `pangenome_wgbs` is dual-graph native-Mojo Giraffe plus QC BAM / sort / markdup. Pin `:1.70-mojo-cuda` or `:1.70-mojo-rocm` and `align_engine=gpu_giraffe|mojo_giraffe`. Clara is **not** used as an automatic Mojo fallback — choose `linear` / `pangenome` explicitly when you want Parabricks. Measure CpG yield vs time with [`scripts/compare_sample_prep_linear_vs_wgbs.sh`](../../scripts/compare_sample_prep_linear_vs_wgbs.sh). Leadership brief: [`docs/architecture/mojo-multi-gpu-dual-align.md`](../architecture/mojo-multi-gpu-dual-align.md).
-**How to enable:**
+**How a procedure selects a path:**
 
 - Stock Giraffe: `alignmentMode: "pangenome"` (binds `usePangenome`).
-- WGBS methylGrapher: `alignmentMode: "pangenome_wgbs"` (binds `useWgbsPangenome` + `usePangenome`). Procedure `buffy_wgbs_pangenome_gene_fc` selects this mode (**default buffy research** after acceptance; see [`docs/plans/wgbs-alignment-decision.plan.md`](../plans/wgbs-alignment-decision.plan.md)).
-- Buffy linear alternate: `buffy_wgbs_linear_gene_fc` when lower wall-time / GPU Parabricks path is preferred.
-- Default for unset modes is **`linear`** (except `libraryProtocol: wgbs_pangenome`, which defaults to `pangenome_wgbs`).
+- WGBS methylGrapher: `alignmentMode: "pangenome_wgbs"` (binds `useWgbsPangenome` and `usePangenome`). Procedure `buffy_wgbs_pangenome_gene_fc` selects this mode.
+- Buffy linear Clara: `buffy_wgbs_linear_gene_fc`.
+- Buffy linear GoliathAlign: `buffy_wgbs_linear_mojo_gene_fc`.
 
-**WGBS note:** stock HPRC graphs are **not** bisulfite-aware. Do **not** silently fall back to stock Giraffe when the BS bundle is missing — pin and provision `pangenome-grch38-d9-bs-1.70`, set `actionConfig.methylgrapher_wgbs` (`engine=mojo`, GPU align engine, `:1.70-mojo-{cuda,rocm}` image), and gate promotion with the canary checklist under `workers/tests/test_methylgrapher_wgbs_canary.md`. CPU align is only for unknown GPU vendors (or explicit dev/parity rollback).
+`seed_pipeline_scope_flags` (gateway `pipeline_profiles` module, called from `enrich_instance_context`) derives `usePangenome` and `useWgbsPangenome` from the merged profile and procedure. Set those flags, or `alignmentMode`, on the start request when the procedure should not be the only source.
 
-**Extraction branch:** when `useWgbsPangenome` is true, SamplePrep runs `sample.methylgrapher_wgbs_extract` (native-Mojo MethylCall/MergeCpG → graph-aware H5 + patterns) instead of `sample.methyl_extract`. Alignment QC is mode-aware: methylGrapher provenance/GAF/BAM baseline, with optional Picard enrichment when Align set `collectmultiplemetrics: true`.
+**WGBS note:** stock HPRC graphs are not bisulfite-aware. Provision the bisulfite bundle the procedure names (`pangenome-grch38-d9-bs-1.70` in the canary notes) and set `actionConfig.methylgrapher_wgbs`. The canary checklist is `workers/tests/test_methylgrapher_wgbs_canary.md`. Unset `align_engine` runs `cpu_vg` (`methylgrapher_wgbs_runner._normalize_align_engine`).
+
+**Extraction branch:** when `useWgbsPangenome` is true, SamplePrep runs `sample.methylgrapher_wgbs_extract` instead of `sample.methyl_extract`. Alignment QC is mode-aware: methylGrapher provenance/GAF/BAM baseline, with optional Picard enrichment when Align set `collectmultiplemetrics: true`.
+
+The epi-GBS program uses `sample.docker_align` on `sample_prep_epigbs.program.json`. That action is outside the four-row table and uses the same local-scratch and pin rules.
 
 ## End-to-end flow
 
@@ -84,7 +86,7 @@ flowchart TD
   patterns -.->|downstream study lifecycle| info[pipeline.info_measures]
 ```
 
-*Sample prep and QC flow (three-mode align, shared QC gates, extract branch, downstream info measures)*
+*Sample prep and QC flow. The linear node is Clara or GoliathAlign according to `parabricks.engine`. Shared QC gates, then the extract branch.*
 
 
 
@@ -93,25 +95,29 @@ flowchart TD
 | Alignment | `qcPass` | After linear / Giraffe / methylGrapher QC BAM, **before** extract | Extraction (unless remediation succeeds) |
 | Extraction | `extractionQcPass` | After MethylExtractor or methylGrapher extract | Full archive and BAM deletion |
 
-**Ordering rationale:** alignment QC runs before cfDNA fragmentomics so failed samples skip BAM scanning. Fragmentomics and extraction both need the aligned BAM (or GAF+H5 on the WGBS path). FASTQs are retained until QC is fully resolved so **fastp** can trim and the **same** alignment mode can realign on the remediation path. SamplePrep emits `{chr}-CG.patterns.h5` when read-level extraction is enabled; `pipeline.info_measures` runs later in the study lifecycle (see [end-to-end workflow §5.2](../architecture/end-to-end-workflow.md)).
+**Ordering rationale:** alignment QC runs before cfDNA fragmentomics so failed samples skip BAM scanning. Fragmentomics and extraction both read the aligned BAM on the pinned worker. FASTQs on `/work` are retained until QC is fully resolved so **fastp** can trim and the **same** alignment path can realign. SamplePrep emits `{chr}-CG.patterns.h5` when read-level extraction is enabled. `pipeline.info_measures` runs later in the study lifecycle.
 
 ## Where artifacts live
 
-Production binds **`sampleRoot`** = `/work/samples/{sample_id}/` (FASTQs, `.caas/`) and **`sampleDir`** = `{sampleRoot}/align.{mode}.{engine}/` (BAM, QC, H5, manifests). Full tooling diagram: [sample-prep-tooling.md](../architecture/sample-prep-tooling.md).
+Production binds **`sampleRoot`** = `/work/samples/{sample_id}/` (FASTQs, `.caas/`) and **`sampleDir`** = `{sampleRoot}/align.{mode}.{engine}/` (metrics, published H5, manifests). The BAM is not on `/work`. Full tooling note: [sample-prep-tooling.md](../architecture/sample-prep-tooling.md).
 
 ```text
 /work/samples/<id>/                 # sampleRoot: FASTQs, .caas/
   align.linear.parabricks/          # sampleDir (Clara linear)
-  align.linear.mojo/
+  align.linear.mojo/                # sampleDir (GoliathAlign linear)
   align.pangenome.parabricks/
-  align.pangenome_wgbs.mojo/        # sampleDir (WGBS)
+  align.pangenome_wgbs.mojo/        # gpu_giraffe / mojo_giraffe / engine=mojo
+  align.pangenome_wgbs.vg/          # cpu_vg, and the runner default when unset
+
+{METHYL_LOCAL_TMP}/bam/<slug>-<digest>/{sample_id}.bam
+{METHYL_LOCAL_TMP}/extract/<slug>-<digest>/   # published *.h5 and *.json land in sampleDir
 ```
 
 | Artifact | Location | Role |
 |----------|----------|------|
-| `*_1.fastq.gz`, `*_2.fastq.gz` | `sampleRoot` | Staged paired FASTQs (retained until final QC) |
-| `.caas/` | `sampleRoot` | Sample-identity skip store (not per-arm) |
-| `{sample_id}.bam` | `sampleDir` | Aligned / QC-compatible BAM |
+| `*_1.fastq.gz`, `*_2.fastq.gz` | `sampleRoot` on `/work` until archive; a staged copy under local `fastq/` during align | Paired FASTQs |
+| `.caas/` | `sampleRoot` | Sample-identity skip store (not per-arm). Align BAMs are a `worker_local_bam` opt-out. |
+| `{sample_id}.bam` | `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/` on the pinned worker | Aligned BAM. Removed by `sample.delete_bam` and by failing pinned tasks. |
 | `*deduplicate_metrics.txt` | `sampleDir` | Picard-style duplication metrics from Parabricks / methylGrapher QC BAM |
 | `{sample_id}.json` | `sampleDir` | Parabricks WGBS metrics JSON (sequencing + alignment) |
 | `{sample_id}.qc-metrics.tar` | `sampleDir` | Optional tar of tabular metrics (used when JSON is absent) |
@@ -179,6 +185,19 @@ The worker writes a slim **guardrail summary** per sample (schema: `schemas/conf
 
 V1-shaped payloads are assembled internally (with Picard tables for compute) and converted to V2.1 for export; standalone tools can migrate older files with `methyl-qc-convert-v1-to-v2` or `methyl-qc-migrate-guardrails`.
 
+## Baked QC window
+
+`finalize_instance_context` writes `resolvedConfig__alignment_qc` and `resolvedConfig__extraction_qc` from the merged site, profile, procedure, and request `actionConfig`. The compiler copies each slice onto the matching task as `resolvedConfig`.
+
+When that object is present, `resolve_alignment_qc_config` and `resolve_extraction_qc_config` load it with `load_resolved_config` and do not re-read the site from the worker environment. A foreach sample may still overlay the window:
+
+| Gate | Overlay on `sampleContext` |
+|------|----------------------------|
+| Alignment QC | `core_guardrails`, or `actionConfig.alignment_qc` |
+| Extraction QC | `guardrails`, or `actionConfig.extraction_qc` |
+
+The SamplePrep program sets `with.sampleContext` to `${var.sample}` on both QC actions. The overlay is merged on top of the baked window (`sample_alignment_overlay`, `sample_extraction_overlay`).
+
 ## Alignment guardrails: what “good alignment” means
 
 Core WGBS guardrails are **operator-configurable**. The **published acceptance window** lives on the **site** (`actionConfig.alignment_qc.core_guardrails` + `extraction_qc.guardrails`). Pipeline profile, assay procedure, and study documents persist only a **sparse overlay** (omit = inherit, JSON `null` = clear). Analyte packs still fill missing keys at instance bake; they are not part of the SQL inherited merge.
@@ -239,7 +258,7 @@ Configure under **site** `actionConfig.alignment_qc` for the published window. P
 ```
 
 - **Core guardrails:** the sequencing/library window in the table above. Only set the keys you need to move; unset keys keep the acceptance window.
-- **Alignment guardrails:** mapping rate, secondary/supplementary rate, GC uniformity (Picard-derived), and properly paired rate (`samtools flagstat` on the BAM). Enabled by default for `cfdna` and `buffy_coat` via analyte profile. See [implementation guide](../implementation/sample-preparation-flow.md).
+- **Alignment guardrails:** mapping rate, secondary/supplementary rate, GC uniformity (Picard-derived), and properly paired rate (`samtools flagstat` on the worker-local BAM). Enabled by default for `cfdna` and `buffy_coat` via analyte profile. See [Analyte profiles](../ANALYTE_PROFILES.md).
 - **Bisulfite conversion:** reads `bisulfite_conversion.json` sidecar when present. A missing sidecar with `source: auto` records deamination as a qualitative proxy in `bisulfite_conversion_metrics.notes`; voting still uses `guardrails.details.deamination_qscore` only.
 - **cfDNA fragmentomics:** when `primary_analyte` is `cfdna`, insert-size histogram guardrails can flag abnormal fragment profiles before extraction.
 
@@ -349,7 +368,8 @@ Before starting SamplePrep, confirm:
 ```bash
 source .venv/bin/activate
 
-# Alignment QC: --samples is the arm leaf (BAM/QC live in sampleDir, not sampleRoot)
+# Standalone alignment QC reads metrics under the arm leaf.
+# The worker path reads the BAM from METHYL_LOCAL_TMP on the pinned worker.
 methyl-qc --samples /work/samples/SAMPLE_ID/align.linear.parabricks \
   --output-dir /work/projects/prostate-cancer/alignment_qc
 
@@ -365,11 +385,8 @@ On the worker path, `sample.methyl_qc` takes `alignmentMode` (`--alignment-mode`
 
 ## Related documentation
 
+- **Start an instance:** [Start a SamplePrep instance](../operators/start-sample-prep.md)
 - **Alignment engines matrix:** [`alignment-engines.md`](alignment-engines.md)
-- **Implementation guide (guardrail boundaries, remediation, extraction filtering, cfDNA fragmentomics):** [`docs/implementation/sample-preparation-flow.md`](../implementation/sample-preparation-flow.md)
-- Workflow operator guide: [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md)
-- Architecture §0: [`workflow_engine/docs/pipeline_architecture.md`](../../workflow_engine/docs/pipeline_architecture.md)
-- Worker contract: [`workflow_engine/contract/sample_prep_capabilities.md`](../../workflow_engine/contract/sample_prep_capabilities.md)
+- Storage contract: [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md)
 - Alignment QC package: [`packages/methylalignmentqc/docs/USAGE.md`](../../packages/methylalignmentqc/docs/USAGE.md)
 - Extraction QC package: [`packages/methylextractionqc/README.md`](../../packages/methylextractionqc/README.md)
-- Historical design notes (cycle screening): `docs/plans/alignment-qc-screening.plan.md`

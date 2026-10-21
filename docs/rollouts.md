@@ -54,7 +54,7 @@ These are dependencies of a target. They do not get their own Rollouts service:
 - Backblaze B2, the shared bucket workers use for parallel scratch
 - RunPod or myQNAPCloud, the long-term archive
 
-The gateway *process* is reported as the `goliath-gateway` service. On the VM the unit installed from GoliathWorkflow is `methyl-gateway.service` (workers are `methyl-worker.service`, lease reclaim is `methyl-reclaim-leases.timer`). Those unit names are not the Rollouts service ids. The Vultr machine is only the place that process is installed.
+The gateway *process* is reported as the `goliath-gateway` service. `scripts/install_gateway_systemd.sh` installs `methyl-gateway.service` from `deploy/systemd/methyl-gateway.service`. Workers are `methyl-worker.service`. Lease reclaim is `methyl-reclaim-leases.timer`. Those unit names are not the Rollouts service ids. The gateway host is only the place that process is installed. The wheel inside the unit is built from GoliathApp. See [Dependency direction](architecture/dependencies.md).
 
 `GOLIATH_ROLLOUTS_EXTERNAL=1` or a service listed in `GOLIATH_ROLLOUTS_SKIP_SERVICES` makes that script skip its own report. `deploy_target.sh` sets `GOLIATH_ROLLOUTS_EXTERNAL=1` on the remote install so the driver reports once. `provision_worker_node.sh` `do_systemd` does the same for the nested `install_worker_systemd.sh` call. A direct run of those scripts on a VM still reports.
 

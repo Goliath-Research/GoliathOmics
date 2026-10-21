@@ -1,0 +1,65 @@
+# Optional local docs site. CI runs `mkdocs build` and does not publish.
+site_name: GoliathOmics
+site_description: Genomics application on GoliathApp
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - content.code.copy
+
+nav:
+  - Home: README.md
+  - Architecture:
+      - Dependency direction: architecture/dependencies.md
+      - Sample preparation tooling: architecture/sample-prep-tooling.md
+  - Operators:
+      - Start a SamplePrep instance: operators/start-sample-prep.md
+      - Release, deploy, and enrollment: operators/release.md
+      - Process packs: operators/process-packs.md
+  - Usage:
+      - Index: usage/index.md
+      - Prerequisites: usage/01-prerequisites-and-environment.md
+      - Sample prep and QC: usage/03-sample-prep-and-qc.md
+      - Alignment engines: usage/alignment-engines.md
+      - Orchestration: usage/04-orchestration-workflow-run.md
+      - Deployment: usage/14-deployment-and-distributed-workflow.md
+      - Config registry: usage/19-config-registry.md
+  - Deploy:
+      - Targets: deploy-targets.md
+      - Rollouts: rollouts.md
+  - Contracts:
+      - Tool requirements: contracts/omics-tool-requirements.md
+  - Theory:
+      - Index: theory/index.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+validation:
+  nav:
+    omitted_files: info
+  links:
+    not_found: info
+    absolute_links: info
+    unrecognized_links: info
+    anchors: info
+
+exclude_docs: |
+  usage/**/*_files/**
+  **/*.html

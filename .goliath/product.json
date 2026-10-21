@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "goliathomics",
+  "name": "GoliathOmics",
+  "tagline": "Genomics workflows on GoliathApp: sample alignment, QC, and process packs.",
+  "description": "GoliathOmics specializes the GoliathApp platform for genomics. A SamplePrep instance aligns each sample, runs alignment QC and extraction QC against the baked configuration window plus any per-sample overlay, and leaves methylation matrices for later study steps. Process packs choose an analyte, a library technique, and a disease or trait cohort on the methylation, RNA-seq, or proteomics modality. Read alignment and methylation calling are the standalone utilities GoliathAlign and MethylExtractor.",
+  "category": "application",
+  "features": [
+    {
+      "title": "SamplePrep alignment workflow",
+      "description": "SamplePrepPipeline takes paired FASTQs through download, one align path, alignment QC, optional cfDNA fragmentomics, methylation extraction, extraction QC, archive, and cleanup."
+    },
+    {
+      "title": "Four align paths",
+      "description": "Linear Clara Parabricks and GoliathAlign share sample.parabricks_fq2bam and switch on actionConfig.parabricks.engine. Stock pangenome uses sample.parabricks_giraffe. WGBS pangenome uses sample.methylgrapher_wgbs_align."
+    },
+    {
+      "title": "BAM stays on one worker",
+      "description": "Align through sample.delete_bam is pinned with require_previous_worker. The BAM and staged FASTQs live on that worker's local scratch (METHYL_LOCAL_TMP), and delete_bam removes them there."
+    },
+    {
+      "title": "QC windows with per-sample overlays",
+      "description": "Alignment QC and extraction QC both honor the resolvedConfig window baked at instance start. A sample may overlay alignment core_guardrails or extraction guardrails on top of that window."
+    },
+    {
+      "title": "Workflow JSON compiled into database nodes",
+      "description": "DomainProgram JSON is compiled to a workflow definition and stored as database nodes. Starting an instance runs finalize_instance_context before the instance is created."
+    },
+    {
+      "title": "Process packs",
+      "description": "Analyte, assay-procedure, and application packs cover analytes, library techniques, and disease or trait studies for methylation, RNA-seq, and proteomics."
+    },
+    {
+      "title": "Release profiles and worker enrollment",
+      "description": "A version tag builds the MethylPipeline archive, assemble publishes the GoliathOmics bundle, and deploy applies a target profile or promotes on the runner. Workers enroll through the gateway REST API."
+    }
+  ],
+  "links": {
+    "repository": "https://github.com/Goliath-Research/GoliathOmics",
+    "docs": null,
+    "website": null
+  },
+  "related": ["goliathapp", "goliathalign", "methylextractor"],
+  "dependsOn": ["goliathapp", "goliathalign", "methylextractor"],
+  "license": "MIT",
+  "status": "ready"
+}

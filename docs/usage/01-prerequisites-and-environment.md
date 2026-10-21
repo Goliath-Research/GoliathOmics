@@ -2,74 +2,67 @@
 
 ## Purpose
 
-Set up a reproducible execution environment for all package CLIs and workflow stages.
+Set up a checkout for package CLIs and for reading the operator guides. A production gateway and workers come from a release bundle, not from this checkout. See [Release](../operators/release.md).
 
 ## Required tools
 
-- Python environment in repo-local `.venv`
-- Installed package CLIs (`methyl-*`)
-- Optional: Chromium/Playwright for PDF export (`make docs-pdf`)
+- Python. `pyproject.toml` requires `>=3.10,<3.15`. The PR workflow and the release workflow use Python 3.12.
+- A repo-local `.venv`
+- Package CLIs installed from this repo (`methyl-centroid`, `methyl-validation`, `methyl-worker`, and the other scripts declared under `packages/*/pyproject.toml` and `workers/pyproject.toml`)
+
+`methyl-gateway`, `methyl-workflow-run`, and `methyl-cfg` are installed with the methyl-gateway wheel built from GoliathApp. `scripts/build_gateway_wheel.sh` builds that wheel. They are not console scripts of this repository's science packages.
 
 ## Environment bootstrap
 
-From repo root (canonical):
+From the repository root:
 
 ```bash
-bash scripts/setup_host.sh --system-deps --with-deps
+python3.12 -m venv .venv
 source .venv/bin/activate
+python -m pip install -U pip
+bash scripts/install_packages.sh --with-deps
 ```
 
-Or manual venv:
+`scripts/install_packages.sh` installs each entry in `scripts/packages.list` in editable mode, then `workers/` when that project is present. `--with-deps` installs declared dependencies. The script reinstalls `methylutils` and `methyldomain` editable at the end so path dependencies stay on this checkout.
 
-```bash
-python3.14 -m venv .venv
-source .venv/bin/activate
-bash scripts/install_all.sh
-```
-
-Optional dependency sets:
-
-```bash
-bash scripts/install_all.sh --pipeline-reqs
-bash scripts/install_all.sh --gpu-reqs
-```
+GPU requirement files in the repo root are `requirements-gpu.txt` and `requirements-gpu-cuda12.txt`. The release build passes `--with-gpu-reqs` to `scripts/build_release.sh`. They are not installed by `install_packages.sh`.
 
 ## Verify CLI availability
 
 ```bash
 source .venv/bin/activate
-methyl-workflow-run --help
 methyl-validation --help
 methyl-centroid --help
-methyl-detector --help
-methyl-mapper --help
-methyl-enricher --help
-methyl-predictor --help
+methyl-worker --help
 ```
+
+`methyl-study-start` appears after the gateway wheel is installed into the same environment. The implementation is `python workflow_engine/admin/study_start.py`.
 
 ## Runtime assumptions
 
-- CPU host development supports Python 3.10-3.14; Python 3.14 is preferred.
-- RAPIDS GPU conda/Docker environments remain on Python 3.12, and the bundled
-  GoliathAlign runtime remains on Python 3.13.
-- Activate `.venv` before every run.
+- Activate `.venv` before every local CLI run.
 - Use absolute paths in project configs where possible.
 - Keep `samples_base_path` consistent across stages.
+- Worker scratch is `METHYL_LOCAL_TMP` (default `$TMPDIR/methyl-pb` or `/tmp/methyl-pb`). `/work` is the shared mount.
 
-## Success checks
+## Docs site
 
-- `.venv` activates without import errors.
-- `methyl-workflow-run --help` and `methyl-validation --help` print options.
-- Project JSON path resolves on the execution host.
+```bash
+python -m pip install -r requirements-docs.txt
+mkdocs serve
+```
+
+The site is optional. CI builds it and does not publish it.
 
 ## Common failures and fixes
 
-- **`command not found`**: activate `.venv` and reinstall with `scripts/install_all.sh`.
-- **module import errors**: reinstall editable packages from repo root.
-- **path mismatch between hosts**: set profile `actionConfig.validation.path_remap` or `--path-remap OLD=NEW`.
+- **`command not found` for a science CLI**: activate `.venv` and rerun `scripts/install_packages.sh --with-deps`.
+- **`command not found` for `methyl-gateway` or `methyl-workflow-run`**: those scripts come from the GoliathApp wheel, not from `install_packages.sh`.
+- **module import errors**: reinstall editable packages from the repo root.
+- **path mismatch between hosts**: set profile `actionConfig.validation.path_remap`.
 
 ## See also
 
-- `README.md`
-- `docs/DEPLOYMENT.md`
-- Interactive doc hubs: [`docs/canvas/`](../canvas/README.md) — run `bash scripts/sync_cursor_canvases.sh` after clone to open canvases in Cursor
+- [README](../../README.md)
+- [Release](../operators/release.md)
+- [Dependency direction](../architecture/dependencies.md)

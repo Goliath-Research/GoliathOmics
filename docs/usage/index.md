@@ -1,6 +1,14 @@
 # GoliathOmics Usage Manual
 
-Older chapters in this manual say MethylPipeline. That name means this genomics product. `methyl-workflow-run` is the current genomics CLI alias. The platform gateway and engine live in GoliathApp. See [docs/README.md](../README.md).
+Older chapters in this manual say MethylPipeline. That name means this genomics product. The platform gateway and engine live in GoliathApp. This product specializes that platform and calls GoliathAlign and MethylExtractor as utilities. See [docs/README.md](../README.md) and [Dependency direction](../architecture/dependencies.md).
+
+Current operator procedures:
+
+- [Start a SamplePrep instance](../operators/start-sample-prep.md) (`methyl-study-start sample-prep-start`, which calls `finalize_instance_context`)
+- [Release, deploy, and worker enrollment](../operators/release.md) (release 2026.10.27)
+- [Process packs](../operators/process-packs.md)
+
+`methyl-workflow-run` is the local runner installed with the methyl-gateway wheel. This repository does not declare that console script. `methyl-study-start` is the admin CLI in `workflow_engine/admin/study_start.py`.
 
 ## What this manual is
 
@@ -12,11 +20,11 @@ This is the operational companion to the theory book. It is designed for executi
 - stage handoff checks,
 - recovery actions when a run fails.
 
-For statistical background, use [`docs/theory/`](../theory/index.md). For compiler and worker internals, use [`docs/implementation/`](../implementation/index.md). Start with [Relationship to Theory and Implementation](00-relationship-to-theory-and-implementation.md).
+For statistical background, use [`docs/theory/`](../theory/index.md). Compiler and worker behavior for SamplePrep is in [Start a SamplePrep instance](../operators/start-sample-prep.md) and [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md). Start with [Relationship to Theory and Implementation](00-relationship-to-theory-and-implementation.md).
 
 ## How to run staged validation
 
-**Use `methyl-workflow-run`** with a DomainProgram and pipeline profile. That is the canonical path for new studies, local runs, and production gateway workers.
+**Start SamplePrep** with `methyl-study-start sample-prep-start`. **Run staged validation** with `methyl-workflow-run` when the methyl-gateway wheel is installed, using a DomainProgram and pipeline profile. Production instances are rows in the workflow database, not a local process.
 
 **`methyl-validation --stability/--freeze/--model` is legacy** — documented for transitional scripts and narrow recovery, not for new workflow design. See [Orchestration: workflow-run](04-orchestration-workflow-run.md) before the stage chapters.
 
@@ -30,7 +38,7 @@ For statistical background, use [`docs/theory/`](../theory/index.md). For compil
 
 ## Reading paths
 
-- **Sample prep (FASTQ → HDF5):** Chapter `03` (`03-sample-prep-and-qc.md`).
+- **Sample prep (FASTQ → HDF5):** [Start a SamplePrep instance](../operators/start-sample-prep.md), then chapter `03` (`03-sample-prep-and-qc.md`).
 - **New project setup:** Chapters `01`, `02`, `04` (orchestration), then `05` or [Tutorial ch.16](16-tutorial-healthy-vs-cancer-stages.md).
 - **Fast path (stage execution):** [Orchestration ch.04](04-orchestration-workflow-run.md) → `methyl-workflow-run`; stage detail in ch.05–09.
 - **Guided tutorial (healthy vs. cancer stages):** Chapter `16` — end-to-end walkthrough; [profile catalog in ch.16](16-tutorial-healthy-vs-cancer-stages.md#step-4-pick-a-profile).
@@ -65,7 +73,8 @@ flowchart LR
 ## Scope boundaries
 
 - **SamplePrepPipeline** (FASTQ → aligned BAM → methylation HDF5) runs before staged validation; see Chapter 3.
-- **Canonical orchestration:** `methyl-workflow-run` + DomainProgram + profile — [chapter 04](04-orchestration-workflow-run.md).
+- **SamplePrep instances:** `methyl-study-start sample-prep-start` — [operator guide](../operators/start-sample-prep.md).
+- **Staged validation on a workstation:** `methyl-workflow-run` + DomainProgram + profile, from the methyl-gateway wheel — [chapter 04](04-orchestration-workflow-run.md).
 - **Legacy orchestration:** `methyl-validation --stability/--freeze/--model` — transitional scripts and recovery only; do not use for new studies.
 - Blind-only prediction is documented as a standalone `methyl-predictor` operation.
 - Package behavior is documented from implementation in `packages/*`.
@@ -73,8 +82,8 @@ flowchart LR
 ## Canonical references
 
 - Sample prep workflow: [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md)
-- DomainProgram language: [`docs/reference/domain-program-language.md`](../reference/domain-program-language.md)
-- Pipeline stages diagram: [`docs/architecture/pipeline-stages.md`](../architecture/pipeline-stages.md)
+- DomainProgram fixtures: `workflow_engine/domain/fixtures/*.program.json`
+- Dependency direction: [`docs/architecture/dependencies.md`](../architecture/dependencies.md)
 - Validation orchestration: `packages/methylvalidation/docs/USAGE.md`
 - Distributed queue: `packages/methylvalidation/docs/DISTRIBUTED_QUEUE.md`
 - Hyperparameter search: `packages/methylvalidation/docs/HYPERPARAMETER_SEARCH.md`

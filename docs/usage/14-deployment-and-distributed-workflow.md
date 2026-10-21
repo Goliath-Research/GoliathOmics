@@ -1,237 +1,145 @@
 # Deployment and Distributed Workflow
 
-The gateway, engine DDL, and `goliath-cfg` live in GoliathApp. This repository supplies science seeds and `methyl_worker` handlers. `methyl-cfg` remains the genomics CLI alias for one release cycle.
+The gateway, engine DDL, and `goliath-cfg` live in GoliathApp. This repository supplies science seeds, DomainPrograms, and `methyl_worker` handlers. `methyl-cfg` remains the genomics CLI alias for one release cycle. Dependency direction: [architecture/dependencies.md](../architecture/dependencies.md).
+
+The operator procedure for release **2026.10.27** is [Release, deploy, and worker enrollment](../operators/release.md). Profiles are in [Deploy targets](../deploy-targets.md). Rollouts service ids are in [rollouts.md](../rollouts.md).
 
 ## Purpose
 
-Deploy the **control plane** (database, REST gateway) and **GPU workers** that execute SamplePrep and validation workflows. This chapter consolidates the dual-backend story (Azure SQL and PostgreSQL) and links to detailed runbooks.
-
-**Canonical production platform:** [`docs/deployment/production-platform.md`](../deployment/production-platform.md)  
-**Deep dive:** [`docs/deployment/production_runbook.md`](../deployment/production_runbook.md)  
-**Operator journey (day-1 → day-N):** [`docs/deployment/operator-journey.md`](../deployment/operator-journey.md)  
-**Worker protocol:** [`workers/WORKER_PROTOCOL.md`](../../workers/WORKER_PROTOCOL.md)  
-**REST contract:** [`contracts/openapi.yaml`](../../contracts/openapi.yaml)
+Deploy the database, the REST gateway, and the workers that execute SamplePrep and validation. One primary database per environment. The goliath-test profile uses Neon Postgres. `deploy_target.sh` skips the GoliathApp schema step when `database.kind` is `mssql`.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-  subgraph portal ["Company Portal"]
-    editor["Schema config editor Web :8077"]
-    runPrep["Start SamplePrepPipeline"]
-    runDdp["Start DataDrivenPipeline"]
+  subgraph portal ["Portal"]
+    runPrep["Queue SamplePrep start"]
   end
-  subgraph database ["Backend Database"]
-    wfPrep["SamplePrepPipeline"]
-    wfDef["DataDrivenPipeline"]
+  subgraph database ["Workflow database"]
+    graph["workflow version and nodes"]
     inst["workflow_instance + context_json"]
-    nexec["node_execution + scope_variable"]
   end
-  subgraph mt ["Middle-Tier"]
-    rest["WfEngine REST :8080"]
-    engine["Engine procs T-SQL / PL/pgSQL"]
+  subgraph mt ["Gateway host"]
+    rest["methyl-gateway on 127.0.0.1:8080"]
+    nginx["nginx /v1/"]
   end
-  subgraph workers ["Remote Workers"]
-    w0["download / Parabricks / QC / extract"]
-    w1["methyl-centroid / detector"]
-    w3["mapper / enricher / progression"]
+  subgraph workers ["Workers"]
+    w0["download, align, QC, extract, delete_bam"]
   end
-  storage[("Shared storage NFS / Azure Files /work/...")]
+  storage[("Shared /work")]
+  scratch[("Worker METHYL_LOCAL_TMP")]
 
-  editor --> runPrep
-  runPrep --> wfPrep
-  wfPrep -->|"HDF5 ready"| runDdp
-  runDdp --> wfDef
-  wfDef --> inst
-  inst --> nexec
-  rest --> engine
-  engine --> nexec
-  w0 --> rest
-  w1 --> rest
-  w3 --> rest
+  runPrep --> inst
+  graph --> inst
+  nginx --> rest
+  rest --> database
+  w0 --> nginx
   w0 --> storage
-  w1 --> storage
-  w3 --> storage
-  nexec -.->|"input paths"| storage
+  w0 --> scratch
 ```
 
-*Distributed runtime*
-
-
+*Distributed runtime. The BAM for a sample stays on that worker's scratch. FASTQs and published H5 files use `/work`.*
 
 | Component | Role |
 |-----------|------|
-| **Database** | Stores workflow definitions, instances, scope, task queue |
-| **Portal SQL** (`portal.sp_*`) | Middle-tier orchestration; starts instances; **preregisters worker IPs** |
-| **Gateway** (`methyl-gateway`) | Worker-only REST (`poll` / `submit` / `enroll`) — no catalog admin HTTP |
-| **Workers** (`methyl-worker`) | Execute capabilities (Parabricks, methyl-qc, detector, …); Arc Connected |
-| **`/work` storage** | Shared FASTQs, BAMs, HDF5, MC outputs, `/work/goliath` release |
+| **Database** | Workflow definitions, instances, scope, task queue. GoliathApp `sql_pg` plus this repo's `cfg_analyte_catalog.sql`. |
+| **Portal SQL** (`portal.sp_*`) | Starts instances from `cfg.study_start_request`. Preregisters worker IPs with `portal.sp_upsert_worker_enrollment`. |
+| **Gateway** (`methyl-gateway`) | Worker REST under `/v1/workers/*`: enroll, authenticate, task request, submit. nginx proxies public 443 to loopback `8080`. |
+| **Workers** (`methyl-worker`) | Claim tasks. Align through `delete_bam` is pinned to one worker. |
+| **`/work`** | Shared FASTQs, published H5, study outputs, `/work/goliath` releases. Not the BAM disk. |
 
-The portal does **not** call the gateway. Catalog and DomainProgram deploy use **direct DB** scripts on a privileged host. Workers enroll and claim over HTTPS with a token; production gateways set `GATEWAY_REQUIRE_ARC_ATTEST=1`.
+The portal does not call the gateway. Catalog and DomainProgram deploy use direct database scripts. Workers enroll and claim over HTTPS with a token.
 
-## Greenfield checklist
+## What to run
 
-Use this ordered checklist once per environment (detail: [production-platform.md](../deployment/production-platform.md)):
+Follow [Release](../operators/release.md). In order:
 
-1. [ ] Deploy database schema + Python populate on a **privileged host** (`deploy_azure.sh` twins, then `bootstrap_distributed_workers.sh`)
-2. [ ] Install the gateway on a **gateway VM local disk** (`provision_gateway_node.sh` — no `/work` mount)
-3. [ ] Gateway deploy installs nginx. With no domain, TLS is a self-signed certificate for the public IP (`scripts/setup_gateway_nginx.sh`). Optional: `gateway.tls.mode` `letsencrypt` plus a domain. Set `GATEWAY_REQUIRE_ARC_ATTEST=1`. `https://<host>/v1/` answers through nginx.
-4. [ ] Portal-preregister each GPU public IP
-5. [ ] First GPU worker seeds shared `/work` (layout, release, extractor, one Parabricks pull), then enrolls
-6. [ ] Later GPU workers: VM-local host/Docker, then enroll (`provision_worker_node.sh`)
-7. [ ] Smoke test: `scripts/smoke_sample_prep.sh`, `scripts/smoke_study_lifecycle.sh`
+1. Push `v<semver>` so **GoliathOmics release** publishes `methyl-pipeline-release-<semver>.tar.gz`.
+2. Run **GoliathOmics release assemble** so `goliathomics-<releaseVersion>` exists.
+3. Run **GoliathOmics release deploy** with `target` set to a profile (`goliath-test`) or left empty for a runner-local promote.
+4. Preregister each worker, then let `provision_worker_node.sh --enroll-worker` call `POST {WORKER_API_BASE}/workers/enroll`.
+5. Load process packs with `scripts/deploy_process_pack_catalog.sh --backend postgres --sync` when the release schema is applied. See [Process packs](../operators/process-packs.md).
+6. Compile DomainPrograms into database nodes with `scripts/deploy_workflow_definitions.sh`.
 
-## Database deploy (dual-backend)
-
-Both backends implement the same **`wf`** schema contract. Choose one primary backend per environment; CI and local dev often use PostgreSQL.
-
-### PostgreSQL (schema twin / CI; canonical DB `goliath`)
-
-| Step | Command / doc |
-|------|----------------|
-| Schema scripts | [`workflow_engine/sql_pg/README.md`](../../workflow_engine/sql_pg/README.md) |
-| Automated deploy | `./workflow_engine/sql_pg/deploy_azure.sh` (core engine + portal DDL) |
-| Cluster IP binding | Optional: `wf_cluster_security_columns.sql` (run manually when using IP-bound clusters) |
-| FOREACH support | Included in `08_foreach_support.sql` |
-
-```bash
-export BACKEND_DB=postgres
-export POSTGRES_HOST=your-server.postgres.database.azure.com
-export POSTGRES_PORT=5432
-export POSTGRES_DB=goliath
-export POSTGRES_USER=dba
-export POSTGRES_PASSWORD='...'
-./workflow_engine/sql_pg/deploy_azure.sh
-
-# Optional: cluster IP binding columns (when using wf.cluster security features)
-psql -f workflow_engine/sql_pg/wf_cluster_security_columns.sql
-```
-
-### Azure SQL (production portal)
-
-| Step | Command / doc |
-|------|----------------|
-| Script order | [`workflow_engine/README.md`](../../workflow_engine/README.md) |
-| Bundled schema | `workflow_engine/sql_mssql/MethylPipeline.sql` |
-| FOREACH | `wf_sql_foreach_support.sql` (both backends) |
-
-```bash
-# Example: sqlcmd against Azure SQL with scripts 1–18 from workflow_engine/README.md
-```
-
-**Note:** `deploy_azure.sh` applies core engine scripts plus portal DDL (`portal_resource_profile.sql`, `portal_workflow_api.sql`, `wf_drop_platform_sample_storage.sql`). Run `wf_cluster_security_columns.sql` separately when enabling cluster IP binding.
-
-## Action catalog and workflow definitions
-
-After schema deploy:
-
-```bash
-source .venv/bin/activate
-methyl-export-task-schemas
-methyl-export-action-catalog
-python workflow_engine/sql_mssql/seed_action_catalog.py
-
-# Deploy SamplePrep + StudyValidation DomainPrograms (direct DB):
-export BACKEND_DB=mssql   # or postgres
-# AZURE_SQL_* or POSTGRES_*
-bash scripts/deploy_workflow_definitions.sh
-```
-
-Output: `workflow_versions.json` with `workflow_version_id` values for portal / CI start.
-
-Canonical programs (repo):
-
-- SamplePrep: [`workflow_engine/domain/fixtures/sample_prep.program.json`](../../workflow_engine/domain/fixtures/sample_prep.program.json)
-- Study validation: check-specific `*.program.json` under `workflow_engine/domain/checks/`
-
-Authoring language: [`docs/reference/domain-program-language.md`](../reference/domain-program-language.md)
+`scripts/deploy_azure.sh`, `scripts/bootstrap_distributed_workers.sh`, `contracts/openapi.yaml`, and `workers/WORKER_PROTOCOL.md` are not in this repository. `pip install -e workflow_engine/` does not install the gateway: this checkout has no `workflow_engine/pyproject.toml`. The gateway wheel is produced by `scripts/build_gateway_wheel.sh` from a GoliathApp checkout.
 
 ## Gateway configuration
 
-Install from repo root:
+`scripts/deploy_target.sh --component gateway` writes `<install_root>/env/gateway.env` and runs `scripts/install_gateway_systemd.sh` and `scripts/setup_gateway_nginx.sh`. The unit file is [`deploy/systemd/methyl-gateway.service`](../../deploy/systemd/methyl-gateway.service). The nginx site is [`deploy/nginx/methyl-gateway.conf`](../../deploy/nginx/methyl-gateway.conf).
 
-```bash
-source .venv/bin/activate
-pip install -e workflow_engine/
-```
-
-Copy and edit an example env file:
+Env templates:
 
 | Backend | Template |
 |---------|----------|
 | PostgreSQL | [`deploy/env/gateway.postgres.env.example`](../../deploy/env/gateway.postgres.env.example) |
 | Azure SQL | [`deploy/env/gateway.mssql.env.example`](../../deploy/env/gateway.mssql.env.example) |
 
-Install systemd + nginx with [`scripts/provision_gateway_node.sh`](../../scripts/provision_gateway_node.sh) (`--root /opt/methyl-gateway`, not `/work`). `scripts/deploy_target.sh` runs the same nginx step. Unit template: [`deploy/systemd/methyl-gateway.service`](../../deploy/systemd/methyl-gateway.service). Nginx: [`deploy/nginx/methyl-gateway.conf`](../../deploy/nginx/methyl-gateway.conf). A public IP uses a self-signed certificate stored once under `/etc/ssl/methyl-gateway/`. A DNS name can use `gateway.tls.mode` `letsencrypt`.
-
-Key variables (see `workflow_engine/rest/connection.py`):
+Connection variables the gateway and `methyl-study-start` read:
 
 - `BACKEND_DB` — `postgres` or `mssql`
-- `POSTGRES_*` or `AZURE_SQL_*` — connection targets
-- `WF_USE_MANAGED_IDENTITY` — Azure Entra token auth for DB
-- Worker auth is `worker_id` + `worker_token` on `/v1/workers/*` (gateway is worker-only)
+- `POSTGRES_*` or `AZURE_SQL_*`
+- `WF_GATEWAY_HOST` / `WF_GATEWAY_PORT` — loopback bind, default `127.0.0.1:8080`
+- `WF_USE_MANAGED_IDENTITY` — Azure Entra token auth for the database, when the gateway build supports it
+
+Worker auth is the numeric `worker_id` plus `worker_token` returned by enroll.
 
 ## Worker configuration
 
-Each GPU worker runs one or more `methyl-worker` systemd units (see [`deploy/systemd/methyl-worker@.service`](../../deploy/systemd/methyl-worker@.service)).
+Each worker runs `methyl-worker` (unit [`deploy/systemd/methyl-worker.service`](../../deploy/systemd/methyl-worker.service), or the templated `methyl-worker@.service` when that file is present).
 
 | Variable | Purpose |
 |----------|---------|
-| `WORKER_ID` | Unique worker name |
-| `WORKER_TOKEN` | Auth token from **gateway enroll** (`/etc/methyl/worker-token`) |
-| `WORKER_CAPABILITY` | e.g. `parabricks.fq2bam`, `methyl-qc`, `pipeline.detector` |
-| `WORKER_API_BASE` | Gateway URL (`https://gateway.example.com/v1`) |
+| `WORKER_ID` | Numeric id returned by enroll. Written to `/etc/methyl/worker-token`. |
+| `WORKER_TOKEN` | Token returned by enroll. Same file, mode 0600. |
+| `WORKER_API_BASE` | Gateway URL ending in `/v1`, for example the profile `gateway.public_base_url`. |
+| `WORKER_CAPABILITY` | Optional capability pin in the shared `worker.env`. Enroll sends the probed capability list in the JSON body. |
+| `METHYL_LOCAL_TMP` | Scratch root for BAM and extract. Default `$TMPDIR/methyl-pb` or `/tmp/methyl-pb`. |
 
-Enrollment and provisioning (production = portal IP prereg + Arc + `methyl-worker enroll`):
+`scripts/write_worker_env.sh` writes the shared `/work/goliath/env/worker.env` without credentials. Do not put `WORKER_ID` or `WORKER_TOKEN` in that shared file.
 
-- [`docs/deployment/production-platform.md`](../deployment/production-platform.md)
-- [`docs/deployment/worker_provision.md`](../deployment/worker_provision.md)
-- [`docs/deployment/arc_worker_runbook.md`](../deployment/arc_worker_runbook.md)
-- `scripts/provision_worker_node.sh`, `methyl-worker enroll`
+Enrollment command and the preregistration SQL are in [Release](../operators/release.md#worker-enrollment).
 
-Worker poll/submit contract: [`workers/WORKER_PROTOCOL.md`](../../workers/WORKER_PROTOCOL.md)
+## Workflow definitions
+
+```bash
+source .venv/bin/activate
+methyl-export-task-schemas
+methyl-export-action-catalog
+bash scripts/deploy_workflow_definitions.sh
+```
+
+`deploy_workflow_definitions.sh` compiles SamplePrep, the remediate program, the study-validation lifecycle, and the RNA-seq and proteomics programs when those fixtures exist. It stores each graph with `wf.wf_repo_create_workflow_graph`. `--dry-run` writes the compiled JSON and does not deploy. `--keep-instances` is the default. The script needs `BACKEND_DB` and `POSTGRES_*` or `AZURE_SQL_*`.
+
+Programs live in [`workflow_engine/domain/fixtures/`](../../workflow_engine/domain/fixtures/).
 
 ## End-to-end operator flow
 
 ### 1. SamplePrepPipeline
 
-Prefer portal SQL (`portal.sp_create_and_start_instance`) after planning context. For CI:
-
 ```bash
 methyl-study-start sample-prep-start request.json
 ```
 
-See [Sample Prep and Quality Control](03-sample-prep-and-qc.md) for QC gates.
+The request shape, the four align paths, the scratch pin, and the QC window are in [Start a SamplePrep instance](../operators/start-sample-prep.md). QC artifact rules are in [Sample prep and QC](03-sample-prep-and-qc.md).
 
-### 2. Study validation / MC
+### 2. Study validation
 
-After SamplePrep **COMPLETED**, start validation via portal SQL or:
+After SamplePrep completes, queue a validation start or run the lifecycle program with `methyl-workflow-run` from the gateway wheel. See [Orchestration](04-orchestration-workflow-run.md).
 
-```bash
-methyl-workflow-run \
-  --program workflow_engine/domain/checks/.../configs/your_mc.program.json \
-  --context-file workflow_engine/domain/profiles/your.profile.json \
-  --context '{"projectPath":"/work/.../configs/project.json"}'
-```
-
-Or legacy CLI recovery: [Stage: Stability](05-stage-stability.md) (transitional `methyl-validation` flags).
-
-### 3. Local workflow (no gateway)
-
-For development without database:
+### 3. Local compile
 
 ```bash
-methyl-workflow-run --program path/to/program.json \
-  --context-file profile.json \
-  --context '{"projectPath":"/work/.../project.json"}' \
-  --stub-external
+python scripts/compile_workflow_program.py \
+  workflow_engine/domain/fixtures/sample_prep.program.json \
+  -o /tmp/sample_prep_compiled.json
 ```
+
+That script imports `domain.compiler` from the methyl-gateway wheel.
 
 ## Related documentation
 
-- Production platform: [`docs/deployment/production-platform.md`](../deployment/production-platform.md)
-- Production runbook: [`docs/deployment/production_runbook.md`](../deployment/production_runbook.md)
-- Release layout: [`docs/deployment/production_release.md`](../deployment/production_release.md)
-- Portal lifecycle: [`workflow_engine/docs/portal_study_lifecycle.md`](../../workflow_engine/docs/portal_study_lifecycle.md)
-- SamplePrep operator guide: [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md)
-- Documentation audit: [`docs/DOCUMENTATION_AUDIT.md`](../DOCUMENTATION_AUDIT.md)
+- [Release, deploy, and enrollment](../operators/release.md)
+- [Deploy targets](../deploy-targets.md)
+- [Rollouts](../rollouts.md)
+- [Process packs](../operators/process-packs.md)
+- [SamplePrep storage contract](../../workflow_engine/sql_mssql/SamplePrepFlow.md)

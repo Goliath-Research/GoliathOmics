@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define a **study manifest** (slim project JSON) plus reusable **profile**, **site**, and **program** artifacts so stability, freeze, model, and evaluation run without per-stage schema drift.
+Define a **study manifest** (slim project JSON) plus reusable **profile**, **site**, and **program** artifacts so stability, freeze, model, and evaluation run without per-stage schema drift. SamplePrep instances are started with [methyl-study-start](../operators/start-sample-prep.md), which bakes this layout into `resolvedConfig__*` scope variables.
 
 ## Four-layer configuration
 
@@ -15,7 +15,7 @@ Define a **study manifest** (slim project JSON) plus reusable **profile**, **sit
 
 **Precedence** (highest wins): program/instance override → profile `actionConfig` → analyte defaults (`regulatory.primary_analyte`) → site manifest → *(no Python fallback for tunable science knobs)*.
 
-Study manifests **must not** contain `step_config`. Legacy projects: `python scripts/migrate_project_config.py --in-place path/to/project.json`.
+Study manifests **must not** contain `step_config`. `schemas/config/project_config.schema.json` rejects that key. Tool parameters live in the profile `actionConfig` and the site manifest.
 
 ## Repository vs `/work` (what goes where)
 
@@ -24,7 +24,7 @@ Study manifests **must not** contain `step_config`. Legacy projects: `python scr
 | Pipeline profiles (`workflow_engine/domain/profiles/`) | `project_*.json` — cohorts, comparisons, sample paths, `output_base`, `regulatory` |
 | DomainPrograms (`*.program.json` under `workflow_engine/domain/`) | Sample list CSVs under `data/` |
 | JSON schemas (`schemas/config/`) | Run outputs (`monte_carlo_runs/`, `stability/`, …) |
-| Site example (`tools/methyl-config-editor/configs/site_grch38.example.json`) | `/work/site/methyl_site.json` (operator copy) |
+| Site examples (`workflow_engine/domain/profiles/site_*.example.json`, `scripts/default_methyl_site.json`) | `/work/site/methyl_site.json` (operator copy) |
 
 - Point `methyl-workflow-run --program` at a **repo** DomainProgram path (see [Orchestration](04-orchestration-workflow-run.md)).
 - Point `--context` / `projectPath` at a **study manifest on `/work`**.

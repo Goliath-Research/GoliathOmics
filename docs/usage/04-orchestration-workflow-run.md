@@ -1,21 +1,23 @@
-# Orchestration: `methyl-workflow-run` (canonical)
+# Orchestration: `methyl-workflow-run`
 
 ## Purpose
 
-Choose the right **entry point** for staged validation. New studies and production runs should use **`methyl-workflow-run`** with a DomainProgram and pipeline profile. The monolithic **`methyl-validation --stability/--freeze/--model`** path is **legacy** — kept for transitional scripts and one-off recovery, not for new workflow design.
+Choose the right **entry point** for staged validation on a workstation that has the methyl-gateway wheel installed. `methyl-workflow-run` is that wheel's local runner. This repository does not declare the console script. Production SamplePrep instances are started with `methyl-study-start sample-prep-start`, which calls `finalize_instance_context` and writes the instance to the database. See [Start a SamplePrep instance](../operators/start-sample-prep.md).
 
-## Preferred vs legacy
+The monolithic **`methyl-validation --stability/--freeze/--model`** path remains for transitional scripts and one-off recovery.
 
-| | **Canonical (use this)** | **Legacy (transitional only)** |
+## Workstation runner and legacy CLI
+
+| | **Workstation runner (gateway wheel)** | **Legacy (transitional only)** |
 |--|--------------------------|--------------------------------|
 | **Entry** | `methyl-workflow-run` | `methyl-validation --stability`, `--freeze`, `--model`, … |
 | **Topology** | DomainProgram JSON (`workflow_engine/domain/**/*.program.json`) | Hard-coded stage sequence inside the CLI |
 | **Parameters** | Profile `actionConfig` + site manifest + optional instance overrides | Same keys, but resolved only through project path and CLI flags |
 | **Skip / resume** | Per-action `.action_results/` manifests in the compiled graph | `--resume`, `--skip-detection`, coarse stage flags |
-| **Production cluster** | `methyl-gateway` + `methyl-worker` (same programs as local) | `plan-runs` / `run-task` file queue (legacy distributed MC) |
-| **When to use** | All new studies, CI smoke, portal/gateway instances | Existing shell scripts, queue workers not yet migrated, narrow recovery |
+| **Production cluster** | Database instances claimed by `methyl-worker` through `methyl-gateway`. SamplePrep starts with `methyl-study-start sample-prep-start`. | `plan-runs` / `run-task` file queue (legacy distributed MC) |
+| **When to use** | Workstation runs and smoke of a DomainProgram when the gateway wheel is installed | Existing shell scripts, queue workers not yet migrated, narrow recovery |
 
-See also [Architecture: orchestration paths](../architecture/orchestration-paths.md).
+See also [Dependency direction](../architecture/dependencies.md).
 
 ## What you pass
 

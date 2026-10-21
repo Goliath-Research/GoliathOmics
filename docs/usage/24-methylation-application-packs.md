@@ -53,8 +53,9 @@ Committed under
 | Procedure | Analyte | Defaults |
 |-----------|---------|----------|
 | `buffy_wgbs_pangenome_gene_fc` | `buffy_coat` | **Default** WGBS pangenome (native-Mojo methylGrapher on NVIDIA or AMD, `alignmentMode: pangenome_wgbs`); requires `hprc-d9-bs.wl.gfa` |
-| `buffy_wgbs_mvalue_residual_gene_fc` | `buffy_coat` | Opt-in M-value residualization before centroids/DMPs (Houseman Ω ALR + smoking/Hannum age/BMI/CRP scores). Forked lifecycle; default buffy procedure is unchanged. See [implementation](../implementation/mvalue-residualization.md) and the [research note](../research/buffy-mvalue-residualization.md). |
-| `buffy_wgbs_linear_gene_fc` | `buffy_coat` | Linear WGBS baseline via **explicit** Clara Parabricks (or MojoFq2bamMeth); same science knobs |
+| `buffy_wgbs_mvalue_residual_gene_fc` | `buffy_coat` | Opt-in M-value residualization before centroids/DMPs (Houseman Ω ALR + smoking/Hannum age/BMI/CRP scores). Forked lifecycle. The research note is [buffy-mvalue-residualization.md](../research/buffy-mvalue-residualization.md). |
+| `buffy_wgbs_linear_gene_fc` | `buffy_coat` | Linear WGBS via Clara Parabricks (`parabricks.engine` `parabricks`) |
+| `buffy_wgbs_linear_mojo_gene_fc` | `buffy_coat` | Same linear program node via GoliathAlign (`parabricks.engine` `mojo`) |
 | `cfdna_wgbs_plasma` | `cfdna` | Linear WGBS + fragmentomics (analyte merge), gene FeatureCuts, **no** cell deconv lifecycle |
 | `cfdna_emseq_targeted` | `cfdna` | `libraryProtocol: emseq_targeted`, `sample_prep_emseq`, panel BED + elevated `min_cov`, no deconv |
 | `cfdna_emseq_mhl_survival` | `cfdna` | Same SamplePrep; `researchMode: mhl_survival`; `pipeline.mhb_mhl` + Cox (not FeatureCuts/ECDF) |
@@ -70,9 +71,7 @@ methyl-workflow-run \
   }'
 ```
 
-Accepted for production buffy research after linear-vs-wgbs gates
-([`docs/plans/wgbs-alignment-decision.plan.md`](../plans/wgbs-alignment-decision.plan.md)).
-Use `buffy_wgbs_linear_gene_fc` when the explicit NVIDIA Clara (or linear Mojo) path is preferred for wall-time or linear BAM workflows.
+Use `buffy_wgbs_pangenome_gene_fc` for WGBS pangenome buffy research, `buffy_wgbs_linear_gene_fc` for linear Clara, and `buffy_wgbs_linear_mojo_gene_fc` for linear GoliathAlign. The start command and the four align paths are in [Start a SamplePrep instance](../operators/start-sample-prep.md).
 
 Prefer the procedure’s `lifecycleProgram` / `samplePrepProgram` hints (especially
 `study_validation_lifecycle_no_deconv` for cfDNA plasma and EM-Seq). Schema:
