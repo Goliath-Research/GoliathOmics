@@ -1,7 +1,7 @@
 {
   "programVersion": 2,
   "name": "SamplePrepPipeline",
-  "description": "Per-sample upstream preprocessing with alignment QC screening, trim remediation, extraction QC, and sample archive. Gate booleans are typed DomainProgram variables (catalog scope_bindings write them; FOREACH+IF remains the control flow \u2014 hybrid typed assign, not science-in-assign). Align nodes set stageFastqs=local (FASTQs copied from /work to the pinned worker's local BAM dir); methylGrapher extract sets workDirMode=local (local scratch, publish *.h5/*.json to sampleDir).",
+  "description": "Per-sample upstream preprocessing with alignment QC screening, trim remediation, extraction QC, and sample archive. Gate booleans are typed DomainProgram variables (catalog scope_bindings write them; FOREACH+IF remains the control flow \u2014 hybrid typed assign, not science-in-assign). Align nodes set stageFastqs=local so the pinned worker stages FASTQs from the sample root (/work/samples/<id>/) straight into METHYL_LOCAL_TMP; the align leaf is not a second FASTQ copy. methylGrapher extract sets workDirMode=local (local scratch, publish *.h5/*.json to sampleDir).",
   "projectPath": "${var.projectPath}",
   "variables": {
     "qcPass": {
@@ -76,7 +76,10 @@
         },
         {
           "action": "sample.methyl_qc",
-          "node_key": "methyl_qc"
+          "node_key": "methyl_qc",
+          "with": {
+            "sampleContext": "${var.sample}"
+          }
         },
         {
           "if": "${qcPass}",
@@ -236,6 +239,7 @@
                   "action": "sample.methyl_qc",
                   "node_key": "methyl_qc_retry",
                   "with": {
+                    "sampleContext": "${var.sample}",
                     "qcAttempt": 2,
                     "alignmentPass": "post_trim_realign",
                     "qcAttemptReason": "${var.qcAttemptReason}",

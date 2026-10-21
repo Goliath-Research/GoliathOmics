@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from methyl_alignment_qc.project_resolver import resolve_alignment_qc_config
+from methyl_alignment_qc.core.wgbs_parabricks_qc import _build_wgbs_guardrail_report
+from methyl_alignment_qc.models.config import CoreGuardrailsConfig
+from methyl_alignment_qc.project_resolver import (
+    alignment_qc_window,
+    resolve_alignment_qc_config,
+)
 
 
 def test_resolve_alignment_qc_config_output_dir_and_sample_paths(tmp_path: Path):
@@ -46,7 +51,9 @@ def test_resolve_alignment_qc_config_site_validate_schema(tmp_path, monkeypatch)
     }
     project_path = tmp_path / "project.json"
     project_path.write_text(json.dumps(project), encoding="utf-8")
-    monkeypatch.setenv("METHYL_SITE_CONFIG", _write_site(tmp_path, "alignment_qc", {"validate_schema": False}))
+    monkeypatch.setenv(
+        "METHYL_SITE_CONFIG", _write_site(tmp_path, "alignment_qc", {"validate_schema": False})
+    )
     config = resolve_alignment_qc_config(str(project_path))
     assert config.validate_schema is False
     assert config.output_dir == str(out_base / "Test" / "alignment_qc")
@@ -76,7 +83,9 @@ def test_resolve_alignment_qc_config_supports_control_and_label_filters(tmp_path
     }
     project_path = tmp_path / "project.json"
     project_path.write_text(json.dumps(project), encoding="utf-8")
-    monkeypatch.setenv("METHYL_SITE_CONFIG", _write_site(tmp_path, "alignment_qc", {"groups": ["control", "pca"]}))
+    monkeypatch.setenv(
+        "METHYL_SITE_CONFIG", _write_site(tmp_path, "alignment_qc", {"groups": ["control", "pca"]})
+    )
     config = resolve_alignment_qc_config(str(project_path))
     assert config.output_dir == str(out_base / "CanonicalQC" / "alignment_qc")
     assert config.sample_paths == ["/samples/h1", "/samples/shared", "/samples/d1"]
@@ -108,3 +117,77 @@ def test_resolve_alignment_qc_keeps_samples_without_h5_and_empty_disease(tmp_pat
     config = resolve_alignment_qc_config(str(project_path))
     assert config.output_dir == str(out_base / "Canary" / "alignment_qc")
     assert config.sample_paths == [str(sample)]
+
+
+def _minimal_project(tmp_path: Path) -> Path:
+    project = {
+        "project_name": "Guard",
+        "output_base": str(tmp_path / "out"),
+        "group1": {"label": "g1", "sample_paths": ["/a"]},
+        "group2": {"label": "g2", "sample_paths": ["/b"]},
+    }
+    project_path = tmp_path / "project.json"
+    project_path.write_text(json.dumps(project), encoding="utf-8")
+    return project_path
+
+
+def _canary_metrics() -> dict:
+    return {
+        "quality_yield": {
+            "pf_reads": 100,
+            "total_reads": 100,
+            "pf_q30_bases": 100,
+            "pf_bases": 100,
+        },
+        "mean_quality_by_cycle": {"mean_quality": [40.0] * 30},
+        "gc_bias_summary": {"at_dropout": 3.754, "gc_dropout": 1.0},
+        "insert_size_metrics": {"median_insert_size": 200},
+    }
+
+
+def test_resolved_config_max_at_dropout_overrides_site_default(tmp_path, monkeypatch):
+    """Instance bake wins over METHYL_SITE_CONFIG and the published 3.0 default."""
+    project_path = _minimal_project(tmp_path)
+    monkeypatch.setenv(
+        "METHYL_SITE_CONFIG",
+        _write_site(
+            tmp_path,
+            "alignment_qc",
+            {"core_guardrails": {"max_at_dropout": 3.0}},
+        ),
+    )
+    site_only = resolve_alignment_qc_config(str(project_path))
+    assert site_only.core_guardrails is not None
+    assert site_only.core_guardrails.max_at_dropout == 3.0
+
+    baked = resolve_alignment_qc_config(
+        str(project_path),
+        resolved_config={"core_guardrails": {"max_at_dropout": 100.0}},
+    )
+    assert baked.core_guardrails is not None
+    assert baked.core_guardrails.max_at_dropout == 100.0
+
+    pinned = resolve_alignment_qc_config(
+        str(project_path),
+        resolved_config={"core_guardrails": {"max_at_dropout": 100.0}},
+        sample_context={"core_guardrails": {"max_at_dropout": 50.0}},
+    )
+    assert pinned.core_guardrails is not None
+    assert pinned.core_guardrails.max_at_dropout == 50.0
+
+    window = alignment_qc_window(
+        resolved_config={"core_guardrails": {"max_at_dropout": 100.0}},
+        sample_context={
+            "actionConfig": {"alignment_qc": {"core_guardrails": {"max_at_dropout": 80.0}}}
+        },
+    )
+    assert window is not None and window.core_guardrails is not None
+    assert window.core_guardrails.max_at_dropout == 80.0
+
+    failed = _build_wgbs_guardrail_report(_canary_metrics(), core_guardrails=CoreGuardrailsConfig())
+    passed = _build_wgbs_guardrail_report(_canary_metrics(), core_guardrails=baked.core_guardrails)
+    assert failed["details"]["at_dropout"]["pass"] is False
+    assert failed["details"]["at_dropout"]["normal_range"] == "< 3.0"
+    assert passed["details"]["at_dropout"]["pass"] is True
+    assert passed["details"]["at_dropout"]["value"] == 3.754
+    assert passed["details"]["at_dropout"]["normal_range"] == "< 100.0"

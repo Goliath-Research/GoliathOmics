@@ -28,7 +28,7 @@ def test_download_handler_receives_validated_input_model() -> None:
     assert out.n_files == 1
 
 
-def test_download_writes_sample_root_and_links_arm(tmp_path: Path) -> None:
+def test_download_writes_sample_root_and_not_the_align_leaf(tmp_path: Path) -> None:
     root = tmp_path / "S1"
     arm = root / "align.linear.parabricks"
     task = DownloadFastqTaskInput.model_validate(
@@ -51,7 +51,9 @@ def test_download_writes_sample_root_and_links_arm(tmp_path: Path) -> None:
         out = _handle_download_fastq("sample.download-fastq", "sample.download_fastq", task)
     assert out.n_files == 1
     assert (root / "S1_1.fastq.gz").is_file()
-    assert (arm / "S1_1.fastq.gz").is_file()
+    assert arm.is_dir()
+    assert not (arm / "S1_1.fastq.gz").exists()
+    assert list(arm.glob("*.fastq*")) == []
 
 
 def test_delete_fastqs_targets_sample_root_and_arm_links(tmp_path: Path) -> None:

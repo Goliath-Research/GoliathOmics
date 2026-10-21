@@ -41,11 +41,17 @@
         },
         {
           "action": "sample.parabricks_fq2bam",
-          "node_key": "parabricks_fq2bam"
+          "node_key": "parabricks_fq2bam",
+          "with": {
+            "stageFastqs": "local"
+          }
         },
         {
           "action": "sample.methyl_qc",
-          "node_key": "methyl_qc"
+          "node_key": "methyl_qc",
+          "with": {
+            "sampleContext": "${var.sample}"
+          }
         },
         {
           "if": "${qcPass}",
@@ -144,6 +150,7 @@
                   "action": "sample.parabricks_fq2bam",
                   "node_key": "parabricks_realign",
                   "with": {
+                    "stageFastqs": "local",
                     "forceRealign": true,
                     "alignmentPass": "post_trim_realign",
                     "remediationReason": "${var.qcAttemptReason}",
@@ -154,6 +161,7 @@
                   "action": "sample.methyl_qc",
                   "node_key": "methyl_qc_retry",
                   "with": {
+                    "sampleContext": "${var.sample}",
                     "qcAttempt": 2,
                     "alignmentPass": "post_trim_realign",
                     "qcAttemptReason": "${var.qcAttemptReason}",

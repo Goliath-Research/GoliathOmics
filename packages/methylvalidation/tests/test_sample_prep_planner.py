@@ -94,6 +94,27 @@ def test_explicit_samples_with_s3_storage(tmp_path: Path) -> None:
     assert s1["h5Destination"] is None
 
 
+def test_planner_keeps_per_sample_alignment_qc_pins(tmp_path: Path) -> None:
+    project_path = _write_project(tmp_path)
+    ctx = _plan(
+        tmp_path,
+        {
+            "projectPath": str(project_path),
+            "samples": [
+                {
+                    "sampleId": "S1",
+                    "core_guardrails": {"max_at_dropout": 100.0},
+                    "actionConfig": {"alignment_qc": {"validate_schema": False}},
+                }
+            ],
+            "fastqStorage": S3_STORAGE,
+        },
+    )
+    sample = ctx["samples"][0]
+    assert sample["core_guardrails"]["max_at_dropout"] == 100.0
+    assert sample["actionConfig"]["alignment_qc"]["validate_schema"] is False
+
+
 def test_planner_keeps_explicit_arm_sample_dir(tmp_path: Path) -> None:
     project_path = _write_project(tmp_path)
     arm = tmp_path / "samples" / "S1" / "align.linear.mojo"

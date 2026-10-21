@@ -32,10 +32,12 @@ def test_trim_discovers_noncanonical_paired_fastqs(tmp_path: Path) -> None:
         out_r2 = Path(cmd[cmd.index("-O") + 1])
         out_r1.write_bytes(b"t1")
         out_r2.write_bytes(b"t2")
+
         class _P:
             returncode = 0
             stdout = ""
             stderr = ""
+
         return _P()
 
     with patch("methyl_worker.fastq_trim_runner.shutil.which", return_value="fastp"):
@@ -114,6 +116,38 @@ def test_trim_does_not_use_trimmed_outputs_as_only_inputs(tmp_path: Path) -> Non
             sample_dir=sample_dir,
             input_json={"trimFront2": 5},
         )
+
+
+def test_trim_writes_beside_sample_root_inputs(tmp_path: Path) -> None:
+    root = tmp_path / "S_arm"
+    arm = root / "align.linear.parabricks"
+    arm.mkdir(parents=True)
+    (root / "S_arm_1.fastq.gz").write_bytes(b"r1")
+    (root / "S_arm_2.fastq.gz").write_bytes(b"r2")
+
+    def fake_run(cmd, **kwargs):
+        out_r1 = Path(cmd[cmd.index("-o") + 1])
+        out_r2 = Path(cmd[cmd.index("-O") + 1])
+        out_r1.write_bytes(b"t1")
+        out_r2.write_bytes(b"t2")
+
+        class _P:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _P()
+
+    with patch("methyl_worker.fastq_trim_runner.shutil.which", return_value="fastp"):
+        with patch("methyl_worker.fastq_trim_runner.subprocess.run", side_effect=fake_run):
+            out = run_fastp_trim(
+                sample_id="S_arm",
+                sample_dir=arm,
+                input_json={"trimFront2": 5},
+            )
+    assert Path(out["trimmedR1"]) == root / "S_arm_1.trimmed.fastq.gz"
+    assert Path(out["trimmedR2"]).parent == root
+    assert list(arm.glob("*.fastq*")) == []
 
 
 def test_trim_requires_paired_fastqs(tmp_path: Path) -> None:

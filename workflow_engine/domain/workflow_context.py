@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
+from methyl_utils.action_config_resolver import deep_merge
 from pydantic import BaseModel, ConfigDict, Field
 
 _PLACEHOLDER_RE = re.compile(r"^\$\{var\.([^}]+)\}$")
@@ -182,6 +183,7 @@ def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
     from pipeline_profiles import _deep_merge
 
     instance_action_config = dict(out.get("actionConfig") or {})
+    _fold_core_guardrails(instance_action_config, out.get("core_guardrails"))
     out["actionConfig"] = {}
 
     procedure_name = out.get("pipelineProcedure")
@@ -238,9 +240,7 @@ def _resolve_template_value(value: Any, scope: Mapping[str, Any], *, missing: st
     return resolve_placeholder(value, scope, missing=missing)
 
 
-def resolve_placeholder(
-    value: Any, scope: Mapping[str, Any], *, missing: str = "error"
-) -> Any:
+def resolve_placeholder(value: Any, scope: Mapping[str, Any], *, missing: str = "error") -> Any:
     """Resolve ``${var.name}`` placeholders (Python mirror of SQL read-path)."""
     if isinstance(value, dict):
         return {k: resolve_placeholder(v, scope, missing=missing) for k, v in value.items()}
@@ -338,6 +338,22 @@ def action_input_spec_for(action_name: str) -> Optional[ActionInputSpec]:
         required_keys=sorted(set(required)),
         optional_keys=optional,
     )
+
+
+def _fold_core_guardrails(action_config: Dict[str, Any], core_guardrails: Any) -> None:
+    """Fold a top-level start ``core_guardrails`` object into ``alignment_qc``.
+
+    ``portal.sp_create_and_start_instance`` accepts the object either under
+    ``actionConfig.alignment_qc.core_guardrails`` or as a sibling ``core_guardrails``
+    on the instance context. Nested actionConfig keys win over the sibling.
+    """
+    if not isinstance(core_guardrails, dict) or not core_guardrails:
+        return
+    alignment = dict(action_config.get("alignment_qc") or {})
+    alignment["core_guardrails"] = deep_merge(
+        dict(core_guardrails), dict(alignment.get("core_guardrails") or {})
+    )
+    action_config["alignment_qc"] = alignment
 
 
 def resolved_config_scope_var_name(action_config_key: str) -> str:
@@ -494,7 +510,9 @@ def bind_resolved_project_paths(
         return input_json
     cmp = _match_resolved_comparison(
         rp,
-        comparison=input_json.get("comparison") if isinstance(input_json.get("comparison"), str) else None,
+        comparison=(
+            input_json.get("comparison") if isinstance(input_json.get("comparison"), str) else None
+        ),
         group=input_json.get("group") if isinstance(input_json.get("group"), str) else None,
     )
     if cmp is None:

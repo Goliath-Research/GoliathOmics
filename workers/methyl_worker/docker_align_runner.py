@@ -14,26 +14,9 @@ import tarfile
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
+from methyl_worker.fastq_pairs import resolve_paired_fastqs
+
 logger = logging.getLogger(__name__)
-
-FASTQ_SUFFIXES: Sequence[str] = (".fastq.gz", ".fq.gz", ".fastq", ".fq")
-
-
-def _find_pair(sample_dir: Path, prefer_demux: bool = True) -> tuple[Path, Path]:
-    files = sorted(
-        p for p in sample_dir.iterdir() if p.is_file() and p.name.endswith(FASTQ_SUFFIXES)
-    )
-    if prefer_demux:
-        demux = [p for p in files if "_demux_" in p.name]
-        if len(demux) >= 2:
-            files = demux
-    r1 = next((p for p in files if "_R1" in p.name or ".R1." in p.name or p.name.endswith("_1.fastq.gz")), None)
-    r2 = next((p for p in files if "_R2" in p.name or ".R2." in p.name or p.name.endswith("_2.fastq.gz")), None)
-    if r1 is None or r2 is None:
-        if len(files) >= 2:
-            return files[0], files[1]
-        raise RuntimeError(f"Need paired FASTQs in {sample_dir}")
-    return r1, r2
 
 
 def _render_argv(template: Sequence[str], mapping: Mapping[str, str]) -> List[str]:
@@ -70,8 +53,7 @@ def run_docker_align(
     )
     if not image:
         raise RuntimeError(
-            "sample.docker_align requires resolvedConfig.image "
-            "(or METHYL_DOCKER_ALIGN_IMAGE)."
+            "sample.docker_align requires resolvedConfig.image " "(or METHYL_DOCKER_ALIGN_IMAGE)."
         )
 
     argv_tmpl = resolved.get("argv") or resolved.get("command") or []
@@ -85,7 +67,14 @@ def run_docker_align(
 
     from methyl_utils.local_align import local_align_dir, local_bam_path, remove_local_align
 
-    r1, r2 = _find_pair(sample_path)
+    fastqs = resolve_paired_fastqs(sample_path, sample_id)
+    if len(fastqs) > 2:
+        logger.warning(
+            "docker_align using first FASTQ pair for %s; additional pairs are not passed: %s",
+            sample_id,
+            ", ".join(p.name for p in fastqs[2:]),
+        )
+    r1, r2 = fastqs[0], fastqs[1]
     # The BAM stays on this worker's local scratch; pinned consumers read it here.
     remove_local_align(sample_id, sample_path)
     bam_dir = local_align_dir(sample_id, sample_path)

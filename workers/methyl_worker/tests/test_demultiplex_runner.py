@@ -43,6 +43,25 @@ def test_demultiplex_keeps_matching_barcode(tmp_path: Path) -> None:
     assert Path(result["fastqR1"]).is_file()
 
 
+def test_demultiplex_reads_sample_root_when_sample_dir_is_align_leaf(tmp_path: Path) -> None:
+    root = tmp_path / "S_leaf"
+    arm = root / "align.linear.parabricks"
+    arm.mkdir(parents=True)
+    _write_fastq(root / "S_leaf_R1.fastq.gz", [("r1", "ACGTAAAA", "IIIIIIII")])
+    _write_fastq(root / "S_leaf_R2.fastq.gz", [("r1", "GGGGGGGG", "IIIIIIII")])
+    barcodes = tmp_path / "barcodes.tsv"
+    barcodes.write_text("sample_id\tbarcode\nS_leaf\tACGT\n", encoding="utf-8")
+    result = run_demultiplex(
+        sample_id="S_leaf",
+        sample_dir=arm,
+        input_json={"resolvedConfig": {"barcode_tsv": str(barcodes)}},
+    )
+    assert result["n_reads_kept"] == 1
+    assert Path(result["fastqR1"]).parent == arm
+    assert "_demux_" in Path(result["fastqR1"]).name
+    assert not list(root.glob("*demux*"))
+
+
 def test_demultiplex_skip_flag(tmp_path: Path) -> None:
     sample_dir = tmp_path / "S2"
     sample_dir.mkdir()

@@ -5,13 +5,12 @@ from __future__ import annotations
 import csv
 import gzip
 import logging
-import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
+
+from methyl_worker.fastq_pairs import resolve_paired_fastqs
 
 logger = logging.getLogger(__name__)
-
-FASTQ_SUFFIXES: Sequence[str] = (".fastq.gz", ".fq.gz", ".fastq", ".fq")
 
 
 def _open_text(path: Path):
@@ -26,22 +25,19 @@ def _open_write(path: Path):
     return path.open("wt", encoding="utf-8")
 
 
-def _find_pair(sample_dir: Path) -> Tuple[Path, Path]:
-    files = sorted(
-        p for p in sample_dir.iterdir() if p.is_file() and p.name.endswith(FASTQ_SUFFIXES)
-    )
-    r1 = next((p for p in files if "_R1" in p.name or ".R1." in p.name or p.name.endswith("_1.fastq.gz")), None)
-    r2 = next((p for p in files if "_R2" in p.name or ".R2." in p.name or p.name.endswith("_2.fastq.gz")), None)
-    if r1 is None or r2 is None:
-        if len(files) >= 2:
-            return files[0], files[1]
-        raise RuntimeError(f"Need paired FASTQs in {sample_dir}")
-    return r1, r2
+def _input_pair(sample_dir: Path, sample_id: str) -> Tuple[Path, Path]:
+    """Reads to demultiplex: sample-root downloads (trimmed when present), not *_demux_* products."""
+    fastqs = resolve_paired_fastqs(sample_dir, sample_id, prefer_demux=False)
+    if len(fastqs) < 2:
+        raise RuntimeError(f"Need paired FASTQs for {sample_id} under {sample_dir}")
+    return fastqs[0], fastqs[1]
 
 
 def _load_barcode(barcode_tsv: Path, sample_id: str) -> str:
     with barcode_tsv.open("rt", encoding="utf-8", newline="") as fh:
-        reader = csv.DictReader(fh, delimiter="\t" if barcode_tsv.suffix.lower() in {".tsv", ".txt"} else ",")
+        reader = csv.DictReader(
+            fh, delimiter="\t" if barcode_tsv.suffix.lower() in {".tsv", ".txt"} else ","
+        )
         if not reader.fieldnames:
             raise RuntimeError(f"Empty barcode table: {barcode_tsv}")
         fields = {str(f).strip().lower(): f for f in reader.fieldnames}
@@ -80,7 +76,7 @@ def run_demultiplex(
         raise RuntimeError(f"sampleDir not found: {sample_path}")
 
     if bool(resolved.get("skip") or payload.get("skipDemultiplex")):
-        r1, r2 = _find_pair(sample_path)
+        r1, r2 = _input_pair(sample_path, sample_id)
         logger.info("demultiplex skipped for %s; using %s / %s", sample_id, r1.name, r2.name)
         return {
             "sampleId": sample_id,
@@ -90,7 +86,9 @@ def run_demultiplex(
             "skipped": True,
         }
 
-    barcode_tsv = resolved.get("barcode_tsv") or resolved.get("barcodeTsv") or payload.get("barcodeTsv")
+    barcode_tsv = (
+        resolved.get("barcode_tsv") or resolved.get("barcodeTsv") or payload.get("barcodeTsv")
+    )
     if not barcode_tsv:
         raise RuntimeError(
             "sample.demultiplex requires resolvedConfig.barcode_tsv "
@@ -102,12 +100,17 @@ def run_demultiplex(
 
     barcode = _load_barcode(bc_path, sample_id)
     barcode_len = int(resolved.get("barcode_len") or resolved.get("barcodeLen") or len(barcode))
-    r1_in, r2_in = _find_pair(sample_path)
+    r1_in, r2_in = _input_pair(sample_path, sample_id)
     out_r1 = sample_path / str(resolved.get("output_r1") or f"{sample_id}_demux_R1.fastq.gz")
     out_r2 = sample_path / str(resolved.get("output_r2") or f"{sample_id}_demux_R2.fastq.gz")
 
     kept = 0
-    with _open_text(r1_in) as f1, _open_text(r2_in) as f2, _open_write(out_r1) as o1, _open_write(out_r2) as o2:
+    with (
+        _open_text(r1_in) as f1,
+        _open_text(r2_in) as f2,
+        _open_write(out_r1) as o1,
+        _open_write(out_r2) as o2,
+    ):
         while True:
             h1 = f1.readline()
             if not h1:

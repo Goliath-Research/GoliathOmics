@@ -242,8 +242,8 @@ def test_parabricks_align_never_harvests_local_bam(tmp_path: Path, monkeypatch) 
     assert not list((tmp_path / "samples").rglob("*.bam"))
 
 
-def test_download_caas_skip_relinks_arm_from_root_fastqs(tmp_path: Path, monkeypatch) -> None:
-    """Skip keeps FASTQs at sampleRoot and recreates arm links for align discovery."""
+def test_download_caas_skip_keeps_fastqs_at_sample_root(tmp_path: Path, monkeypatch) -> None:
+    """Skip keeps FASTQs at sampleRoot and does not copy them into the align leaf."""
     monkeypatch.delenv("METHYL_SAMPLE_CAAS_ENABLED", raising=False)
     monkeypatch.setenv("METHYL_CAAS_ENABLED", "true")
     monkeypatch.setenv("METHYL_SAMPLES_BASE", str(tmp_path / "samples"))
@@ -282,16 +282,14 @@ def test_download_caas_skip_relinks_arm_from_root_fastqs(tmp_path: Path, monkeyp
         fastqFiles=[str(fq1), str(fq2)],
         n_files=2,
     )
-    record_action_execution(
-        entry, input_json, input_model, execution_result_from_output(output)
-    )
+    record_action_execution(entry, input_json, input_model, execution_result_from_output(output))
     _assert_in_place_product(fq1, b"R1")
     _assert_in_place_product(fq2, b"R2")
     _assert_sample_ledger_only(sample_root, "*.fastq.gz")
     assert "align.linear.parabricks" not in fq1.resolve().parts
 
-    # Align discovers pairs only under sampleDir. After the arm links are
-    # removed, skip must recreate them from the in-place root FASTQs.
+    # Align stages from the sample root. After arm copies are removed, skip
+    # must leave the root files in place and must not write them into the leaf.
     for path in (arm / "S1_1.fastq.gz", arm / "S1_2.fastq.gz"):
         if path.exists() or path.is_symlink():
             path.unlink()
@@ -300,10 +298,9 @@ def test_download_caas_skip_relinks_arm_from_root_fastqs(tmp_path: Path, monkeyp
     skipped = maybe_skip_action(entry, input_json)
     assert skipped is not None
     assert skipped.output.status == "skipped"
-    assert (arm / "S1_1.fastq.gz").is_file()
-    assert (arm / "S1_2.fastq.gz").is_file()
-    assert (arm / "S1_1.fastq.gz").read_bytes() == b"R1"
-    assert (arm / "S1_2.fastq.gz").read_bytes() == b"R2"
+    assert not (arm / "S1_1.fastq.gz").exists()
+    assert not (arm / "S1_2.fastq.gz").exists()
+    assert list(arm.glob("*.fastq*")) == []
     _assert_in_place_product(fq1, b"R1")
     _assert_in_place_product(fq2, b"R2")
 

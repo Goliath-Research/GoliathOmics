@@ -557,6 +557,7 @@ class RemediationTrigger(BaseModel):
 class MethylQcTaskInput(BaseModel):
     """sample.methyl_qc worker input. Picard tables are read from sampleDir;
     do not embed ExportedSampleQCV2Payload here."""
+
     model_config = ConfigDict(extra="forbid")
 
     tool: str = "MethylAlignmentQc"
@@ -579,7 +580,17 @@ class MethylQcTaskInput(BaseModel):
     )
     resolvedConfig: Optional[dict] = Field(
         default=None,
-        description="Merged actionConfig.alignment_qc baked at instance configuration.",
+        description=(
+            "Merged actionConfig.alignment_qc baked at instance configuration. "
+            "This is the QC window; the handler must not replace it with site defaults."
+        ),
+    )
+    sampleContext: Optional[dict] = Field(
+        default=None,
+        description=(
+            "Foreach sample record. core_guardrails or actionConfig.alignment_qc "
+            "on the sample overlay the instance resolvedConfig for this sample only."
+        ),
     )
     alignmentPass: Optional[str] = None
     qcAttempt: Optional[int] = None
@@ -703,9 +714,7 @@ class ArchiveSampleTaskInput(BaseModel):
     sampleDir: str
     sampleRoot: Optional[str] = Field(
         default=None,
-        description=(
-            "Sample identity root for shared FASTQs. BAM/H5/QC archive from sampleDir."
-        ),
+        description=("Sample identity root for shared FASTQs. BAM/H5/QC archive from sampleDir."),
     )
     sampleDestination: SampleDestinationLocation | None = None
     h5Destination: SampleDestinationLocation | None = None
@@ -798,6 +807,7 @@ class TrimFastqTaskOutput(ActionOutputBase):
 class MethylQcTaskOutput(ActionOutputBase):
     """sample.methyl_qc worker output. ``qcPath`` points at the slim V2.1
     guardrail summary; this model is not ExportedSampleQCV2Payload."""
+
     sampleId: str
     qcPath: str
     guardrails: GuardrailsOutput
