@@ -1,6 +1,8 @@
-# Optional local docs site. CI runs `mkdocs build` and does not publish.
+# MkDocs Material site. Pull request CI builds it and does not deploy.
+# Pushes to main publish https://goliath-research.github.io/GoliathOmics/
 site_name: GoliathOmics
 site_description: Genomics application on GoliathApp
+site_url: https://goliath-research.github.io/GoliathOmics/
 docs_dir: docs
 site_dir: site
 

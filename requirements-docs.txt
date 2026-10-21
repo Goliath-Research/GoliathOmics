@@ -1,4 +1,5 @@
 # Optional MkDocs Material site. Not installed by the science or worker venvs.
 # Build locally with: python -m pip install -r requirements-docs.txt && mkdocs build
-# CI builds the site and does not publish it.
+# Pull request CI builds the site and does not deploy it.
+# Pushes to main publish https://goliath-research.github.io/GoliathOmics/
 mkdocs-material>=9.6,<10

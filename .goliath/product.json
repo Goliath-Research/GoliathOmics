@@ -37,7 +37,7 @@
   ],
   "links": {
     "repository": "https://github.com/Goliath-Research/GoliathOmics",
-    "docs": null,
+    "docs": "https://goliath-research.github.io/GoliathOmics/",
     "website": null
   },
   "related": ["goliathapp", "goliathalign", "methylextractor"],
