@@ -335,9 +335,9 @@ def ensure_sample_dir_fastq_links(
 ) -> List[Path]:
     """Hardlink sample-root FASTQs into an arm ``sampleDir`` when they differ.
 
-    Live ``download_fastq`` already does this. CAAS skip restores blobs at
-    ``sampleRoot`` and must call this so align (which discovers pairs only under
-    ``sampleDir``) still sees files after ``delete_fastqs``.
+    Mode-compare setups that still want a per-arm snapshot call this. SamplePrep
+    download and align do not: align reads the sample root and stages that pair
+    onto local scratch.
     """
     dest = Path(sample_dir).expanduser()
     dest.mkdir(parents=True, exist_ok=True)

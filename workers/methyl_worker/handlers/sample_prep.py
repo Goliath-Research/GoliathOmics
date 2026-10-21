@@ -59,7 +59,9 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def _drop_local_bam_on_failure(sample_id: Optional[str], sample_dir: Optional[str]) -> Iterator[None]:
+def _drop_local_bam_on_failure(
+    sample_id: Optional[str], sample_dir: Optional[str]
+) -> Iterator[None]:
     """Delete the worker-local Align BAM when a pinned BAM consumer raises.
 
     The BAM exists only on the align worker. A failed task cannot be resumed
@@ -113,7 +115,6 @@ def _run_methyl_qc(
         sample_path, str(sample_id) if sample_id else None
     )
 
-
     project = input.project or input.projectPath
     from methyl_alignment_qc.core import process_samples_to_qc_jsons
     from methyl_alignment_qc.core.qc_write_context import QcWriteContext
@@ -152,7 +153,9 @@ def _run_methyl_qc(
 
         payload = json.loads(qc_path.read_text(encoding="utf-8"))
         guardrails_raw = payload.get("guardrails") or {}
-        guardrails = guardrails_from_payload(guardrails_raw if isinstance(guardrails_raw, dict) else {})
+        guardrails = guardrails_from_payload(
+            guardrails_raw if isinstance(guardrails_raw, dict) else {}
+        )
         screening_raw = guardrails_raw.get("screening") or {}
         screening = screening_from_payload(screening_raw if isinstance(screening_raw, dict) else {})
         qc_history = qc_history_from_payload(payload.get("qc_history") or [])
@@ -199,8 +202,14 @@ def _run_methyl_qc(
     if project:
         from methyl_alignment_qc.project_resolver import resolve_alignment_qc_config
 
-        cfg = resolve_alignment_qc_config(str(project))
-        out_dir = cfg.output_dir
+        project_cfg = resolve_alignment_qc_config(
+            str(project),
+            resolved_config=(
+                input.resolvedConfig if isinstance(input.resolvedConfig, dict) else None
+            ),
+            sample_context=input.sampleContext,
+        )
+        out_dir = project_cfg.output_dir
         qc_path = Path(out_dir) / f"{resolved_sample_id}.json"
         if qc_path.exists():
             ensure_work_writable(qc_path)
@@ -217,13 +226,13 @@ def _run_methyl_qc(
             process_samples_to_qc_jsons(
                 [str(sample_path)],
                 out_dir,
-                validate_schema=cfg.validate_schema,
-                fragmentomics=cfg.fragmentomics,
-                bisulfite_conversion=cfg.bisulfite_conversion,
-                cycle_screening=cfg.cycle_screening,
-                optional_guardrails=cfg.optional_guardrails,
-                alignment_guardrails=cfg.alignment_guardrails,
-                core_guardrails=cfg.core_guardrails,
+                validate_schema=project_cfg.validate_schema,
+                fragmentomics=project_cfg.fragmentomics,
+                bisulfite_conversion=project_cfg.bisulfite_conversion,
+                cycle_screening=project_cfg.cycle_screening,
+                optional_guardrails=project_cfg.optional_guardrails,
+                alignment_guardrails=project_cfg.alignment_guardrails,
+                core_guardrails=project_cfg.core_guardrails,
                 write_context=write_ctx,
                 sample_id=resolved_sample_id,
                 alignment_mode=input.alignmentMode,
@@ -234,11 +243,27 @@ def _run_methyl_qc(
     else:
         import tempfile
 
+        from methyl_alignment_qc.project_resolver import alignment_qc_window
+
+        # No study project: still apply the baked instance/sample window.
+        cfg = alignment_qc_window(
+            resolved_config=(
+                input.resolvedConfig if isinstance(input.resolvedConfig, dict) else None
+            ),
+            sample_context=input.sampleContext,
+        )
         with tempfile.TemporaryDirectory(prefix="methyl-qc-") as tmp:
             out_dir = tmp
             process_samples_to_qc_jsons(
                 [str(sample_path)],
                 out_dir,
+                validate_schema=cfg.validate_schema if cfg is not None else True,
+                fragmentomics=cfg.fragmentomics if cfg is not None else None,
+                bisulfite_conversion=cfg.bisulfite_conversion if cfg is not None else None,
+                cycle_screening=cfg.cycle_screening if cfg is not None else None,
+                optional_guardrails=cfg.optional_guardrails if cfg is not None else None,
+                alignment_guardrails=cfg.alignment_guardrails if cfg is not None else None,
+                core_guardrails=cfg.core_guardrails if cfg is not None else None,
                 write_context=write_ctx,
                 sample_id=resolved_sample_id,
                 alignment_mode=input.alignmentMode,
@@ -291,7 +316,9 @@ def _run_methyl_extraction_qc(
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 per_chr = manifest.get("per_chromosome") or {}
                 if isinstance(per_chr, dict) and per_chr:
-                    config = ExtractionQCConfig(expected_chromosomes=[str(k) for k in per_chr.keys()])
+                    config = ExtractionQCConfig(
+                        expected_chromosomes=[str(k) for k in per_chr.keys()]
+                    )
                 else:
                     config = None
             else:
@@ -365,9 +392,7 @@ def _run_methyl_fragmentomics(
     local_bam = find_local_bam(str(sample_id), sample_path) if sample_id else None
     if local_bam is not None:
         # Linear Align keeps the BAM on this (pinned) worker, not in sampleDir.
-        cfg = cfg.model_copy(
-            update={"sample_bam_paths": {str(sample_id): str(local_bam)}}
-        )
+        cfg = cfg.model_copy(update={"sample_bam_paths": {str(sample_id): str(local_bam)}})
     project_obj = load_project(str(project))
     summary = run_fragmentomics_for_samples(
         [str(sample_path)],
@@ -411,10 +436,7 @@ def _handle_mark_failed(
 def _handle_download_fastq(
     _capability: str, _action_name: str, input: DownloadFastqTaskInput
 ) -> DownloadFastqTaskOutput:
-    from methyl_utils.sample_arm_layout import (
-        ensure_sample_dir_fastq_links,
-        sample_root_from_sample_dir,
-    )
+    from methyl_utils.sample_arm_layout import sample_root_from_sample_dir
 
     from ..fastq_source import download_from_source
 
@@ -429,12 +451,10 @@ def _handle_download_fastq(
         input.fastqSource, root, resolved_config=input.resolvedConfig
     )
     sample_id = input.sampleId or root.name
-    ensure_sample_dir_fastq_links(
-        sample_dir,
-        sample_id=str(sample_id),
-        sample_root=root,
-        sources=fastq_files,
-    )
+    # Align reads the sample root. Create the leaf so later is_dir() checks
+    # pass, and do not copy FASTQ bytes onto /work a second time.
+    if sample_dir.resolve() != root.resolve():
+        sample_dir.mkdir(parents=True, exist_ok=True)
     return DownloadFastqTaskOutput(
         status="ok",
         sampleId=sample_id,
@@ -808,6 +828,3 @@ def _handle_docker_align(
         workflow_node_key=input.workflowNodeKey or "docker_align",
     )
     return ParabricksTaskOutput(status="ok", **result)
-
-
-

@@ -4,18 +4,68 @@ Resolve MethylAlignmentQC config from a pipeline project config (Pydantic).
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 from methyl_utils import load_project
-from methyl_utils.action_config_resolver import resolve_for_project
+from methyl_utils.action_config_resolver import (
+    deep_merge,
+    load_resolved_config,
+    resolve_for_project,
+)
 
 from .core.fragmentomics import resolve_fragmentomics_config
 from .models.config import AlignmentQCConfig
 
 
+def alignment_qc_window(
+    *,
+    resolved_config: Optional[Mapping[str, Any]] = None,
+    sample_context: Optional[Mapping[str, Any]] = None,
+) -> Optional[AlignmentQCConfig]:
+    """Coerce a baked instance window plus a sample overlay. No project, no site env."""
+    merged: Dict[str, Any] = {}
+    if isinstance(resolved_config, Mapping):
+        merged = load_resolved_config("alignment_qc", resolved_config=dict(resolved_config))
+    overlay = sample_alignment_overlay(sample_context)
+    if overlay:
+        merged = deep_merge(merged, overlay)
+    if not merged:
+        return None
+    payload: Dict[str, Any] = {"sample_paths": ["/"], "output_dir": "/"}
+    payload.update(merged)
+    if not payload.get("sample_paths"):
+        payload["sample_paths"] = ["/"]
+    if not payload.get("output_dir"):
+        payload["output_dir"] = "/"
+    return AlignmentQCConfig.model_validate(payload)
+
+
+def sample_alignment_overlay(sample_context: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Sparse alignment_qc overlay carried on one foreach sample record.
+
+    Instance bake (``resolvedConfig``) is the merged site/profile/instance window.
+    A sample may pin ``core_guardrails`` or ``actionConfig.alignment_qc`` on top.
+    """
+    if not isinstance(sample_context, Mapping):
+        return {}
+    overlay: Dict[str, Any] = {}
+    action = sample_context.get("actionConfig")
+    if isinstance(action, Mapping):
+        alignment = action.get("alignment_qc")
+        if isinstance(alignment, Mapping):
+            overlay = deep_merge(overlay, dict(alignment))
+    guardrails = sample_context.get("core_guardrails")
+    if isinstance(guardrails, Mapping):
+        overlay = deep_merge(overlay, {"core_guardrails": dict(guardrails)})
+    return overlay
+
+
 def resolve_alignment_qc_config(
     project_path: Union[str, Path],
     step_override_path: Optional[Union[str, Path]] = None,
+    *,
+    resolved_config: Optional[Mapping[str, Any]] = None,
+    sample_context: Optional[Mapping[str, Any]] = None,
 ) -> AlignmentQCConfig:
     """
     Build AlignmentQCConfig from a project config and optional step overrides.
@@ -38,7 +88,16 @@ def resolve_alignment_qc_config(
 
     # Default: all samples from all resolved groups
     sample_paths: List[str] = []
-    step_cfg = resolve_for_project("alignment_qc", project)
+    # Baked task resolvedConfig is the instance window. Do not re-read site/profile
+    # from the worker environment when it is present (workers hold no DB secrets
+    # and must not substitute the published default for an instance override).
+    if isinstance(resolved_config, Mapping):
+        step_cfg = load_resolved_config("alignment_qc", resolved_config=dict(resolved_config))
+    else:
+        step_cfg = resolve_for_project("alignment_qc", project)
+    sample_overlay = sample_alignment_overlay(sample_context)
+    if sample_overlay:
+        step_cfg = deep_merge(dict(step_cfg or {}), sample_overlay)
     groups = step_cfg.get("groups") if step_cfg else None
     if groups is not None:
         seen = set()

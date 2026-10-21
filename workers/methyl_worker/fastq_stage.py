@@ -1,10 +1,11 @@
 """Optional per-Align FASTQ staging onto worker-local scratch.
 
 ``stageFastqs: "local"`` on an Align task copies the resolved FASTQ pair
-(trimmed when present) from ``/work`` into ``{local BAM dir}/fastq/`` and the
-aligner reads it there. The copies live inside the BAM directory, so the
-existing ``delete_bam`` step and the failure cleanup (``remove_local_align``)
-free them with the BAM. The ``/work`` FASTQs are never touched.
+(sample root, or trimmed / demux products when those are the reads to align)
+into ``{local BAM dir}/fastq/`` under ``METHYL_LOCAL_TMP``. The aligner reads
+the local copies. They live inside the BAM directory, so ``delete_bam`` and
+``remove_local_align`` free them with the BAM. Nothing is written into the
+align leaf on ``/work``.
 """
 
 from __future__ import annotations

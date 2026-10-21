@@ -67,11 +67,14 @@ def run_fastp_trim(
     from methyl_worker.fastq_pairs import canonical_trimmed_fastqs, resolve_paired_fastqs
     from methyl_worker.work_share import share_work_tree
 
-    r1_out, r2_out = canonical_trimmed_fastqs(sample_path, sample_id)
     # Never discover the remediation outputs as inputs: Align prefers those
     # names, and fastp -o/-O on the same path truncates the gzip in place.
-    fastqs = resolve_paired_fastqs(sample_path, sample_id, prefer_trimmed=False)
+    # prefer_demux is off so trim reads the downloaded (or already trimmed-source)
+    # pair, not epi-GBS products that align consumes after this step.
+    fastqs = resolve_paired_fastqs(sample_path, sample_id, prefer_trimmed=False, prefer_demux=False)
     r1_in, r2_in = fastqs[0].resolve(), fastqs[1].resolve()
+    out_dir = r1_in.parent if r1_in.parent == r2_in.parent else sample_path
+    r1_out, r2_out = canonical_trimmed_fastqs(out_dir, sample_id)
     if len(fastqs) > 2:
         logger.warning(
             "trim_fastq using first FASTQ pair for %s; additional pairs are not trimmed: %s",
@@ -130,7 +133,9 @@ def run_fastp_trim(
             if tmp.exists():
                 tmp.unlink()
 
-    share_work_tree(sample_path)
+    share_work_tree(out_dir)
+    if out_dir.resolve() != sample_path.resolve():
+        share_work_tree(sample_path)
 
     return {
         "sampleId": sample_id,

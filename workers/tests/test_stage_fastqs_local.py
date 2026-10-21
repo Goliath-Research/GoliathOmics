@@ -197,7 +197,9 @@ def test_methylgrapher_align_and_local_extract(
         sample_id="S1", sample_dir=sample_dir, input_json={"resolvedConfig": cfg, **STAGE}
     )
     resolved = sample_dir.resolve()
-    assert captured["fq1"] == local_align.local_align_dir("S1", resolved) / "fastq" / "S1_R1.fastq.gz"
+    assert (
+        captured["fq1"] == local_align.local_align_dir("S1", resolved) / "fastq" / "S1_R1.fastq.gz"
+    )
 
     out = mg.run_methylgrapher_wgbs_extract(
         sample_id="S1",
@@ -230,9 +232,7 @@ def test_task_models_accept_new_params() -> None:
         assert model(**base, stageFastqs="local").stageFastqs == "local"
         with pytest.raises(Exception):
             model.model_validate({**base, "stageFastqs": "remote"})
-    ex = MethylGrapherWgbsExtractTaskInput(
-        **base, projectPath="/work/p.json", workDirMode="local"
-    )
+    ex = MethylGrapherWgbsExtractTaskInput(**base, projectPath="/work/p.json", workDirMode="local")
     assert ex.workDirMode == "local"
 
 
@@ -245,6 +245,67 @@ def _walk(node, out):
     elif isinstance(node, list):
         for v in node:
             _walk(v, out)
+
+
+def test_fq2bam_stages_sample_root_fastqs_without_an_align_leaf_copy(
+    tmp_path: Path, local_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    arm, ref = _host_align_env(monkeypatch, tmp_path)
+    root = arm.parent
+    for name in ("S1_1.fastq.gz", "S1_2.fastq.gz"):
+        (arm / name).replace(root / name)
+    paths = runner._resolve_paths(arm, "S1", ref)
+    local_fq = local_align.local_align_dir("S1", arm) / "fastq"
+
+    def fake_align(cmd, *, log_path, label):
+        joined = " ".join(cmd)
+        assert str(local_fq / "S1_1.fastq.gz") in joined
+        assert str(root / "S1_1.fastq.gz") not in joined
+        assert str(arm / "S1_1.fastq.gz") not in joined
+        paths.bam_path.write_bytes(b"BAM")
+        paths.qc_metrics_dir.mkdir()
+        (paths.qc_metrics_dir / "m.txt").write_text("x", encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    with patch("methyl_worker.capabilities._gpu_available", return_value=True):
+        with patch.object(runner, "_run_align_subprocess", side_effect=fake_align):
+            runner.run_fq2bam_meth(
+                sample_id="S1", sample_dir=arm, reference_fasta=ref, input_json=STAGE
+            )
+    assert (local_fq / "S1_1.fastq.gz").read_bytes() == b"1"
+    assert (root / "S1_2.fastq.gz").read_bytes() == b"2"
+    assert list(arm.glob("*.fastq*")) == []
+
+
+def test_docker_align_stages_from_sample_root(tmp_path: Path, local_root: Path) -> None:
+    from methyl_worker import docker_align_runner as dar
+
+    arm = _arm(tmp_path)
+    root = arm.parent
+    (root / "S1_R1.fastq.gz").write_bytes(b"r1")
+    (root / "S1_R2.fastq.gz").write_bytes(b"r2")
+    ref = tmp_path / "ref.fa"
+    ref.write_text(">1\nACGT\n", encoding="utf-8")
+    seen: list[list[str]] = []
+
+    def fake_run(cmd, check):
+        seen.append(list(cmd))
+        Path(cmd[-1]).write_bytes(b"BAM")
+        return subprocess.CompletedProcess(cmd, 0)
+
+    with patch.object(dar.subprocess, "run", side_effect=fake_run):
+        dar.run_docker_align(
+            sample_id="S1",
+            sample_dir=arm,
+            reference_fasta=ref,
+            input_json={
+                **STAGE,
+                "resolvedConfig": {"image": "img", "argv": ["align", "{r1}", "{r2}", "{bam}"]},
+            },
+        )
+    local_fq = local_align.local_align_dir("S1", arm) / "fastq"
+    assert str(local_fq / "S1_R1.fastq.gz") in seen[0]
+    assert list(arm.glob("*.fastq*")) == []
 
 
 def test_sample_prep_program_stages_every_align_and_local_extract() -> None:
@@ -269,6 +330,32 @@ def test_sample_prep_program_stages_every_align_and_local_extract() -> None:
     extracts = [s for s in steps if s["action"] == "sample.methylgrapher_wgbs_extract"]
     assert len(extracts) == 2
     assert all(s["with"]["workDirMode"] == "local" for s in extracts)
+    qc_nodes = [s for s in steps if s["action"] == "sample.methyl_qc"]
+    assert qc_nodes
+    assert all(s.get("with", {}).get("sampleContext") == "${var.sample}" for s in qc_nodes)
+
+    align_actions = {
+        "sample.parabricks_fq2bam",
+        "sample.parabricks_giraffe",
+        "sample.methylgrapher_wgbs_align",
+        "sample.docker_align",
+    }
+    for name in (
+        "sample_prep_emseq.program.json",
+        "sample_prep_epigbs.program.json",
+        "sample_prep_remediate.program.json",
+    ):
+        other = json.loads((REPO / "workflow_engine/domain/fixtures" / name).read_text())
+        other_steps: list[dict] = []
+        _walk(other, other_steps)
+        other_aligns = [s for s in other_steps if s["action"] in align_actions]
+        assert other_aligns, name
+        assert all(s.get("with", {}).get("stageFastqs") == "local" for s in other_aligns), name
+        other_qc = [s for s in other_steps if s["action"] == "sample.methyl_qc"]
+        assert other_qc, name
+        assert all(
+            s.get("with", {}).get("sampleContext") == "${var.sample}" for s in other_qc
+        ), name
 
 
 def test_fastq_archive_and_delete_are_unpinned_and_capability_free() -> None:

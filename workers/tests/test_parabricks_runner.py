@@ -185,6 +185,52 @@ def test_resolve_paired_fastqs_ignores_align_arm_copies(tmp_path: Path) -> None:
     assert all(p.parent == sample_dir for p in fastqs)
 
 
+def test_resolve_paired_fastqs_from_align_leaf_uses_sample_root(tmp_path: Path) -> None:
+    """Align sampleDir is the leaf; downloaded reads stay on the sample root."""
+    root = tmp_path / "S_root"
+    arm = root / "align.linear.parabricks"
+    arm.mkdir(parents=True)
+    (root / "S_root_1.fastq.gz").write_bytes(b"r1")
+    (root / "S_root_2.fastq.gz").write_bytes(b"r2")
+    (arm / "S_root_1.fastq.gz").write_bytes(b"copy1")
+    (arm / "S_root_2.fastq.gz").write_bytes(b"copy2")
+
+    fastqs = runner.resolve_paired_fastqs(arm, "S_root")
+    assert [p.read_bytes() for p in fastqs] == [b"r1", b"r2"]
+    assert all(p.parent == root for p in fastqs)
+
+
+def test_resolve_paired_fastqs_prefers_demux_products_in_align_leaf(tmp_path: Path) -> None:
+    root = tmp_path / "S_demux"
+    arm = root / "align.linear.parabricks"
+    arm.mkdir(parents=True)
+    (root / "S_demux_R1.fastq.gz").write_bytes(b"mux1")
+    (root / "S_demux_R2.fastq.gz").write_bytes(b"mux2")
+    (root / "S_demux_1.trimmed.fastq.gz").write_bytes(b"t1")
+    (root / "S_demux_2.trimmed.fastq.gz").write_bytes(b"t2")
+    (arm / "S_demux_demux_R1.fastq.gz").write_bytes(b"d1")
+    (arm / "S_demux_demux_R2.fastq.gz").write_bytes(b"d2")
+
+    fastqs = runner.resolve_paired_fastqs(arm, "S_demux")
+    assert [p.read_bytes() for p in fastqs] == [b"d1", b"d2"]
+    trimmed = runner.resolve_paired_fastqs(arm, "S_demux", prefer_demux=False)
+    assert [p.read_bytes() for p in trimmed] == [b"t1", b"t2"]
+    source = runner.resolve_paired_fastqs(
+        arm, "S_demux", prefer_demux=False, prefer_trimmed=False
+    )
+    assert [p.read_bytes() for p in source] == [b"mux1", b"mux2"]
+
+
+def test_resolve_paired_fastqs_falls_back_to_align_leaf_when_root_empty(tmp_path: Path) -> None:
+    arm = tmp_path / "S_only" / "align.pangenome.parabricks"
+    arm.mkdir(parents=True)
+    (arm / "S_only_1.fastq.gz").write_bytes(b"a")
+    (arm / "S_only_2.fastq.gz").write_bytes(b"b")
+
+    fastqs = runner.resolve_paired_fastqs(arm, "S_only")
+    assert [p.parent for p in fastqs] == [arm, arm]
+
+
 def test_resolve_paired_fastqs_wrong_count(tmp_path: Path) -> None:
     sample_dir = tmp_path / "S3"
     sample_dir.mkdir()

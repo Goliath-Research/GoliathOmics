@@ -782,15 +782,14 @@ def _hyperparam_set_id(input_json: Mapping[str, Any]) -> Optional[str]:
 _DOWNLOAD_ACTIONS = frozenset({"sample.download_fastq", "sample.download_msdata"})
 
 
-def _ensure_download_fastq_arm_links(
+def _ensure_download_fastq_at_sample_root(
     entry: ActionCatalogEntry,
     input_json: Mapping[str, Any],
 ) -> bool:
-    """Re-link restored root FASTQs into arm sampleDir after skip/replay.
+    """Confirm sample-root FASTQs exist after skip/replay.
 
-    CAAS harvest records canonical paths at sampleRoot. Align discovers pairs
-    only under sampleDir. After delete_fastqs, skip must recreate the arm links
-    that the live download handler writes.
+    Align stages from the sample root into local scratch. Skip must not copy
+    those reads into the align leaf on /work.
     """
     if entry.action_name not in _DOWNLOAD_ACTIONS:
         return True
@@ -798,27 +797,33 @@ def _ensure_download_fastq_arm_links(
     sample_id = input_json.get("sampleId")
     if not sample_dir or not sample_id:
         return True
+    from methyl_utils.sample_arm_layout import (
+        discover_root_fastqs,
+        sample_root_from_sample_dir,
+    )
+
+    root = Path(
+        str(
+            input_json.get("sampleRoot")
+            or sample_root_from_sample_dir(str(sample_dir), str(sample_id))
+        )
+    )
+    root.mkdir(parents=True, exist_ok=True)
     try:
         from methyl_domain.sample_content_store import restore_sample_fastq_products
 
-        restore_sample_fastq_products(str(sample_dir), str(sample_id))
+        restore_sample_fastq_products(root, str(sample_id))
     except Exception:
-        logger.debug(
-            "CAAS FASTQ restore skipped for %s", sample_dir, exc_info=True
-        )
-    from methyl_utils.sample_arm_layout import ensure_sample_dir_fastq_links
-
-    linked = ensure_sample_dir_fastq_links(
-        str(sample_dir),
-        sample_id=str(sample_id),
-        sample_root=input_json.get("sampleRoot"),
-    )
-    if linked:
+        logger.debug("CAAS FASTQ restore skipped for %s", root, exc_info=True)
+    if discover_root_fastqs(root, str(sample_id)):
+        arm = Path(str(sample_dir))
+        if arm.resolve() != root.resolve():
+            arm.mkdir(parents=True, exist_ok=True)
         return True
     logger.info(
-        "Not skipping %s: no FASTQs under sampleDir after restore (%s)",
+        "Not skipping %s: no FASTQs under sample root after restore (%s)",
         entry.action_name,
-        sample_dir,
+        root,
     )
     return False
 
@@ -866,7 +871,7 @@ def _maybe_replay_from_caas(
     if linked is None:
         return None
 
-    if not _ensure_download_fastq_arm_links(entry, input_json):
+    if not _ensure_download_fastq_at_sample_root(entry, input_json):
         return None
 
     if entry.action_name == "validation.plan_iterations":
@@ -1038,7 +1043,7 @@ def maybe_skip_action(
             except Exception:
                 logger.debug("legacy MC run scan failed for %s", output_dir, exc_info=True)
 
-    if not _ensure_download_fastq_arm_links(entry, input_json):
+    if not _ensure_download_fastq_at_sample_root(entry, input_json):
         return None
 
     hyperparam_set_id = _hyperparam_set_id(input_json)

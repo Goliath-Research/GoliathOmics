@@ -11,6 +11,8 @@ import re
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
+from methyl_utils.sample_arm_layout import sample_root_from_sample_dir
+
 logger = logging.getLogger(__name__)
 
 FASTQ_SUFFIXES: Sequence[str] = (".fastq.gz", ".fq.gz", ".fastq", ".fq")
@@ -20,9 +22,7 @@ FASTQ_SUFFIXES: Sequence[str] = (".fastq.gz", ".fq.gz", ".fastq", ".fq")
 _FASTQ_MATE_RE = re.compile(
     r"^(?P<prefix>.+)(?P<sep>_R|_r|_)(?P<mate>[12])(?:_(?P<segment>[0-9]{3}))?$"
 )
-_FASTQ_BARE_R_RE = re.compile(
-    r"^R(?P<mate>[12])(?:_(?P<segment>[0-9]{3}))?$", re.IGNORECASE
-)
+_FASTQ_BARE_R_RE = re.compile(r"^R(?P<mate>[12])(?:_(?P<segment>[0-9]{3}))?$", re.IGNORECASE)
 _SKIP_FASTQ_DIR_NAMES = frozenset({"tmp", ".caas", ".unused_merged"})
 _ALIGNER_MODE_LEAVES = frozenset({"linear", "pangenome", "pangenome_wgbs"})
 _ALIGNER_ARM_PREFIXES = ("align.", "extract.")
@@ -166,8 +166,32 @@ def _is_concat_merge_fastq_name(path: Path) -> bool:
     return "_merged_" in name or name.startswith("merged_")
 
 
+def fastq_home_dir(sample_dir: Path) -> Path:
+    """Sample root that holds downloaded FASTQs.
+
+    Align ``sampleDir`` is an ``align.*`` leaf. Downloads stay on the sample
+    root; align stages those files to local scratch and does not copy them
+    into the leaf.
+    """
+    return Path(sample_root_from_sample_dir(sample_dir))
+
+
+def _unique_dirs(*paths: Path) -> List[Path]:
+    out: List[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        if not path.is_dir():
+            continue
+        key = str(path.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(path)
+    return out
+
+
 def _restore_download_fastqs(sample_dir: Path, sample_id: str) -> None:
-    """Bring CAAS-harvested FASTQs back under sampleDir (Align skips ``.caas``)."""
+    """Bring CAAS-harvested FASTQs back under the sample root (Align skips ``.caas``)."""
     try:
         from methyl_domain.sample_content_store import restore_sample_fastq_products
 
@@ -176,39 +200,10 @@ def _restore_download_fastqs(sample_dir: Path, sample_id: str) -> None:
         logger.debug("CAAS FASTQ restore skipped for %s", sample_id, exc_info=True)
 
 
-def resolve_paired_fastqs(
-    sample_dir: Path,
-    sample_id: str,
-    *,
-    prefer_trimmed: bool = True,
-) -> List[Path]:
-    """Return paired-end FASTQs (one or more pairs) for a sample.
-
-    Clara ``fq2bam_meth --in-fq`` accepts sequential R1/R2 pairs. Named
-    ``_1``/``_2`` (and Illumina ``_R1``/``_R2``) grouping is preferred when it
-    yields complete pairs. Sequential fallback applies only to files with no
-    mate identity — incomplete named groups fail closed so two R1s (or an R1
-    plus an unrelated leftover) cannot be aligned as mates. Trimmed
-    ``{id}_1.trimmed.fastq.gz`` / ``_2`` at *sample_dir* wins for Align
-    (remediation). Trim must pass ``prefer_trimmed=False`` so it never feeds
-    those outputs back into fastp.
-    """
-    _restore_download_fastqs(sample_dir, sample_id)
-    trimmed = list(canonical_trimmed_fastqs(sample_dir, sample_id))
-    if prefer_trimmed and all(p.is_file() for p in trimmed):
-        return trimmed
-
-    skip = {p.resolve() for p in trimmed}
-    all_fastqs = _collect_fastqs(sample_dir)
+def _pair_fastqs(considered: List[Path], sample_dir: Path) -> List[Path]:
     groups: Dict[Tuple[str, str, str, str], Dict[str, Path]] = {}
     leftovers: List[Path] = []
-    considered: List[Path] = []
-    for path in all_fastqs:
-        if (not prefer_trimmed) and (
-            path.resolve() in skip or _is_trimmed_fastq_name(path)
-        ):
-            continue
-        considered.append(path)
+    for path in considered:
         parsed = _mate_group(path)
         if parsed is None:
             leftovers.append(path)
@@ -251,9 +246,7 @@ def resolve_paired_fastqs(
             + (f": {', '.join(p.name for p in considered)}" if considered else "")
         )
     lane_pairs = [
-        pair
-        for pair in pairs
-        if not any(_is_concat_merge_fastq_name(path) for path in pair)
+        pair for pair in pairs if not any(_is_concat_merge_fastq_name(path) for path in pair)
     ]
     if lane_pairs and len(lane_pairs) < len(pairs):
         logger.info(
@@ -273,3 +266,84 @@ def resolve_paired_fastqs(
     for r1, r2 in pairs:
         ordered.extend((r1, r2))
     return ordered
+
+
+def _resolve_in_dir(
+    sample_dir: Path,
+    sample_id: str,
+    *,
+    prefer_trimmed: bool,
+) -> List[Path]:
+    trimmed = list(canonical_trimmed_fastqs(sample_dir, sample_id))
+    skip = {p.resolve() for p in trimmed}
+    considered: List[Path] = []
+    for path in _collect_fastqs(sample_dir):
+        if (not prefer_trimmed) and (path.resolve() in skip or _is_trimmed_fastq_name(path)):
+            continue
+        considered.append(path)
+    return _pair_fastqs(considered, sample_dir)
+
+
+def _demux_pair(sample_dir: Path) -> List[Path] | None:
+    """epi-GBS products written into the align leaf (``*_demux_*``)."""
+    if not sample_dir.is_dir():
+        return None
+    files = [
+        path
+        for path in sample_dir.iterdir()
+        if path.is_file() and _matches_fastq(path) and "_demux_" in path.name.lower()
+    ]
+    if len(files) < 2:
+        return None
+    try:
+        return _pair_fastqs(files, sample_dir)
+    except RuntimeError:
+        logger.debug("demux FASTQs under %s are not a complete pair", sample_dir, exc_info=True)
+        return None
+
+
+def resolve_paired_fastqs(
+    sample_dir: Path,
+    sample_id: str,
+    *,
+    prefer_trimmed: bool = True,
+    prefer_demux: bool = True,
+) -> List[Path]:
+    """Return paired-end FASTQs (one or more pairs) for a sample.
+
+    Clara ``fq2bam_meth --in-fq`` accepts sequential R1/R2 pairs. Named
+    ``_1``/``_2`` (and Illumina ``_R1``/``_R2``) grouping is preferred when it
+    yields complete pairs. Sequential fallback applies only to files with no
+    mate identity — incomplete named groups fail closed so two R1s (or an R1
+    plus an unrelated leftover) cannot be aligned as mates.
+
+    Downloaded reads live on the sample root. When ``sample_dir`` is an align
+    leaf, those root files are the source and copies inside the leaf are
+    ignored. ``*_demux_*`` products in the leaf are what Align consumes for
+    epi-GBS, including after trim. Otherwise trimmed
+    ``{id}_1.trimmed.fastq.gz`` / ``_2`` wins, checked on the sample root
+    first. Trim must pass ``prefer_trimmed=False`` (and ``prefer_demux=False``)
+    so it never feeds those outputs back into fastp. An align leaf that is the
+    only directory with reads (no sample-root pair) is still accepted.
+    """
+    sample_dir = Path(sample_dir)
+    home = fastq_home_dir(sample_dir)
+    _restore_download_fastqs(home, sample_id)
+
+    # Demux products are the reads Align should use. They are written after
+    # trim, so they win over trimmed sources that still sit on the sample root.
+    if prefer_demux and home.resolve() != sample_dir.resolve():
+        demux = _demux_pair(sample_dir)
+        if demux:
+            return demux
+
+    if prefer_trimmed:
+        for base in _unique_dirs(home, sample_dir):
+            trimmed = list(canonical_trimmed_fastqs(base, sample_id))
+            if all(path.is_file() for path in trimmed):
+                return trimmed
+
+    home_files = _collect_fastqs(home) if home.is_dir() else []
+    if home_files or home.resolve() == sample_dir.resolve():
+        return _resolve_in_dir(home, sample_id, prefer_trimmed=prefer_trimmed)
+    return _resolve_in_dir(sample_dir, sample_id, prefer_trimmed=prefer_trimmed)

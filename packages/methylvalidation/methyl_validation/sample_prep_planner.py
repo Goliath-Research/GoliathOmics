@@ -204,7 +204,9 @@ def _sample_entry(
     return entry
 
 
-def _collect_csv_paths(body: Dict[str, Any], project_data: Dict[str, Any], project_path: Path) -> List[str]:
+def _collect_csv_paths(
+    body: Dict[str, Any], project_data: Dict[str, Any], project_path: Path
+) -> List[str]:
     csvs: List[str] = []
     if body.get("sampleCsv"):
         csvs.append(str(body["sampleCsv"]))
@@ -311,23 +313,28 @@ def _merge_explicit_samples(
             )
         sample_dir = item.get("sampleDir") or str(base / sample_id)
         trim_front2 = item.get("trimFront2")
-        out.append(
-            _sample_entry(
-                sample_id=sample_id,
-                sample_dir=str(Path(str(sample_dir)).resolve()),
-                sample_root=str(base / sample_id),
-                storage=storage,
-                fastq_prefix=item.get("fastqPrefix"),
-                fastq_source_override=item.get("fastqSource"),
-                trim_front2=int(trim_front2) if trim_front2 is not None else None,
-                h5_storage=storage_defaults,
-                sample_storage=storage_defaults,
-                h5_prefix=item.get("h5Prefix") or item.get("samplePrefix"),
-                h5_destination_override=item.get("h5Destination") or item.get("sampleDestination"),
-                sample_prefix=item.get("samplePrefix") or item.get("h5Prefix"),
-                sample_destination_override=item.get("sampleDestination") or item.get("h5Destination"),
-            )
+        entry = _sample_entry(
+            sample_id=sample_id,
+            sample_dir=str(Path(str(sample_dir)).resolve()),
+            sample_root=str(base / sample_id),
+            storage=storage,
+            fastq_prefix=item.get("fastqPrefix"),
+            fastq_source_override=item.get("fastqSource"),
+            trim_front2=int(trim_front2) if trim_front2 is not None else None,
+            h5_storage=storage_defaults,
+            sample_storage=storage_defaults,
+            h5_prefix=item.get("h5Prefix") or item.get("samplePrefix"),
+            h5_destination_override=item.get("h5Destination") or item.get("sampleDestination"),
+            sample_prefix=item.get("samplePrefix") or item.get("h5Prefix"),
+            sample_destination_override=item.get("sampleDestination") or item.get("h5Destination"),
         )
+        # Per-sample QC pins survive planning so the foreach record can overlay
+        # the instance window inside sample.methyl_qc.
+        if isinstance(item.get("core_guardrails"), dict):
+            entry["core_guardrails"] = item["core_guardrails"]
+        if isinstance(item.get("actionConfig"), dict):
+            entry["actionConfig"] = item["actionConfig"]
+        out.append(entry)
     return out
 
 
@@ -383,7 +390,9 @@ def plan_sample_prep_context(body: Dict[str, Any] | SamplePrepPlanRequest) -> Di
 
     project = load_project(str(base_project))
 
-    samples_base = request.samplesBaseDir or project_data.get("samples_base_path") or "/work/samples"
+    samples_base = (
+        request.samplesBaseDir or project_data.get("samples_base_path") or "/work/samples"
+    )
     samples_base = str(Path(str(samples_base)).expanduser().resolve())
 
     storage = request.fastqStorage
@@ -423,10 +432,7 @@ def plan_sample_prep_context(body: Dict[str, Any] | SamplePrepPlanRequest) -> Di
         if sid:
             item["sampleRoot"] = str(samples_base_path / sid)
 
-    primary = (
-        analyte_token(project.get_primary_analyte() or request.primaryAnalyte)
-        or "buffy_coat"
-    )
+    primary = analyte_token(project.get_primary_analyte() or request.primaryAnalyte) or "buffy_coat"
     is_cfdna = is_cfdna_analyte(primary)
 
     context: Dict[str, Any] = {

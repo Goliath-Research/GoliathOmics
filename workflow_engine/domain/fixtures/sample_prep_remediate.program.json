@@ -45,7 +45,10 @@
           "then": [
             {
               "action": "sample.methylgrapher_wgbs_align",
-              "node_key": "methylgrapher_wgbs_align"
+              "node_key": "methylgrapher_wgbs_align",
+              "with": {
+                "stageFastqs": "local"
+              }
             }
           ],
           "else": [
@@ -54,13 +57,19 @@
               "then": [
                 {
                   "action": "sample.parabricks_giraffe",
-                  "node_key": "parabricks_giraffe"
+                  "node_key": "parabricks_giraffe",
+                  "with": {
+                    "stageFastqs": "local"
+                  }
                 }
               ],
               "else": [
                 {
                   "action": "sample.parabricks_fq2bam",
-                  "node_key": "parabricks_fq2bam"
+                  "node_key": "parabricks_fq2bam",
+                  "with": {
+                    "stageFastqs": "local"
+                  }
                 }
               ]
             }
@@ -70,6 +79,7 @@
           "action": "sample.methyl_qc",
           "node_key": "methyl_qc",
           "with": {
+            "sampleContext": "${var.sample}",
             "qcAttempt": 2,
             "alignmentPass": "post_trim_realign",
             "qcAttemptReason": "Remediation cohort rerun after trim_front2",
