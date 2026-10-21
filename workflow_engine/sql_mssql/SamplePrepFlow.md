@@ -1,12 +1,12 @@
 # SamplePrepPipeline — per-sample upstream workflow
 
-**SamplePrepPipeline** is the **universal entry point** for every sample entering MethylPipeline: cfDNA or buffy-coat, from any structured laboratory `fastqSource` (file / S3 / Azure Blob). It orchestrates ingest, alignment (**native-Mojo** methylGrapher on NVIDIA/AMD for `pangenome_wgbs`, or **explicit** Clara Parabricks for `linear`/`pangenome`), **mode-aware alignment QC** (with optional fastp remediation), optional cfDNA fragmentomics, methylation extraction (CPU MethylExtractor or native-Mojo MethylCall), **extraction QC**, optional HDF5 archive, and cleanup **per sample** — in parallel — before **DataDrivenPipeline** consumes `{chrom}-CG.h5` files.
+**SamplePrepPipeline** is the per-sample workflow for every sample entering GoliathOmics. It ingests a structured `fastqSource` (file / S3 / Azure Blob), aligns on one of four paths (linear Clara Parabricks, linear GoliathAlign on the same `sample.parabricks_fq2bam` node, stock Clara Giraffe, or methylGrapher), runs alignment QC (optional fastp remediation on that same path), optional cfDNA fragmentomics, methylation extraction (MethylExtractor, or methylGrapher MethylCall on the WGBS path), extraction QC, optional HDF5 archive, and cleanup. Samples run in parallel. Later study workflows consume the published `{chrom}-CG.h5` files.
+
+The BAM stays on the align worker's local scratch from align through `sample.delete_bam`. Both QC gates use the baked `resolvedConfig` window plus a per-sample overlay. Operator steps: [`docs/operators/start-sample-prep.md`](../../docs/operators/start-sample-prep.md).
 
 **Source of truth (workflow graph):** [`../domain/fixtures/sample_prep.program.json`](../domain/fixtures/sample_prep.program.json)
 
-**Implementation detail:** [`docs/implementation/sample-preparation-flow.md`](../../docs/implementation/sample-preparation-flow.md) — guardrail boundaries, focused FASTP remediation, extraction filtering, cfDNA fragmentomics.
-
-**Deploy:** `bash scripts/deploy_workflow_definitions.sh` (direct DB)
+**Deploy:** `bash scripts/deploy_workflow_definitions.sh` (direct DB). The script compiles the program and stores nodes with `wf.wf_repo_create_workflow_graph`. Instances start through `finalize_instance_context` (`methyl-study-start sample-prep-start`).
 
 **Integrity verify (git + optional Azure):**
 
@@ -24,20 +24,13 @@ methyl-cfg verify-workflow --check-db
 
 ## Worker affinity (catalog-driven)
 
-Sample stickiness is **not** hard-wired into the engine or DomainProgram IR. Sample-scoped
-catalog actions declare `dispatch.affinity_key_field: "sampleId"` plus
-`prefer_previous_worker` / `prefer_continue_group` (see
-[`docs/architecture/action-provider-registry.md`](../../docs/architecture/action-provider-registry.md)).
-GPU Align (`sample.parabricks_fq2bam`, giraffe, methylGrapher WGBS, rna_fq2bam) also
-sets `exclusive_worker` and `max_per_worker: 1` so **one Clara/Mojo align per VM**.
-The claim SP then:
+Sample stickiness is catalog data, not engine SQL. Sample-scoped actions declare `dispatch.affinity_key_field: "sampleId"`.
 
-1. Prefers continuing an affinity key that already has `SUCCEEDED` work (QC/extract after align)
-   over starting a fresh sample’s first step.
-2. Soft-prefers the worker that last completed that key when it is idle and capable; otherwise
-   any capable worker may claim (shared `/work` remains the correctness path).
-3. Refuses a second claim while an exclusive Align is leased — do **not** park QC/extract/trim
-   at `PENDING` to steer GPUs.
+Align actions (`sample.parabricks_fq2bam`, `sample.parabricks_giraffe`, `sample.methylgrapher_wgbs_align`, `sample.docker_align`) set `exclusive_worker` and `max_per_worker: 1`, so one align runs on a worker at a time. They also set `require_previous_worker`. The claim procedure:
+
+1. Prefers continuing an affinity key that already has `SUCCEEDED` work (QC and extract after align) over starting a fresh sample's first step.
+2. For actions with `require_previous_worker`, claims only the worker that completed the previous pinned action for that `sampleId`.
+3. Refuses a second claim while an exclusive Align is leased.
 
 **Hard pin for the BAM chain.** The aligned BAM lives only on the align worker's local
 scratch (see Storage contract). `sample.parabricks_fq2bam`, `sample.parabricks_giraffe`,

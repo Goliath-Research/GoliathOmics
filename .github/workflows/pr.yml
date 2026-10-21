@@ -6,6 +6,36 @@ on:
       - main
 
 jobs:
+  product-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate product summary
+        run: |
+          python -m pip install -U check-jsonschema
+          check-jsonschema --check-metaschema .goliath/product.schema.json
+          check-jsonschema --schemafile .goliath/product.schema.json .goliath/product.json
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Builds the optional MkDocs Material site. Does not publish.
+      - name: Build docs site
+        run: |
+          python -m pip install -U -r requirements-docs.txt
+          mkdocs build
+
   deploy-scripts:
     runs-on: ubuntu-latest
     steps:

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Version idempotent workflow action results by **hyperparameter and input signature** on shared storage. Study actions reuse one physical copy under `.caas/`. Sample-scoped align/prep actions keep FASTQ/BAM/tar at their canonical paths and record a ledger manifest only — do not relocate multi-GB files on NFS.
+Version idempotent workflow action results by execution scope and input signature on shared storage. Study actions reuse one physical copy under `.caas/`. Sample-scoped prep actions that are eligible keep FASTQs at `/work/samples/{id}/` and record a ledger manifest only.
 
 CAAS complements (does not replace) per-output-dir manifests at `{output_dir}/.action_results/`.
 
@@ -38,17 +38,17 @@ Directory fingerprints used inside signatures prefer **content digests** (size +
     manifest.json
   foreach_bundle/{content_key}/
     manifest.json
-  instances/{hyperparamSetId}.json
+  instances/{executionScopeId}.json
 ```
 
 | Path | Meaning |
 |------|---------|
 | `{project_root}/.caas/{action_safe}/{content_key}/` | Immutable product artifacts for one action execution |
-| `{project_root}/.caas/{action_safe}/{content_key}/manifest.json` | `ActionExecutionRecord` (schema 1.2) with `content_key`, `hyperparam_set_id` |
+| `{project_root}/.caas/{action_safe}/{content_key}/manifest.json` | `ActionExecutionRecord` (schema 1.2) with `content_key` and the execution scope id (`hyperparam_set_id` in older manifests) |
 | `{project_root}/.caas/foreach_bundle/{content_key}/` | FOREACH iteration-bundle short-circuit record |
-| `{project_root}/.caas/instances/{hyperparamSetId}.json` | Instance ledger: `{action}:{run_key}` → `content_key` |
+| `{project_root}/.caas/instances/{executionScopeId}.json` | Instance ledger: `{action}:{run_key}` → `content_key`. `finalize_instance_context` sets `executionScopeId`. `hyperparamSetId` is the same value. |
 | `{output_dir}/.action_results/{action}.{run_key}.json` | Canonical skip/replay manifest (may reference CAAS paths) |
-| `/work/samples/{sample_id}/.caas/` | Sample-scoped **ledger** for align/prep (`manifest.json` only). FASTQs stay at `/work/samples/{id}/`; BAM/QC stay in `sampleDir` (aligner leaf when bound). Reject with `sampleCaasEnabled: false` or `METHYL_SAMPLE_CAAS_ENABLED=0`. |
+| `/work/samples/{sample_id}/.caas/` | Sample-scoped **ledger** (`manifest.json` only) for prep actions that are eligible. FASTQs stay at `/work/samples/{id}/`. |
 
 Study canonical output paths (e.g. under `run_0001/detections/...`) become **symlinks** into `.caas/` after a successful commit. Sample FASTQ/BAM/tar are **not** moved.
 
@@ -77,8 +77,9 @@ CAAS is **default-on** for every catalog ACTION unless an explicit opt-out appli
 | `pipeline.*`, `validation.*`, `context.*`, typed `workflow.const_*` / `json_path_*` | Eligible (study `.caas/`) |
 | `workflow.fs_stat` | Opt-out: `mtime_sensitive` |
 | `sample.delete_*`, `sample.qc_failed` | Hard opt-out (destructive / control-flow) |
-| `sample.archive_sample` | Hard opt-out: `remote_upload_etag_only` (QNAP etag/md5 skip is not CAAS; it does not restore BAMs into `/work`) |
-| Other `sample.*` / `parabricks.*` / `proteomics.*` / `align.*` / `methylgrapher.*` | Eligible (sample `/work/samples/{id}/.caas/`). Reject only with `sampleCaasEnabled: false`, `caasEnabled: false`, `METHYL_SAMPLE_CAAS_ENABLED=0`, or `forceRerun` |
+| `sample.archive_sample` | Hard opt-out: `remote_upload_etag_only` (QNAP etag/md5 skip is not CAAS) |
+| `sample.parabricks_fq2bam`, `sample.parabricks_giraffe`, `sample.methylgrapher_wgbs_align`, `sample.docker_align` | Hard opt-out: `worker_local_bam`. The BAM stays on `METHYL_LOCAL_TMP` and is not harvested into `.caas`. |
+| Other eligible `sample.*` prep actions | Sample ledger under `/work/samples/{id}/.caas/`. Turn off with `sampleCaasEnabled: false`, `caasEnabled: false`, `METHYL_SAMPLE_CAAS_ENABLED=0`, or `forceRerun`. |
 
 ### FOREACH iteration bundles
 
@@ -115,17 +116,14 @@ Or set `"forceRerun": true` in context / per-action input, or `METHYL_FORCE_RERU
 
 - [ ] No opt-out is set (`caasEnabled` / `sampleCaasEnabled` not false; `METHYL_CAAS_ENABLED` / `METHYL_SAMPLE_CAAS_ENABLED` not `0`/`false`)
 - [ ] `{project_root}/.caas/` appears after first successful idempotent study action
-- [ ] `/work/samples/{sample_id}/.caas/` appears after first successful align/prep action
-- [ ] `.action_results/*.json` records include `content_key` and `hyperparam_set_id` (schema 1.2)
-- [ ] Second instance with unchanged upstream config reuses entries (check `skipped: true` in `action_run_log.jsonl`)
+- [ ] `/work/samples/{sample_id}/.caas/` appears after the first successful eligible prep action. Align actions with reason `worker_local_bam` do not write a CAAS hit.
+- [ ] `.action_results/*.json` records include `content_key` and the execution scope id (schema 1.2)
+- [ ] A second instance with unchanged upstream config reuses eligible entries (`skipped: true` in `action_run_log.jsonl`). Align is not one of those entries.
 - [ ] Config change produces a new `content_key` without deleting the old store entry
 
 ## See also
 
 - [Artifacts and QA checks](10-artifacts-and-qa-checks.md) — stage artifact map and handoff gates
-- [DomainProgram language — CAAS](../reference/domain-program-language.md#content-addressed-action-store-caas)
-- [Universal CAAS idempotency plan](../plans/universal-caas-idempotency.plan.md)
-- [Hyperparameter result versioning plan](../plans/hyperparameter-result-versioning.plan.md)
 - `packages/methyldomain/methyl_domain/content_store.py` — commit, relink, ledger implementation
 - `packages/methyldomain/methyl_domain/foreach_bundle.py` — FOREACH iteration-bundle store
 - `packages/methyldomain/methyl_domain/sample_content_store.py` — sample-scoped CAAS (default-on for align/prep)

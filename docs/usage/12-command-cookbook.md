@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Provide copy-ready command sequences for the full solution lifecycle. **Prefer `methyl-workflow-run`** (see [Orchestration](04-orchestration-workflow-run.md)). Legacy `methyl-validation` sequences are at the end for transitional scripts.
+Provide copy-ready command sequences for the full solution lifecycle. **Start SamplePrep** with [methyl-study-start sample-prep-start](../operators/start-sample-prep.md). Workstation validation runs use `methyl-workflow-run` from the methyl-gateway wheel (see [Orchestration](04-orchestration-workflow-run.md)). Legacy `methyl-validation` sequences are at the end for transitional scripts.
 
 ## 1) Full staged run (canonical — DomainProgram)
 

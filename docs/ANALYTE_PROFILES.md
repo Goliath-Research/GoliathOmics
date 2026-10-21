@@ -5,8 +5,9 @@
 > **Application packs.** An [application pack](usage/24-methylation-application-packs.md) is a study configuration on an existing process modality (cohorts + partitions + a config overlay), not a new process pack. Worked methylation instances: the [Alzheimer cfDNA pack](usage/21-alzheimer-cfdna-pack.md) (disease application — staged Control -> MCI -> AD on `primary_analyte: cfdna`, `neuro-core` enrichment), the [plant abiotic stress pack](usage/23-plant-abiotic-stress-pack.md) (trait application — Control vs Drought on `primary_analyte: plant_tissue`, `plant-stress-core` enrichment), and the [prostate cancer options catalog](usage/25-prostate-cancer-pack.md) (multi-path: buffy / plasma / EM-Seq / `tissue`).
 
 > **Assay procedure packs.** Between process and application, pick a named
-> `pipelineProcedure` (e.g. `buffy_wgbs_pangenome_gene_fc`, `cfdna_wgbs_plasma`,
-> `cfdna_emseq_targeted`, `plant_wgbs_gene_fc`) under
+> `pipelineProcedure` (for example `buffy_wgbs_pangenome_gene_fc`,
+> `buffy_wgbs_linear_mojo_gene_fc`, `buffy_wgbs_mvalue_residual_gene_fc`,
+> `cfdna_wgbs_plasma`, `cfdna_emseq_targeted`, `plant_wgbs_gene_fc`) under
 > [`workflow_engine/domain/profiles/procedures/`](../workflow_engine/domain/profiles/procedures/).
 > Procedures pin library protocol, SamplePrep/lifecycle program hints, FeatureCuts
 > axis, and covariate defaults. The study `primary_analyte` must match the

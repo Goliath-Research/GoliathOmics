@@ -1,6 +1,6 @@
 # Tool features required by GoliathOmics
 
-GoliathOmics consumes **GoliathAlign** (formerly mojo-align) and **MethylExtractor** only through the features below. A change in either tool that removes or renames a listed feature breaks GoliathOmics, even when the platform (`goliath-gateway`, database `goliath`, `GOLIATH_WORK_ROOT`) is unchanged.
+GoliathOmics consumes **GoliathAlign** (formerly mojo-align) and **MethylExtractor** only through the features below. Both utilities are standalone: they do not reference GoliathApp or GoliathOmics. A change in either tool that removes or renames a listed feature breaks GoliathOmics, even when the platform (`goliath-gateway`, database `goliath`, `GOLIATH_WORK_ROOT`) is unchanged. Direction: [architecture/dependencies.md](../architecture/dependencies.md).
 
 Inherited platform pieces use the `goliath` prefix. These tools stay separate repositories. They are not part of GoliathApp.
 

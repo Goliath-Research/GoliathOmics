@@ -1,63 +1,38 @@
-# Config registry (`methyl-cfg`)
+# Config registry
 
-The registry engine and `goliath-cfg` live in GoliathApp. This chapter is the genomics operator path: science seeds, profiles, and handlers stay in GoliathOmics. `methyl-cfg` is the one-cycle alias of `goliath-cfg`.
+The registry engine and `goliath-cfg` live in GoliathApp. This chapter is the genomics path: analyte JSON, profiles, assay procedures, and handlers stay in GoliathOmics. `methyl-cfg` is the one-cycle alias of `goliath-cfg` and is installed with the methyl-gateway wheel. Pack layout: [Process packs](../operators/process-packs.md).
 
 ## What this chapter is
 
-Operator path for the **configuration registry**: database (or file-backed store) owns sites, profiles, DomainPrograms, studies, storage endpoints/credentials, and reference assets; `methyl-cfg materialize` writes non-secret files onto `/work` for cluster workers. **Production storage/credential authoring** is EpiPortal → `portal.sp_*` (lab/infra admins); `methyl-cfg upsert` is for **dev/CI/bootstrap** only.
+The database owns sites, profiles, procedures, studies, storage endpoints, and reference assets. `finalize_instance_context` syncs the published study onto `/work` when an instance starts. Production storage and credential rows are written through portal SQL. The sync script below is the git-to-database path for analytes, profiles, and procedures.
 
-Architecture detail: [`../architecture/config-registry.md`](../architecture/config-registry.md).
+## Load the catalog
 
-## Bootstrap
-
-```bash
-source .venv/bin/activate
-bash scripts/bootstrap_distributed_workers.sh
-# privileged host: deploy_azure.sh + Python process-pack / catalog / workflow populate
-```
-
-## Day-2 operations
+PostgreSQL, after the release schema is on the database:
 
 ```bash
-export METHYL_CFG_STORE=/work/goliath/cfg-store
-export PYTHONPATH=workflow_engine:$PYTHONPATH
-
-# After editing a profile in the store
-methyl-cfg materialize --work-root /work
-
-# Publish a DomainProgram (compile + write fixtures under runtime-bundle)
-methyl-cfg publish-program StudyValidationLifecycle --work-root /work
-
-# Dev/CI: rotate cloud keys via methyl-cfg (production uses portal.sp_upsert_credential)
-methyl-cfg upsert credential --file new_keys.json --name lab-aws-keys --version 2 --provider s3 --publish
-```
-
-### Push git profiles + action catalog into the databases
-
-`methyl-cfg import-fs` updates the **file-backed** cfg store. After breaking profile/schema changes, also refresh the **database** registry and `wf` action catalog on each backend:
-
-```bash
-source .venv/bin/activate
-# Azure SQL (AZURE_SQL_* or DB_*); PostgreSQL (POSTGRES_*; URL-encode @ in AAD users)
-python scripts/sync_cfg_profiles_and_action_catalog.py --backend mssql
-python scripts/sync_cfg_profiles_and_action_catalog.py --backend postgres
-```
-
-Deploy catalog DDL/procs first (once per environment):
-
-```bash
-./scripts/deploy_process_pack_catalog.sh --backend mssql --sync
-# or
+export GOLIATH_RELEASE_SRC=/work/goliath/current
+# or GOLIATHAPP_SQL_DIR pointing at a GoliathApp workflow_engine/sql_pg checkout
 ./scripts/deploy_process_pack_catalog.sh --backend postgres --sync
 ```
 
-Scripts: [`cfg_process_pack_catalog.sql`](../../workflow_engine/sql_mssql/cfg_process_pack_catalog.sql), [`cfg_assay_procedure_links.sql`](../../workflow_engine/sql_mssql/cfg_assay_procedure_links.sql), [`cfg_analyte_catalog.sql`](../../workflow_engine/sql_mssql/cfg_analyte_catalog.sql) (+ PG twins; listed in each dialect’s `deploy_azure.sh`).
+The shell script applies GoliathApp `cfg_schema.sql`, `cfg_repo_api.sql`, `cfg_process_pack_catalog.sql`, `cfg_assay_procedure_links.sql`, and `portal_contract_api.sql` when that directory is set. It then applies this repository's [`workflow_engine/sql_pg/cfg_analyte_catalog.sql`](../../workflow_engine/sql_pg/cfg_analyte_catalog.sql). `--sync` runs:
 
-The sync upserts `cfg.analyte` from `workflow_engine/domain/analytes/`, then `cfg.pipeline_profile` and `cfg.assay_procedure` from `workflow_engine/domain/profiles/` (and `procedures/`), mapping each document’s `catalog` block to cfg `status` (`published` vs `retired`). Research mode overlays under `profiles/modes/` are **not** synced as profile rows. Assay bind sets `analyte_id` when the analyte row exists; studies with `regulatory.primary_analyte` get `default_analyte_id` backfilled. It also re-seeds `wf.workflow_action` / schemas from `schemas/actions/catalog.json` + `schemas/tasks/` (omit with `--skip-seed`). Portal Study / Start-run pickers use `portal.sp_list_*_catalog` — see [portal-ia](../architecture/portal-ia.md).
+```bash
+python scripts/sync_cfg_profiles_and_action_catalog.py --backend postgres --skip-seed
+```
+
+That upserts `cfg.analyte` from `workflow_engine/domain/analytes/`, then `cfg.pipeline_profile` and `cfg.assay_procedure` from `workflow_engine/domain/profiles/` and `procedures/`. Each document's `catalog` block maps to cfg `status` (`published` or `retired`). Overlays under `profiles/modes/` are not profile rows. Assay bind sets `analyte_id` when the analyte row exists. Studies with `regulatory.primary_analyte` get `default_analyte_id` backfilled. Omit `--skip-seed` to also re-seed `wf.workflow_action` from `schemas/actions/catalog.json` and `schemas/tasks/`.
+
+`python scripts/sync_cfg_profiles_and_action_catalog.py --backend mssql` exits. The message says mssql sync is not wired and points at postgres or portal upserts.
+
+`--backend mssql` on the shell script looks for `cfg_repo_api.sql`, `cfg_process_pack_catalog.sql`, `cfg_assay_procedure_links.sql`, and `portal_contract_api.sql` under `workflow_engine/sql_mssql/`. Those files are GoliathApp SQL and are not in this checkout. [`cfg_analyte_catalog.sql`](../../workflow_engine/sql_mssql/cfg_analyte_catalog.sql) is the Omics file that is present. There is no `deploy_azure.sh` in this repository.
+
+DomainProgram graphs are a separate step: `scripts/deploy_workflow_definitions.sh`. See [Deployment](14-deployment-and-distributed-workflow.md).
 
 ## Study scaffold
 
-`methyl-study-init` still writes `/work/projects/<study-id>/` and **also** upserts `cfg.study` when the cfg store is available (`--cfg-store` or `METHYL_CFG_STORE`).
+`python workflow_engine/admin/study_init.py` writes a study tree and can upsert `cfg.study` when a cfg store is available. The release venv may expose the same module as `methyl-study-init`. This repository does not register that console script in `pyproject.toml`.
 
 ## Credentials
 
@@ -69,4 +44,4 @@ Expand at schedule/study-start binds secrets into task `input_json` with `conten
 
 ## Study membership
 
-Enroll `portal.Samples` into study arms with `methyl-cfg set-study-group` / `set-study-group-members`. **Starting a study always syncs** cfg → `/work` (`ensure_study_work_synced`); you do not rely on a separate materialize step for correctness. See [How to define samples](../user-manual/How%20to%20define%20samples.md).
+**Starting an instance syncs** cfg onto `/work` (`ensure_study_work_synced` inside `finalize_instance_context`). Sample membership for SamplePrep is the request `samples` list, `sampleCsv`, or `useProjectSamples`. See [Start a SamplePrep instance](../operators/start-sample-prep.md).
