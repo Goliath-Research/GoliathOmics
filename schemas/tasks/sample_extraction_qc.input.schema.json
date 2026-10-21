@@ -50,7 +50,22 @@
         }
       ],
       "default": null,
+      "description": "Merged actionConfig.extraction_qc baked at instance configuration. This is the QC window; the handler must not replace it with site defaults.",
       "title": "Resolvedconfig"
+    },
+    "sampleContext": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Foreach sample record. guardrails or actionConfig.extraction_qc on the sample overlay the instance resolvedConfig for this sample only.",
+      "title": "Samplecontext"
     },
     "sampleDir": {
       "title": "Sampledir",

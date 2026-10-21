@@ -299,18 +299,27 @@ def _run_methyl_extraction_qc(
 
     from methyl_extraction_qc.core.writer import process_sample_extraction_qc
     from methyl_extraction_qc.models.config import ExtractionQCConfig
-    from methyl_extraction_qc.project_resolver import resolve_extraction_qc_config
+    from methyl_extraction_qc.project_resolver import (
+        extraction_qc_window,
+        resolve_extraction_qc_config,
+    )
 
     project = input.project or input.projectPath
+    resolved = input.resolvedConfig if isinstance(input.resolvedConfig, dict) else None
     if project:
-        config = resolve_extraction_qc_config(project, sample_paths=[str(sample_path)])
+        config = resolve_extraction_qc_config(
+            project,
+            sample_paths=[str(sample_path)],
+            resolved_config=resolved,
+            sample_context=input.sampleContext,
+        )
     else:
-        resolved = input.resolvedConfig
-        if isinstance(resolved, dict) and resolved.get("expected_chromosomes"):
-            config = ExtractionQCConfig(
-                expected_chromosomes=[str(item) for item in resolved["expected_chromosomes"]]
-            )
-        else:
+        # No study project: still apply the baked instance/sample window.
+        config = extraction_qc_window(
+            resolved_config=resolved,
+            sample_context=input.sampleContext,
+        )
+        if config is None:
             manifest_path = sample_path / f"{sample_id}.extraction_manifest.json"
             if manifest_path.is_file():
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

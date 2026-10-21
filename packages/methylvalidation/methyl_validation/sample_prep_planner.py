@@ -329,9 +329,11 @@ def _merge_explicit_samples(
             sample_destination_override=item.get("sampleDestination") or item.get("h5Destination"),
         )
         # Per-sample QC pins survive planning so the foreach record can overlay
-        # the instance window inside sample.methyl_qc.
+        # the instance window inside sample.methyl_qc and sample.extraction_qc.
         if isinstance(item.get("core_guardrails"), dict):
             entry["core_guardrails"] = item["core_guardrails"]
+        if isinstance(item.get("guardrails"), dict):
+            entry["guardrails"] = item["guardrails"]
         if isinstance(item.get("actionConfig"), dict):
             entry["actionConfig"] = item["actionConfig"]
         out.append(entry)

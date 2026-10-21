@@ -333,6 +333,11 @@ def test_sample_prep_program_stages_every_align_and_local_extract() -> None:
     qc_nodes = [s for s in steps if s["action"] == "sample.methyl_qc"]
     assert qc_nodes
     assert all(s.get("with", {}).get("sampleContext") == "${var.sample}" for s in qc_nodes)
+    extraction_nodes = [s for s in steps if s["action"] == "sample.extraction_qc"]
+    assert extraction_nodes
+    assert all(
+        s.get("with", {}).get("sampleContext") == "${var.sample}" for s in extraction_nodes
+    )
 
     align_actions = {
         "sample.parabricks_fq2bam",
@@ -355,6 +360,11 @@ def test_sample_prep_program_stages_every_align_and_local_extract() -> None:
         assert other_qc, name
         assert all(
             s.get("with", {}).get("sampleContext") == "${var.sample}" for s in other_qc
+        ), name
+        other_extraction = [s for s in other_steps if s["action"] == "sample.extraction_qc"]
+        assert other_extraction, name
+        assert all(
+            s.get("with", {}).get("sampleContext") == "${var.sample}" for s in other_extraction
         ), name
 
 

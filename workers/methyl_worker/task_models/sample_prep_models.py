@@ -647,7 +647,20 @@ class ExtractionQcTaskInput(BaseModel):
         description="Legacy alias of projectPath from older input templates (provenance only).",
     )
     executionScopeId: Optional[str] = None
-    resolvedConfig: Optional[dict] = None
+    resolvedConfig: Optional[dict] = Field(
+        default=None,
+        description=(
+            "Merged actionConfig.extraction_qc baked at instance configuration. "
+            "This is the QC window; the handler must not replace it with site defaults."
+        ),
+    )
+    sampleContext: Optional[dict] = Field(
+        default=None,
+        description=(
+            "Foreach sample record. guardrails or actionConfig.extraction_qc "
+            "on the sample overlay the instance resolvedConfig for this sample only."
+        ),
+    )
 
 
 class DeleteFastqsTaskInput(BaseModel):

@@ -115,6 +115,29 @@ def test_planner_keeps_per_sample_alignment_qc_pins(tmp_path: Path) -> None:
     assert sample["actionConfig"]["alignment_qc"]["validate_schema"] is False
 
 
+def test_planner_keeps_per_sample_extraction_qc_pins(tmp_path: Path) -> None:
+    project_path = _write_project(tmp_path)
+    ctx = _plan(
+        tmp_path,
+        {
+            "projectPath": str(project_path),
+            "samples": [
+                {
+                    "sampleId": "S1",
+                    "guardrails": {"min_cpg_weighted_mean_coverage": 0},
+                    "actionConfig": {
+                        "extraction_qc": {"expected_chromosomes": ["1", "21"]}
+                    },
+                }
+            ],
+            "fastqStorage": S3_STORAGE,
+        },
+    )
+    sample = ctx["samples"][0]
+    assert sample["guardrails"]["min_cpg_weighted_mean_coverage"] == 0
+    assert sample["actionConfig"]["extraction_qc"]["expected_chromosomes"] == ["1", "21"]
+
+
 def test_planner_keeps_explicit_arm_sample_dir(tmp_path: Path) -> None:
     project_path = _write_project(tmp_path)
     arm = tmp_path / "samples" / "S1" / "align.linear.mojo"
