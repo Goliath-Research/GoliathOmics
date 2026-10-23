@@ -315,6 +315,15 @@ if [[ -n "${GOLIATH_APP_SQL_DIR:-}" ]]; then
   [[ "$(psql_q -c "SELECT string_agg(release || ':' || apply_count, ',' ORDER BY release) FROM wf.schema_release")" == "9.0.0:1,9.0.1:2" ]] \
     || fail "GoliathApp scripts: unexpected ledger"
   echo "GoliathApp sql_pg ($app_sha, $(wc -l <"$real1/goliathapp-sql/manifest.sha256") scripts): applied 3x on one database"
+
+  OMICS_APPLY="$ROOT/workflow_engine/sql_pg/apply_schema.sh"
+  [[ -f "$OMICS_APPLY" ]] || fail "Omics apply_schema.sh missing"
+  for _ in 1 2; do
+    bash "$OMICS_APPLY" >"$out" 2>"$err" || { tail -20 "$err" >&2; fail "Omics apply_schema.sh pass $_ failed"; }
+  done
+  [[ "$(psql_q -c "SELECT to_regclass('portal.\"Customers\"') IS NOT NULL")" == "t" ]] \
+    || fail "Omics schema: portal.Customers table missing after apply"
+  echo "GoliathOmics sql_pg: apply_schema.sh applied 2x after GoliathApp on one database"
 fi
 
 echo "test_apply_goliathapp_schema ok"

@@ -68,6 +68,8 @@ jobs:
             scripts/rollouts_hook.sh \
             scripts/deploy_target.sh \
             scripts/apply_goliathapp_schema.sh \
+            scripts/apply_omics_schema.sh \
+            scripts/bundle_omics_sql.py \
             scripts/test_apply_goliathapp_schema.sh \
             scripts/deploy_workflow_definitions.sh \
             scripts/deploy_mc_workflow_definitions.sh \
@@ -144,12 +146,34 @@ jobs:
 
   pr:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: methyl
+          POSTGRES_DB: goliath_omics_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+
+      - name: Check out GoliathApp sql_pg
+        uses: actions/checkout@v6
+        with:
+          repository: Goliath-Research/GoliathApp
+          ref: main
+          path: _goliathapp
+          sparse-checkout: workflow_engine/sql_pg
 
       - name: Type check with Pyrefly
         run: |
@@ -181,3 +205,16 @@ jobs:
         run: |
           . .venv/bin/activate
           python -m pytest workers/tests -q
+
+      - name: Omics PostgreSQL schema tests
+        env:
+          GOLIATH_APP_SQL_DIR: ${{ github.workspace }}/_goliathapp/workflow_engine/sql_pg
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: methyl
+          POSTGRES_DB: goliath_omics_ci
+        run: |
+          . .venv/bin/activate
+          python -m pip install -U pytest
+          python -m pytest workflow_engine/tests/test_omics_sql_fk_direction.py workflow_engine/tests/test_omics_pg_schema_apply.py -q

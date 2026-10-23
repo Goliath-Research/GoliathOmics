@@ -148,6 +148,15 @@ build_wheels() {
   # in wheel metadata; pin them to the sibling wheel's version instead.
   "$PYTHON_BIN" "$SCRIPT_DIR/fix_wheel_path_deps.py" "$WHEELS_DIR"
   bash "$SCRIPT_DIR/check_gateway_wheel.sh" "$WHEELS_DIR"
+  local omics_sha="local-source"
+  if git -C "$REPO_ROOT" rev-parse HEAD >/dev/null 2>&1; then
+    omics_sha="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+  fi
+  info "Bundling GoliathOmics domain sql_pg ($omics_sha)"
+  "$PYTHON_BIN" "$SCRIPT_DIR/bundle_omics_sql.py" \
+    --sql-dir "$REPO_ROOT/workflow_engine/sql_pg" \
+    --out "$OUTPUT/omics-sql" \
+    --commit "$omics_sha"
 }
 
 # name==version for every wheel built from this repo (wheels/ holds only
@@ -410,7 +419,8 @@ build_runtime_bundle() {
            verify_locked_wheels.py sanitize_lock.py fix_wheel_path_deps.py \
            deploy_workflow_definitions.sh deploy_mc_workflow_definitions.sh \
            deploy_process_pack_catalog.sh deploy_target.sh \
-           apply_goliathapp_schema.sh bundle_goliathapp_sql.py \
+           apply_goliathapp_schema.sh apply_omics_schema.sh \
+           bundle_goliathapp_sql.py bundle_omics_sql.py \
            report_deploy.sh rollouts_hook.sh default_methyl_site.json; do
     if [[ -f "$REPO_ROOT/scripts/$s" ]]; then
       cp -f "$REPO_ROOT/scripts/$s" "$RUNTIME_DIR/scripts/"
@@ -431,6 +441,7 @@ write_manifest_stub() {
   fi
   # GoliathApp sql_pg bundle (build_gateway_wheel.sh --sql-out). Deploy
   # applies it once per release (scripts/apply_goliathapp_schema.sh).
+  local omics_sql_json="null"
   if [[ -f "$OUTPUT/goliathapp-sql/source.json" ]]; then
     sql_json="$("$PYTHON_BIN" -c '
 import json, sys
@@ -439,12 +450,21 @@ print(json.dumps({"path": "goliathapp-sql", "manifest": "goliathapp-sql/manifest
                   "commit": src.get("commit", ""), "scripts": src.get("scripts", 0)}))
 ' "$OUTPUT/goliathapp-sql/source.json")"
   fi
+  if [[ -f "$OUTPUT/omics-sql/source.json" ]]; then
+    omics_sql_json="$("$PYTHON_BIN" -c '
+import json, sys
+src = json.load(open(sys.argv[1], encoding="utf-8"))
+print(json.dumps({"path": "omics-sql", "manifest": "omics-sql/manifest.sha256",
+                  "commit": src.get("commit", ""), "scripts": src.get("scripts", 0)}))
+' "$OUTPUT/omics-sql/source.json")"
+  fi
   cat >"$OUTPUT/manifest.json" <<EOF
 {
   "version": "$VERSION",
   "python": "$py_minor",
   "gateway_source": "$gateway_sha",
   "goliathapp_sql": $sql_json,
+  "omics_sql": $omics_sql_json,
   "parabricks_image": "${PARABRICKS_IMAGE:-}",
   "parabricks_image_digest": "",
   "docker_data_root": "/work/goliath/docker",
