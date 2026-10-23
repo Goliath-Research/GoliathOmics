@@ -172,7 +172,6 @@ jobs:
           . .venv/bin/activate
           python -m pip install -U pip pytest
           bash scripts/install_packages.sh --with-deps
-          python -m pip install "${{ github.workspace }}/_goliathapp/workflow_engine"
           python -m pip install -e workers
 
       - name: Semantic action schema drift check
