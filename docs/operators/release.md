@@ -138,8 +138,6 @@ export GOLIATH_RELEASE_SRC=/work/goliath/releases/2026.10.27
 
 PostgreSQL apply uses GoliathApp SQL from `GOLIATHAPP_SQL_DIR` or from `$GOLIATH_RELEASE_SRC/goliathapp-sql/sql_pg` when those files are present, then applies this repository's `workflow_engine/sql_pg/cfg_analyte_catalog.sql`. `--sync` runs `scripts/sync_cfg_profiles_and_action_catalog.py --backend postgres`, which upserts `cfg.analyte`, `cfg.pipeline_profile`, and `cfg.assay_procedure` from `workflow_engine/domain/`.
 
-`--backend mssql` on the sync script exits. The message tells the operator to use postgres or portal upserts. The mssql branch of the shell script applies `cfg_repo_api.sql`, `cfg_process_pack_catalog.sql`, `cfg_assay_procedure_links.sql`, and `portal_contract_api.sql` from `workflow_engine/sql_mssql/`. Those four files are GoliathApp SQL and are not in this checkout. `cfg_analyte_catalog.sql` is the Omics file that is present.
-
 Pack layout is in [Process packs](process-packs.md).
 
 ## Related

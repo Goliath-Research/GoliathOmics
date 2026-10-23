@@ -8,7 +8,7 @@ The admin CLI lives in [`workflow_engine/admin/study_start.py`](../../workflow_e
 python workflow_engine/admin/study_start.py sample-prep-start request.json
 ```
 
-The CLI opens the workflow database with the gateway settings (`BACKEND_DB` and `POSTGRES_*` or `AZURE_SQL_*`). The template is [`deploy/env/gateway.postgres.env.example`](../../deploy/env/gateway.postgres.env.example). It imports `rest.db_client` from the methyl-gateway wheel, which is built from GoliathApp. See [Dependency direction](../architecture/dependencies.md).
+The CLI opens the workflow database with the gateway settings (`BACKEND_DB=postgres` and `POSTGRES_*`). The template is [`deploy/env/gateway.postgres.env.example`](../../deploy/env/gateway.postgres.env.example). It imports `rest.db_client` from the methyl-gateway wheel, which is built from GoliathApp. See [Dependency direction](../architecture/dependencies.md).
 
 Portal starts go through `cfg.study_start_request`. `methyl-study-start drain-requests` claims those rows, bakes context from materialized `/work`, and calls `portal.sp_create_and_start_instance`.
 
@@ -106,4 +106,4 @@ A sample may overlay the window. Alignment QC merges `sampleContext.core_guardra
 
 `qcPass` comes from alignment `guardrails.overall_pass`. `extractionQcPass` comes from extraction `guardrails.overall_pass`. A failed alignment gate can remediate (trim, same align path, QC again) or archive QC-only and delete the BAM. A failed extraction gate archives QC-only and deletes the BAM. `pipeline.info_measures` is a later study-lifecycle action, not a SamplePrep node.
 
-Mode-specific artifact rules and the published guardrail keys are in [Sample prep and QC](../usage/03-sample-prep-and-qc.md) and [Alignment engines](../usage/alignment-engines.md). The storage contract in [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md) matches the paths above.
+Mode-specific artifact rules and the published guardrail keys are in [Sample prep and QC](../usage/03-sample-prep-and-qc.md) and [Alignment engines](../usage/alignment-engines.md). The storage contract in [`workflow_engine/contract/SamplePrepFlow.md`](../../workflow_engine/contract/SamplePrepFlow.md) matches the paths above.

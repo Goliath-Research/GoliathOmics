@@ -211,20 +211,10 @@ def sync_postgres(repo: Path, *, skip_seed: bool) -> Dict[str, Any]:
     return {"backend": "postgres", "upserts": counts, "seed": seed_info}
 
 
-def sync_mssql(repo: Path, *, skip_seed: bool) -> Dict[str, Any]:
-    """MSSQL: require gateway rest + portal.sp_upsert_* (Azure SQL deploy path)."""
-    raise SystemExit(
-        "--backend mssql sync is not wired in this minimal restore; "
-        "use --backend postgres (Neon / goliath-test) or run methyl-cfg import-fs + "
-        "portal upserts on Azure SQL. deploy_process_pack_catalog.sh --backend mssql "
-        "still applies DDL."
-    )
-
-
 def _seed_actions(repo: Path) -> Dict[str, Any]:
     import subprocess
 
-    script = repo / "workflow_engine" / "sql_mssql" / "seed_action_catalog.py"
+    script = repo / "workflow_engine" / "sql_pg" / "seed_action_catalog.py"
     if not script.is_file():
         return {"skipped": True, "reason": "seed_action_catalog.py missing"}
     proc = subprocess.run(
@@ -243,16 +233,18 @@ def _seed_actions(repo: Path) -> Dict[str, Any]:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--backend", choices=("postgres", "mssql"), required=True)
+    parser.add_argument(
+        "--backend",
+        choices=("postgres",),
+        default="postgres",
+        help="Database backend (PostgreSQL only)",
+    )
     parser.add_argument("--skip-seed", action="store_true", help="Skip wf.workflow_action seed")
     parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
     args = parser.parse_args(argv)
 
     repo = args.repo_root.resolve()
-    if args.backend == "postgres":
-        result = sync_postgres(repo, skip_seed=args.skip_seed)
-    else:
-        result = sync_mssql(repo, skip_seed=args.skip_seed)
+    result = sync_postgres(repo, skip_seed=args.skip_seed)
     print(json.dumps(result, indent=2))
     if not args.skip_seed and result.get("seed", {}).get("returncode", 0) not in (0, None):
         return int(result["seed"]["returncode"] or 1)

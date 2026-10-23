@@ -6892,7 +6892,7 @@
     },
     {
       "column": 21,
-      "path": "workflow_engine/sql_mssql/seed_data_types.py",
+      "path": "workflow_engine/sql_pg/seed_data_types.py",
       "name": "missing-attribute"
     }
   ]

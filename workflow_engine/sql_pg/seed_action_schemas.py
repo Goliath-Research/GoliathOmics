@@ -5,8 +5,8 @@ Upsert schemas/tasks/*.schema.json into wf.workflow_action_schema.
 Requires PostgreSQL wf schema with wf_action_schema.sql deployed.
 
 Usage:
-  python workflow_engine/sql_mssql/seed_action_schemas.py
-  python workflow_engine/sql_mssql/seed_action_schemas.py --dsn postgresql://...
+  python workflow_engine/sql_pg/seed_action_schemas.py
+  python workflow_engine/sql_pg/seed_action_schemas.py --dsn postgresql://...
 """
 
 from __future__ import annotations

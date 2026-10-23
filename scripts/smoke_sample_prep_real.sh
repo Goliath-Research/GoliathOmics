@@ -22,7 +22,7 @@ Options:
   -h, --help
 
 Requires:
-  - Direct DB env (BACKEND_DB + AZURE_SQL_* or POSTGRES_*)
+  - Direct DB env (BACKEND_DB=postgres and POSTGRES_*)
   - Registered GPU worker with WORKER_STUB_EXTERNAL unset/0
   - Provisioned canary FASTQs (scripts/provision_sample_prep_canary.sh)
   - Site testing.sample_prep_canary or METHYL_SAMPLE_PREP_CANARY_CONFIG

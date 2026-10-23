@@ -6,8 +6,8 @@ Usage:
   bundle_goliathapp_sql.py --sql-dir DIR --list
 
 DIR is GoliathApp workflow_engine/sql_pg. The apply order is not copied by
-hand: it is read from the SCRIPTS=( ... ) array in DIR/deploy_azure.sh, the
-script GoliathApp itself uses to deploy PostgreSQL. A file added there is
+hand: it is read from the SCRIPTS=( ... ) array in DIR/apply_schema.sh, the
+script GoliathApp itself uses to apply PostgreSQL schema. A file added there is
 bundled (and applied) by the next release without a change in this repo.
 
 --out receives:
@@ -28,7 +28,7 @@ import shutil
 import sys
 from pathlib import Path
 
-ORDER_FILE = "deploy_azure.sh"
+ORDER_FILE = "apply_schema.sh"
 NAME_RE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*\.sql")
 COMMIT_RE = re.compile(r"[A-Za-z0-9._-]+")
 DEFAULT_REPOSITORY = "https://github.com/Goliath-Research/GoliathApp"
@@ -39,7 +39,7 @@ class BundleError(Exception):
 
 
 def parse_order(order_file: Path) -> list[str]:
-    """Return the SCRIPTS array of deploy_azure.sh, in order."""
+    """Return the SCRIPTS array of apply_schema.sh, in order."""
     try:
         text = order_file.read_text(encoding="utf-8")
     except OSError as exc:

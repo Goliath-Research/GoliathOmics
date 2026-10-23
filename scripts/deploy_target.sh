@@ -380,6 +380,12 @@ write_kv_file() {
 }
 
 db_kind="$(jq_get '.database.kind // "postgres"')"
+case "$db_kind" in
+  postgres|neon) ;;
+  *)
+    die "database.kind must be postgres or neon (got: ${db_kind})"
+    ;;
+esac
 db_host="$(jq_get '.database.host')"
 db_schema_host="$(jq_get '.database.schema_host // empty')"
 if [[ -z "$db_schema_host" || "$db_schema_host" == "null" ]]; then
@@ -480,10 +486,6 @@ goliathapp_schema_wanted() {
       ;;
     *) die "schema.goliathapp must be per-release or none" ;;
   esac
-  if [[ "$db_kind" == "mssql" ]]; then
-    info "database.kind=mssql; skipping GoliathApp PostgreSQL scripts"
-    return 1
-  fi
   if [[ -z "${GOLIATH_RELEASE_SRC:-}" ]]; then
     info "GOLIATH_RELEASE_SRC is not set; skipping GoliathApp SQL (release-deploy sets it to the release bundle)"
     return 1
@@ -511,11 +513,6 @@ run_schema() {
   fi
   if [[ -z "$apply" || "$apply" == "null" || "$apply" == "none" ]]; then
     info "schema.apply=${apply:-unset}; skipping test-bed SQL"
-    want_bed=0
-  elif [[ "$db_kind" == "mssql" ]]; then
-    # deploy_test_bed.sh is a PostgreSQL psql script. Pointing it at Azure SQL
-    # fails the token guard or the client, and --component all stops there.
-    info "database.kind=mssql; skipping PostgreSQL test-bed"
     want_bed=0
   fi
   if [[ "$want_app" -eq 0 && "$want_bed" -eq 0 ]]; then
@@ -548,10 +545,6 @@ run_schema() {
 # get_workflow_definition_by_name); the JSON is optional for canary/smoke.
 run_catalog_sync() {
   local release_id already
-  if [[ "$db_kind" == "mssql" ]]; then
-    info "catalog sync: database.kind=mssql; skipping PostgreSQL catalog sync"
-    return 0
-  fi
   if [[ -z "${GOLIATH_RELEASE_SRC:-}" || ! -f "${GOLIATH_RELEASE_SRC}/manifest.json" ]]; then
     info "catalog sync: GOLIATH_RELEASE_SRC unset; skipping DomainProgram / analyte sync"
     return 0
@@ -633,7 +626,7 @@ run_catalog_sync() {
   info "catalog sync: seeding wf.workflow_action from schemas/actions/catalog.json"
   if ! (
     cd "$REPO_ROOT"
-    PYTHONPATH="${catalog_py_path}${PYTHONPATH:+:$PYTHONPATH}"       "$py" "$REPO_ROOT/workflow_engine/sql_mssql/seed_action_catalog.py" --use-db
+    PYTHONPATH="${catalog_py_path}${PYTHONPATH:+:$PYTHONPATH}"       "$py" "$REPO_ROOT/workflow_engine/sql_pg/seed_action_catalog.py" --use-db
   ); then
     report_component failed goliath-db-catalog "seed_action_catalog failed"
     return 1
@@ -812,36 +805,24 @@ run_gateway() {
     # the nested reports, so the driver records both services for this host.
     report_component start goliath-reclaim-leases "reclaim-leases ${dest}"
     envfile="$stage_dir/gateway.env"
-    if [[ "$db_kind" == "mssql" ]]; then
-      write_kv_file "$envfile" \
-        BACKEND_DB mssql \
-        AZURE_SQL_SERVER "$db_host" \
-        AZURE_SQL_DB "$db_name" \
-        AZURE_SQL_USER "$db_user" \
-        AZURE_SQL_PASSWORD "$DB_PASSWORD" \
-        WF_GATEWAY_HOST "$bind" \
-        WF_GATEWAY_PORT "$port" \
-        GOLIATH_ENV "$GOLIATH_ENV"
-    else
-      local -a gw_pairs=(
-        BACKEND_DB postgres
-        POSTGRES_HOST "$db_host"
-        POSTGRES_PORT "$db_port"
-        POSTGRES_DB "$db_name"
-        POSTGRES_USER "$db_user"
-        POSTGRES_PASSWORD "$DB_PASSWORD"
-        POSTGRES_SSLMODE "$db_ssl"
-      )
-      if [[ -n "$db_channel" ]]; then
-        gw_pairs+=(POSTGRES_CHANNEL_BINDING "$db_channel")
-      fi
-      gw_pairs+=(
-        WF_GATEWAY_HOST "$bind"
-        WF_GATEWAY_PORT "$port"
-        GOLIATH_ENV "$GOLIATH_ENV"
-      )
-      write_kv_file "$envfile" "${gw_pairs[@]}"
+    local -a gw_pairs=(
+      BACKEND_DB postgres
+      POSTGRES_HOST "$db_host"
+      POSTGRES_PORT "$db_port"
+      POSTGRES_DB "$db_name"
+      POSTGRES_USER "$db_user"
+      POSTGRES_PASSWORD "$DB_PASSWORD"
+      POSTGRES_SSLMODE "$db_ssl"
+    )
+    if [[ -n "$db_channel" ]]; then
+      gw_pairs+=(POSTGRES_CHANNEL_BINDING "$db_channel")
     fi
+    gw_pairs+=(
+      WF_GATEWAY_HOST "$bind"
+      WF_GATEWAY_PORT "$port"
+      GOLIATH_ENV "$GOLIATH_ENV"
+    )
+    write_kv_file "$envfile" "${gw_pairs[@]}"
     install_remote_tree "$dest" gateway
     if ! stage_gateway_release "$dest" "$root"; then
       report_component failed goliath-gateway "gateway ${dest} failed"

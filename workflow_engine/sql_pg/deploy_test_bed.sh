@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy wf test-bed seeds (PostgreSQL) and optionally simulate a workflow.
 #
-# Engine DDL (00_schema.sql and the rest of deploy_azure.sh) lives in GoliathApp
+# Engine DDL (00_schema.sql and the rest of apply_schema.sh) lives in GoliathApp
 # and must already be applied. scripts/deploy_target.sh --component schema
 # applies it first, once per release, from the release's goliathapp-sql/
 # (scripts/apply_goliathapp_schema.sh). This script does not embed a database

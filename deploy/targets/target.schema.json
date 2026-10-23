@@ -115,8 +115,7 @@
           "type": "string",
           "enum": [
             "postgres",
-            "neon",
-            "mssql"
+            "neon"
           ]
         },
         "project": {

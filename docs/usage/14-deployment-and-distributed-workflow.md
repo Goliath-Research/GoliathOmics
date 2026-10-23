@@ -6,7 +6,7 @@ The operator procedure for release **2026.10.27** is [Release, deploy, and worke
 
 ## Purpose
 
-Deploy the database, the REST gateway, and the workers that execute SamplePrep and validation. One primary database per environment. The goliath-test profile uses Neon Postgres. `deploy_target.sh` skips the GoliathApp schema step when `database.kind` is `mssql`.
+Deploy the database, the REST gateway, and the workers that execute SamplePrep and validation. One primary database per environment. The goliath-test profile uses Neon Postgres.
 
 ## Architecture
 
@@ -61,23 +61,18 @@ Follow [Release](../operators/release.md). In order:
 5. Load process packs with `scripts/deploy_process_pack_catalog.sh --backend postgres --sync` when the release schema is applied. See [Process packs](../operators/process-packs.md).
 6. Compile DomainPrograms into database nodes with `scripts/deploy_workflow_definitions.sh`.
 
-`scripts/deploy_azure.sh`, `scripts/bootstrap_distributed_workers.sh`, `contracts/openapi.yaml`, and `workers/WORKER_PROTOCOL.md` are not in this repository. `pip install -e workflow_engine/` does not install the gateway: this checkout has no `workflow_engine/pyproject.toml`. The gateway wheel is produced by `scripts/build_gateway_wheel.sh` from a GoliathApp checkout.
+GoliathApp's `workflow_engine/sql_pg/apply_schema.sh`, `scripts/bootstrap_distributed_workers.sh`, `contracts/openapi.yaml`, and `workers/WORKER_PROTOCOL.md` are not in this repository. `pip install -e workflow_engine/` does not install the gateway: this checkout has no `workflow_engine/pyproject.toml`. The gateway wheel is produced by `scripts/build_gateway_wheel.sh` from a GoliathApp checkout.
 
 ## Gateway configuration
 
 `scripts/deploy_target.sh --component gateway` writes `<install_root>/env/gateway.env` and runs `scripts/install_gateway_systemd.sh` and `scripts/setup_gateway_nginx.sh`. The unit file is [`deploy/systemd/methyl-gateway.service`](../../deploy/systemd/methyl-gateway.service). The nginx site is [`deploy/nginx/methyl-gateway.conf`](../../deploy/nginx/methyl-gateway.conf).
 
-Env templates:
-
-| Backend | Template |
-|---------|----------|
-| PostgreSQL | [`deploy/env/gateway.postgres.env.example`](../../deploy/env/gateway.postgres.env.example) |
-| Azure SQL | [`deploy/env/gateway.mssql.env.example`](../../deploy/env/gateway.mssql.env.example) |
+Env template: [`deploy/env/gateway.postgres.env.example`](../../deploy/env/gateway.postgres.env.example).
 
 Connection variables the gateway and `methyl-study-start` read:
 
-- `BACKEND_DB` — `postgres` or `mssql`
-- `POSTGRES_*` or `AZURE_SQL_*`
+- `BACKEND_DB` — `postgres`
+- `POSTGRES_*`
 - `WF_GATEWAY_HOST` / `WF_GATEWAY_PORT` — loopback bind, default `127.0.0.1:8080`
 - `WF_USE_MANAGED_IDENTITY` — Azure Entra token auth for the database, when the gateway build supports it
 
@@ -108,7 +103,7 @@ methyl-export-action-catalog
 bash scripts/deploy_workflow_definitions.sh
 ```
 
-`deploy_workflow_definitions.sh` compiles SamplePrep, the remediate program, the study-validation lifecycle, and the RNA-seq and proteomics programs when those fixtures exist. It stores each graph with `wf.wf_repo_create_workflow_graph`. `--dry-run` writes the compiled JSON and does not deploy. `--keep-instances` is the default. The script needs `BACKEND_DB` and `POSTGRES_*` or `AZURE_SQL_*`.
+`deploy_workflow_definitions.sh` compiles SamplePrep, the remediate program, the study-validation lifecycle, and the RNA-seq and proteomics programs when those fixtures exist. It stores each graph with `wf.wf_repo_create_workflow_graph`. `--dry-run` writes the compiled JSON and does not deploy. `--keep-instances` is the default. The script needs `BACKEND_DB=postgres` and `POSTGRES_*`.
 
 Programs live in [`workflow_engine/domain/fixtures/`](../../workflow_engine/domain/fixtures/).
 
@@ -142,4 +137,4 @@ That script imports `domain.compiler` from the methyl-gateway wheel.
 - [Deploy targets](../deploy-targets.md)
 - [Rollouts](../rollouts.md)
 - [Process packs](../operators/process-packs.md)
-- [SamplePrep storage contract](../../workflow_engine/sql_mssql/SamplePrepFlow.md)
+- [SamplePrep storage contract](../../workflow_engine/contract/SamplePrepFlow.md)

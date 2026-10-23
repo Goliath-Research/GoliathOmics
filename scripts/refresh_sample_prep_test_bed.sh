@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Refresh SamplePrep test bed against Azure SQL (or PostgreSQL via BACKEND_DB).
+# Refresh SamplePrep test bed against PostgreSQL.
 #
 # Requires the same DB env as the REST gateway (see docs/deployment/production_runbook.md).
 #
 # Usage:
-#   source /work/goliath/env/gateway.env   # or export AZURE_SQL_* manually
+#   source /work/goliath/env/gateway.env   # or export POSTGRES_* manually
 #   bash scripts/refresh_sample_prep_test_bed.sh
 #
 # Options:
@@ -24,10 +24,6 @@ usage() {
 Usage: scripts/refresh_sample_prep_test_bed.sh [options]
 
 Refreshes action catalog + SamplePrep workflow definition via direct DB.
-
-Env (Azure SQL):
-  AZURE_SQL_SERVER, AZURE_SQL_DB, AZURE_SQL_USER, AZURE_SQL_PASSWORD
-  BACKEND_DB=mssql
 
 Env (PostgreSQL):
   BACKEND_DB=postgres
@@ -59,16 +55,12 @@ PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
 # shellcheck disable=SC1091
 source "$REPO_ROOT/.venv/bin/activate"
 
-BACKEND="${BACKEND_DB:-mssql}"
-if [[ "$BACKEND" == "mssql" || "$BACKEND" == "sql" ]]; then
-  if [[ -z "${AZURE_SQL_SERVER:-}" || -z "${AZURE_SQL_DB:-}" ]]; then
-    echo "Azure SQL env required for direct DB seed/deploy" >&2
-    exit 1
-  fi
-  echo "Using Azure SQL backend: ${AZURE_SQL_SERVER}/${AZURE_SQL_DB}"
-else
-  echo "Using PostgreSQL backend (BACKEND_DB=${BACKEND})"
+export BACKEND_DB="${BACKEND_DB:-postgres}"
+if [[ "$BACKEND_DB" != "postgres" ]]; then
+  echo "Only BACKEND_DB=postgres is supported (SQL Server was removed)." >&2
+  exit 1
 fi
+echo "Using PostgreSQL backend (BACKEND_DB=${BACKEND_DB})"
 
 echo "Exporting task schemas and action catalog..."
 methyl-export-task-schemas
@@ -76,7 +68,7 @@ methyl-export-action-catalog
 
 if [[ "$SKIP_SEED" -eq 0 ]]; then
   echo "Seeding wf.workflow_action + schemas (direct DB)..."
-  "$PYTHON_BIN" "$REPO_ROOT/workflow_engine/sql_mssql/seed_action_catalog.py" --use-db
+  "$PYTHON_BIN" "$REPO_ROOT/workflow_engine/sql_pg/seed_action_catalog.py" --use-db
 fi
 
 if [[ "$SKIP_DEPLOY" -eq 0 ]]; then

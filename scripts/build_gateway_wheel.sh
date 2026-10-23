@@ -26,7 +26,7 @@ Options:
                     Default: clone GoliathApp (GOLIATH_APP_URL / GOLIATH_APP_REF).
   --sha-file PATH   Write the gateway source revision (git SHA, or local-source)
   --sql-out DIR     Also bundle <source>/sql_pg (GoliathApp PostgreSQL scripts,
-                    deploy_azure.sh order) into DIR
+                    apply_schema.sh order) into DIR
   -h, --help
 EOF
 }
@@ -120,7 +120,7 @@ else
 fi
 
 if [[ -n "$SQL_OUT" ]]; then
-  [[ -f "$SQL_SRC/deploy_azure.sh" ]] || die "no GoliathApp sql_pg/deploy_azure.sh under $SQL_SRC; cannot bundle the PostgreSQL scripts"
+  [[ -f "$SQL_SRC/apply_schema.sh" ]] || die "no GoliathApp sql_pg/apply_schema.sh under $SQL_SRC; cannot bundle the PostgreSQL scripts"
   python3 "$SCRIPT_DIR/bundle_goliathapp_sql.py" \
     --sql-dir "$SQL_SRC" \
     --out "$SQL_OUT" \

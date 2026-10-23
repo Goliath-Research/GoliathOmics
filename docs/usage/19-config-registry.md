@@ -24,9 +24,7 @@ python scripts/sync_cfg_profiles_and_action_catalog.py --backend postgres --skip
 
 That upserts `cfg.analyte` from `workflow_engine/domain/analytes/`, then `cfg.pipeline_profile` and `cfg.assay_procedure` from `workflow_engine/domain/profiles/` and `procedures/`. Each document's `catalog` block maps to cfg `status` (`published` or `retired`). Overlays under `profiles/modes/` are not profile rows. Assay bind sets `analyte_id` when the analyte row exists. Studies with `regulatory.primary_analyte` get `default_analyte_id` backfilled. Omit `--skip-seed` to also re-seed `wf.workflow_action` from `schemas/actions/catalog.json` and `schemas/tasks/`.
 
-`python scripts/sync_cfg_profiles_and_action_catalog.py --backend mssql` exits. The message says mssql sync is not wired and points at postgres or portal upserts.
-
-`--backend mssql` on the shell script looks for `cfg_repo_api.sql`, `cfg_process_pack_catalog.sql`, `cfg_assay_procedure_links.sql`, and `portal_contract_api.sql` under `workflow_engine/sql_mssql/`. Those files are GoliathApp SQL and are not in this checkout. [`cfg_analyte_catalog.sql`](../../workflow_engine/sql_mssql/cfg_analyte_catalog.sql) is the Omics file that is present. There is no `deploy_azure.sh` in this repository.
+GoliathApp-owned DDL (`cfg_repo_api.sql`, process-pack catalog, portal contract) ships in the release `goliathapp-sql/` bundle (script order from GoliathApp `workflow_engine/sql_pg/apply_schema.sh`). This repository adds [`cfg_analyte_catalog.sql`](../../workflow_engine/sql_pg/cfg_analyte_catalog.sql).
 
 DomainProgram graphs are a separate step: `scripts/deploy_workflow_definitions.sh`. See [Deployment](14-deployment-and-distributed-workflow.md).
 

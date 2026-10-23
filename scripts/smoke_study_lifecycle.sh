@@ -14,7 +14,7 @@ Options:
   -h, --help           Show this help
 
 Requires:
-  - Direct DB env (BACKEND_DB + AZURE_SQL_* or POSTGRES_*)
+  - Direct DB env (BACKEND_DB=postgres and POSTGRES_*)
   - Registered worker claiming tasks via worker-only gateway
   - workflow_versions.json from deploy_workflow_definitions.sh
 EOF

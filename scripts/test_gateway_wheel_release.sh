@@ -85,14 +85,14 @@ PY
 
 bash "$CHECK" "$wheels" >/dev/null
 
-# --sql-out bundles <source>/sql_pg from the same checkout, in deploy_azure.sh order.
+# --sql-out bundles <source>/sql_pg from the same checkout, in apply_schema.sh order.
 mkdir -p "$src/sql_pg"
-printf 'SCRIPTS=(\n  b_first.sql\n  # comment\n  a_second.sql\n)\n' >"$src/sql_pg/deploy_azure.sh"
+printf 'SCRIPTS=(\n  b_first.sql\n  # comment\n  a_second.sql\n)\n' >"$src/sql_pg/apply_schema.sh"
 printf 'SELECT 1;\n' >"$src/sql_pg/b_first.sql"
 printf 'SELECT 2;\n' >"$src/sql_pg/a_second.sql"
 bash "$BUILD" --version 9.8.7 --wheels "$work/wheels-sql" --source "$src" --sql-out "$work/goliathapp-sql" >/dev/null
 [[ "$(awk '{print $2}' "$work/goliathapp-sql/manifest.sha256" | tr '\n' ' ')" == "sql_pg/b_first.sql sql_pg/a_second.sql " ]] \
-  || fail "goliathapp-sql order should follow deploy_azure.sh"
+  || fail "goliathapp-sql order should follow apply_schema.sh"
 (cd "$work/goliathapp-sql" && sha256sum --check --quiet --strict manifest.sha256) || fail "goliathapp-sql digests"
 jq -e '.commit == "local-source" and .scripts == 2' "$work/goliathapp-sql/source.json" >/dev/null \
   || fail "goliathapp-sql/source.json should record the gateway source revision"
@@ -101,7 +101,7 @@ set +e
 bash "$BUILD" --version 9.8.7 --wheels "$work/wheels-nosql" --source "$src" --sql-out "$work/nosql" >"$work/nosql.out" 2>"$work/nosql.err"
 status=$?
 set -e
-[[ "$status" -ne 0 ]] || fail "--sql-out without sql_pg/deploy_azure.sh must fail the build"
+[[ "$status" -ne 0 ]] || fail "--sql-out without sql_pg/apply_schema.sh must fail the build"
 
 empty="$work/plugins-only"
 mkdir -p "$empty"

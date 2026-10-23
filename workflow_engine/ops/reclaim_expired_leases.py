@@ -17,36 +17,11 @@ def reclaim_expired_leases(
 ) -> list[dict[str, Any]]:
     """Execute ``wf.sp_reclaim_expired_leases`` and return reclaimed rows."""
     config = resolve_connection_config()
-    if config.backend == DatabaseBackend.MSSQL:
-        return _reclaim_mssql(config, workflow_instance_id, grace_seconds)
     if config.backend == DatabaseBackend.POSTGRES:
         return _reclaim_postgres(config, workflow_instance_id, grace_seconds)
     raise SystemExit(
         f"reclaim_expired_leases is not implemented for backend={config.backend.value}"
     )
-
-
-def _reclaim_mssql(
-    config: Any,
-    workflow_instance_id: Optional[int],
-    grace_seconds: int,
-) -> list[dict[str, Any]]:
-    import pyodbc
-
-    conn = pyodbc.connect(config.connection_string, autocommit=True, timeout=60)
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            f"EXEC {config.schema_dot}sp_reclaim_expired_leases "
-            "@workflow_instance_id=?, @grace_seconds=?, @quiet=0",
-            (workflow_instance_id, grace_seconds),
-        )
-        if cur.description is None:
-            return []
-        columns = [d[0] for d in cur.description]
-        return [dict(zip(columns, row)) for row in cur.fetchall()]
-    finally:
-        conn.close()
 
 
 def _reclaim_postgres(
@@ -70,8 +45,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Reset RUNNING workflow nodes with expired or missing task leases "
-            "back to READY so workers can claim them again "
-            "(Azure SQL and PostgreSQL)."
+            "back to READY so workers can claim them again (PostgreSQL)."
         )
     )
     parser.add_argument(

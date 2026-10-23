@@ -57,11 +57,7 @@ jobs:
 
       - name: SamplePrep real canary
         env:
-          BACKEND_DB: ${{ secrets.BACKEND_DB }}
-          AZURE_SQL_SERVER: ${{ secrets.AZURE_SQL_SERVER }}
-          AZURE_SQL_DB: ${{ secrets.AZURE_SQL_DB }}
-          AZURE_SQL_USER: ${{ secrets.AZURE_SQL_USER }}
-          AZURE_SQL_PASSWORD: ${{ secrets.AZURE_SQL_PASSWORD }}
+          BACKEND_DB: postgres
           POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}

@@ -1,6 +1,6 @@
 /*
   PostgreSQL parity for portal.sp* clinical-data procedures extracted from
-  workflow_engine/sql_mssql/portal_clinical_api.sql.
+  legacy SQL Server portal_clinical_api (removed).
 
   Quoted PascalCase identifiers match portal_clinical_schema.sql.  Lowercase
   view aliases (portal.samples, portal.labsamples) are available from

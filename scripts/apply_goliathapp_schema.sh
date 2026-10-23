@@ -3,7 +3,7 @@
 # release.
 #
 # The release carries goliathapp-sql/ (scripts/bundle_goliathapp_sql.py at
-# build time): GoliathApp workflow_engine/sql_pg in deploy_azure.sh order,
+# build time): GoliathApp workflow_engine/sql_pg in apply_schema.sh order,
 # with sha256 digests and the GoliathApp commit. These scripts are the
 # database definition. Nothing else patches the database.
 #

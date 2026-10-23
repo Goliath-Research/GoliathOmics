@@ -66,7 +66,7 @@ When the gateway and workers run against PostgreSQL or Azure SQL:
 - `wf.workflow_instance.execution_scope_id` — links instance to scope
 - `wf.execution_scope_action_entry` — action/run_key → content_key
 
-Deploy: `workflow_engine/sql_pg/wf_execution_scope.sql` (parity in `sql_mssql/`). Instance creation calls `wf_apply_execution_scope`; successful task submits upsert action entries when CAAS is enabled. The wf engine stays process-agnostic (an "execution scope"); the domain "hyperparameter search / trial" concept lives in `cfg` — see [portal remote control](../architecture/portal-remote-control.md).
+Deploy: `workflow_engine/sql_pg/wf_execution_scope.sql`. Instance creation calls `wf_apply_execution_scope`; successful task submits upsert action entries when CAAS is enabled. The wf engine stays process-agnostic (an "execution scope"); the domain "hyperparameter search / trial" concept lives in `cfg` — see [portal remote control](../architecture/portal-remote-control.md).
 
 ## Enabled actions
 

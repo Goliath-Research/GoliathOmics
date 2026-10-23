@@ -4,7 +4,7 @@ Admin-tier study lifecycle CLI (domain-aware).
 
 Compiles DomainPrograms, plans instance context, bakes resolvedConfig scope vars,
 and creates/starts workflow instances via the backend-agnostic DB layer
-(``rest.db_client`` → MSSQL or PostgreSQL).
+(``rest.db_client`` → PostgreSQL).
 
 Not part of the worker-only REST gateway. Production portal queues
 ``cfg.study_start_request``; this CLI's ``drain-requests`` command bakes

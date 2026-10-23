@@ -26,7 +26,7 @@ Options:
   -h, --help
 
 Requires for real runs:
-  - Direct DB env (BACKEND_DB + AZURE_SQL_* or POSTGRES_*)
+  - Direct DB env (BACKEND_DB=postgres and POSTGRES_*)
   - GPU worker with WORKER_STUB_EXTERNAL unset/0
   - Site linear + pangenome_wgbs pins; METHYL_METHYLGRAPHER_IMAGE
 EOF
