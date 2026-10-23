@@ -7,12 +7,15 @@ import logging
 import os
 import ssl
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
+
+WORKER_IDENTITY_HEADER = "X-Goliath-Worker-Token"
 
 
 @dataclass(frozen=True)
@@ -92,8 +95,6 @@ def materialize_gateway_ca_file() -> Optional[str]:
             try:
                 os.chmod(tmp, 0o644)
             except OSError as exc:
-                # geesefs /work rejects chmod. The writer can still read the
-                # trust anchor it just created.
                 logger.warning("chmod 0644 rejected for %s: %s", tmp, exc)
             tmp.replace(dest)
         return str(dest)
@@ -106,13 +107,7 @@ def materialize_gateway_ca_file() -> Optional[str]:
 
 
 def gateway_ssl_context() -> ssl.SSLContext:
-    """Default trust store plus the pinned gateway certificate, when one is set.
-
-    REQUESTS_CA_BUNDLE and CURL_CA_BUNDLE are loaded as additional anchors so
-    a combined bundle (system CAs plus the gateway cert) is honored. They do
-    not replace the default store unless SSL_CERT_FILE is already set in the
-    environment, which OpenSSL applies inside create_default_context.
-    """
+    """Default trust store plus the pinned gateway certificate, when one is set."""
     ctx = ssl.create_default_context()
     extras: list[str] = []
     pinned = materialize_gateway_ca_file()
@@ -151,6 +146,21 @@ def _control_from_body(body: Dict[str, Any]) -> WorkerControlAck:
     )
 
 
+def _parse_expires_at_utc(raw: Any) -> Optional[datetime]:
+    if raw is None or raw == "":
+        return None
+    text = str(raw).strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 class WorkflowRestClient:
     """REST-only workflow worker client; no direct database access."""
 
@@ -165,17 +175,34 @@ class WorkflowRestClient:
         self.base_url = raw.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.arc_resource_id = arc_resource_id if arc_resource_id is not None else _load_arc_resource_id()
+        self._worker_id: Optional[int] = None
+        self._identity_token: Optional[str] = None
+        self._session_token: Optional[str] = None
+        self._session_expires_at: Optional[datetime] = None
 
     def _default_headers(self) -> Dict[str, str]:
         headers: Dict[str, str] = {}
         if self.arc_resource_id:
             headers["X-Arc-Resource-Id"] = self.arc_resource_id
+        if self._session_token:
+            headers["Authorization"] = f"Bearer {self._session_token}"
+        if self._identity_token:
+            headers[WORKER_IDENTITY_HEADER] = self._identity_token
         return headers
 
-    def _request_json(self, path: str, *, method: str = "GET", payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _request_json(
+        self,
+        path: str,
+        *,
+        method: str = "GET",
+        payload: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
         url = f"{self.base_url}{path}"
         data = json.dumps(payload).encode("utf-8") if payload is not None else None
         headers = self._default_headers()
+        if extra_headers:
+            headers.update(extra_headers)
         if payload is not None:
             headers["Content-Type"] = "application/json"
         req = Request(url, data=data, headers=headers, method=method)
@@ -207,17 +234,24 @@ class WorkflowRestClient:
                 )
             raise RuntimeError(f"Request failed {path}: {exc}.{hint}") from exc
 
-    def _post_json(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        return self._request_json(path, method="POST", payload=payload)
+    def _post_json(self, path: str, payload: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
+        return self._request_json(path, method="POST", payload=payload, **kwargs)
 
     def _get_json(self, path: str) -> Dict[str, Any]:
         return self._request_json(path, method="GET")
 
-    def authenticate(self, worker_id: int, worker_token: str) -> None:
-        self._post_json(
-            "/workers/authenticate",
-            {"worker_id": worker_id, "worker_token": worker_token},
-        )
+    def open_session(self, identity_token: str) -> Dict[str, Any]:
+        """POST /workers/session — bearer session from the enrollment identity token."""
+        headers = {WORKER_IDENTITY_HEADER: identity_token}
+        body = self._post_json("/workers/session", {}, extra_headers=headers)
+        self._identity_token = identity_token
+        self._session_token = str(body.get("session_token") or "")
+        if body.get("worker_id") is not None:
+            self._worker_id = int(body["worker_id"])
+        self._session_expires_at = _parse_expires_at_utc(body.get("expires_at_utc"))
+        if not self._session_token:
+            raise RuntimeError("worker session open returned no session_token")
+        return body
 
     def enroll(
         self,
@@ -226,8 +260,9 @@ class WorkflowRestClient:
         *,
         capabilities: Optional[list[Any]] = None,
         arc_resource_id: Optional[str] = None,
+        open_session: bool = True,
     ) -> Dict[str, Any]:
-        """POST /workers/enroll — mint worker_id + token from portal IP allowlist."""
+        """POST /workers/enroll — mint worker_id + identity token from portal IP allowlist."""
         payload: Dict[str, Any] = {
             "cluster_key": cluster_key,
             "external_worker_key": external_worker_key,
@@ -237,19 +272,43 @@ class WorkflowRestClient:
         rid = arc_resource_id if arc_resource_id is not None else self.arc_resource_id
         if rid:
             payload["arc_resource_id"] = rid
-        return self._post_json("/workers/enroll", payload)
+        body = self._post_json("/workers/enroll", payload)
+        self._worker_id = int(body["worker_id"])
+        identity = str(body.get("worker_token") or "")
+        self._identity_token = identity
+        if open_session and identity:
+            self.open_session(identity)
+        return body
+
+    def _require_worker_id(self) -> int:
+        if self._worker_id is None:
+            raise RuntimeError("worker_id unset; enroll or open_session first")
+        return self._worker_id
+
+    def _ensure_worker_session(self, identity_token: Optional[str] = None) -> None:
+        if identity_token:
+            if self._session_token and self._identity_token == identity_token:
+                return
+            self.open_session(identity_token)
+            return
+        if not self._session_token or not self._identity_token:
+            raise RuntimeError("worker session not open; call enroll or open_session")
+
+    def session_expires_at(self) -> Optional[datetime]:
+        return self._session_expires_at
 
     def request_task(
         self,
-        worker_id: int,
-        worker_token: str,
+        worker_id: Optional[int] = None,
+        identity_token: Optional[str] = None,
         capability: Optional[str] = None,
         *,
         max_lease_seconds: Optional[int] = None,
     ) -> TaskPollResult:
+        wid = worker_id if worker_id is not None else self._require_worker_id()
+        self._ensure_worker_session(identity_token)
         payload: Dict[str, Any] = {
-            "worker_id": worker_id,
-            "worker_token": worker_token,
+            "worker_id": wid,
             "max_lease_seconds": max_lease_seconds
             or int(os.environ.get("WORKER_LEASE_SECONDS", "300")),
         }
@@ -258,8 +317,6 @@ class WorkflowRestClient:
 
         body = self._post_json("/workers/tasks/request", payload)
         control = _control_from_body(body)
-        # Empty polls may omit has_task or return null node_execution_id with a
-        # desired_state ACK row — treat as idle, not a crash.
         if not body.get("has_task") or body.get("node_execution_id") in (None, ""):
             return TaskPollResult(claim=None, control=control)
 
@@ -283,13 +340,13 @@ class WorkflowRestClient:
         self,
         node_execution_id: int,
         worker_id: int,
-        worker_token: str,
+        identity_token: str,
         result_code: int,
         output_json: Optional[Dict[str, Any]] = None,
     ) -> SubmitAck:
+        self._ensure_worker_session(identity_token)
         payload: Dict[str, Any] = {
             "worker_id": worker_id,
-            "worker_token": worker_token,
             "result_code": result_code,
         }
         if output_json is not None:
@@ -306,15 +363,15 @@ class WorkflowRestClient:
         self,
         node_execution_id: int,
         worker_id: int,
-        worker_token: str,
+        identity_token: str,
         *,
         extend_seconds: Optional[int] = None,
     ) -> HeartbeatAck:
+        self._ensure_worker_session(identity_token)
         body = self._post_json(
             f"/workers/tasks/{node_execution_id}/heartbeat",
             {
                 "worker_id": worker_id,
-                "worker_token": worker_token,
                 "extend_seconds": extend_seconds
                 or int(os.environ.get("WORKER_LEASE_SECONDS", "300")),
             },
@@ -328,13 +385,13 @@ class WorkflowRestClient:
         self,
         node_execution_id: int,
         worker_id: int,
-        worker_token: str,
+        identity_token: str,
         error_code: int,
         error_message: Optional[str] = None,
     ) -> None:
+        self._ensure_worker_session(identity_token)
         payload: Dict[str, Any] = {
             "worker_id": worker_id,
-            "worker_token": worker_token,
             "error_code": error_code,
         }
         if error_message:

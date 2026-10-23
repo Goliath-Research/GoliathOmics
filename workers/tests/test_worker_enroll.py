@@ -36,9 +36,17 @@ class TokenFileTests(unittest.TestCase):
 class EnrollClientTests(unittest.TestCase):
     def test_enroll_posts_expected_body(self) -> None:
         client = WorkflowRestClient("http://gateway/v1", arc_resource_id="")
-        with patch.object(client, "_post_json", return_value={"worker_id": 1, "worker_token": "t"}) as post:
+        with patch.object(
+            client,
+            "_post_json",
+            side_effect=[
+                {"worker_id": 1, "worker_token": "t"},
+                {"session_token": "sess", "worker_id": 1},
+            ],
+        ) as post:
             out = client.enroll("lambda", "vm-1", capabilities=["methyl-qc"])
-        post.assert_called_once_with(
+        self.assertEqual(post.call_count, 2)
+        post.assert_any_call(
             "/workers/enroll",
             {
                 "cluster_key": "lambda",
@@ -138,7 +146,8 @@ class EnrollCliTests(unittest.TestCase):
                 "methyl_worker.__main__.resolve_worker_capabilities",
                 return_value=["methylgrapher.wgbs_align", "parabricks.fq2bam"],
             ) as resolve:
-                cls.return_value.enroll.return_value = {
+                inst = cls.return_value
+                inst.enroll.return_value = {
                     "worker_id": 3,
                     "worker_token": "secret",
                     "cluster_key": "lambda",

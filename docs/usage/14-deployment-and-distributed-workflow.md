@@ -44,7 +44,7 @@ flowchart TB
 |-----------|------|
 | **Database** | Workflow definitions, instances, scope, task queue. GoliathApp `sql_pg` plus this repo's `cfg_analyte_catalog.sql`. |
 | **Portal SQL** (`portal.sp_*`) | Starts instances from `cfg.study_start_request`. Preregisters worker IPs with `portal.sp_upsert_worker_enrollment`. |
-| **Gateway** (`methyl-gateway`) | Worker REST under `/v1/workers/*`: enroll, authenticate, task request, submit. nginx proxies public 443 to loopback `8080`. |
+| **Gateway** (`methyl-gateway`) | Worker REST under `/v1/workers/*`: enroll, session open, task request, submit. nginx proxies public 443 to loopback `8080`. |
 | **Workers** (`methyl-worker`) | Claim tasks. Align through `delete_bam` is pinned to one worker. |
 | **`/work`** | Shared FASTQs, published H5, study outputs, `/work/goliath` releases. Not the BAM disk. |
 
@@ -76,7 +76,7 @@ Connection variables the gateway and `methyl-study-start` read:
 - `WF_GATEWAY_HOST` / `WF_GATEWAY_PORT` — loopback bind, default `127.0.0.1:8080`
 - `WF_USE_MANAGED_IDENTITY` — Azure Entra token auth for the database, when the gateway build supports it
 
-Worker auth is the numeric `worker_id` plus `worker_token` returned by enroll.
+Worker auth is enroll (identity token in `WORKER_TOKEN`), `POST /v1/workers/session` for a bearer session, then task calls with `Authorization: Bearer`, `X-Goliath-Worker-Token`, and `worker_id` in the JSON body.
 
 ## Worker configuration
 

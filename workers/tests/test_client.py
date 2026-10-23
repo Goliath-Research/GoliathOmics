@@ -27,6 +27,9 @@ def test_request_task_sends_arc_header(tmp_path) -> None:
 
     with patch.object(WorkflowRestClient, "_post_json", return_value={"has_task": False}) as mock_post:
         client3 = WorkflowRestClient("http://test/v1", arc_resource_id="arc-123")
+        client3._session_token = "sess"
+        client3._identity_token = "tok"
+        client3._worker_id = 1
         client3.request_task(1, "tok")
     # Header is applied in _request_json via urlopen patch - test via _default_headers
     client4 = WorkflowRestClient("http://test/v1", arc_resource_id="arc-123")
@@ -35,6 +38,9 @@ def test_request_task_sends_arc_header(tmp_path) -> None:
 
 def test_request_task_empty() -> None:
     client = WorkflowRestClient("http://test/v1")
+    client._session_token = "sess"
+    client._identity_token = "tok"
+    client._worker_id = 1
     with patch.object(
         client,
         "_post_json",
@@ -59,6 +65,9 @@ def test_request_task_claim() -> None:
         "desired_state": "ACTIVE",
         "command": "NONE",
     }
+    client._session_token = "sess"
+    client._identity_token = "tok"
+    client._worker_id = 1
     with patch.object(client, "_post_json", return_value=body):
         poll = client.request_task(1, "tok")
     assert poll.claim is not None
@@ -69,6 +78,8 @@ def test_request_task_claim() -> None:
 
 def test_heartbeat_ack() -> None:
     client = WorkflowRestClient("http://test/v1")
+    client._session_token = "sess"
+    client._identity_token = "tok"
     with patch.object(
         client,
         "_post_json",
@@ -81,6 +92,8 @@ def test_heartbeat_ack() -> None:
 
 def test_submit_result() -> None:
     client = WorkflowRestClient("http://test/v1")
+    client._session_token = "sess"
+    client._identity_token = "tok"
     with patch.object(
         client,
         "_post_json",
@@ -91,6 +104,8 @@ def test_submit_result() -> None:
     mock_post.assert_called_once()
     path, payload = mock_post.call_args[0]
     assert path == "/workers/tasks/42/submit"
+    assert payload["worker_id"] == 1
+    assert "worker_token" not in payload
     assert payload["result_code"] == 0
     assert payload["output_json"] == {"status": "ok"}
     assert ack.accepted is True
@@ -106,7 +121,7 @@ def test_post_json_http_error() -> None:
     with patch("methyl_worker.client.urlopen") as mock_urlopen:
         mock_urlopen.side_effect = HTTPError("http://x", 401, "nope", {}, err)
         with pytest.raises(RuntimeError, match="HTTP 401"):
-            client.authenticate(1, "bad")
+            client.open_session("bad")
 
 
 def _issue_test_cert(directory: Path) -> tuple[Path, Path]:
@@ -160,7 +175,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", "0"))
         self.rfile.read(length)
-        body = b"{}"
+        body = b'{"session_token":"test-session","worker_id":1}'
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -202,10 +217,10 @@ def test_https_client_trusts_pinned_gateway_cert(tmp_path: Path, monkeypatch: py
         _clear_ca_env(monkeypatch)
         client = WorkflowRestClient(f"https://127.0.0.1:{port}/v1")
         with pytest.raises(RuntimeError, match="Trust the gateway certificate"):
-            client.authenticate(1, "tok")
+            client.open_session("tok")
 
         monkeypatch.setenv("GOLIATH_GATEWAY_CA_FILE", str(cert))
-        client.authenticate(1, "tok")
+        client.open_session("tok")
 
         _clear_ca_env(monkeypatch)
         monkeypatch.setenv("GOLIATH_ROOT", str(tmp_path))
@@ -214,7 +229,7 @@ def test_https_client_trusts_pinned_gateway_cert(tmp_path: Path, monkeypatch: py
         written = materialize_gateway_ca_file()
         assert written is not None
         assert "BEGIN CERTIFICATE" in Path(written).read_text(encoding="utf-8")
-        client.authenticate(1, "tok")
+        client.open_session("tok")
     finally:
         server.shutdown()
         server.server_close()

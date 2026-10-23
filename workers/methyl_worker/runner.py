@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from pydantic import BaseModel
@@ -29,12 +31,27 @@ from .task_validation import (
 logger = logging.getLogger(__name__)
 
 
+def _session_ttl_seconds(heartbeat_seconds: float) -> float:
+    miss = float(os.environ.get("WORKER_SESSION_MISS_FACTOR", "3"))
+    return heartbeat_seconds * miss
+
+
+def _is_stale_session_error(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    return (
+        "worker session" in msg
+        or "invalid or expired worker session" in msg
+        or "http 401" in msg
+        or "50003" in msg
+    )
+
+
 class WorkerRunner:
     def __init__(
         self,
         client: WorkflowRestClient,
         worker_id: int,
-        worker_token: str,
+        identity_token: str,
         capability: Optional[str] = None,
         *,
         poll_seconds: float = 5.0,
@@ -42,18 +59,42 @@ class WorkerRunner:
     ) -> None:
         self.client = client
         self.worker_id = worker_id
-        self.worker_token = worker_token
+        self.identity_token = identity_token
         self.capability = capability
         self.poll_seconds = poll_seconds
         self.heartbeat_seconds = heartbeat_seconds
         self._desired_state = "ACTIVE"
+        self.client.open_session(identity_token)
+
+    def _refresh_session_if_needed(self) -> None:
+        expires = self.client.session_expires_at()
+        refresh_margin = timedelta(seconds=self.heartbeat_seconds)
+        now = datetime.now(timezone.utc)
+        if expires is None:
+            ttl = _session_ttl_seconds(self.heartbeat_seconds)
+            expires = now + timedelta(seconds=ttl)
+        if now + refresh_margin >= expires:
+            logger.info("Refreshing worker gateway session before expiry")
+            self.client.open_session(self.identity_token)
+
+    def _with_session_retry(self, fn):
+        try:
+            return fn()
+        except Exception as exc:
+            if not _is_stale_session_error(exc):
+                raise
+            logger.warning("Worker session rejected; opening a new session: %s", exc)
+            self.client.open_session(self.identity_token)
+            return fn()
 
     def run_once(self) -> bool:
         """Poll once; return True if a task was processed."""
-        poll = self.client.request_task(self.worker_id, self.worker_token, self.capability)
+        self._refresh_session_if_needed()
+        poll = self._with_session_retry(
+            lambda: self.client.request_task(self.worker_id, self.identity_token, self.capability)
+        )
         self._apply_control(poll.control, in_flight=None)
         if poll.control.command in ("DRAIN", "STOP") and poll.claim is None:
-            # Draining / stopping with no claim — idle wait.
             return False
         if poll.claim is None:
             return False
@@ -99,7 +140,12 @@ class WorkerRunner:
         def heartbeat_loop() -> None:
             while not stop_hb.wait(self.heartbeat_seconds):
                 try:
-                    ack = self.client.heartbeat(ne_id, self.worker_id, self.worker_token)
+                    self._refresh_session_if_needed()
+                    ack = self._with_session_retry(
+                        lambda: self.client.heartbeat(
+                            ne_id, self.worker_id, self.identity_token
+                        )
+                    )
                     self._apply_control(ack.control, in_flight=handle, action_name=claim.action_name)
                     if ack.control.command == "DRAIN" and ctrl.can_pause:
                         handle.request_pause()
@@ -109,7 +155,10 @@ class WorkerRunner:
                     logger.exception("Heartbeat failed for task %s", ne_id)
 
         try:
-            ack0 = self.client.heartbeat(ne_id, self.worker_id, self.worker_token)
+            self._refresh_session_if_needed()
+            ack0 = self._with_session_retry(
+                lambda: self.client.heartbeat(ne_id, self.worker_id, self.identity_token)
+            )
             self._apply_control(ack0.control, in_flight=handle, action_name=claim.action_name)
         except Exception:
             logger.exception("Initial heartbeat failed for task %s", ne_id)
@@ -127,12 +176,14 @@ class WorkerRunner:
             )
             validate_task_output(claim.action_name, claim.capability, execution.output)
             output_payload = _output_payload(execution.output)
-            ack = self.client.submit_result(
-                ne_id,
-                self.worker_id,
-                self.worker_token,
-                execution.result_code,
-                output_payload,
+            ack = self._with_session_retry(
+                lambda: self.client.submit_result(
+                    ne_id,
+                    self.worker_id,
+                    self.identity_token,
+                    execution.result_code,
+                    output_payload,
+                )
             )
             logger.info(
                 "Submitted task %s (%s) result_code=%s accepted=%s instance=%s ready=%s",
@@ -145,30 +196,36 @@ class WorkerRunner:
             )
         except WorkerStoppedError as exc:
             logger.warning("Task %s stopped by operator: %s", ne_id, exc)
-            self.client.fail_task(
-                ne_id,
-                self.worker_id,
-                self.worker_token,
-                WORKER_STOPPED_ERROR_CODE,
-                f"{WORKER_STOPPED_ERROR_NAME}: {exc}",
+            self._with_session_retry(
+                lambda: self.client.fail_task(
+                    ne_id,
+                    self.worker_id,
+                    self.identity_token,
+                    WORKER_STOPPED_ERROR_CODE,
+                    f"{WORKER_STOPPED_ERROR_NAME}: {exc}",
+                )
             )
         except TaskValidationError as exc:
             logger.error("Task %s schema validation failed: %s", ne_id, exc)
-            self.client.fail_task(
-                ne_id,
-                self.worker_id,
-                self.worker_token,
-                TASK_VALIDATION_ERROR_CODE,
-                str(exc),
+            self._with_session_retry(
+                lambda: self.client.fail_task(
+                    ne_id,
+                    self.worker_id,
+                    self.identity_token,
+                    TASK_VALIDATION_ERROR_CODE,
+                    str(exc),
+                )
             )
         except Exception as exc:
             logger.exception("Task %s failed", ne_id)
-            self.client.submit_result(
-                ne_id,
-                self.worker_id,
-                self.worker_token,
-                -1,
-                {"error": str(exc), "capability": claim.capability},
+            self._with_session_retry(
+                lambda: self.client.submit_result(
+                    ne_id,
+                    self.worker_id,
+                    self.identity_token,
+                    -1,
+                    {"error": str(exc), "capability": claim.capability},
+                )
             )
         finally:
             stop_hb.set()

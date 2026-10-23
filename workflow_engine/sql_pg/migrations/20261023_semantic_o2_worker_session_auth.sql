@@ -1,0 +1,4 @@
+-- O2 (GoliathApp P3 / c7ae4d8): worker gateway sessions and DB roles ship in
+-- GoliathApp sql_pg (rbac_session_tokens.sql, wf_worker_session_api.sql,
+-- database_gateway_roles.sql). Omics workers use REST session auth only.
+-- Fresh installs: GoliathApp apply_schema.sh + Omics apply_schema.sh.
