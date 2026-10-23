@@ -409,14 +409,12 @@ load_db_password() {
 
 GOLIATH_GATEWAY_DB_USER="$(jq_get '.database.gateway_role.user // "goliath_gateway"')"
 GOLIATH_PORTAL_DB_USER="$(jq_get '.database.portal_role.user // "goliath_portal"')"
-GOLIATH_GATEWAY_DB_PASSWORD=""
-GOLIATH_PORTAL_DB_PASSWORD=""
 
 load_gateway_role_passwords() {
-  if [[ -z "${GOLIATH_GATEWAY_DB_PASSWORD}" ]]; then
+  if [[ -z "${GOLIATH_GATEWAY_DB_PASSWORD:-}" ]]; then
     GOLIATH_GATEWAY_DB_PASSWORD="$(resolve_ref "$(jq_get '.database.gateway_role.password // empty')")"
   fi
-  if [[ -z "${GOLIATH_PORTAL_DB_PASSWORD}" ]]; then
+  if [[ -z "${GOLIATH_PORTAL_DB_PASSWORD:-}" ]]; then
     GOLIATH_PORTAL_DB_PASSWORD="$(resolve_ref "$(jq_get '.database.portal_role.password // empty')")"
   fi
 }
