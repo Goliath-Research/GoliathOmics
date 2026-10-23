@@ -46,32 +46,6 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS ix_cfg_ap_analyte_id ON cfg.assay_procedure (analyte_id);
 
--- Soft: portal.Samples exists as a table on Azure SQL; on PG it is often a view.
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'portal' AND c.relname = 'samples' AND c.relkind = 'r'
-  ) THEN
-    IF NOT EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_schema = 'portal' AND table_name = 'samples' AND column_name = 'analyte_id'
-    ) THEN
-      ALTER TABLE portal.samples ADD COLUMN analyte_id bigint NULL;
-    END IF;
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_constraint WHERE conname = 'fk_portal_samples_analyte'
-    ) THEN
-      ALTER TABLE portal.samples
-        ADD CONSTRAINT fk_portal_samples_analyte
-        FOREIGN KEY (analyte_id) REFERENCES cfg.analyte (id);
-    END IF;
-    CREATE INDEX IF NOT EXISTS ix_portal_samples_analyte ON portal.samples (analyte_id);
-  END IF;
-END $$;
-
 CREATE OR REPLACE VIEW cfg.v_analyte AS
 SELECT
   a.id AS analyte_id,

@@ -505,6 +505,15 @@ apply_goliathapp_schema() {
   bash "$REPO_ROOT/scripts/apply_goliathapp_schema.sh" "${args[@]}"
 }
 
+apply_omics_schema() {
+  local -a args=(--release-dir "$GOLIATH_RELEASE_SRC")
+  if [[ "$FORCE_SCHEMA" == "1" ]]; then
+    args+=(--force)
+  fi
+  info "GoliathOmics domain schema host=${db_schema_host} db=${db_name} release=${GOLIATH_RELEASE_SRC}"
+  bash "$REPO_ROOT/scripts/apply_omics_schema.sh" "${args[@]}"
+}
+
 run_schema() {
   local apply want_app=0 want_bed=1
   apply="$(jq_get '.schema.apply // empty')"
@@ -526,6 +535,10 @@ run_schema() {
   # Engine DDL first: the test-bed seeds use GoliathApp tables and functions.
   if [[ "$want_app" -eq 1 ]] && ! apply_goliathapp_schema; then
     report_component failed goliath-db-schema "schema ${TARGET} failed (GoliathApp SQL)"
+    return 1
+  fi
+  if [[ "$want_app" -eq 1 ]] && ! apply_omics_schema; then
+    report_component failed goliath-db-schema "schema ${TARGET} failed (GoliathOmics domain SQL)"
     return 1
   fi
   if [[ "$want_bed" -eq 1 ]] && ! GOLIATH_ROLLOUTS_EXTERNAL=1 bash "$REPO_ROOT/workflow_engine/sql_pg/deploy_test_bed.sh"; then
@@ -671,12 +684,15 @@ run_runtime_schema() {
   load_db_password
   report_component start goliath-db-schema "schema ${TARGET} (runtime)"
   export_schema_pg_env
-  if apply_goliathapp_schema; then
-    report_component succeeded goliath-db-schema "schema ${TARGET} (runtime)"
-  else
+  if ! apply_goliathapp_schema; then
     report_component failed goliath-db-schema "schema ${TARGET} failed (GoliathApp SQL)"
     return 1
   fi
+  if ! apply_omics_schema; then
+    report_component failed goliath-db-schema "schema ${TARGET} failed (GoliathOmics domain SQL)"
+    return 1
+  fi
+  report_component succeeded goliath-db-schema "schema ${TARGET} (runtime)"
 }
 
 # Scripts each host role needs in /tmp/goliath-deploy. The gateway is only the

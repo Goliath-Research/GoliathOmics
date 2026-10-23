@@ -78,7 +78,8 @@
           "action": "sample.methyl_qc",
           "node_key": "methyl_qc",
           "with": {
-            "sampleContext": "${var.sample}"
+            "sampleContext": "${var.sample}",
+            "resolvedConfig": "${var.resolvedConfig__alignment_qc}"
           }
         },
         {
@@ -115,7 +116,8 @@
               "action": "sample.extraction_qc",
               "node_key": "extraction_qc",
               "with": {
-                "sampleContext": "${var.sample}"
+                "sampleContext": "${var.sample}",
+                "resolvedConfig": "${var.resolvedConfig__extraction_qc}"
               }
             },
             {
@@ -243,6 +245,7 @@
                   "node_key": "methyl_qc_retry",
                   "with": {
                     "sampleContext": "${var.sample}",
+                    "resolvedConfig": "${var.resolvedConfig__alignment_qc}",
                     "qcAttempt": 2,
                     "alignmentPass": "post_trim_realign",
                     "qcAttemptReason": "${var.qcAttemptReason}",
@@ -291,7 +294,8 @@
                       "action": "sample.extraction_qc",
                       "node_key": "extraction_qc_retry",
                       "with": {
-                        "sampleContext": "${var.sample}"
+                        "sampleContext": "${var.sample}",
+                        "resolvedConfig": "${var.resolvedConfig__extraction_qc}"
                       }
                     },
                     {
