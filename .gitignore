@@ -51,6 +51,9 @@ docs/diagrams/node_modules/
 .ipynb_checkpoints
 *.ipynb
 
+# Generated action catalogs (commit only schemas/actions/catalog.json)
+schemas/actions/runtime_dispatch.json
+
 # Testing
 .pytest_cache/
 .coverage

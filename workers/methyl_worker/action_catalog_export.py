@@ -1,5 +1,8 @@
 """
-Export the unified action catalog to schemas/actions/catalog.json.
+Export worker runtime dispatch metadata (CLI, argv_map, dispatch) for ops tooling.
+
+Semantic JSON Schemas are committed in ``schemas/actions/catalog.json`` and
+validated with ``goliath-export-action-schemas --check``.
 
 Usage:
   methyl-export-action-catalog
@@ -23,6 +26,14 @@ def repo_schemas_actions_dir() -> Path:
     return repo_schemas_dir("actions", start=Path(__file__))
 
 
+RUNTIME_CATALOG_FILENAME = "runtime_dispatch.json"
+
+
+def runtime_catalog_path(*, output_root: Path | None = None) -> Path:
+    root = output_root if output_root is not None else repo_schemas_actions_dir()
+    return root / RUNTIME_CATALOG_FILENAME
+
+
 def generate_catalog_dict() -> dict:
     linkage_errors = validate_catalog_linkage()
     if linkage_errors:
@@ -41,7 +52,7 @@ def export_action_catalog(*, output_root: Path | None = None, write: bool = True
     catalog = generate_catalog_dict()
     text = catalog_to_canonical_json(catalog)
     root = output_root if output_root is not None else repo_schemas_actions_dir()
-    path = root / "catalog.json"
+    path = runtime_catalog_path(output_root=root)
     if write:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
@@ -51,7 +62,7 @@ def export_action_catalog(*, output_root: Path | None = None, write: bool = True
 def check_action_catalog_drift(*, output_root: Path | None = None) -> List[str]:
     errors: List[str] = []
     root = output_root if output_root is not None else repo_schemas_actions_dir()
-    path = root / "catalog.json"
+    path = runtime_catalog_path(output_root=root)
     expected = catalog_to_canonical_json(generate_catalog_dict())
     if not path.is_file():
         errors.append(f"missing catalog artifact: {path} (run methyl-export-action-catalog)")
@@ -66,7 +77,7 @@ def check_action_catalog_drift(*, output_root: Path | None = None) -> List[str]:
 
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Export unified workflow action catalog (schemas/actions/catalog.json)."
+        description="Export runtime dispatch catalog (schemas/actions/runtime_dispatch.json)."
     )
     parser.add_argument(
         "--check",
