@@ -69,7 +69,6 @@ jobs:
             scripts/deploy_target.sh \
             scripts/apply_goliathapp_schema.sh \
             scripts/apply_omics_schema.sh \
-            scripts/bundle_omics_sql.py \
             scripts/test_apply_goliathapp_schema.sh \
             scripts/deploy_workflow_definitions.sh \
             scripts/deploy_mc_workflow_definitions.sh \
