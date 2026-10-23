@@ -163,7 +163,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: 3d26e54
+          ref: 3d26e548fa10b7ce3343b4a6aa9f0209fbe4cfd6
           path: _goliathapp
 
       - name: Install science packages and the methyl worker
