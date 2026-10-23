@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import ssl
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -179,6 +180,7 @@ class WorkflowRestClient:
         self._identity_token: Optional[str] = None
         self._session_token: Optional[str] = None
         self._session_expires_at: Optional[datetime] = None
+        self._session_opened_monotonic: Optional[float] = None
 
     def _default_headers(self) -> Dict[str, str]:
         headers: Dict[str, str] = {}
@@ -257,9 +259,13 @@ class WorkflowRestClient:
         if body.get("worker_id") is not None:
             self._worker_id = int(body["worker_id"])
         self._session_expires_at = _parse_expires_at_utc(body.get("expires_at_utc"))
+        self._session_opened_monotonic = time.monotonic()
         if not self._session_token:
             raise RuntimeError("worker session open returned no session_token")
         return body
+
+    def session_opened_monotonic(self) -> Optional[float]:
+        return self._session_opened_monotonic
 
     def enroll(
         self,

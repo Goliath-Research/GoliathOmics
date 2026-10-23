@@ -13,6 +13,7 @@ from methyl_worker.task_models.sample_prep_models import MarkFailedTaskOutput
 def _mock_client() -> MagicMock:
     client = MagicMock(spec=WorkflowRestClient)
     client.session_expires_at.return_value = None
+    client.session_opened_monotonic.return_value = 0.0
     return client
 
 

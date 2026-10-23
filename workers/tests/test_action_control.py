@@ -75,6 +75,7 @@ def test_run_cancellable_large_stdout_no_deadlock() -> None:
 def _runner_client() -> MagicMock:
     client = MagicMock()
     client.session_expires_at.return_value = None
+    client.session_opened_monotonic.return_value = 0.0
     return client
 
 
