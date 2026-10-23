@@ -1,5 +1,8 @@
 """
-Export the unified action catalog to schemas/actions/catalog.json.
+Export worker runtime dispatch metadata (CLI, argv_map, dispatch) for ops tooling.
+
+Semantic JSON Schemas are committed in ``schemas/actions/catalog.json`` and
+validated with ``goliath-export-action-schemas --check``.
 
 Usage:
   methyl-export-action-catalog
@@ -16,11 +19,19 @@ from typing import List
 
 from methyl_utils.repo_paths import repo_schemas_dir
 
-from .action_catalog import ACTION_CATALOG, validate_catalog_linkage
+from .action_runtime import RUNTIME_CATALOG, validate_catalog_linkage
 
 
 def repo_schemas_actions_dir() -> Path:
     return repo_schemas_dir("actions", start=Path(__file__))
+
+
+RUNTIME_CATALOG_FILENAME = "runtime_dispatch.json"
+
+
+def runtime_catalog_path(*, output_root: Path | None = None) -> Path:
+    root = output_root if output_root is not None else repo_schemas_actions_dir()
+    return root / RUNTIME_CATALOG_FILENAME
 
 
 def generate_catalog_dict() -> dict:
@@ -29,7 +40,7 @@ def generate_catalog_dict() -> dict:
         raise RuntimeError("catalog linkage invalid:\n" + "\n".join(linkage_errors))
     return {
         "version": 1,
-        "actions": [entry.to_catalog_dict() for entry in ACTION_CATALOG],
+        "actions": [entry.to_catalog_dict() for entry in RUNTIME_CATALOG],
     }
 
 
@@ -41,7 +52,7 @@ def export_action_catalog(*, output_root: Path | None = None, write: bool = True
     catalog = generate_catalog_dict()
     text = catalog_to_canonical_json(catalog)
     root = output_root if output_root is not None else repo_schemas_actions_dir()
-    path = root / "catalog.json"
+    path = runtime_catalog_path(output_root=root)
     if write:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
@@ -51,7 +62,7 @@ def export_action_catalog(*, output_root: Path | None = None, write: bool = True
 def check_action_catalog_drift(*, output_root: Path | None = None) -> List[str]:
     errors: List[str] = []
     root = output_root if output_root is not None else repo_schemas_actions_dir()
-    path = root / "catalog.json"
+    path = runtime_catalog_path(output_root=root)
     expected = catalog_to_canonical_json(generate_catalog_dict())
     if not path.is_file():
         errors.append(f"missing catalog artifact: {path} (run methyl-export-action-catalog)")
@@ -66,7 +77,7 @@ def check_action_catalog_drift(*, output_root: Path | None = None) -> List[str]:
 
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Export unified workflow action catalog (schemas/actions/catalog.json)."
+        description="Export runtime dispatch catalog (schemas/actions/runtime_dispatch.json)."
     )
     parser.add_argument(
         "--check",
@@ -89,7 +100,7 @@ def main(argv: List[str] | None = None) -> int:
                 print(msg, file=sys.stderr)
             print(f"Action catalog drift check failed ({len(drift)} issue(s)).", file=sys.stderr)
             return 1
-        print(f"Action catalog drift check passed ({len(ACTION_CATALOG)} actions).")
+        print(f"Action catalog drift check passed ({len(RUNTIME_CATALOG)} actions).")
         return 0
 
     path = export_action_catalog(output_root=root, write=True)

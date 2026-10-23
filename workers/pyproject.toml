@@ -6,6 +6,7 @@ readme = "WORKER_PROTOCOL.md"
 requires-python = ">=3.10,<3.15"
 dependencies = [
   "pydantic>=2.6.0,<3.0.0",
+  "methyl-gateway @ git+https://github.com/Goliath-Research/GoliathApp.git@3d26e548fa10b7ce3343b4a6aa9f0209fbe4cfd6#subdirectory=workflow_engine",
   "methyl_domain",
   "methyl_mapper",
   "methylcentroid",
@@ -42,9 +43,17 @@ omics_features = { path = "../packages/omicsfeatures", editable = true }
 proteomics_features = { path = "../packages/proteomicsfeatures", editable = true }
 proteomics_qc = { path = "../packages/proteomicsqc", editable = true }
 
+[project.entry-points."goliath.action_catalogs"]
+omics = "methyl_worker.action_catalog:ACTION_CATALOG"
+
+[project.entry-points."goliath.execution_scope_hooks"]
+omics = "methyl_worker.execution_scope_hooks:sync_after_submit"
+
+[project.entry-points."goliath.foreach_bundle"]
+omics = "methyl_worker.foreach_bundle_plugin"
+
 [project.scripts]
 methyl-worker = "methyl_worker.__main__:main"
-methyl-export-task-schemas = "methyl_worker.task_schema_export:main"
 methyl-export-action-catalog = "methyl_worker.action_catalog_export:main"
 methyl-parabricks-align = "methyl_worker.parabricks_runner:main"
 methyl-rna-fq2bam = "methyl_worker.rna_fq2bam_runner:main"

@@ -31,7 +31,7 @@ from methyl_domain.content_store import (
 )
 from pydantic import BaseModel
 
-from .action_catalog import ActionCatalogEntry, idempotency_enabled_for
+from .action_runtime import ActionCatalogEntry, idempotency_enabled_for
 from .action_execution import (
     ActionExecutionResult,
     execution_result_from_output,

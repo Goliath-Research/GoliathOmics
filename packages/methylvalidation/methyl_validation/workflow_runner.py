@@ -17,14 +17,6 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
-def _load_action_catalog() -> Dict[str, Dict[str, Any]]:
-    catalog_path = _repo_root() / "schemas" / "actions" / "catalog.json"
-    if not catalog_path.is_file():
-        return {}
-    data = json.loads(catalog_path.read_text(encoding="utf-8"))
-    return {str(a["action_name"]): a for a in data.get("actions") or []}
-
-
 def use_local_pipeline() -> bool:
     return os.environ.get("METHYL_USE_LOCAL_PIPELINE", "").lower() in {"1", "true", "yes"}
 

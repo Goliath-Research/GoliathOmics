@@ -63,7 +63,7 @@ fi
 echo "Using PostgreSQL backend (BACKEND_DB=${BACKEND_DB})"
 
 echo "Exporting task schemas and action catalog..."
-methyl-export-task-schemas
+goliath-export-action-schemas -o schemas/actions/catalog.json
 methyl-export-action-catalog
 
 if [[ "$SKIP_SEED" -eq 0 ]]; then

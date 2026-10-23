@@ -834,12 +834,12 @@ def test_segment_offsets_ignore_non_reference_walks(tmp_path: Path) -> None:
 
 
 def test_catalog_registers_methylgrapher_actions() -> None:
-    from methyl_worker.action_catalog import ACTION_CATALOG
+    from methyl_worker.action_runtime import RUNTIME_CATALOG
 
-    names = {e.action_name for e in ACTION_CATALOG}
+    names = {e.action_name for e in RUNTIME_CATALOG}
     assert "sample.methylgrapher_wgbs_align" in names
     assert "sample.methylgrapher_wgbs_extract" in names
-    entries = {e.action_name: e for e in ACTION_CATALOG}
+    entries = {e.action_name: e for e in RUNTIME_CATALOG}
     assert entries["sample.methylgrapher_wgbs_align"].action_config_key == "methylgrapher_wgbs"
     assert entries["sample.methylgrapher_wgbs_extract"].in_process_handler == (
         "_handle_methylgrapher_wgbs_extract"

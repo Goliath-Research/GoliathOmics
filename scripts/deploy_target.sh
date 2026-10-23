@@ -634,9 +634,9 @@ run_catalog_sync() {
     python3 -m pip -q install "psycopg[binary]" >/dev/null 2>&1 || true
   fi
   # DomainProgram create resolves action_name against wf.workflow_action.
-  # Seed from schemas/actions/catalog.json before deploy_workflow_definitions
+  # Seed wf.workflow_action from goliath_app catalogs (entry points) before deploy
   # (sync_cfg --skip-seed only upserts cfg.* rows).
-  info "catalog sync: seeding wf.workflow_action from schemas/actions/catalog.json"
+  info "catalog sync: seed_action_catalog.py (semantic + omics runtime dispatch)"
   if ! (
     cd "$REPO_ROOT"
     PYTHONPATH="${catalog_py_path}${PYTHONPATH:+:$PYTHONPATH}"       "$py" "$REPO_ROOT/workflow_engine/sql_pg/seed_action_catalog.py" --use-db

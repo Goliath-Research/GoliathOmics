@@ -218,7 +218,7 @@ def test_sample_prep_compiler_keys_on_all_task_inputs() -> None:
     import json
     from pathlib import Path
 
-    from methyl_worker.action_catalog import ACTION_CATALOG
+    from methyl_worker.action_runtime import RUNTIME_CATALOG
 
     prog = json.loads(
         (
@@ -240,7 +240,7 @@ def test_sample_prep_compiler_keys_on_all_task_inputs() -> None:
                 walk(v)
 
     walk(prog)
-    by_name = {e.action_name: e for e in ACTION_CATALOG}
+    by_name = {e.action_name: e for e in RUNTIME_CATALOG}
     for act in sorted(actions):
         entry = by_name[act]
         mod = __import__(entry.input_module, fromlist=[entry.input_class])

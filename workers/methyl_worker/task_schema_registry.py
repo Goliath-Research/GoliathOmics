@@ -12,7 +12,7 @@ from typing import List, Optional, Sequence, Type
 
 from pydantic import BaseModel
 
-from .action_catalog import ACTION_CATALOG, ActionCatalogEntry
+from .action_runtime import RUNTIME_CATALOG, ActionCatalogEntry
 
 
 @dataclass(frozen=True)
@@ -63,7 +63,7 @@ def _entry_to_task_spec(entry: ActionCatalogEntry) -> TaskSchemaSpec:
 
 
 TASK_SCHEMA_SPECS: Sequence[TaskSchemaSpec] = tuple(
-    _entry_to_task_spec(entry) for entry in ACTION_CATALOG
+    _entry_to_task_spec(entry) for entry in RUNTIME_CATALOG
 )
 
 
