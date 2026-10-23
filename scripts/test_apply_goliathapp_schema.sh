@@ -313,6 +313,9 @@ if [[ -n "${GOLIATH_APP_SQL_DIR:-}" ]]; then
   [[ -f "$GOLIATH_APP_SQL_DIR/apply_schema.sh" ]] || fail "GOLIATH_APP_SQL_DIR has no apply_schema.sh"
   export PGUSER=goliath_admin PGDATABASE=postgres
   psql_q -c 'CREATE DATABASE "GoliathOmics" OWNER app_owner'
+  # database_gateway_roles.sql (GoliathApp P3) creates login roles; Neon owners
+  # typically have CREATEROLE for least-privilege role setup.
+  psql_q -c 'ALTER ROLE app_owner CREATEROLE'
   export PGUSER=app_owner PGDATABASE=GoliathOmics
   app_sha="$(git -C "$GOLIATH_APP_SQL_DIR" rev-parse HEAD 2>/dev/null || echo local)"
   real1="$work/real-1"
