@@ -14,7 +14,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUNDLE="$ROOT/scripts/bundle_goliathapp_sql.py"
+OMICS_BUNDLE="$ROOT/scripts/bundle_omics_sql.py"
 APPLY="$ROOT/scripts/apply_goliathapp_schema.sh"
+OMICS_APPLY="$ROOT/scripts/apply_omics_schema.sh"
 DEPLOY="$ROOT/scripts/deploy_target.sh"
 fail() {
   echo "FAIL: $*" >&2
@@ -78,6 +80,14 @@ make_release() {
   mkdir -p "$dir"
   printf '{"version":"%s"}\n' "$version" >"$dir/manifest.json"
   python3 "$BUNDLE" --sql-dir "$sql_dir" --out "$dir/goliathapp-sql" --commit "$commit" >/dev/null
+}
+
+make_omics_release() {
+  local dir="$1" version="$2" commit="${3:-omicslocal}"
+  rm -rf "$dir"
+  mkdir -p "$dir"
+  printf '{"version":"%s"}\n' "$version" >"$dir/manifest.json"
+  python3 "$OMICS_BUNDLE" --sql-dir "$ROOT/workflow_engine/sql_pg" --out "$dir/omics-sql" --commit "$commit" >/dev/null
 }
 
 rel1="$work/rel-1"
@@ -316,14 +326,18 @@ if [[ -n "${GOLIATH_APP_SQL_DIR:-}" ]]; then
     || fail "GoliathApp scripts: unexpected ledger"
   echo "GoliathApp sql_pg ($app_sha, $(wc -l <"$real1/goliathapp-sql/manifest.sha256") scripts): applied 3x on one database"
 
-  OMICS_APPLY="$ROOT/workflow_engine/sql_pg/apply_schema.sh"
-  [[ -f "$OMICS_APPLY" ]] || fail "Omics apply_schema.sh missing"
-  for _ in 1 2; do
-    bash "$OMICS_APPLY" >"$out" 2>"$err" || { tail -20 "$err" >&2; fail "Omics apply_schema.sh pass $_ failed"; }
-  done
+  omics_sha="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo local)"
+  omics1="$work/omics-1"
+  omics2="$work/omics-2"
+  make_omics_release "$omics1" 9.1.0 "$omics_sha"
+  make_omics_release "$omics2" 9.1.1 "$omics_sha"
+  bash "$OMICS_APPLY" --release-dir "$omics1" >"$out" 2>"$err" \
+    || { tail -20 "$err" >&2; fail "Omics schema: first apply failed"; }
+  bash "$OMICS_APPLY" --release-dir "$omics2" >"$out" 2>"$err" \
+    || { tail -20 "$err" >&2; fail "Omics schema: second apply failed (not idempotent)"; }
   [[ "$(psql_q -c "SELECT to_regclass('portal.\"Customers\"') IS NOT NULL")" == "t" ]] \
     || fail "Omics schema: portal.Customers table missing after apply"
-  echo "GoliathOmics sql_pg: apply_schema.sh applied 2x after GoliathApp on one database"
+  echo "GoliathOmics sql_pg ($omics_sha): omics-sql applied 2x after GoliathApp on one database"
 fi
 
 echo "test_apply_goliathapp_schema ok"
