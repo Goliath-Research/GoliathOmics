@@ -38,7 +38,7 @@ err="$work/err"
 # --- fixture GoliathApp sql_pg -------------------------------------------
 app="$work/app/sql_pg"
 mkdir -p "$app"
-cat >"$app/deploy_azure.sh" <<'EOF'
+cat >"$app/apply_schema.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 SCRIPTS=(
@@ -70,7 +70,7 @@ EOF
 
 python3 "$BUNDLE" --sql-dir "$app" --list >"$out"
 printf '00_schema.sql\n10_legacy_api.sql\n20_api.sql\n' | diff - "$out" >/dev/null \
-  || fail "bundle order must follow deploy_azure.sh SCRIPTS: $(tr '\n' ' ' <"$out")"
+  || fail "bundle order must follow apply_schema.sh SCRIPTS: $(tr '\n' ' ' <"$out")"
 
 make_release() {
   local dir="$1" version="$2" sql_dir="$3" commit="${4:-fixturesha1}"
@@ -90,11 +90,11 @@ jq -e '.commit == "fixturesha1" and .scripts == 3' "$rel1/goliathapp-sql/source.
 
 bad_order="$work/bad-order"
 mkdir -p "$bad_order"
-printf 'SCRIPTS=(\n  a.sql\n  a.sql\n)\n' >"$bad_order/deploy_azure.sh"
+printf 'SCRIPTS=(\n  a.sql\n  a.sql\n)\n' >"$bad_order/apply_schema.sh"
 if python3 "$BUNDLE" --sql-dir "$bad_order" --list >/dev/null 2>"$err"; then
   fail "a duplicated SCRIPTS entry must be rejected"
 fi
-printf 'SCRIPTS=(\n  missing.sql\n)\n' >"$bad_order/deploy_azure.sh"
+printf 'SCRIPTS=(\n  missing.sql\n)\n' >"$bad_order/apply_schema.sh"
 if python3 "$BUNDLE" --sql-dir "$bad_order" --out "$work/bad-out" --commit x >/dev/null 2>"$err"; then
   fail "a listed but missing script must fail the bundle"
 fi
@@ -226,7 +226,7 @@ EOF
 cat >"$broken/16_broken.sql" <<'EOF'
 SELECT no_such_column FROM wf.fixture_apply_log;
 EOF
-printf 'SCRIPTS=(\n  00_schema.sql\n  10_legacy_api.sql\n  15_new_table.sql\n  16_broken.sql\n  20_api.sql\n)\n' >"$broken/deploy_azure.sh"
+printf 'SCRIPTS=(\n  00_schema.sql\n  10_legacy_api.sql\n  15_new_table.sql\n  16_broken.sql\n  20_api.sql\n)\n' >"$broken/apply_schema.sh"
 rel2="$work/rel-2"
 make_release "$rel2" 2.0.0 "$broken"
 if bash "$APPLY" --release-dir "$rel2" >"$out" 2>"$err"; then
@@ -300,7 +300,7 @@ grep -q 'schema.goliathapp=none' "$out" || fail "goliathapp=none should be repor
 
 # --- optional: the real GoliathApp scripts ----------------------------------------
 if [[ -n "${GOLIATH_APP_SQL_DIR:-}" ]]; then
-  [[ -f "$GOLIATH_APP_SQL_DIR/deploy_azure.sh" ]] || fail "GOLIATH_APP_SQL_DIR has no deploy_azure.sh"
+  [[ -f "$GOLIATH_APP_SQL_DIR/apply_schema.sh" ]] || fail "GOLIATH_APP_SQL_DIR has no apply_schema.sh"
   export PGUSER=goliath_admin PGDATABASE=postgres
   psql_q -c 'CREATE DATABASE "GoliathOmics" OWNER app_owner'
   export PGUSER=app_owner PGDATABASE=GoliathOmics

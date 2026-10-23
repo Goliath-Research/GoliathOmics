@@ -91,7 +91,6 @@ if [[ "$RUNTIME_MODE" -eq 1 ]]; then
   require_dir "$RUNTIME/schemas" "schemas"
   require_dir "$RUNTIME/deploy" "deploy"
   require_file "$RUNTIME/deploy/env/gateway.postgres.env.example" "gateway env template"
-  require_file "$RUNTIME/deploy/env/gateway.mssql.env.example" "gateway env template (mssql)"
   require_file "$RUNTIME/deploy/systemd/methyl-gateway.service" "gateway systemd unit"
   require_file "$RUNTIME/deploy/systemd/methyl-worker.service" "worker systemd unit"
   require_file "$CURRENT/manifest.json" "release manifest.json"
@@ -136,7 +135,6 @@ else
     "docs/reference/domain-program-language.md"
     "docs/reference/admin-cli-methyl-study-start.md"
     "deploy/env/gateway.postgres.env.example"
-    "deploy/env/gateway.mssql.env.example"
     "contracts/openapi.yaml"
   )
   echo ""

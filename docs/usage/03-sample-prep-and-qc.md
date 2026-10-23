@@ -17,7 +17,7 @@ Each sample takes one of four align paths: linear Clara Parabricks, linear Golia
 
 **Workflow source of truth:** [`workflow_engine/domain/fixtures/sample_prep.program.json`](../../workflow_engine/domain/fixtures/sample_prep.program.json)
 
-**Storage contract:** [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md)
+**Storage contract:** [`workflow_engine/contract/SamplePrepFlow.md`](../../workflow_engine/contract/SamplePrepFlow.md)
 
 **Tooling:** [sample-prep-tooling.md](../architecture/sample-prep-tooling.md)
 
@@ -344,7 +344,7 @@ A sample can pass alignment but fail extraction (e.g., coverage collapse on cert
 | Fail after remediation | `qcPass: false` (attempt 2) | — | Same as above |
 | Pass alignment, fail extraction | `qcPass: true` | `extractionQcPass: false` | QC-only archive, mark failed; H5 may exist but must not enter production cohorts |
 
-**FOREACH:** one sample `FAILED` does **not** fail the instance; siblings continue (`READY`/`RUNNING`). The instance can **COMPLETED** after every iteration is terminal. See [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md).
+**FOREACH:** one sample `FAILED` does **not** fail the instance; siblings continue (`READY`/`RUNNING`). The instance can **COMPLETED** after every iteration is terminal. See [`workflow_engine/contract/SamplePrepFlow.md`](../../workflow_engine/contract/SamplePrepFlow.md).
 
 When SamplePrep instance **COMPLETED**, start stability or discovery workflows with the same `projectPath`. Downstream code resolves HDF5 via `methyl_domain.helpers.resolve_methylation_h5_path()` — do not hard-code sample paths.
 
@@ -387,6 +387,6 @@ On the worker path, `sample.methyl_qc` takes `alignmentMode` (`--alignment-mode`
 
 - **Start an instance:** [Start a SamplePrep instance](../operators/start-sample-prep.md)
 - **Alignment engines matrix:** [`alignment-engines.md`](alignment-engines.md)
-- Storage contract: [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md)
+- Storage contract: [`workflow_engine/contract/SamplePrepFlow.md`](../../workflow_engine/contract/SamplePrepFlow.md)
 - Alignment QC package: [`packages/methylalignmentqc/docs/USAGE.md`](../../packages/methylalignmentqc/docs/USAGE.md)
 - Extraction QC package: [`packages/methylextractionqc/README.md`](../../packages/methylextractionqc/README.md)

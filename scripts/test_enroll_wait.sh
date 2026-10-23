@@ -41,7 +41,7 @@ FAIL_TIMES=2 run_enroll >"$work/out" 2>&1 || { cat "$work/out"; fail "enroll sho
 grep -q 'enrolled' "$work/out" || fail "enroll output missing"
 grep -qF "psql \"\$DATABASE_URL\" -c \"SELECT * FROM portal.sp_upsert_worker_enrollment('goliath', '203.0.113.7', '$(hostname -s)');\"" "$work/out" \
   || { cat "$work/out"; fail "ready-to-run psql preregistration missing"; }
-[[ "$(grep -c 'sp_upsert_worker_enrollment(' "$work/out")" == 1 ]] || fail "SQL should be logged once (pg + mssql lines)"
+[[ "$(grep -c 'sp_upsert_worker_enrollment(' "$work/out")" == 1 ]] || fail "SQL should be logged once"
 grep -q 'gw.example' "$work/out" && fail "log must not include connection details"
 [[ "$(cat "$COUNTER")" == 3 ]] || fail "expected 3 attempts"
 

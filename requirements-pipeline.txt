@@ -20,10 +20,8 @@ plotly
 psutil
 pyvis
 pyarrow
-pyodbc
 pydantic
 python-louvain
-pymssql
 pysam
 pyyaml
 requests

@@ -3,8 +3,8 @@
 #
 # Usage:
 #   source .venv/bin/activate
-#   export BACKEND_DB=mssql   # or postgres
-#   # set AZURE_SQL_* or POSTGRES_* (see deploy/env/gateway.*.env.example)
+#   export BACKEND_DB=postgres
+#   # set POSTGRES_* (see deploy/env/gateway.postgres.env.example)
 #   bash scripts/deploy_mc_workflow_definitions.sh
 #
 # Options:

@@ -72,7 +72,7 @@ rather than fail, and the behavior they cover is exercised elsewhere:
 
 - GPU tests: deselected with `-m "not gpu"`; CPU/GPU parity is validated on
   GPU-equipped workers.
-- Database tests: skip unless `POSTGRES_*` (and optionally `METHYL_TEST_MSSQL_DSN`)
+- Database tests: skip unless `POSTGRES_*` is set
   are configured; the GitHub Actions `db-parity` workflow runs them against a live
   PostgreSQL service.
 - `/work`-fixture tests: skip when the referenced study fixtures are missing.

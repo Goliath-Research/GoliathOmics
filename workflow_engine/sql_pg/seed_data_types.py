@@ -8,7 +8,7 @@ bind target) and flattens properties into data_type_field as a SQL index.
 
 Usage:
   source .venv/bin/activate
-  PYTHONPATH=workflow_engine:workers python workflow_engine/sql_mssql/seed_data_types.py
+  PYTHONPATH=workflow_engine:workers python workflow_engine/sql_pg/seed_data_types.py
 """
 
 from __future__ import annotations
@@ -215,58 +215,33 @@ def _ensure_type(
     content_hash: Optional[str] = None,
     schema: Optional[Dict[str, Any]] = None,
 ) -> None:
-    backend = os.environ.get("BACKEND_DB", "mssql").lower()
     payload = _schema_payload(schema)
     if content_hash is None and schema is not None:
         content_hash = _hash(schema)
-    if backend == "postgres":
-        db._exec_proc(  # noqa: SLF001
-            "SELECT * FROM wf.wf_repo_upsert_data_type(%s,%s,%s,%s,%s,%s,%s,%s::jsonb)",
-            (name, version, "published", kind, element_type_name, "1", content_hash, payload),
-        )
-    else:
-        db._exec_proc(  # noqa: SLF001
-            "EXEC wf.wf_repo_upsert_data_type "
-            "@name=?, @version=?, @status=?, @kind=?, "
-            "@element_type_name=?, @element_type_version=?, @content_hash=?, @schema_json=?",
-            (name, version, "published", kind, element_type_name, "1", content_hash, payload),
-        )
+    db._exec_proc(  # noqa: SLF001
+        "SELECT * FROM wf.wf_repo_upsert_data_type(%s,%s,%s,%s,%s,%s,%s,%s::jsonb)",
+        (name, version, "published", kind, element_type_name, "1", content_hash, payload),
+    )
 
 
 def _replace_fields(
     db, *, type_name: str, fields: List[Dict[str, Any]], version: str = "1"
 ) -> None:
-    backend = os.environ.get("BACKEND_DB", "mssql").lower()
     payload = json.dumps(fields, separators=(",", ":"))
-    if backend == "postgres":
-        db._exec_proc(  # noqa: SLF001
-            "SELECT * FROM wf.wf_repo_replace_data_type_fields(%s,%s,%s::jsonb)",
-            (type_name, version, payload),
-        )
-    else:
-        db._exec_proc(  # noqa: SLF001
-            "EXEC wf.wf_repo_replace_data_type_fields "
-            "@type_name=?, @type_version=?, @fields_json=?",
-            (type_name, version, payload),
-        )
+    db._exec_proc(  # noqa: SLF001
+        "SELECT * FROM wf.wf_repo_replace_data_type_fields(%s,%s,%s::jsonb)",
+        (type_name, version, payload),
+    )
 
 
 def _replace_enum(
     db, *, type_name: str, values: List[str], version: str = "1"
 ) -> None:
-    backend = os.environ.get("BACKEND_DB", "mssql").lower()
     payload = json.dumps(values, separators=(",", ":"))
-    if backend == "postgres":
-        db._exec_proc(  # noqa: SLF001
-            "SELECT * FROM wf.wf_repo_replace_data_type_enum_values(%s,%s,%s::jsonb)",
-            (type_name, version, payload),
-        )
-    else:
-        db._exec_proc(  # noqa: SLF001
-            "EXEC wf.wf_repo_replace_data_type_enum_values "
-            "@type_name=?, @type_version=?, @values_json=?",
-            (type_name, version, payload),
-        )
+    db._exec_proc(  # noqa: SLF001
+        "SELECT * FROM wf.wf_repo_replace_data_type_enum_values(%s,%s,%s::jsonb)",
+        (type_name, version, payload),
+    )
 
 
 def _bind_action(
@@ -280,37 +255,19 @@ def _bind_action(
     can_continue: bool = False,
     can_stop: bool = True,
 ) -> None:
-    backend = os.environ.get("BACKEND_DB", "mssql").lower()
-    if backend == "postgres":
-        db._exec_proc(  # noqa: SLF001
-            "SELECT * FROM wf.wf_repo_bind_action_types(%s,%s,%s,%s,%s,%s,%s,%s)",
-            (
-                action_name,
-                input_type,
-                output_type,
-                "1",
-                implementation_status,
-                can_pause,
-                can_continue,
-                can_stop,
-            ),
-        )
-    else:
-        db._exec_proc(  # noqa: SLF001
-            "EXEC wf.wf_repo_bind_action_types "
-            "@action_name=?, @input_type_name=?, @output_type_name=?, @type_version=?, "
-            "@implementation_status=?, @can_pause=?, @can_continue=?, @can_stop=?",
-            (
-                action_name,
-                input_type,
-                output_type,
-                "1",
-                implementation_status,
-                1 if can_pause else 0,
-                1 if can_continue else 0,
-                1 if can_stop else 0,
-            ),
-        )
+    db._exec_proc(  # noqa: SLF001
+        "SELECT * FROM wf.wf_repo_bind_action_types(%s,%s,%s,%s,%s,%s,%s,%s)",
+        (
+            action_name,
+            input_type,
+            output_type,
+            "1",
+            implementation_status,
+            can_pause,
+            can_continue,
+            can_stop,
+        ),
+    )
 
 
 def seed_primitives(db) -> int:
@@ -540,36 +497,12 @@ def seed_task_types(db) -> Tuple[int, int]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--backend", choices=("mssql", "postgres"), default=None)
-    args = parser.parse_args()
-    if args.backend:
-        os.environ["BACKEND_DB"] = args.backend
+    argparse.ArgumentParser(description=__doc__).parse_args()
 
     from rest.connection import resolve_connection_config
     from rest.db import open_gateway_db
 
-    # Load dotenv like sync script
-    for env_path in (
-        Path.home() / "mssql-mcp-server" / ".env",
-        Path.home() / ".secrets" / "azure_sql.env",
-    ):
-        if env_path.is_file():
-            for line in env_path.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
-    if os.environ.get("DB_SERVER") and not os.environ.get("AZURE_SQL_SERVER"):
-        os.environ["AZURE_SQL_SERVER"] = os.environ["DB_SERVER"]
-    if os.environ.get("DB_DATABASE") and not os.environ.get("AZURE_SQL_DB"):
-        os.environ["AZURE_SQL_DB"] = os.environ["DB_DATABASE"]
-    if os.environ.get("DB_USER") and not os.environ.get("AZURE_SQL_USER"):
-        os.environ["AZURE_SQL_USER"] = os.environ["DB_USER"]
-    if os.environ.get("DB_PASSWORD") and not os.environ.get("AZURE_SQL_PASSWORD"):
-        os.environ["AZURE_SQL_PASSWORD"] = os.environ["DB_PASSWORD"]
-
+    os.environ.setdefault("BACKEND_DB", "postgres")
     db = open_gateway_db(resolve_connection_config())
     try:
         n_prim = seed_primitives(db)

@@ -7,22 +7,14 @@ Legacy per-action JSON Schema blobs (wf.workflow_action_schema) are no longer
 seeded; types are explicit rows in wf.data_type / wf.data_type_field, with the
 JSON Schema document stored on wf.data_type.schema_json for SchemaPropertyGrid.
 
-Uses the gateway DB layer (Azure SQL or PostgreSQL) via BACKEND_DB / connection env.
-Legacy PostgreSQL-only path: pass --dsn postgresql://...
+Uses the gateway DB layer (PostgreSQL) via BACKEND_DB / connection env.
+Legacy path: pass --dsn postgresql://...
 
 Usage:
   source .venv/bin/activate
   methyl-export-task-schemas
   methyl-export-action-catalog
-  python workflow_engine/sql_mssql/seed_action_catalog.py
-
-Azure SQL (default BACKEND_DB=mssql):
-  export BACKEND_DB=mssql
-  export AZURE_SQL_SERVER=...
-  export AZURE_SQL_DB=...
-  export AZURE_SQL_USER=...
-  export AZURE_SQL_PASSWORD=...
-  python workflow_engine/sql_mssql/seed_action_catalog.py
+  python workflow_engine/sql_pg/seed_action_catalog.py
 """
 
 from __future__ import annotations
@@ -236,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Seeded {action_count} action(s).")
 
     # Explicit data types + action input/output FKs (schema_json on wf.data_type).
-    seed_dt = REPO_ROOT / "workflow_engine" / "sql_mssql" / "seed_data_types.py"
+    seed_dt = REPO_ROOT / "workflow_engine" / "sql_pg" / "seed_data_types.py"
     if seed_dt.is_file() and not args.dsn:
         proc = subprocess.run(
             [sys.executable, str(seed_dt)],

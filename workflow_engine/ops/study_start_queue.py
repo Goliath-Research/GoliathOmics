@@ -31,58 +31,33 @@ def _parse_json(value: Any) -> Any:
 
 
 def _claim(db: Any, claimed_by: str, lease_seconds: int) -> Optional[Dict[str, Any]]:
-    if db.backend == "mssql":
-        row = db._fetch_one(
-            "EXEC portal.sp_claim_study_start_request @claimed_by=?, @lease_seconds=?",
-            (claimed_by, lease_seconds),
-        )
-    else:
-        row = db._fetch_one(
-            "SELECT * FROM portal.sp_claim_study_start_request(%s, %s)",
-            (claimed_by, lease_seconds),
-        )
+    row = db._fetch_one(
+        "SELECT * FROM portal.sp_claim_study_start_request(%s, %s)",
+        (claimed_by, lease_seconds),
+    )
     return row
 
 
 def _complete(db: Any, request_id: int, instance_id: int) -> None:
-    if db.backend == "mssql":
-        db._exec_proc(
-            "EXEC portal.sp_complete_study_start_request "
-            "@request_id=?, @workflow_instance_id=?",
-            (request_id, instance_id),
-        )
-    else:
-        db._exec_proc(
-            "SELECT * FROM portal.sp_complete_study_start_request(%s, %s)",
-            (request_id, instance_id),
-        )
+    db._exec_proc(
+        "SELECT * FROM portal.sp_complete_study_start_request(%s, %s)",
+        (request_id, instance_id),
+    )
 
 
 def _fail(db: Any, request_id: int, error_message: str) -> None:
     msg = (error_message or "failed")[:4000]
-    if db.backend == "mssql":
-        db._exec_proc(
-            "EXEC portal.sp_fail_study_start_request @request_id=?, @error_message=?",
-            (request_id, msg),
-        )
-    else:
-        db._exec_proc(
-            "SELECT * FROM portal.sp_fail_study_start_request(%s, %s)",
-            (request_id, msg),
-        )
+    db._exec_proc(
+        "SELECT * FROM portal.sp_fail_study_start_request(%s, %s)",
+        (request_id, msg),
+    )
 
 
 def _overlay(db: Any, study_row_id: int) -> Dict[str, Any]:
-    if db.backend == "mssql":
-        row = db._fetch_one(
-            "EXEC portal.sp_get_study_action_config_overlay @study_row_id=?",
-            (study_row_id,),
-        )
-    else:
-        row = db._fetch_one(
-            "SELECT * FROM portal.sp_get_study_action_config_overlay(%s)",
-            (study_row_id,),
-        )
+    row = db._fetch_one(
+        "SELECT * FROM portal.sp_get_study_action_config_overlay(%s)",
+        (study_row_id,),
+    )
     if not row:
         return {}
     raw = row.get("action_config_overlay")
@@ -101,45 +76,22 @@ def _create_and_start(
     site_id: Optional[int],
     storage_profile_id: Optional[int],
 ) -> int:
-    if db.backend == "mssql":
-        from rest.db.mssql import _declare_json, _json_text, _json_var
-
-        row = db._fetch_one(
-            f"{_declare_json('context')}"
-            "EXEC portal.sp_create_and_start_instance "
-            f"@workflow_version_id=?, @context_json={_json_var('context')}, "
-            "@scope_id=?, @study_row_id=?, @domain_program_id=?, "
-            "@pipeline_profile_id=?, @site_id=?, @storage_profile_id=?, "
-            "@assay_procedure_id=?",
-            (
-                _json_text(context),
-                workflow_version_id,
-                None,
-                study_row_id,
-                None,
-                pipeline_profile_id,
-                site_id,
-                storage_profile_id,
-                assay_procedure_id,
-            ),
-        )
-    else:
-        row = db._fetch_one(
-            "SELECT id, workflow_version_id, status "
-            "FROM portal.sp_create_and_start_instance("
-            "%s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s)",
-            (
-                workflow_version_id,
-                json.dumps(context),
-                None,
-                study_row_id,
-                None,
-                pipeline_profile_id,
-                site_id,
-                storage_profile_id,
-                assay_procedure_id,
-            ),
-        )
+    row = db._fetch_one(
+        "SELECT id, workflow_version_id, status "
+        "FROM portal.sp_create_and_start_instance("
+        "%s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s)",
+        (
+            workflow_version_id,
+            json.dumps(context),
+            None,
+            study_row_id,
+            None,
+            pipeline_profile_id,
+            site_id,
+            storage_profile_id,
+            assay_procedure_id,
+        ),
+    )
     if not row:
         raise RuntimeError("portal.sp_create_and_start_instance returned no row")
     instance_id = row.get("id") or row.get("workflow_instance_id")

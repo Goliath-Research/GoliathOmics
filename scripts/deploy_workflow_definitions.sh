@@ -15,7 +15,7 @@ Options:
   --delete-instances   On replace, delete instances (destructive)
   -h, --help           Show this help
 
-Requires BACKEND_DB + AZURE_SQL_* or POSTGRES_* (see deploy/env/gateway.*.env.example).
+Requires BACKEND_DB=postgres and POSTGRES_* (see deploy/env/gateway.postgres.env.example).
 EOF
 }
 

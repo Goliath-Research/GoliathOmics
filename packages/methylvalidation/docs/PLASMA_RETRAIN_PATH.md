@@ -32,7 +32,7 @@ Use this workflow when the cohort is **plasma or cell-free DNA**, not buffy-coat
 
 ## 2. Upstream QC and extraction (before HDF5)
 
-Recommended order (SamplePrepPipeline) — see [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../../workflow_engine/sql_mssql/SamplePrepFlow.md):
+Recommended order (SamplePrepPipeline) — see [`workflow_engine/contract/SamplePrepFlow.md`](../../../workflow_engine/contract/SamplePrepFlow.md):
 
 1. Download FASTQs → sample directory under `/work/samples/{id}/` (any structured laboratory source)
 2. Parabricks (GPU) → BAM + `*.qc-metrics.tar` + `{sample}.json`

@@ -252,7 +252,7 @@ def run_compare(args: argparse.Namespace) -> int:
     reference_fasta = _reference_fasta(args.reference_fasta)
     reference_gtf = _reference_gtf(args.reference_gtf)
     # Always compile the current fixture so methylGrapher branches exist even when
-    # MSSQL SamplePrep v7 is still the stale linear-only graph.
+    # Legacy linear-only SamplePrep graphs are no longer deployed.
     sample_prep_program = str(
         REPO_ROOT / "workflow_engine" / "domain" / "fixtures" / "sample_prep.program.json"
     )

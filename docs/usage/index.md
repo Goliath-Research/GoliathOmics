@@ -20,7 +20,7 @@ This is the operational companion to the theory book. It is designed for executi
 - stage handoff checks,
 - recovery actions when a run fails.
 
-For statistical background, use [`docs/theory/`](../theory/index.md). Compiler and worker behavior for SamplePrep is in [Start a SamplePrep instance](../operators/start-sample-prep.md) and [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md). Start with [Relationship to Theory and Implementation](00-relationship-to-theory-and-implementation.md).
+For statistical background, use [`docs/theory/`](../theory/index.md). Compiler and worker behavior for SamplePrep is in [Start a SamplePrep instance](../operators/start-sample-prep.md) and [`workflow_engine/contract/SamplePrepFlow.md`](../../workflow_engine/contract/SamplePrepFlow.md). Start with [Relationship to Theory and Implementation](00-relationship-to-theory-and-implementation.md).
 
 ## How to run staged validation
 
@@ -81,7 +81,7 @@ flowchart LR
 
 ## Canonical references
 
-- Sample prep workflow: [`workflow_engine/sql_mssql/SamplePrepFlow.md`](../../workflow_engine/sql_mssql/SamplePrepFlow.md)
+- Sample prep workflow: [`workflow_engine/contract/SamplePrepFlow.md`](../../workflow_engine/contract/SamplePrepFlow.md)
 - DomainProgram fixtures: `workflow_engine/domain/fixtures/*.program.json`
 - Dependency direction: [`docs/architecture/dependencies.md`](../architecture/dependencies.md)
 - Validation orchestration: `packages/methylvalidation/docs/USAGE.md`
