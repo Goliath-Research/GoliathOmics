@@ -380,6 +380,12 @@ write_kv_file() {
 }
 
 db_kind="$(jq_get '.database.kind // "postgres"')"
+case "$db_kind" in
+  postgres|neon) ;;
+  *)
+    die "database.kind must be postgres or neon (got: ${db_kind})"
+    ;;
+esac
 db_host="$(jq_get '.database.host')"
 db_schema_host="$(jq_get '.database.schema_host // empty')"
 if [[ -z "$db_schema_host" || "$db_schema_host" == "null" ]]; then
