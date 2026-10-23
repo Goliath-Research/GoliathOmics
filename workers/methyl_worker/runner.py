@@ -64,18 +64,28 @@ class WorkerRunner:
         self.poll_seconds = poll_seconds
         self.heartbeat_seconds = heartbeat_seconds
         self._desired_state = "ACTIVE"
-        self.client.open_session(identity_token)
+        self._session_opened_at: Optional[datetime] = None
+        self._open_session()
+
+    def _open_session(self) -> None:
+        self.client.open_session(self.identity_token)
+        self._session_opened_at = datetime.now(timezone.utc)
 
     def _refresh_session_if_needed(self) -> None:
         expires = self.client.session_expires_at()
         refresh_margin = timedelta(seconds=self.heartbeat_seconds)
         now = datetime.now(timezone.utc)
         if expires is None:
-            ttl = _session_ttl_seconds(self.heartbeat_seconds)
-            expires = now + timedelta(seconds=ttl)
+            # No expires_at_utc. TTL is measured from the open, not from this
+            # call: now+TTL compared with now+one heartbeat is never due.
+            opened = self._session_opened_at
+            if opened is None:
+                opened = now
+                self._session_opened_at = opened
+            expires = opened + timedelta(seconds=_session_ttl_seconds(self.heartbeat_seconds))
         if now + refresh_margin >= expires:
             logger.info("Refreshing worker gateway session before expiry")
-            self.client.open_session(self.identity_token)
+            self._open_session()
 
     def _with_session_retry(self, fn):
         try:
@@ -84,7 +94,7 @@ class WorkerRunner:
             if not _is_stale_session_error(exc):
                 raise
             logger.warning("Worker session rejected; opening a new session: %s", exc)
-            self.client.open_session(self.identity_token)
+            self._open_session()
             return fn()
 
     def run_once(self) -> bool:

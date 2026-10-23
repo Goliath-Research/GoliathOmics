@@ -242,8 +242,16 @@ class WorkflowRestClient:
 
     def open_session(self, identity_token: str) -> Dict[str, Any]:
         """POST /workers/session — bearer session from the enrollment identity token."""
+        # Identity header only. A leftover Authorization bearer is rejected
+        # before the gateway reads X-Goliath-Worker-Token, so reopen would fail.
         headers = {WORKER_IDENTITY_HEADER: identity_token}
-        body = self._post_json("/workers/session", {}, extra_headers=headers)
+        previous_token = self._session_token
+        self._session_token = None
+        try:
+            body = self._post_json("/workers/session", {}, extra_headers=headers)
+        except Exception:
+            self._session_token = previous_token
+            raise
         self._identity_token = identity_token
         self._session_token = str(body.get("session_token") or "")
         if body.get("worker_id") is not None:
