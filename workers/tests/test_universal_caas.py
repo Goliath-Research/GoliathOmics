@@ -59,13 +59,6 @@ def test_destructive_sample_hard_opt_out() -> None:
     assert idempotency_opt_out_reason_for(entry) == "destructive"
 
 
-def test_fs_stat_opt_out() -> None:
-    entry = find_catalog_entry("workflow.fs_stat")
-    assert entry is not None
-    assert idempotency_enabled_for(entry) is False
-    assert idempotency_opt_out_reason_for(entry) == "mtime_sensitive"
-
-
 def test_catalog_export_includes_idempotency_fields() -> None:
     entry = find_catalog_entry("pipeline.centroid")
     assert entry is not None

@@ -163,7 +163,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: main
+          ref: 3d26e54
           path: _goliathapp
 
       - name: Install science packages and the methyl worker
@@ -172,10 +172,13 @@ jobs:
           . .venv/bin/activate
           python -m pip install -U pip pytest
           bash scripts/install_packages.sh --with-deps
-          # domain.program / domain.compiler ship on GoliathApp main (PR #7,
-          # 1d4e28c). --no-deps: science packages already installed pydantic;
-          # the gateway's pyodbc extra is not needed to import the compiler.
-          python -m pip install --no-deps "${{ github.workspace }}/_goliathapp/workflow_engine"
+          python -m pip install "${{ github.workspace }}/_goliathapp/workflow_engine"
+          python -m pip install -e workers
+
+      - name: Semantic action schema drift check
+        run: |
+          . .venv/bin/activate
+          goliath-export-action-schemas --check schemas/actions/catalog.json
 
       - name: Worker unit tests
         run: |

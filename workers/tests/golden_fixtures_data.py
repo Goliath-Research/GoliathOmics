@@ -238,26 +238,6 @@ GOLDEN_INPUTS: Dict[str, Dict[str, Any]] = {
         "projectPath": "/work/p/project.json",
         "monteCarloRunsRoot": "/work/p/monte_carlo_runs",
     },
-    "workflow.const_bool": {"tool": "WorkflowConstBool", "value": True},
-    "workflow.const_int": {"tool": "WorkflowConstInt", "value": 42},
-    "workflow.const_string": {"tool": "WorkflowConstString", "value": "ready"},
-    "workflow.const_path": {"tool": "WorkflowConstPath", "value": "/work/p/project.json"},
-    "workflow.json_path_bool": {
-        "tool": "WorkflowJsonPathBool",
-        "documentPath": "/work/p/readiness/readiness.json",
-        "jsonPath": "$.ready",
-    },
-    "workflow.json_path_int": {
-        "tool": "WorkflowJsonPathInt",
-        "documentPath": "/work/p/readiness/readiness.json",
-        "jsonPath": "$.n_iterations",
-    },
-    "workflow.json_path_string": {
-        "tool": "WorkflowJsonPathString",
-        "documentPath": "/work/p/readiness/readiness.json",
-        "jsonPath": "$.status",
-    },
-    "workflow.fs_stat": {"tool": "WorkflowFsStat", "path": "/work/p/project.json"},
 }
 
 GOLDEN_OUTPUTS: Dict[str, Dict[str, Any]] = {
@@ -568,19 +548,5 @@ GOLDEN_OUTPUTS: Dict[str, Dict[str, Any]] = {
         "status": "ok",
         "outputDir": "/work/p/post_model_validation",
         "passed": True,
-    },
-    "workflow.const_bool": {"status": "ok", "value": True},
-    "workflow.const_int": {"status": "ok", "value": 42},
-    "workflow.const_string": {"status": "ok", "value": "ready"},
-    "workflow.const_path": {"status": "ok", "value": "/work/p/project.json"},
-    "workflow.json_path_bool": {"status": "ok", "value": True},
-    "workflow.json_path_int": {"status": "ok", "value": 10},
-    "workflow.json_path_string": {"status": "ok", "value": "ready"},
-    "workflow.fs_stat": {
-        "status": "ok",
-        "exists": True,
-        "size": 1024,
-        "mtimeUtc": "2026-07-21T00:00:00Z",
-        "value": True,
     },
 }

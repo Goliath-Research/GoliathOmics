@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from methyl_worker.action_catalog import ACTION_CATALOG, find_catalog_entry
+from methyl_worker.action_catalog import find_catalog_entry
+from methyl_worker.action_runtime import RUNTIME_CATALOG
 from methyl_worker.actions.base import CliAction, build_action_from_catalog
 from methyl_worker.actions.centroid import CentroidCliAction
 from methyl_worker.actions.detector import DetectorCliAction
@@ -69,7 +70,7 @@ def test_catalog_export_includes_template_metadata() -> None:
 
 
 def test_all_in_process_handlers_resolvable_on_handlers_package() -> None:
-    for entry in ACTION_CATALOG:
+    for entry in RUNTIME_CATALOG:
         if entry.execution_mode != "in_process":
             continue
         name = entry.resolved_in_process_handler()

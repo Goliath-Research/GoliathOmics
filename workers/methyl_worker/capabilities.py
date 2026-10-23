@@ -107,11 +107,11 @@ def _docker_gpu_tool_available(capability: str) -> bool:
 
 def _catalog_capability_rows() -> list[tuple[str, str, Optional[str]]]:
     """Return (capability, probe_kind, cli_tool) derived from ACTION_CATALOG."""
-    from .action_catalog import ACTION_CATALOG
+    from .action_runtime import RUNTIME_CATALOG
 
     rows: list[tuple[str, str, Optional[str]]] = []
     seen: set[str] = set()
-    for entry in ACTION_CATALOG:
+    for entry in RUNTIME_CATALOG:
         if entry.capability in seen:
             continue
         seen.add(entry.capability)

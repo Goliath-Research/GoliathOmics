@@ -376,7 +376,7 @@ def build_resolved_config_scope_vars(context: Mapping[str, Any]) -> Dict[str, An
     if str(workers) not in sys.path:
         sys.path.insert(0, str(workers))
 
-    from methyl_worker.action_catalog import ACTION_CATALOG
+    from methyl_worker.action_runtime import RUNTIME_CATALOG
     from methyl_utils.action_config_resolver import resolve_action_config
 
     ac = context.get("actionConfig")
@@ -385,7 +385,7 @@ def build_resolved_config_scope_vars(context: Mapping[str, Any]) -> Dict[str, An
     reg = context.get("regulatory") if isinstance(context.get("regulatory"), dict) else {}
 
     keys: Set[str] = set(profile_ac.keys())
-    for entry in ACTION_CATALOG:
+    for entry in RUNTIME_CATALOG:
         if entry.action_config_key:
             keys.add(entry.action_config_key)
 

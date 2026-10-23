@@ -10,7 +10,7 @@ from typing import Any, Mapping, Optional, Type
 from methyl_domain.action_result import utc_now
 from pydantic import BaseModel
 
-from .action_catalog import ActionCatalogEntry
+from .action_runtime import ActionCatalogEntry
 from .task_schema_registry import resolve_task_schema_spec
 
 

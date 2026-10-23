@@ -467,15 +467,14 @@ def seed_task_types(db) -> Tuple[int, int]:
         can_pause = can_continue = False
         can_stop = True
         try:
-            from methyl_worker.action_catalog import ACTION_CATALOG
+            from methyl_worker.action_runtime import find_catalog_entry
 
-            entry = ACTION_CATALOG.get(spec.action_name)
+            entry = find_catalog_entry(spec.action_name)
             if entry is not None:
-                control = getattr(entry, "control", None) or {}
-                if isinstance(control, dict):
-                    can_pause = bool(control.get("can_pause", False))
-                    can_continue = bool(control.get("can_continue", False))
-                    can_stop = bool(control.get("can_stop", True))
+                control = entry.control
+                can_pause = bool(control.can_pause)
+                can_continue = bool(control.can_continue)
+                can_stop = bool(control.can_stop)
         except Exception:  # noqa: BLE001
             pass
 

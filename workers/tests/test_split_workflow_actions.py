@@ -1,10 +1,10 @@
 """Action catalog includes split detector workflow actions."""
 
-from methyl_worker.action_catalog import ACTION_CATALOG, PROJECT_ACTION_CONFIG_KEYS
+from methyl_worker.action_runtime import PROJECT_ACTION_CONFIG_KEYS, RUNTIME_CATALOG
 
 
 def test_split_workflow_actions_registered():
-    names = {e.action_name for e in ACTION_CATALOG}
+    names = {e.action_name for e in RUNTIME_CATALOG}
     assert "pipeline.dmp_select" in names
     assert "pipeline.gene_select" in names
     assert "validation.biomarker_filter" in names

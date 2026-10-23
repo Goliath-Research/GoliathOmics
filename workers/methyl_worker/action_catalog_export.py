@@ -16,7 +16,7 @@ from typing import List
 
 from methyl_utils.repo_paths import repo_schemas_dir
 
-from .action_catalog import ACTION_CATALOG, validate_catalog_linkage
+from .action_runtime import RUNTIME_CATALOG, validate_catalog_linkage
 
 
 def repo_schemas_actions_dir() -> Path:
@@ -29,7 +29,7 @@ def generate_catalog_dict() -> dict:
         raise RuntimeError("catalog linkage invalid:\n" + "\n".join(linkage_errors))
     return {
         "version": 1,
-        "actions": [entry.to_catalog_dict() for entry in ACTION_CATALOG],
+        "actions": [entry.to_catalog_dict() for entry in RUNTIME_CATALOG],
     }
 
 
@@ -89,7 +89,7 @@ def main(argv: List[str] | None = None) -> int:
                 print(msg, file=sys.stderr)
             print(f"Action catalog drift check failed ({len(drift)} issue(s)).", file=sys.stderr)
             return 1
-        print(f"Action catalog drift check passed ({len(ACTION_CATALOG)} actions).")
+        print(f"Action catalog drift check passed ({len(RUNTIME_CATALOG)} actions).")
         return 0
 
     path = export_action_catalog(output_root=root, write=True)
