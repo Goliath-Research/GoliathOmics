@@ -99,7 +99,12 @@ class WorkerRunner:
 
     def run_once(self) -> bool:
         """Poll once; return True if a task was processed."""
-        self._refresh_session_if_needed()
+        try:
+            self._refresh_session_if_needed()
+        except Exception:
+            # Proactive refresh runs while the current bearer may still be valid.
+            # A transient open failure must not stop the idle poll loop.
+            logger.exception("Worker session refresh failed; keeping the current session")
         poll = self._with_session_retry(
             lambda: self.client.request_task(self.worker_id, self.identity_token, self.capability)
         )

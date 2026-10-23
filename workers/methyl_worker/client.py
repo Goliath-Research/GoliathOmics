@@ -199,10 +199,13 @@ class WorkflowRestClient:
         method: str = "GET",
         payload: Optional[Dict[str, Any]] = None,
         extra_headers: Optional[Dict[str, str]] = None,
+        include_authorization: bool = True,
     ) -> Dict[str, Any]:
         url = f"{self.base_url}{path}"
         data = json.dumps(payload).encode("utf-8") if payload is not None else None
         headers = self._default_headers()
+        if not include_authorization:
+            headers.pop("Authorization", None)
         if extra_headers:
             headers.update(extra_headers)
         if payload is not None:
@@ -246,14 +249,15 @@ class WorkflowRestClient:
         """POST /workers/session — bearer session from the enrollment identity token."""
         # Identity header only. A leftover Authorization bearer is rejected
         # before the gateway reads X-Goliath-Worker-Token, so reopen would fail.
+        # Drop it on this request only; clearing the shared token races the
+        # heartbeat thread with submit/fail.
         headers = {WORKER_IDENTITY_HEADER: identity_token}
-        previous_token = self._session_token
-        self._session_token = None
-        try:
-            body = self._post_json("/workers/session", {}, extra_headers=headers)
-        except Exception:
-            self._session_token = previous_token
-            raise
+        body = self._post_json(
+            "/workers/session",
+            {},
+            extra_headers=headers,
+            include_authorization=False,
+        )
         self._identity_token = identity_token
         self._session_token = str(body.get("session_token") or "")
         if body.get("worker_id") is not None:
