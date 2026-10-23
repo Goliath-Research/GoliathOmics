@@ -266,6 +266,8 @@ fi
 jq -e '
   [
     .database.password,
+    .database.gateway_role.password,
+    .database.portal_role.password,
     .gateway.hosts[0].identity_file,
     .shared_storage.access_key_id,
     .shared_storage.secret_access_key,
@@ -577,13 +579,16 @@ grep -q "setup_gateway_nginx.sh --public-host '127.0.0.1' --tls 'self-signed' --
   || fail "gateway deploy should install nginx for the SSH host when public_base_url is unset"
 
 : >"$ssh_log"
-env NEON_TEST_PASSWORD='neon-secret-value' GOLIATH_DEPLOY_SSH_KEY="$fake_key" \
+env NEON_TEST_PASSWORD='neon-secret-value' \
+  GOLIATH_GATEWAY_DB_PASSWORD='gateway-role-secret' \
+  GOLIATH_PORTAL_DB_PASSWORD='portal-role-secret' \
+  GOLIATH_DEPLOY_SSH_KEY="$fake_key" \
   GOLIATH_RELEASE_SRC="$release_src" PATH="$ssh_dir:$PATH" \
   bash "$ROOT/scripts/deploy_target.sh" --target goliath-test --component gateway >"$out" 2>"$err"
 grep -q "setup_gateway_nginx.sh --public-host '45.76.21.8' --tls 'self-signed' --bind '127.0.0.1' --port '8080' --san-ip '45.76.21.8'" "$ssh_log" \
   || fail "goliath-test gateway deploy should install nginx for the public IP"
-if grep -q 'neon-secret-value' "$out" "$err" "$ssh_log"; then
-  fail "goliath-test gateway deploy printed the database password"
+if grep -qE 'neon-secret-value|gateway-role-secret|portal-role-secret' "$out" "$err" "$ssh_log"; then
+  fail "goliath-test gateway deploy printed a database password"
 fi
 
 cat >"$le_fixture" <<'EOF'
