@@ -3,7 +3,7 @@
   "id": "goliathomics",
   "name": "GoliathOmics",
   "tagline": "Genomics workflows on GoliathApp: sample alignment, QC, and process packs.",
-  "description": "GoliathOmics specializes the GoliathApp platform for genomics. A SamplePrep instance aligns each sample, runs alignment QC and extraction QC against the baked configuration window plus any per-sample overlay, and leaves methylation matrices for later study steps. Process packs choose an analyte, a library technique, and a disease or trait cohort on the methylation, RNA-seq, or proteomics modality. Read alignment and methylation calling are the standalone utilities GoliathAlign and MethylExtractor.",
+  "description": "GoliathOmics specializes the GoliathApp platform for genomics. Organization-scoped customers and clinical portal APIs live in this product's PostgreSQL domain scripts; the portal shell and semantic registry core ship with GoliathApp. A SamplePrep instance aligns each sample, runs alignment QC and extraction QC, and leaves methylation matrices for later study steps. Process packs choose analyte, library technique, and cohort on methylation, RNA-seq, or proteomics. Typed ActionSpec catalogs and worker handlers register through omics entry points; release deploy seeds the merged catalog after schema apply.",
   "category": "application",
   "features": [
     {
@@ -31,8 +31,20 @@
       "description": "Analyte, assay-procedure, and application packs cover analytes, library techniques, and disease or trait studies for methylation, RNA-seq, and proteomics."
     },
     {
+      "title": "Organization tenancy (P1b)",
+      "description": "Clinical Customers carry OrganizationID into portal.Organizations. Legacy databases run the one-time 20261023_semantic_p1b_organization_cutover migration before the first P1b release apply."
+    },
+    {
+      "title": "Typed ActionSpec catalog (O1)",
+      "description": "Omics actions register as goliath.action_catalogs entry points. seed_action_catalog.py upserts merged ActionSpec rows and runtime dispatch metadata after GoliathApp and Omics schema apply."
+    },
+    {
+      "title": "Worker gateway sessions (O2)",
+      "description": "After enroll, workers open POST /v1/workers/session bearer sessions with the enrollment identity token, refresh before TTL, and call tasks with Authorization Bearer plus X-Goliath-Worker-Token."
+    },
+    {
       "title": "Release profiles and worker enrollment",
-      "description": "A version tag builds the MethylPipeline archive, assemble publishes the GoliathOmics bundle, and deploy applies a target profile or promotes on the runner. Workers enroll through the gateway REST API."
+      "description": "A version tag builds the MethylPipeline archive, assemble publishes the GoliathOmics bundle, and deploy applies a target profile or promotes on the runner. Optional goliath_gateway and goliath_portal database role passwords are set after schema apply."
     }
   ],
   "links": {

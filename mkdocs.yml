@@ -17,6 +17,7 @@ nav:
   - Home: README.md
   - Architecture:
       - Dependency direction: architecture/dependencies.md
+      - Semantic layer (P1b, O1, O2): architecture/semantic-layer.md
       - Sample preparation tooling: architecture/sample-prep-tooling.md
   - Operators:
       - Start a SamplePrep instance: operators/start-sample-prep.md
@@ -65,3 +66,4 @@ validation:
 exclude_docs: |
   usage/**/*_files/**
   **/*.html
+  theory/README.md
