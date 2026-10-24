@@ -54,7 +54,15 @@
     "user": "neondb_owner",
     "password": "secret:NEON_TEST_PASSWORD",
     "sslmode": "require",
-    "channel_binding": "require"
+    "channel_binding": "require",
+    "gateway_role": {
+      "user": "goliath_gateway",
+      "password": "secret:GOLIATH_GATEWAY_DB_PASSWORD"
+    },
+    "portal_role": {
+      "user": "goliath_portal",
+      "password": "secret:GOLIATH_PORTAL_DB_PASSWORD"
+    }
   },
   "shared_storage": {
     "provider": "b2",

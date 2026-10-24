@@ -407,6 +407,36 @@ load_db_password() {
   DB_PASSWORD="$(resolve_ref "$(jq_get '.database.password // empty')")"
 }
 
+GOLIATH_GATEWAY_DB_USER="$(jq_get '.database.gateway_role.user // "goliath_gateway"')"
+GOLIATH_PORTAL_DB_USER="$(jq_get '.database.portal_role.user // "goliath_portal"')"
+
+load_gateway_role_passwords() {
+  if [[ -z "${GOLIATH_GATEWAY_DB_PASSWORD:-}" ]]; then
+    GOLIATH_GATEWAY_DB_PASSWORD="$(resolve_ref "$(jq_get '.database.gateway_role.password // empty')")"
+  fi
+  if [[ -z "${GOLIATH_PORTAL_DB_PASSWORD:-}" ]]; then
+    GOLIATH_PORTAL_DB_PASSWORD="$(resolve_ref "$(jq_get '.database.portal_role.password // empty')")"
+  fi
+}
+
+gateway_db_user_for_runtime() {
+  load_gateway_role_passwords
+  if [[ -n "$GOLIATH_GATEWAY_DB_PASSWORD" ]]; then
+    printf '%s' "$GOLIATH_GATEWAY_DB_USER"
+  else
+    printf '%s' "$db_user"
+  fi
+}
+
+gateway_db_password_for_runtime() {
+  load_gateway_role_passwords
+  if [[ -n "$GOLIATH_GATEWAY_DB_PASSWORD" ]]; then
+    printf '%s' "$GOLIATH_GATEWAY_DB_PASSWORD"
+  else
+    printf '%s' "$DB_PASSWORD"
+  fi
+}
+
 shared_provider="$(jq_get '.shared_storage.provider // "none"')"
 shared_bucket="$(jq_get '.shared_storage.bucket // empty')"
 shared_endpoint="$(jq_get '.shared_storage.endpoint // empty')"
@@ -540,6 +570,15 @@ run_schema() {
   if [[ "$want_app" -eq 1 ]] && ! apply_omics_schema; then
     report_component failed goliath-db-schema "schema ${TARGET} failed (GoliathOmics domain SQL)"
     return 1
+  fi
+  load_gateway_role_passwords
+  if [[ -n "$GOLIATH_PORTAL_DB_PASSWORD" || -n "$GOLIATH_GATEWAY_DB_PASSWORD" ]]; then
+    export GOLIATH_PORTAL_DB_USER GOLIATH_GATEWAY_DB_USER
+    export GOLIATH_PORTAL_DB_PASSWORD GOLIATH_GATEWAY_DB_PASSWORD
+    if ! bash "$REPO_ROOT/scripts/apply_gateway_db_roles.sh"; then
+      report_component failed goliath-db-schema "schema ${TARGET} failed (gateway DB roles)"
+      return 1
+    fi
   fi
   if [[ "$want_bed" -eq 1 ]] && ! GOLIATH_ROLLOUTS_EXTERNAL=1 bash "$REPO_ROOT/workflow_engine/sql_pg/deploy_test_bed.sh"; then
     report_component failed goliath-db-schema "schema ${TARGET} failed"
@@ -752,6 +791,10 @@ run_gateway() {
     return 0
   fi
   load_db_password
+  load_gateway_role_passwords
+  local gw_db_user gw_db_password
+  gw_db_user="$(gateway_db_user_for_runtime)"
+  gw_db_password="$(gateway_db_password_for_runtime)"
   # The release artifact is already on the runner (GOLIATH_RELEASE_SRC).
   # Runtime promote does not stage it onto this gateway: goliath-test workers
   # are self-provision and skip SSH. Without the wheel, /opt/methyl-gateway
@@ -826,8 +869,8 @@ run_gateway() {
       POSTGRES_HOST "$db_host"
       POSTGRES_PORT "$db_port"
       POSTGRES_DB "$db_name"
-      POSTGRES_USER "$db_user"
-      POSTGRES_PASSWORD "$DB_PASSWORD"
+      POSTGRES_USER "$gw_db_user"
+      POSTGRES_PASSWORD "$gw_db_password"
       POSTGRES_SSLMODE "$db_ssl"
     )
     if [[ -n "$db_channel" ]]; then

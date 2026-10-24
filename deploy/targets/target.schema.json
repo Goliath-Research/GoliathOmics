@@ -151,6 +151,32 @@
         "channel_binding": {
           "type": "string",
           "description": "libpq channel_binding (PGCHANNELBINDING). Neon test uses require."
+        },
+        "gateway_role": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "user": {
+              "type": "string",
+              "default": "goliath_gateway"
+            },
+            "password": {
+              "$ref": "#/definitions/secretRef"
+            }
+          }
+        },
+        "portal_role": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "user": {
+              "type": "string",
+              "default": "goliath_portal"
+            },
+            "password": {
+              "$ref": "#/definitions/secretRef"
+            }
+          }
         }
       }
     },

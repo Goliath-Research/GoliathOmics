@@ -44,14 +44,14 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck python3-setuptools python3-wheel
 
-      # GoliathApp main is what the next release bundles (build_gateway_wheel.sh
-      # clones it). test_apply_goliathapp_schema.sh applies its sql_pg
-      # scripts to a scratch PostgreSQL twice to prove the apply is idempotent.
+      # GoliathApp c7ae4d8 (P3 worker sessions) is what the next release bundles.
+      # test_apply_goliathapp_schema.sh applies its sql_pg scripts twice to
+      # prove the apply is idempotent.
       - name: Check out GoliathApp sql_pg
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: main
+          ref: c7ae4d807f37569cded3a6d34ed436cb40d52f48
           path: _goliathapp
           sparse-checkout: workflow_engine/sql_pg
 
@@ -68,6 +68,7 @@ jobs:
             scripts/rollouts_hook.sh \
             scripts/deploy_target.sh \
             scripts/apply_goliathapp_schema.sh \
+            scripts/apply_gateway_db_roles.sh \
             scripts/apply_omics_schema.sh \
             scripts/test_apply_goliathapp_schema.sh \
             scripts/deploy_workflow_definitions.sh \
@@ -170,7 +171,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: main
+          ref: c7ae4d807f37569cded3a6d34ed436cb40d52f48
           path: _goliathapp
           sparse-checkout: workflow_engine/sql_pg
 
@@ -186,7 +187,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: 3d26e548fa10b7ce3343b4a6aa9f0209fbe4cfd6
+          ref: c7ae4d807f37569cded3a6d34ed436cb40d52f48
           path: _goliathapp
 
       - name: Install science packages and the methyl worker

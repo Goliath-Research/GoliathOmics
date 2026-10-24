@@ -173,6 +173,8 @@ jobs:
           GOLIATH_RELEASE_SRC: ${{ runner.temp }}/bundle
           GOLIATH_SCHEMA_FORCE: ${{ inputs.forceSchema && '1' || '0' }}
           NEON_TEST_PASSWORD: ${{ secrets.NEON_TEST_PASSWORD }}
+          GOLIATH_GATEWAY_DB_PASSWORD: ${{ secrets.GOLIATH_GATEWAY_DB_PASSWORD }}
+          GOLIATH_PORTAL_DB_PASSWORD: ${{ secrets.GOLIATH_PORTAL_DB_PASSWORD }}
           B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
           B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
           LONGTERM_ACCESS_KEY_ID: ${{ secrets.LONGTERM_ACCESS_KEY_ID }}

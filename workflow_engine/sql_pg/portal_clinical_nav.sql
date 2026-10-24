@@ -1,6 +1,9 @@
 -- Register Omics navigation nodes via the GoliathApp portal shell API.
 
-DO $nav$
+CREATE OR REPLACE FUNCTION portal.sp_register_omics_clinical_nav()
+RETURNS void
+LANGUAGE plpgsql
+AS $nav$
 DECLARE
   v_info_id integer;
   v_node_id integer;
@@ -25,4 +28,7 @@ BEGIN
     INTO v_node_id
     FROM portal.sp_nav_register_node(NULL, 'Clinical data', 10::smallint, v_info_id);
   END IF;
-END $nav$;
+END;
+$nav$;
+
+SELECT portal.sp_register_omics_clinical_nav();

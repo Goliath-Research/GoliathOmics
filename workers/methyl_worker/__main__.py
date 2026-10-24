@@ -154,11 +154,6 @@ def _add_poll_args(parser: argparse.ArgumentParser) -> None:
         default=float(os.environ.get("WORKER_HEARTBEAT_SECONDS", "60")),
     )
     parser.add_argument("--once", action="store_true", help="Poll once then exit")
-    parser.add_argument(
-        "--authenticate",
-        action="store_true",
-        help="Call POST /workers/authenticate before polling",
-    )
 
 
 def _run_poll_cli(args: argparse.Namespace) -> int:
@@ -173,8 +168,11 @@ def _run_poll_cli(args: argparse.Namespace) -> int:
         assert_node_can_serve_capability(args.capability)
 
     client = WorkflowRestClient(args.api_base)
-    if args.authenticate:
-        client.authenticate(args.worker_id, args.worker_token)
+    try:
+        client.open_session(args.worker_token)
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
 
     if args.once:
         poll = client.request_task(args.worker_id, args.worker_token, args.capability)

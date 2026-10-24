@@ -1,5 +1,5 @@
 /*
-  Test bed worker registration (deterministic token for simulated runs).
+  Test bed worker registration (deterministic identity token for simulated runs).
   Prerequisites: 00_schema.sql
 */
 
@@ -28,10 +28,10 @@ BEGIN
   WHERE w.cluster_id = v_cluster_id AND w.external_worker_key = 'simulator-1';
 
   DELETE FROM wf.worker_token WHERE worker_id = v_worker_id;
-  INSERT INTO wf.worker_token (worker_id, token_hash)
-  VALUES (v_worker_id, v_hash);
+  INSERT INTO wf.worker_token (worker_id, token_hash, status, bound_client_ip)
+  VALUES (v_worker_id, v_hash, 'ACTIVE', '127.0.0.1');
 
-  RAISE NOTICE 'Test bed worker id=% token=% (sha256 registered)', v_worker_id, v_token;
+  RAISE NOTICE 'Test bed worker id=% identity=% (sha256 registered)', v_worker_id, v_token;
 END $$;
 
 CREATE OR REPLACE FUNCTION wf.wf_test_bed_worker_id()

@@ -10,8 +10,15 @@ from methyl_worker.runner import WorkerRunner
 from methyl_worker.task_models.sample_prep_models import MarkFailedTaskOutput
 
 
-def test_run_once_no_task() -> None:
+def _mock_client() -> MagicMock:
     client = MagicMock(spec=WorkflowRestClient)
+    client.session_expires_at.return_value = None
+    client.session_opened_monotonic.return_value = 0.0
+    return client
+
+
+def test_run_once_no_task() -> None:
+    client = _mock_client()
     client.request_task.return_value = TaskPollResult(claim=None)
     runner = WorkerRunner(client, 1, "tok", poll_seconds=0.01)
     assert runner.run_once() is False
@@ -19,7 +26,7 @@ def test_run_once_no_task() -> None:
 
 
 def test_run_once_processes_task() -> None:
-    client = MagicMock(spec=WorkflowRestClient)
+    client = _mock_client()
     claim = TaskClaim(
         node_execution_id=99,
         workflow_instance_id=1,
@@ -49,7 +56,7 @@ def test_run_once_processes_task() -> None:
 
 
 def test_run_once_fails_task_on_input_validation_error() -> None:
-    client = MagicMock(spec=WorkflowRestClient)
+    client = _mock_client()
     claim = TaskClaim(
         node_execution_id=42,
         workflow_instance_id=1,

@@ -75,7 +75,7 @@ $$;
 CREATE OR REPLACE FUNCTION wf.sp_test_bed_simulate(
   p_instance_id bigint,
   p_worker_id bigint DEFAULT NULL,
-  p_worker_token text DEFAULT 'test-bed-token',
+  p_identity_token text DEFAULT 'test-bed-token',
   p_max_loops int DEFAULT 5000
 )
 RETURNS TABLE (
@@ -97,10 +97,16 @@ DECLARE
   v_out jsonb;
   v_rc int;
   v_ack record;
+  v_session text;
+  v_client_ip text := '127.0.0.1';
 BEGIN
   IF v_worker_id IS NULL THEN
     RAISE EXCEPTION 'Test bed worker not registered; run wf_test_bed_worker.sql' USING ERRCODE = '50013';
   END IF;
+
+  SELECT o.session_token
+  INTO v_session
+  FROM wf.sp_worker_open_session(p_identity_token, v_client_ip) o;
 
   SELECT wd.name INTO v_wf_name
   FROM wf.workflow_instance wi
@@ -118,7 +124,9 @@ BEGIN
     v_loop := v_loop + 1;
 
     SELECT * INTO v_claim
-    FROM wf.sp_worker_request_task(v_worker_id, p_worker_token, NULL, 300)
+    FROM wf.sp_worker_request_task(
+      v_worker_id, v_session, p_identity_token, v_client_ip, NULL, 300
+    )
     LIMIT 1;
 
     IF v_claim.node_execution_id IS NULL THEN
@@ -138,7 +146,13 @@ BEGIN
 
     SELECT * INTO v_ack
     FROM wf.sp_worker_submit_result(
-      v_claim.node_execution_id, v_worker_id, p_worker_token, v_rc, v_out
+      v_claim.node_execution_id,
+      v_worker_id,
+      v_session,
+      p_identity_token,
+      v_client_ip,
+      v_rc,
+      v_out
     );
 
     INSERT INTO wf.test_bed_task_log (
@@ -176,7 +190,7 @@ CREATE OR REPLACE FUNCTION wf.sp_test_bed_run_workflow(
   p_workflow_name text,
   p_context_json jsonb DEFAULT NULL,
   p_worker_id bigint DEFAULT NULL,
-  p_worker_token text DEFAULT 'test-bed-token'
+  p_identity_token text DEFAULT 'test-bed-token'
 )
 RETURNS TABLE (
   workflow_instance_id bigint,
@@ -193,7 +207,7 @@ BEGIN
   v_instance_id := wf.sp_test_bed_create_instance(p_workflow_name, p_context_json);
 
   SELECT * INTO v_sim
-  FROM wf.sp_test_bed_simulate(v_instance_id, p_worker_id, p_worker_token);
+  FROM wf.sp_test_bed_simulate(v_instance_id, p_worker_id, p_identity_token);
 
   workflow_instance_id := v_instance_id;
   test_bed_run_id := v_sim.test_bed_run_id;

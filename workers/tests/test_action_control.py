@@ -72,8 +72,15 @@ def test_run_cancellable_large_stdout_no_deadlock() -> None:
     assert len(completed.stdout) >= 200_000
 
 
-def test_runner_drain_skips_claim() -> None:
+def _runner_client() -> MagicMock:
     client = MagicMock()
+    client.session_expires_at.return_value = None
+    client.session_opened_monotonic.return_value = 0.0
+    return client
+
+
+def test_runner_drain_skips_claim() -> None:
+    client = _runner_client()
     client.request_task.return_value = TaskPollResult(
         claim=None,
         control=WorkerControlAck(desired_state="DRAINING", command="DRAIN"),
@@ -91,7 +98,7 @@ def test_runner_stop_cancels_when_can_stop() -> None:
         capability="methylgrapher.wgbs_align",
         input_json={"sampleId": "S1", "sampleDir": "/tmp/S1"},
     )
-    client = MagicMock()
+    client = _runner_client()
     client.request_task.return_value = TaskPollResult(
         claim=claim,
         control=WorkerControlAck(desired_state="ACTIVE", command="NONE"),
@@ -139,7 +146,7 @@ def test_runner_stop_refuses_when_not_can_stop() -> None:
         capability="sample.delete-bam",
         input_json={"sampleId": "S1", "sampleDir": "/tmp/S1"},
     )
-    client = MagicMock()
+    client = _runner_client()
     client.request_task.return_value = TaskPollResult(
         claim=claim,
         control=WorkerControlAck("ACTIVE", "NONE"),
