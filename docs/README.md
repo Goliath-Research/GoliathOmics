@@ -13,7 +13,7 @@ Release **2026.10.27** follows the tag, assemble, and deploy process in [operato
 | [operators](operators/start-sample-prep.md) | Start a SamplePrep instance, release and enroll workers, process packs |
 | [usage](usage/index.md) | How to run studies, SamplePrep, and validation |
 | [theory](theory/index.md) | Statistical and biological background |
-| [architecture](architecture/dependencies.md) | Dependency direction and sample-prep tooling |
+| [architecture](architecture/dependencies.md) | Dependency direction, semantic layer on GoliathApp, sample-prep tooling |
 | [regulatory](regulatory/README.md) | SaMD and operational controls |
 | [research](research/README.md) | Notes and assessments. These are not the operator contract. |
 | [contracts](contracts/omics-tool-requirements.md) | Features required from GoliathAlign and MethylExtractor |
