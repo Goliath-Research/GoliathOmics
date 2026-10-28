@@ -16,7 +16,7 @@ Portal starts go through `cfg.study_start_request`. `methyl-study-start drain-re
 
 1. The database has the GoliathApp schema for this release and the Omics analyte catalog. The release deploy does that. See [Release](release.md).
 2. Workflow definitions are loaded. `scripts/deploy_workflow_definitions.sh` compiles each DomainProgram with `scripts/compile_workflow_program.py` and stores the graph through `wf.wf_repo_create_workflow_graph`. The default keeps instances that already reference a version (`--keep-instances`). `--dry-run` compiles and does not write.
-3. At least one worker has enrolled and is polling. See [Worker enrollment](release.md#worker-enrollment).
+3. At least one worker has enrolled and is polling (`WORKER_POLL_SECONDS`, default 5). See [Worker enrollment](release.md#worker-enrollment). For idle→claim latency and optional Postgres wake, see [Dual activation spike (Omics)](../dual-activation-omics-spike.md).
 4. The study manifest exists at `projectPath`. `finalize_instance_context` syncs cfg onto `/work` before it plans.
 
 `compile_workflow_program.py` uses `domain.compiler` from the methyl-gateway wheel. When that import is missing it runs `methyl-workflow-run --compile-only` from `PATH`. This repository does not declare `methyl-workflow-run` in its own `pyproject.toml`.

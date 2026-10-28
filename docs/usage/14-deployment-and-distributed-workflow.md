@@ -45,7 +45,7 @@ flowchart TB
 | **Database** | Workflow definitions, instances, scope, task queue. GoliathApp `sql_pg` plus this repo's `cfg_analyte_catalog.sql`. |
 | **Portal SQL** (`portal.sp_*`) | Starts instances from `cfg.study_start_request`. Preregisters worker IPs with `portal.sp_upsert_worker_enrollment`. |
 | **Gateway** (`methyl-gateway`) | Worker REST under `/v1/workers/*`: enroll, session open, task request, submit. nginx proxies public 443 to loopback `8080`. |
-| **Workers** (`methyl-worker`) | Claim tasks. Align through `delete_bam` is pinned to one worker. |
+| **Workers** (`methyl-worker`) | Claim tasks via poll (default 5 s idle interval). Align through `delete_bam` is pinned to one worker. Optional tier-1 **dual activation** (Postgres wake + claim, poll as safety net) is platform-owned—see [Dual activation spike (Omics)](../dual-activation-omics-spike.md). |
 | **`/work`** | Shared FASTQs, published H5, study outputs, `/work/goliath` releases. Not the BAM disk. |
 
 The portal does not call the gateway. Catalog and DomainProgram deploy use direct database scripts. Workers enroll and claim over HTTPS with a token.
@@ -136,5 +136,6 @@ That script imports `domain.compiler` from the methyl-gateway wheel.
 - [Release, deploy, and enrollment](../operators/release.md)
 - [Deploy targets](../deploy-targets.md)
 - [Rollouts](../rollouts.md)
+- [Dual activation spike (Omics)](../dual-activation-omics-spike.md)
 - [Process packs](../operators/process-packs.md)
 - [SamplePrep storage contract](../../workflow_engine/contract/SamplePrepFlow.md)
