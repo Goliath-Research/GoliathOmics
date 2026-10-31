@@ -187,7 +187,7 @@ EOF
     || fail "install_merged_env failed under dash"
   [[ ! -e "$remote/tmp/goliath-worker.env" ]] || fail "remote env temp file was left behind"
   for merged_keys in \
-    GOLIATH_EXTRACTOR_BIN GOLIATH_EXTRACTOR_HOME METHYL_EXTRACTOR_BIN METHYL_PROFILE_DIR TMPDIR \
+    GOLIATH_EXTRACTOR_BIN METHYL_EXTRACTOR_BIN METHYL_PROFILE_DIR TMPDIR \
     METHYL_PARABRICKS_IMAGE METHYL_PARABRICKS_GPU_FLAGS \
     AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY WORKER_API_BASE
   do
