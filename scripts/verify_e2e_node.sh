@@ -64,10 +64,12 @@ else
   echo "SKIP verify_parabricks (no GPU image or nvidia-smi)"
 fi
 
-if [[ -n "${METHYL_EXTRACTOR_BIN:-}" ]] || command -v MethylExtractor >/dev/null 2>&1; then
+if [[ -n "${GOLIATH_EXTRACTOR_BIN:-}${METHYL_EXTRACTOR_BIN:-}" ]] \
+  || command -v goliath-extractor >/dev/null 2>&1 \
+  || command -v MethylExtractor >/dev/null 2>&1; then
   run_check "verify_methyl_extractor" bash "$SCRIPT_DIR/verify_methyl_extractor.sh"
 else
-  echo "SKIP verify_methyl_extractor (MethylExtractor not configured)"
+  echo "SKIP verify_methyl_extractor (GoliathExtractor not configured)"
 fi
 
 run_check "methyl-worker --help" methyl-worker --help

@@ -52,8 +52,8 @@
     "docs": "https://goliath-research.github.io/GoliathOmics/",
     "website": null
   },
-  "related": ["goliathapp", "goliathalign", "methylextractor"],
-  "dependsOn": ["goliathapp", "goliathalign", "methylextractor"],
+  "related": ["goliathapp", "goliathalign", "goliathextractor"],
+  "dependsOn": ["goliathapp", "goliathalign", "goliathextractor"],
   "license": "MIT",
   "status": "ready"
 }

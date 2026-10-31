@@ -1,6 +1,6 @@
 # Tool features required by GoliathOmics
 
-GoliathOmics consumes **GoliathAlign** (formerly mojo-align) and **MethylExtractor** only through the features below. Both utilities are standalone: they do not reference GoliathApp or GoliathOmics. A change in either tool that removes or renames a listed feature breaks GoliathOmics, even when the platform (`goliath-gateway`, database `goliath`, `GOLIATH_WORK_ROOT`) is unchanged. Direction: [architecture/dependencies.md](../architecture/dependencies.md).
+GoliathOmics consumes **GoliathAlign** (formerly mojo-align) and **GoliathExtractor** only through the features below. Both utilities are standalone: they do not reference GoliathApp or GoliathOmics. A change in either tool that removes or renames a listed feature breaks GoliathOmics, even when the platform (`goliath-gateway`, database `goliath`, `GOLIATH_WORK_ROOT`) is unchanged. Direction: [architecture/dependencies.md](../architecture/dependencies.md).
 
 Inherited platform pieces use the `goliath` prefix. These tools stay separate repositories. They are not part of GoliathApp.
 
@@ -23,17 +23,17 @@ Consumer: `workers/methyl_worker/methylgrapher_wgbs_runner.py` (`sample.methylgr
 | GPU target `METHYLGRAPHER_TARGET_ACCELERATOR` | NVIDIA targets from `sm_90` upward, or an AMD arch via `METHYLGRAPHER_AMDGPU_ARCH`. Hosts whose default GPU is older than `sm_52` do not compile. |
 | Outputs: GAF, QC BAM, graph-aware H5 | Downstream QC and extraction have nothing to read. |
 
-## MethylExtractor
+## GoliathExtractor
 
 Not used on the WGBS pangenome path. That path uses GoliathAlign MethylCall / MergeCpG.
 
-Binary layout: the release tarball stays on the shared volume (`/work/goliath/releases/<version>/methyl-extractor-linux-<arch>.tar.gz`); each machine extracts it onto local disk at `METHYL_EXTRACTOR_HOME` (default `/opt/goliath/methyl-extractor-<arch>/`, override root with `GOLIATH_LOCAL_ROOT`; never under the work mount, which ignores exec bits). `HDF5_PLUGIN_PATH` points at the zstd plugin shipped beside the binary. MethylExtractor links `libhts.so.3`, which the worker image does not have: `scripts/assemble_release.sh` runs `scripts/bundle_methyl_extractor_libs.sh` on each downloaded tarball, which copies `libhts.so.3` (real versioned file plus soname link), `libdeflate.so.0` and `libhtscodecs.so.2` from the Ubuntu jammy `.deb`s for that arch into the tarball's `lib/`, sets the binary's RUNPATH to `$ORIGIN/../lib` with patchelf; the manifest sha256 is computed after this step (MethylExtractor 2026.10.1+ tarballs already bundle every non-glibc library with that RUNPATH). The binary must run with no `LD_LIBRARY_PATH`: the local installer refuses one that does not, and neither its `env.sh` nor `worker.env` puts `METHYL_EXTRACTOR_HOME/lib` on `LD_LIBRARY_PATH`, because the bundled Ubuntu 22.04 libraries (libcurl 7.81, libssl, libzstd, libhts 1.13) would then shadow the host's for every other program (`/usr/bin/curl` failed with `undefined symbol: curl_global_trace`). `GOLIATH_WORK_ROOT` (alias `METHYL_WORK_ROOT`) is the mount that holds the tarball. Workflows that never extract do not need the mount.
+Binary layout: the release tarball stays on the shared volume (`/work/goliath/releases/<version>/goliath-extractor-linux-<arch>.tar.gz`); each machine extracts it onto local disk at `GOLIATH_EXTRACTOR_HOME` (default `/opt/goliath/goliath-extractor-<arch>/`, override root with `GOLIATH_LOCAL_ROOT`; never under the work mount, which ignores exec bits). `HDF5_PLUGIN_PATH` points at the zstd plugin shipped beside the binary. GoliathExtractor links `libhts.so.3`, which the worker image does not have: `scripts/assemble_release.sh` runs `scripts/bundle_methyl_extractor_libs.sh` on each downloaded tarball, which copies `libhts.so.3` (real versioned file plus soname link), `libdeflate.so.0` and `libhtscodecs.so.2` from the Ubuntu jammy `.deb`s for that arch into the tarball's `lib/`, sets the binary's RUNPATH to `$ORIGIN/../lib` with patchelf; the manifest sha256 is computed after this step (GoliathExtractor 2026.10.1+ tarballs already bundle every non-glibc library with that RUNPATH). The binary must run with no `LD_LIBRARY_PATH`: the local installer refuses one that does not, and neither its `env.sh` nor `worker.env` puts `GOLIATH_EXTRACTOR_HOME/lib` on `LD_LIBRARY_PATH`, because the bundled Ubuntu 22.04 libraries (libcurl 7.81, libssl, libzstd, libhts 1.13) would then shadow the host's for every other program (`/usr/bin/curl` failed with `undefined symbol: curl_global_trace`). `GOLIATH_WORK_ROOT` (alias `METHYL_WORK_ROOT`) is the mount that holds the tarball. Workflows that never extract do not need the mount.
 
 Consumer: `workers/methyl_worker/extract_runner.py` (`sample.methyl_extract`) and `methylextractionqc`.
 
 | Feature | What a break looks like |
 |---------|-------------------------|
-| `MethylExtractor --help` | The worker cannot confirm the binary or which flags it supports. |
+| `GoliathExtractor --help` | The worker cannot confirm the binary or which flags it supports. |
 | `--threads` | Thread count from resolved config is ignored. |
 | `--chrom-parallel` | Chromosome-parallel extract cannot be requested. |
 | `--max-rss-gb` | RSS cap from resolved config is ignored. |

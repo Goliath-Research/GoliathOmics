@@ -1,6 +1,6 @@
 # GoliathOmics Usage Manual
 
-Older chapters in this manual say MethylPipeline. That name means this genomics product. The platform gateway and engine live in GoliathApp. This product specializes that platform and calls GoliathAlign and MethylExtractor as utilities. See [docs/README.md](../README.md) and [Dependency direction](../architecture/dependencies.md).
+Older chapters in this manual say MethylPipeline. That name means this genomics product. The platform gateway and engine live in GoliathApp. This product specializes that platform and calls GoliathAlign and GoliathExtractor as utilities. See [docs/README.md](../README.md) and [Dependency direction](../architecture/dependencies.md).
 
 Current operator procedures:
 

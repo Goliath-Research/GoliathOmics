@@ -474,18 +474,18 @@ print(json.dumps({"path": "omics-sql", "manifest": "omics-sql/manifest.sha256",
   "system_deps": "system-deps",
   "artifacts": {
     "aarch64": {
-      "methyl_extractor": "methyl-extractor-linux-aarch64.tar.gz",
+      "goliath_extractor": "goliath-extractor-linux-aarch64.tar.gz",
       "sha256": ""
     },
     "amd64": {
-      "methyl_extractor": "methyl-extractor-linux-amd64.tar.gz",
+      "goliath_extractor": "goliath-extractor-linux-amd64.tar.gz",
       "sha256": ""
     }
   }
 }
 EOF
   info "Wrote manifest stub: $OUTPUT/manifest.json"
-  info "Add MethylExtractor tarballs and fill sha256 digests before promote."
+  info "Add GoliathExtractor tarballs and fill sha256 digests before promote."
 }
 
 if [[ "$SKIP_WHEELS" -eq 0 ]]; then

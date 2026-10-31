@@ -1,6 +1,6 @@
 # GoliathOmics documentation
 
-This repository is the genomics product. It specializes [GoliathApp](https://github.com/Goliath-Research/GoliathApp) and calls [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) and [MethylExtractor](https://github.com/Goliath-Research/MethylExtractor) as standalone utilities. GoliathApp does not reference this product. The two utilities do not reference GoliathApp or GoliathOmics. See [Dependency direction](architecture/dependencies.md).
+This repository is the genomics product. It specializes [GoliathApp](https://github.com/Goliath-Research/GoliathApp) and calls [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) and [GoliathExtractor](https://github.com/Goliath-Research/GoliathExtractor) as standalone utilities. GoliathApp does not reference this product. The two utilities do not reference GoliathApp or GoliathOmics. See [Dependency direction](architecture/dependencies.md).
 
 GoliathWorkflow is not a run path.
 
@@ -16,7 +16,7 @@ Release **2026.10.27** follows the tag, assemble, and deploy process in [operato
 | [architecture](architecture/dependencies.md) | Dependency direction, semantic layer on GoliathApp, sample-prep tooling |
 | [regulatory](regulatory/README.md) | SaMD and operational controls |
 | [research](research/README.md) | Notes and assessments. These are not the operator contract. |
-| [contracts](contracts/omics-tool-requirements.md) | Features required from GoliathAlign and MethylExtractor |
+| [contracts](contracts/omics-tool-requirements.md) | Features required from GoliathAlign and GoliathExtractor |
 | [deploy-targets](deploy-targets.md) | Deploy profiles |
 | [rollouts](rollouts.md) | Deploy reporting |
 
@@ -29,7 +29,7 @@ The MkDocs Material site is published from `main` at <https://goliath-research.g
 | Gateway wheel, engine DDL, `goliath-cfg`, shared claim protocol | GoliathApp. The installed console script is `methyl-gateway`. This repo does not contain `workflow_engine/rest/`. |
 | Science packages, DomainPrograms, profiles, analytes, `methyl_worker` handlers, science seeds | GoliathOmics |
 | Alignment image and binaries | GoliathAlign (`GOLIATH_ALIGN_*`; `MOJO_ALIGN_*` is a one-cycle alias) |
-| Linear BAM to HDF5 | MethylExtractor |
+| Linear BAM to HDF5 | GoliathExtractor |
 
 ## Names
 

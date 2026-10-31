@@ -16369,7 +16369,7 @@
     "sample.extraction_qc": {
       "base_namespace": null,
       "capability": "methyl-extraction-qc",
-      "description": "Evaluate MethylExtractor manifest guardrails and write extraction QC JSON.",
+      "description": "Evaluate GoliathExtractor manifest guardrails and write extraction QC JSON.",
       "display_name": "Extraction Qc",
       "entity_code": "sample",
       "exposure": "rbac",
@@ -17807,7 +17807,7 @@
     "sample.methyl_extract": {
       "base_namespace": null,
       "capability": "methyl-extract",
-      "description": "Extract BAM to per-chromosome HDF5 via native MethylExtractor (resolvedConfig.methyl_extract).",
+      "description": "Extract BAM to per-chromosome HDF5 via native GoliathExtractor (resolvedConfig.methyl_extract).",
       "display_name": "Methyl Extract",
       "entity_code": "sample",
       "exposure": "rbac",

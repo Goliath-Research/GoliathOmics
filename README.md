@@ -49,4 +49,4 @@ mkdocs serve
 
 ## Machine-readable summary
 
-[`.goliath/product.json`](.goliath/product.json) is the summary GoliathWeb reads. The schema is [`.goliath/product.schema.json`](.goliath/product.schema.json). `dependsOn` lists `goliathapp`, `goliathalign`, and `methylextractor`.
+[`/.goliath/product.json`](.goliath/product.json) is the summary GoliathWeb reads. The schema is [`.goliath/product.schema.json`](.goliath/product.schema.json). `dependsOn` lists `goliathapp`, `goliathalign`, and `goliathextractor` (product id for the `goliath-extractor` distribution).

@@ -1,8 +1,8 @@
 # Release, deploy, and worker enrollment
 
-A GoliathOmics release is two GitHub Releases. The first is the MethylPipeline archive for one `v*` tag. The second is the assembled bundle `goliathomics-<releaseVersion>`, which adds MethylExtractor and the GoliathAlign jammy host runtime. Deploy then promotes that bundle with a target profile or on the runner.
+A GoliathOmics release is two GitHub Releases. The first is the MethylPipeline archive for one `v*` tag. The second is the assembled bundle `goliathomics-<releaseVersion>`, which adds GoliathExtractor and the GoliathAlign jammy host runtime. Deploy then promotes that bundle with a target profile or on the runner.
 
-Release **2026.10.27** is this process: tag, assemble, deploy. The component versions (MethylPipeline tag, MethylExtractor release, GoliathAlign jammy release) are the inputs of the assemble workflow. This repository does not pin those three versions in git.
+Release **2026.10.27** is this process: tag, assemble, deploy. The component versions (MethylPipeline tag, GoliathExtractor release, GoliathAlign jammy release) are the inputs of the assemble workflow. This repository does not pin those three versions in git.
 
 ## 1. Tag the MethylPipeline archive
 
@@ -32,10 +32,10 @@ Run **GoliathOmics release assemble** (`.github/workflows/release-assemble.yml`)
 |-------|------|
 | `releaseVersion` | SemVer of the product bundle. For this release, `2026.10.27`. |
 | `methylPipelineVersion` | Tag of step 1 without the leading `v` |
-| `methylExtractorVersion` | MethylExtractor GitHub Release version |
+| `methylExtractorVersion` | GoliathExtractor GitHub Release version |
 | `goliathAlignVersion` | GoliathAlign jammy host-runtime GitHub Release version |
 
-`scripts/assemble_release.sh` copies the MethylPipeline tree, downloads the MethylExtractor and GoliathAlign tarballs, bundles MethylExtractor's `libhts` with `patchelf`, checks `goliathapp-sql/manifest.sha256`, and writes `manifest.json` with `components.methyl_pipeline`, `components.methyl_extractor`, and `components.goliath_align`.
+`scripts/assemble_release.sh` copies the MethylPipeline tree, downloads the GoliathExtractor and GoliathAlign tarballs, bundles GoliathExtractor's `libhts` with `patchelf`, checks `goliathapp-sql/manifest.sha256`, and writes `manifest.json` with `components.methyl_pipeline`, `components.methyl_extractor`, and `components.goliath_align`.
 
 The job publishes GitHub Release `goliathomics-<releaseVersion>` with asset `goliathomics-release-<releaseVersion>.tar.gz`. The tag is the workflow's checkout, so `deploy/runpod/goliath-worker-bootstrap.sh`, `goliath-worker-start.sh`, `keepalive.sh`, `scripts/start_shared_worker.sh`, `scripts/check_local_scratch.sh`, `scripts/detect_platform.sh`, and `scripts/platform_matrix.env` must exist on that commit. The RunPod template reads those paths from the tag.
 
@@ -45,7 +45,7 @@ Local equivalent, after the MethylPipeline archive is unpacked into `mp-release/
 bash scripts/assemble_release.sh \
   --release-version 2026.10.27 \
   --methyl-pipeline-version 2026.10.27 \
-  --methyl-extractor-version <methyl-extractor-release> \
+  --goliath-extractor-version <goliath-extractor-release> \
   --goliath-align-version <goliath-align-jammy-release> \
   --methyl-pipeline-dir mp-release \
   --output goliathomics-release
@@ -82,7 +82,7 @@ Runtime on an SSH host runs `scripts/promote_release.sh`. A profile whose worker
 
 ### Runner-local promote
 
-When `target` is empty, the job rsyncs the bundle to `<goliathRoot>/releases/<releaseVersion>/` and runs `promote_release.sh` twice: once for `aarch64` (with `--pull-parabricks` only when `pullParabricks` is true) and once for `amd64` with `--skip-docker-pull`. Promote installs MethylExtractor on local disk, installs the worker venv on local disk, optionally pulls Clara, flips `current`, and writes `worker.env`. It then runs `verify_setup.sh --runtime-bundle`.
+When `target` is empty, the job rsyncs the bundle to `<goliathRoot>/releases/<releaseVersion>/` and runs `promote_release.sh` twice: once for `aarch64` (with `--pull-parabricks` only when `pullParabricks` is true) and once for `amd64` with `--skip-docker-pull`. Promote installs GoliathExtractor on local disk, installs the worker venv on local disk, optionally pulls Clara, flips `current`, and writes `worker.env`. It then runs `verify_setup.sh --runtime-bundle`.
 
 ```bash
 bash scripts/promote_release.sh \
@@ -123,7 +123,7 @@ python -m methyl_worker enroll \
 
 The CLI writes `WORKER_ID` and `WORKER_TOKEN` to `/etc/methyl/worker-token` (mode 0600) unless `--token-file` is set. `WORKER_ID` is the numeric id from the gateway. Do not append those two variables to the shared `/work/goliath/env/worker.env`. `scripts/write_worker_env.sh` writes the shared file for non-secret runtime settings and leaves the credential lines commented. systemd loads `worker.env` and then `/etc/methyl/worker-token`, so the token file wins on that machine.
 
-A RunPod pool (`self_provision: true`) starts from `deploy/runpod/goliath-worker-start.sh`, which runs `scripts/start_shared_worker.sh`, which runs `provision_worker_node.sh --join-mode join --enroll-worker`. Boot checks local scratch before it installs MethylExtractor, GoliathAlign, and the venv. Details of the pod template are in [deploy/runpod/README.md](../../deploy/runpod/README.md).
+A RunPod pool (`self_provision: true`) starts from `deploy/runpod/goliath-worker-start.sh`, which runs `scripts/start_shared_worker.sh`, which runs `provision_worker_node.sh --join-mode join --enroll-worker`. Boot checks local scratch before it installs GoliathExtractor, GoliathAlign, and the venv. Details of the pod template are in [deploy/runpod/README.md](../../deploy/runpod/README.md).
 
 After enroll, the unit runs `methyl-worker` poll against the same API base (`/workers/tasks/request` and `/workers/tasks/{id}/submit`).
 

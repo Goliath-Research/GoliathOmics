@@ -48,7 +48,7 @@ SKIP_ME_DL=0
 SKIP_GA_DL=0
 ORG="${GITHUB_ORG:-https://github.com/Goliath-Research}"
 PROJECT="${GITHUB_PROJECT:-Goliath-Research}"
-FEED="${METHYL_EXTRACTOR_FEED:-methyl-extractor}"
+FEED="${GOLIATH_EXTRACTOR_FEED:-${METHYL_EXTRACTOR_FEED:-goliath-extractor}}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -98,6 +98,7 @@ info "  output: $OUTPUT"
 rsync_safe=(rsync -rl --delete --no-perms --no-owner --no-group --no-times)
 "${rsync_safe[@]}" \
   --exclude manifest.json \
+  --exclude 'goliath-extractor-linux-*.tar.gz' \
   --exclude 'methyl-extractor-linux-*.tar.gz' \
   --exclude 'goliath-align-host-linux-*.tar.gz' \
   "$MP_DIR/" "$OUTPUT/"
@@ -112,7 +113,7 @@ if [[ "$SKIP_ME_DL" -eq 0 ]]; then
 fi
 
 for arch in aarch64 amd64; do
-  tb="$OUTPUT/methyl-extractor-linux-${arch}.tar.gz"
+  tb="$OUTPUT/goliath-extractor-linux-${arch}.tar.gz"
   [[ -f "$tb" ]] || die "Missing $tb"
   # The MethylExtractor release tarball links libhts.so.3 but does not ship
   # it, and the worker image lacks it. Bundle it (and libdeflate) into lib/
@@ -172,10 +173,10 @@ def sha256_file(path: Path) -> str:
 
 artifacts = {}
 for arch in ("aarch64", "amd64"):
-    name = f"methyl-extractor-linux-{arch}.tar.gz"
+    name = f"goliath-extractor-linux-{arch}.tar.gz"
     path = out / name
     artifacts[arch] = {
-        "methyl_extractor": name,
+        "goliath_extractor": name,
         "sha256": sha256_file(path),
     }
 ga_name = "goliath-align-host-linux-amd64-jammy.tar.gz"
@@ -187,7 +188,7 @@ manifest = {
     "version": release_ver,
     "components": {
         "methyl_pipeline": mp_ver,
-        "methyl_extractor": me_ver,
+        "goliath_extractor": me_ver,
         "goliath_align": ga_ver,
     },
     "python": base.get("python", "3.12"),

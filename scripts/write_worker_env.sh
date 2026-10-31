@@ -129,9 +129,9 @@ RELEASE_VERSION="${_lines[2]:-unknown}"
 
 # The worker venv is on local disk, never on the shared volume.
 VENV_DIR="$(worker_venv_local_dir "$ARCH")"
-# MethylExtractor runs from local disk, never from the shared volume.
+# GoliathExtractor runs from local disk, never from the shared volume.
 ME_ROOT="$(methyl_extractor_local_home "$ARCH")"
-ME_BIN="$ME_ROOT/bin/MethylExtractor"
+ME_BIN="$(_mel_bin_in_home "$ME_ROOT" || true)"
 PLUGIN_DIR="$ME_ROOT/lib/hdf5_zstd_plugin"
 # MethylExtractor resolves its bundled libs through RUNPATH; <home>/lib must
 # never be on LD_LIBRARY_PATH (it made /usr/bin/curl load the tarball's
@@ -139,15 +139,16 @@ PLUGIN_DIR="$ME_ROOT/lib/hdf5_zstd_plugin"
 # value now, without that directory; an empty value overrides a stale one.
 ME_LD_PATH="$(_mel_ld_path_without "$ME_ROOT/lib")"
 
-if [[ ! -x "$ME_BIN" ]]; then
-  ME_BIN="${METHYL_EXTRACTOR_BIN:-MethylExtractor}"
+if [[ -z "$ME_BIN" ]]; then
+  ME_BIN="${GOLIATH_EXTRACTOR_BIN:-${METHYL_EXTRACTOR_BIN:-goliath-extractor}}"
   PLUGIN_DIR="${HDF5_PLUGIN_PATH:-/usr/local/hdf5/lib/plugin}"
 fi
 
 ENV_DIR="$ROOT/env"
 mkdir -p "$ENV_DIR"
 WORKER_PATH="$(expand_worker_path "$VENV_DIR")"
-if [[ -x "$ME_ROOT/bin/MethylExtractor" && ":$WORKER_PATH:" != *":$ME_ROOT/bin:"* ]]; then
+if [[ -x "$ME_ROOT/bin/goliath-extractor" || -x "$ME_ROOT/bin/MethylExtractor" ]] \
+  && [[ ":$WORKER_PATH:" != *":$ME_ROOT/bin:"* ]]; then
   WORKER_PATH="$ME_ROOT/bin:$WORKER_PATH"
 fi
 WORKER_PATH="$(ensure_parabricks_on_path "$WORKER_PATH")"
@@ -194,6 +195,8 @@ ${GOLIATH_SHARED_WORK:+GOLIATH_IMAGE_CACHE=$ROOT/images}
 # WORKER_ID=
 # WORKER_TOKEN=  (enrollment identity; bearer session via POST /v1/workers/session)
 # WORKER_CAPABILITY=
+GOLIATH_EXTRACTOR_HOME=$ME_ROOT
+GOLIATH_EXTRACTOR_BIN=$ME_BIN
 METHYL_EXTRACTOR_HOME=$ME_ROOT
 METHYL_EXTRACTOR_BIN=$ME_BIN
 HDF5_PLUGIN_PATH=$PLUGIN_DIR

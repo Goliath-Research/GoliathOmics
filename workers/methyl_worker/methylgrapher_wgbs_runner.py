@@ -2893,7 +2893,7 @@ def build_canonical_extraction_manifest(
 
     return {
         "metadata": {
-            "schema_name": "methylextractor.extraction_manifest",
+            "schema_name": "goliath_extractor.extraction_manifest",
             "schema_version": "1.0.0",
             "sample_id": sample_id,
             "contexts_extracted": contexts_list,

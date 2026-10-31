@@ -1,42 +1,47 @@
 #!/bin/bash
-# Post-deploy smoke test for MethylExtractor on worker nodes.
+# Post-deploy smoke test for GoliathExtractor on worker nodes.
 #
-# MethylExtractor is built from /home/ubuntu/MethylExtractor (or equivalent) via:
-#   make deps && make && make install
+# GoliathExtractor is built from a GoliathExtractor checkout via:
+#   make && make install
 #
-# Production workers invoke MethylExtractor on PATH; task config comes from
-# input_json + project step_config.methyl_extract on shared storage.
+# Production workers invoke goliath-extractor on PATH; task config comes from
+# resolvedConfig / actionConfig JSON (not worker.env alone).
 
 set -euo pipefail
 
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=methyl_extractor_local.sh
+source "$SCRIPT_DIR/methyl_extractor_local.sh"
 
-pass() { echo -e "${GREEN}✓${NC} $1"; }
-fail() { echo -e "${RED}✗${NC} $1"; exit 1; }
+pass() { echo "  OK: $*"; }
+fail() { echo "  FAIL: $*" >&2; exit 1; }
 
-echo "============================================="
-echo "MethylExtractor verification"
-echo "============================================="
-echo ""
+echo "GoliathExtractor verification"
+echo "==========================="
 
-BIN="${METHYL_EXTRACTOR_BIN:-MethylExtractor}"
+BIN="${GOLIATH_EXTRACTOR_BIN:-${METHYL_EXTRACTOR_BIN:-}}"
+if [[ -z "$BIN" ]]; then
+  if command -v goliath-extractor >/dev/null 2>&1; then
+    BIN="$(command -v goliath-extractor)"
+  elif command -v MethylExtractor >/dev/null 2>&1; then
+    BIN="$(command -v MethylExtractor)"
+  else
+    BIN="goliath-extractor"
+  fi
+fi
 if command -v "$BIN" >/dev/null 2>&1; then
-  pass "MethylExtractor found: $(command -v "$BIN")"
-elif [[ -x "$BIN" ]]; then
-  pass "MethylExtractor found: $BIN"
+  pass "GoliathExtractor found: $(command -v "$BIN")"
+elif [[ -f "$BIN" && -x "$BIN" ]]; then
+  pass "GoliathExtractor found: $BIN"
 else
-  fail "MethylExtractor not found (set METHYL_EXTRACTOR_BIN or run make install)"
+  fail "GoliathExtractor not found (set GOLIATH_EXTRACTOR_BIN or run make install)"
 fi
 
-echo ""
-echo "Checking --help..."
-if "$BIN" --help >/dev/null 2>&1; then
-  pass "MethylExtractor --help succeeded"
+if env -u LD_LIBRARY_PATH -u LD_PRELOAD "$BIN" --help >/dev/null 2>&1; then
+  pass "GoliathExtractor --help succeeded"
 else
-  fail "MethylExtractor --help failed"
+  fail "GoliathExtractor --help failed"
 fi
 
-echo ""
-pass "MethylExtractor environment looks ready"
+pass "GoliathExtractor environment looks ready"
+echo "All checks passed."

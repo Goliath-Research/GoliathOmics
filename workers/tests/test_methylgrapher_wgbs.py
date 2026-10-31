@@ -565,7 +565,7 @@ def test_dry_run_align_and_extract(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     manifest_path = Path(extract["manifestPath"])
     assert manifest_path.is_file()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest["metadata"]["schema_name"] == "methylextractor.extraction_manifest"
+    assert manifest["metadata"]["schema_name"] == "goliath_extractor.extraction_manifest"
     assert manifest["metadata"]["contexts_extracted"] == ["CG"]
     assert manifest["metadata"]["extractor"] == "methylGrapher"
     assert "cpg_weighted_mean_coverage" in manifest["summary"]

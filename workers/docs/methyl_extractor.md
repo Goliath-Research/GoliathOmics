@@ -1,98 +1,49 @@
-# MethylExtractor on sample-prep workers
+# GoliathExtractor on sample-prep workers
 
-Sample prep extraction (`sample.methyl_extract`) runs the **native MethylExtractor binary** on the **linear / stock pangenome** path. MethylExtractor is the focused MethylDackel fork in the sibling repository. For `pangenome_wgbs`, SamplePrep uses `sample.methylgrapher_wgbs_extract` (GoliathAlign MethylCall/MergeCpG) instead — see [`workers/docker/methylgrapher/README.md`](../docker/methylgrapher/README.md). Implementation: [`methyl_worker/extract_runner.py`](../methyl_worker/extract_runner.py).
+Sample prep extraction (`sample.methyl_extract`) runs the **native GoliathExtractor binary** on the **linear / stock pangenome** path. GoliathExtractor is the focused MethylDackel fork in the sibling repository (formerly MethylExtractor). For `pangenome_wgbs`, SamplePrep uses `sample.methylgrapher_wgbs_extract` (GoliathAlign MethylCall/MergeCpG) instead — see [`workers/docker/methylgrapher/README.md`](../docker/methylgrapher/README.md). Implementation: [`methyl_worker/extract_runner.py`](../methyl_worker/extract_runner.py).
 
-## Source and deploy
+## Provisioning
 
-MethylExtractor is maintained in the sibling [MethylExtractor](https://github.com/Goliath-Research/MethylExtractor) repository, not in GoliathApp. On each worker machine, build that checkout and install the binary (production workers extract the release tarball to local disk at `/opt/goliath/methyl-extractor-<arch>/`):
+GoliathExtractor is maintained in [GoliathExtractor](https://github.com/Goliath-Research/GoliathExtractor). On each worker machine, build that checkout and install the binary (production workers extract the release tarball to local disk at `/opt/goliath/goliath-extractor-<arch>/`):
 
 ```bash
-# From a MethylExtractor checkout (sibling of GoliathOmics)
-make deps && make && make install
+# From a GoliathExtractor checkout (sibling of GoliathOmics)
+make && make install
 ```
 
-Production workers use the binary under `METHYL_EXTRACTOR_HOME` (default `/opt/goliath/methyl-extractor-<arch>/`, extracted on every boot by `scripts/methyl_extractor_local.sh`; the shared `/work` volume only holds the tarball because it cannot run binaries). `make install` also copies `MethylExtractor` to `/usr/local/bin/` for a machine image. That install is provisioning, not per-task JSON.
+Production workers use the binary under `GOLIATH_EXTRACTOR_HOME` (legacy alias `METHYL_EXTRACTOR_HOME`; default `/opt/goliath/goliath-extractor-<arch>/`, extracted on every boot by `scripts/methyl_extractor_local.sh`; the shared `/work` volume only holds the tarball because it cannot run binaries). `make install` also copies `goliath-extractor` to `/usr/local/bin/` for a machine image. That install is provisioning, not per-task JSON.
 
-Shared libraries: the binary needs `libhts.so.3` (htslib). Release tarballs carry it in `lib/` (with `libdeflate.so.0` and `libhtscodecs.so.2`), added at assemble time by `scripts/bundle_methyl_extractor_libs.sh` because the MethylExtractor release does not ship it; the binary's RUNPATH is `$ORIGIN/../lib`, so it needs no `LD_LIBRARY_PATH`. `methyl_extractor_local.sh` refuses a binary that does not run without one, and nothing (its `env.sh`, `worker.env`) puts `METHYL_EXTRACTOR_HOME/lib` on `LD_LIBRARY_PATH`: those Ubuntu 22.04 libraries (libcurl, libssl, libhts 1.13, ...) would shadow the host's for every other program, which broke `/usr/bin/curl` (`undefined symbol: curl_global_trace`). If `env -u LD_LIBRARY_PATH ldd $METHYL_EXTRACTOR_BIN` shows `not found`, re-run `scripts/bundle_methyl_extractor_libs.sh --tarball <tarball> --require-patchelf` and refresh the manifest sha256.
+Shared libraries: the binary needs `libhts.so.3` (htslib). Release tarballs carry it in `lib/` (with `libdeflate.so.0` and `libhtscodecs.so.2`), added at assemble time by `scripts/bundle_methyl_extractor_libs.sh` because older release layouts did not ship it; the binary's RUNPATH is `$ORIGIN/../lib`, so it needs no `LD_LIBRARY_PATH`. `methyl_extractor_local.sh` refuses a binary that does not run without one, and nothing (its `env.sh`, `worker.env`) puts `<home>/lib` on `LD_LIBRARY_PATH`: those Ubuntu 22.04 libraries (libcurl, libssl, libhts 1.13, ...) would shadow the host's for every other program, which broke `/usr/bin/curl` (`undefined symbol: curl_global_trace`). If `env -u LD_LIBRARY_PATH ldd $GOLIATH_EXTRACTOR_BIN` shows `not found`, re-run `scripts/bundle_methyl_extractor_libs.sh --tarball <tarball> --require-patchelf` and refresh the manifest sha256.
 
-## Production worker contract
+Release tarballs on shared storage:
 
-Workers consume **`--resolved-config` only** (Universal Action Input Contract). They do **not** re-read `project.json`, pipeline profiles, or `METHYL_*` env for tool parameters. `projectPath` on `input_json` is provenance/logging only.
+```text
+/work/goliath/releases/<version>/goliath-extractor-linux-{amd64,aarch64}.tar.gz
+```
 
-| Source | Fields |
-|--------|--------|
-| `input_json` | `sampleId`, `sampleRoot`, `sampleDir` (arm leaf), `project`, `referenceFasta` (+ optional overrides) |
-| `--resolved-config` | `actionConfig.methyl_extract` (chromosomes, extract contexts, `chrom_parallel`, `max_rss_gb`, read-level knobs) |
+Docs: [goliath-research.github.io/GoliathExtractor/](https://goliath-research.github.io/GoliathExtractor/)
 
-### Extract contexts vs downstream `contexts`
-
-| Config | Purpose |
-|--------|---------|
-| `project.contexts` | Downstream centroid/detector (often `["CG"]` only) |
-| `actionConfig.methyl_extract.extract_contexts` | What sample prep writes (default `["CG","CHG","CHH"]`) |
-
-Extracting all contexts lets `sample.delete_bam` reclaim space without losing CHG/CHH for later analysis.
-
-## Post-deploy smoke test
+## Smoke test
 
 ```bash
 ./scripts/verify_methyl_extractor.sh
 ```
 
-## Manual / local dev
+Optional dev env: `GOLIATH_EXTRACTOR_BIN` (falls back to `METHYL_EXTRACTOR_BIN`) if the binary is not on default PATH.
 
-```bash
-# Local wrapper: --sample-dir is the arm leaf. Distributed workers use --resolved-config only.
-./scripts/methyl_extract.sh DPLST-051425-111148 \
-  --project /work/projects/prostate-cancer/configs/project_Plasma_healthy_vs_PCa.json \
-  --sample-dir /work/samples/DPLST-051425-111148/align.linear.parabricks
+## Artifacts
+
+| Artifact | Path under `sampleDir` | Notes |
+|----------|------------------------|-------|
+| Per-chromosome HDF5 | `{chrom}-{CG\|CHG\|CHH}.h5` | Zstd-compressed methylation matrices |
+| Extraction manifest | `{sampleId}.extraction_manifest.json` | **Preserve-or-synthesize:** keep a complete native `goliath_extractor.extraction_manifest` (legacy `methylextractor.extraction_manifest` still accepted; including `read_filtering`); synthesize stubs/incomplete files from sidecars; overlay `h5_files` / `pattern_files` / provenance when missing |
+
+When `read_level` is enabled (and the installed binary supports `--read-level` / `--tile-size`), GoliathExtractor also writes `{chrom}-{ctx}.patterns.h5` files. Schema:
+
+```text
+goliath_extractor.*
 ```
 
-Optional dev env: `METHYL_EXTRACTOR_BIN` if the binary is not on default PATH.
+(see the GoliathExtractor repo).
 
-## Outputs
-
-Under `{sampleDir}`:
-
-| Artifact | Pattern | Role |
-|----------|---------|------|
-| Per-chrom HDF5 | `{chrom}-{ctx}.h5` | Marginal per-CpG counts (e.g. `1-CG.h5`) |
-| Read-level sidecar | `{chrom}-{ctx}.patterns.h5` | Per-tile read co-methylation histograms (when `--read-level`) |
-| Extraction log | `{sampleId}.methyl_extract.log` | Command log |
-| Phase timing | `{sampleId}.timing.json` | Elapsed-ms per chromosome (BAM vs write) |
-| Extraction manifest | `{sampleId}.extraction_manifest.json` | **Preserve-or-synthesize:** keep a complete native `methylextractor.extraction_manifest` (including `read_filtering`); synthesize stubs/incomplete files from sidecars; overlay `h5_files` / `pattern_files` / provenance when missing |
-
-### Read-level pattern sidecar (optional)
-
-When profile `actionConfig.methyl_extract.read_level.enabled` is true (or `--read-level`
-is passed), MethylExtractor also writes `{chrom}-{ctx}.patterns.h5` files. Schema:
-[`docs/reference/read_level_pattern_contract.md`](../../docs/reference/read_level_pattern_contract.md).
-
-Throughput knobs (operator-set, not code defaults):
-
-| Config | CLI | Role |
-|--------|-----|------|
-| `threads` | `--threads` | Total region-worker budget, split across in-flight chromosomes |
-| `chrom_parallel` | `--chrom-parallel` | Max chromosomes processed at once (memory-gated) |
-| `max_rss_gb` | `--max-rss-gb` | Peak RSS gate for chrom-parallel |
-
-MethylExtractor writes `{sampleId}.timing.json` next to the extraction manifest (phase elapsed-ms).
-
-SaMD / research profiles enable read-level **by default**. Missing `*.patterns.h5` does **not**
-fail sample prep or the validation lifecycle: extract warns and continues; `pipeline.info_measures`
-skips with status `no_pattern_sidecars`; multi-path `covariates_path` lists omit missing sidecars.
-
-Profile example:
-
-```json
-"methyl_extract": {
-  "threads": 10,
-  "chrom_parallel": 2,
-  "max_rss_gb": 32,
-  "read_level": { "enabled": true, "tile_size": 4 }
-}
-```
-
-Worker CLI flags: `--read-level`, `--tile-size=<k>`, `--chrom-parallel`, `--max-rss-gb` (forwarded from resolved config).
-
-See [`workflow_engine/contract/sample_prep_capabilities.md`](../../workflow_engine/contract/sample_prep_capabilities.md) for the full contract.
+GoliathExtractor writes `{sampleId}.timing.json` next to the extraction manifest (phase elapsed-ms).

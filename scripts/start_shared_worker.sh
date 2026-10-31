@@ -661,7 +661,8 @@ install_local_extractor() {
   # shellcheck source=methyl_extractor_local.sh
   source "$helper"
   release="$(cur_dir)"
-  tar_name="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); print(m.get("artifacts",{}).get(sys.argv[2],{}).get("methyl_extractor",""))' "$manifest" "$ARCH")"
+  tar_name="$(manifest_extractor_tarball_name "$manifest" "$ARCH")"
+  [[ -n "$tar_name" ]] || die "manifest.json missing goliath_extractor tarball for $ARCH"
   sha="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); print(m.get("artifacts",{}).get(sys.argv[2],{}).get("sha256",""))' "$manifest" "$ARCH")"
   if [[ -z "$tar_name" ]]; then
     log "release manifest has no MethylExtractor tarball for ${ARCH}; skipping local install"
@@ -1025,9 +1026,9 @@ write_worker_env() {
   if [[ -n "${GOLIATH_ALIGN_HOME:-}" && -x "${METHYL_METHYLGRAPHER_BIN:-}" ]]; then
     owned="GOLIATH_ALIGN_HOME|METHYL_METHYLGRAPHER_BIN|METHYL_METHYLGRAPHER_MODE|${owned}"
   fi
-  if [[ -n "${METHYL_EXTRACTOR_HOME:-}" && -x "${METHYL_EXTRACTOR_BIN:-}" ]]; then
+  if [[ -n "${GOLIATH_EXTRACTOR_HOME:-}${METHYL_EXTRACTOR_HOME:-}" && -x "${GOLIATH_EXTRACTOR_BIN:-${METHYL_EXTRACTOR_BIN:-}}" ]]; then
     have_local_extractor=1
-    owned="METHYL_EXTRACTOR_HOME|METHYL_EXTRACTOR_BIN|HDF5_PLUGIN_PATH|${owned}"
+    owned="GOLIATH_EXTRACTOR_HOME|GOLIATH_EXTRACTOR_BIN|METHYL_EXTRACTOR_HOME|METHYL_EXTRACTOR_BIN|HDF5_PLUGIN_PATH|${owned}"
   fi
   mkdir -p "$(dirname "$pod_env")" "$ROOT/env"
   old_umask="$(umask)"
@@ -1056,8 +1057,10 @@ write_worker_env() {
     printf '\n' >>"$tmp"
   fi
   if [[ "$have_local_extractor" -eq 1 ]]; then
-    append_kv "$tmp" METHYL_EXTRACTOR_HOME "$METHYL_EXTRACTOR_HOME"
-    append_kv "$tmp" METHYL_EXTRACTOR_BIN "$METHYL_EXTRACTOR_BIN"
+    append_kv "$tmp" GOLIATH_EXTRACTOR_HOME "${GOLIATH_EXTRACTOR_HOME:-$METHYL_EXTRACTOR_HOME}"
+    append_kv "$tmp" GOLIATH_EXTRACTOR_BIN "${GOLIATH_EXTRACTOR_BIN:-$METHYL_EXTRACTOR_BIN}"
+    append_kv "$tmp" METHYL_EXTRACTOR_HOME "${METHYL_EXTRACTOR_HOME:-$GOLIATH_EXTRACTOR_HOME}"
+    append_kv "$tmp" METHYL_EXTRACTOR_BIN "${METHYL_EXTRACTOR_BIN:-$GOLIATH_EXTRACTOR_BIN}"
     append_kv "$tmp" HDF5_PLUGIN_PATH "$HDF5_PLUGIN_PATH"
   fi
   if [[ -n "${GOLIATH_ALIGN_HOME:-}" && -x "${METHYL_METHYLGRAPHER_BIN:-}" ]]; then
@@ -1074,6 +1077,7 @@ write_worker_env() {
   IFS=: read -r -a ld_parts <<<"${LD_LIBRARY_PATH:-}"
   for ld_entry in "${ld_parts[@]}"; do
     [[ -n "$ld_entry" ]] || continue
+    [[ -n "${GOLIATH_EXTRACTOR_HOME:-}${METHYL_EXTRACTOR_HOME:-}" && "$ld_entry" == "${GOLIATH_EXTRACTOR_HOME:-${METHYL_EXTRACTOR_HOME%/}}/lib" ]] && continue
     [[ -n "${METHYL_EXTRACTOR_HOME:-}" && "$ld_entry" == "${METHYL_EXTRACTOR_HOME%/}/lib" ]] && continue
     ld_path+="${ld_path:+:}$ld_entry"
   done
@@ -1086,7 +1090,8 @@ write_worker_env() {
     # This pod's venv may have fallen back to /tmp; worker.env is literal.
     local venv_path="$GOLIATH_WORKER_VENV/bin"
     if [[ "$have_local_extractor" -eq 1 ]]; then
-      venv_path="$venv_path:$METHYL_EXTRACTOR_HOME/bin"
+      home="${GOLIATH_EXTRACTOR_HOME:-$METHYL_EXTRACTOR_HOME}"
+      venv_path="$venv_path:$home/bin"
     fi
     append_kv "$tmp" GOLIATH_WORKER_VENV "$GOLIATH_WORKER_VENV"
     append_kv "$tmp" PATH "$(ensure_parabricks_on_path "$venv_path:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")"

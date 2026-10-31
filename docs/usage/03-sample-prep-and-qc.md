@@ -5,13 +5,13 @@
 **SamplePrepPipeline** is the per-sample upstream workflow that turns raw WGBS FASTQs into methylation HDF5 files (`{chromosome}-CG.h5`) that downstream stages consume. Every sample passes through **two automated guardrails** before it enters stability, freeze, or discovery workflows:
 
 1. **Alignment QC** (`sample.methyl_qc`) — mode-aware guardrails over Parabricks or methylGrapher metrics (shared checks + tool-specific); may trigger focused trim/realign on the **same** align path.
-2. **Extraction QC** (`sample.extraction_qc`) — confirms MethylExtractor or methylGrapher extract produced sufficient coverage and conversion-quality signal across chromosomes.
+2. **Extraction QC** (`sample.extraction_qc`) — confirms GoliathExtractor or methylGrapher extract produced sufficient coverage and conversion-quality signal across chromosomes.
 
 Both gates honor the `resolvedConfig` window baked by `finalize_instance_context`, then a per-sample overlay. See [Baked QC window](#baked-qc-window).
 
 Without these gates, bad alignments would spend worker time, and under-covered or poorly converted extractions would pollute centroids, DMP discovery, and classifiers.
 
-Each sample takes one of four align paths: linear Clara Parabricks, linear GoliathAlign, stock Giraffe, or methylGrapher. The BAM stays on that worker's local scratch until `sample.delete_bam`. Extraction for linear and stock pangenome is MethylExtractor. Extraction for WGBS pangenome is methylGrapher MethylCall / MergeCpG. Both publish `*.h5` and `*.json` into `sampleDir`.
+Each sample takes one of four align paths: linear Clara Parabricks, linear GoliathAlign, stock Giraffe, or methylGrapher. The BAM stays on that worker's local scratch until `sample.delete_bam`. Extraction for linear and stock pangenome is GoliathExtractor. Extraction for WGBS pangenome is methylGrapher MethylCall / MergeCpG. Both publish `*.h5` and `*.json` into `sampleDir`.
 
 **Start an instance:** [Start a SamplePrep instance](../operators/start-sample-prep.md)
 
@@ -93,7 +93,7 @@ flowchart TD
 | Gate | Scope variable | When | Blocks |
 |------|----------------|------|--------|
 | Alignment | `qcPass` | After linear / Giraffe / methylGrapher QC BAM, **before** extract | Extraction (unless remediation succeeds) |
-| Extraction | `extractionQcPass` | After MethylExtractor or methylGrapher extract | Full archive and BAM deletion |
+| Extraction | `extractionQcPass` | After GoliathExtractor or methylGrapher extract | Full archive and BAM deletion |
 
 **Ordering rationale:** alignment QC runs before cfDNA fragmentomics so failed samples skip BAM scanning. Fragmentomics and extraction both read the aligned BAM on the pinned worker. FASTQs on `/work` are retained until QC is fully resolved so **fastp** can trim and the **same** alignment path can realign. SamplePrep emits `{chr}-CG.patterns.h5` when read-level extraction is enabled. `pipeline.info_measures` runs later in the study lifecycle.
 
@@ -125,7 +125,7 @@ Production binds **`sampleRoot`** = `/work/samples/{sample_id}/` (FASTQs, `.caas
 | `{sample_id}.alignment_metrics.json` | `sampleDir` | methylGrapher align provenance + asset fingerprints |
 | `{output_base}/{project}/alignment_qc/{sample_id}.json` | project tree | Normalized **V2.1** `guardrail_summary` export (when run project-scoped) |
 | `{sample_id}.extraction_manifest.json` | `sampleDir` | Extractor / methylGrapher extract summary (`read_filtering` when native) |
-| `{sample_id}.timing.json` | `sampleDir` | MethylExtractor phase elapsed-ms (BAM scan vs HDF5 write) |
+| `{sample_id}.timing.json` | `sampleDir` | GoliathExtractor phase elapsed-ms (BAM scan vs HDF5 write) |
 | `{sample_id}.extraction_qc.json` | `sampleDir` | Extraction guardrail report |
 | `{sample_id}.sample_prep_log.jsonl` | `sampleDir` | Append-only audit of every prep action |
 | `{chr}-CG.h5` | `sampleDir` | Methylation matrices consumed by `methyl-centroid` |
@@ -295,11 +295,11 @@ Default reads stored `guardrails.screening` (slim exports have no cycle tables).
 
 ## Extraction QC: confirming enough good reads
 
-Alignment QC validates the **QC BAM** (linear, stock Giraffe, or methylGrapher-restored BAM). Extraction QC validates the **methylation call layer** produced by MethylExtractor (`sample.methyl_extract`) or methylGrapher (`sample.methylgrapher_wgbs_extract`).
+Alignment QC validates the **QC BAM** (linear, stock Giraffe, or methylGrapher-restored BAM). Extraction QC validates the **methylation call layer** produced by GoliathExtractor (`sample.methyl_extract`) or methylGrapher (`sample.methylgrapher_wgbs_extract`).
 
 ### Input: extraction manifest
 
-Extract manifests are **preserve-or-synthesize**. A complete native `methylextractor.extraction_manifest` (expected chromosomes present, `summary.cpg_weighted_mean_coverage` set) is **kept**, including `read_filtering`. Stubs or incomplete files are synthesized from `{chrom}-{ctx}.json` sidecars; the worker may overlay `h5_files`, `pattern_files`, and action provenance when those lists are missing. methylGrapher extract still writes the canonical blocks plus graph provenance.
+Extract manifests are **preserve-or-synthesize**. A complete native `goliath_extractor.extraction_manifest` (expected chromosomes present, `summary.cpg_weighted_mean_coverage` set) is **kept**, including `read_filtering`. Stubs or incomplete files are synthesized from `{chrom}-{ctx}.json` sidecars; the worker may overlay `h5_files`, `pattern_files`, and action provenance when those lists are missing. methylGrapher extract still writes the canonical blocks plus graph provenance.
 
 Both extractors expose `{sample_id}.extraction_manifest.json` with the **canonical** blocks consumed by `methyl_extraction_qc`:
 
@@ -333,7 +333,7 @@ Override thresholds via profile `actionConfig.extraction_qc`. Schema: `schemas/e
 | Did sequencing and alignment produce a usable BAM? | Alignment QC |
 | Did we extract enough confident methylation signal genome-wide? | Extraction QC |
 
-A sample can pass alignment but fail extraction (e.g., coverage collapse on certain chromosomes). Conversely, remediation after alignment QC prevents spending extract **CPU** time on BAMs that will never support stable downstream statistics. Alignment is the GPU-bound step; MethylExtractor is not.
+A sample can pass alignment but fail extraction (e.g., coverage collapse on certain chromosomes). Conversely, remediation after alignment QC prevents spending extract **CPU** time on BAMs that will never support stable downstream statistics. Alignment is the GPU-bound step; GoliathExtractor is not.
 
 ## Pass, fail, and handoff
 
@@ -360,7 +360,7 @@ Before starting SamplePrep, confirm:
 - [ ] `validation.regulatory.primary_analyte` set (drives fragmentomics profile)
 - [ ] Instance `context_json` includes `fastqStorage`, `referenceFasta`, `samples[]`
 - [ ] Stock pangenome: site `pangenome_genome` bundle staged, `alignmentMode: "pangenome"`
-- [ ] Linear / stock extract: `actionConfig.methyl_extract.chrom_parallel` and `max_rss_gb` set for the node's RAM (CPU MethylExtractor)
+- [ ] Linear / stock extract: `actionConfig.methyl_extract.chrom_parallel` and `max_rss_gb` set for the node's RAM (CPU GoliathExtractor)
 - [ ] WGBS pangenome: site `pangenome_wgbs_genome` / `actionConfig.methylgrapher_wgbs` staged (`d9-bs/1.70`), `alignmentMode: "pangenome_wgbs"`, `METHYL_MOJO_ALIGN_IMAGE` set; gate promotion with [`workers/tests/test_methylgrapher_wgbs_canary.md`](../../workers/tests/test_methylgrapher_wgbs_canary.md)
 
 ## Commands (standalone debugging)
@@ -376,7 +376,7 @@ methyl-qc --samples /work/samples/SAMPLE_ID/align.linear.parabricks \
 # Project-scoped (uses profile actionConfig.alignment_qc via METHYL_PROFILE)
 methyl-qc --project /work/projects/prostate-cancer/configs/project_Example.json
 
-# Extraction QC after MethylExtractor (--sample-dir = same arm leaf)
+# Extraction QC after GoliathExtractor (--sample-dir = same arm leaf)
 methyl-extraction-qc --sample-dir /work/samples/SAMPLE_ID/align.linear.parabricks \
   --sample-id SAMPLE_ID
 ```

@@ -105,7 +105,10 @@ PARABRICKS_IMAGE="${METHYL_PARABRICKS_IMAGE:-$(resolve_parabricks_image)}"
 
 REPOS="$ROOT/repos"
 PIPELINE_DIR="$REPOS/MethylPipeline"
-EXTRACTOR_DIR="$REPOS/MethylExtractor"
+EXTRACTOR_DIR="$REPOS/GoliathExtractor"
+if [[ ! -d "$EXTRACTOR_DIR" ]]; then
+  EXTRACTOR_DIR="$REPOS/MethylExtractor"
+fi
 # Executables live on local disk, never on the shared volume.
 VENV_DIR="$(worker_venv_local_dir "$ARCH_KEY")"
 ENV_DIR="$ROOT/env"
@@ -155,18 +158,18 @@ if [[ -n "$RELEASE_DIR" ]]; then
   else
     run bash "$SCRIPTS_DIR/install_release.sh" --release-dir "$RELEASE_DIR" --venv "$VENV_DIR"
     # MethylExtractor runs from local disk; the tarball stays on shared storage.
-    ME_TARBALL="$(python3 -c "import json,sys; m=json.load(open(sys.argv[1])); print(m.get('artifacts',{}).get(sys.argv[2],{}).get('methyl_extractor',''))" "$RELEASE_DIR/manifest.json" "$ARCH_KEY" 2>/dev/null || true)"
+    ME_TARBALL="$(manifest_extractor_tarball_name "$RELEASE_DIR/manifest.json" "$ARCH_KEY")"
     if [[ -n "$ME_TARBALL" && -f "$RELEASE_DIR/$ME_TARBALL" ]]; then
       install_methyl_extractor_local "$RELEASE_DIR/$ME_TARBALL" "$ARCH_KEY" \
-        || die "local MethylExtractor install failed"
+        || die "local GoliathExtractor install failed"
     fi
     ME_HOME="$(methyl_extractor_local_home "$ARCH_KEY")"
-    ME_BIN="$ME_HOME/bin/MethylExtractor"
+    ME_BIN="$(_mel_bin_in_home "$ME_HOME" || true)"
     PLUGIN_DIR="$ME_HOME/lib/hdf5_zstd_plugin"
-    if [[ ! -x "$ME_BIN" ]]; then
-      ME_BIN="${METHYL_EXTRACTOR_BIN:-MethylExtractor}"
+    if [[ -z "$ME_BIN" ]]; then
+      ME_BIN="${GOLIATH_EXTRACTOR_BIN:-${METHYL_EXTRACTOR_BIN:-goliath-extractor}}"
       PLUGIN_DIR="${HDF5_PLUGIN_PATH:-/usr/local/hdf5/lib/plugin}"
-      warn "MethylExtractor not at local path $ME_HOME; run promote_release.sh or install_methyl_extractor_tarball.sh"
+      warn "GoliathExtractor not at local path $ME_HOME; run promote_release.sh or install_methyl_extractor_tarball.sh"
     fi
     if [[ -n "${WORKER_API_BASE:-}" ]]; then
       run bash "$SCRIPTS_DIR/write_worker_env.sh" --root "$ROOT" --manifest "$RELEASE_DIR/manifest.json" \
@@ -279,20 +282,20 @@ fi
 run bash "$PIPELINE_DIR/scripts/install_all.sh" "${INSTALL_ARGS[@]}" --skip-marp
 
 if [[ "$SKIP_METHYL_EXTRACTOR" -eq 0 && -d "$EXTRACTOR_DIR" ]]; then
-  info "Building MethylExtractor ($ME_SUBDIR) ..."
+  info "Building GoliathExtractor ($ME_SUBDIR) ..."
   run bash -c "cd '$EXTRACTOR_DIR' && make"
-  if [[ "$DRY_RUN" -eq 0 ]]; then
-    ME_BIN="$EXTRACTOR_DIR/build/dynamic/$ME_SUBDIR/MethylExtractor"
-    if [[ ! -x "$ME_BIN" ]]; then
-      die "MethylExtractor binary not found at $ME_BIN"
-    fi
-    PLUGIN_DIR="$EXTRACTOR_DIR/build/dynamic/$ME_SUBDIR/hdf5_zstd_plugin"
+  build_dir="$EXTRACTOR_DIR/build/dynamic/$ME_SUBDIR"
+  if [[ -x "$build_dir/goliath-extractor" ]]; then
+    ME_BIN="$build_dir/goliath-extractor"
   else
-    ME_BIN="$EXTRACTOR_DIR/build/dynamic/$ME_SUBDIR/MethylExtractor"
-    PLUGIN_DIR="$EXTRACTOR_DIR/build/dynamic/$ME_SUBDIR/hdf5_zstd_plugin"
+    ME_BIN="$build_dir/MethylExtractor"
   fi
+  if [[ "$DRY_RUN" -eq 0 && ! -x "$ME_BIN" ]]; then
+    die "GoliathExtractor binary not found under $build_dir"
+  fi
+  PLUGIN_DIR="$build_dir/hdf5_zstd_plugin"
 else
-  ME_BIN="${METHYL_EXTRACTOR_BIN:-MethylExtractor}"
+  ME_BIN="${GOLIATH_EXTRACTOR_BIN:-${METHYL_EXTRACTOR_BIN:-goliath-extractor}}"
   PLUGIN_DIR="/usr/local/hdf5/lib/plugin"
 fi
 
@@ -328,6 +331,7 @@ ${WORKER_API_BASE:+WORKER_API_BASE=$WORKER_API_BASE}
 # WORKER_ID=
 # WORKER_TOKEN=
 # WORKER_CAPABILITY=
+GOLIATH_EXTRACTOR_BIN=$ME_BIN
 METHYL_EXTRACTOR_BIN=$ME_BIN
 HDF5_PLUGIN_PATH=$PLUGIN_DIR
 PATH=$WORKER_PATH

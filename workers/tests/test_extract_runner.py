@@ -94,8 +94,11 @@ def _assert_not_extractor(mock_run: Any) -> None:
             return False
         cmd = args[0]
         if isinstance(cmd, (list, tuple)):
-            return any("MethylExtractor" in str(part) for part in cmd)
-        return "MethylExtractor" in str(cmd)
+            return any(
+                part in ("goliath-extractor", "MethylExtractor") or "goliath-extractor" in str(part)
+                for part in cmd
+            )
+        return "goliath-extractor" in str(cmd) or "MethylExtractor" in str(cmd)
 
     assert not any(_is_extractor_call(c) for c in mock_run.call_args_list)
 
@@ -412,7 +415,7 @@ def test_idempotent_skip_when_all_h5_present(tmp_path: Path) -> None:
     manifest = json.loads((sample_dir / "S3.extraction_manifest.json").read_text(encoding="utf-8"))
     assert set(manifest["per_chromosome"]) == {"1"}
     assert manifest["per_chromosome"]["1"]["CG"]["mean_coverage"] == 12.0
-    assert manifest["metadata"]["extractor"] == "MethylExtractor"
+    assert manifest["metadata"]["extractor"] == "GoliathExtractor"
     assert (sample_dir / "S3.extraction_manifest.json").stat().st_size > 0
 
 
@@ -448,7 +451,7 @@ def test_complete_native_manifest_survives_skip(tmp_path: Path) -> None:
     assert manifest["metadata"]["filters"] == native["metadata"]["filters"]
     assert manifest["metadata"]["exported_at_utc"] == "2026-08-25T12:00:00Z"
     assert manifest["metadata"]["action"] == "sample.methyl_extract"
-    assert manifest["metadata"]["extractor"] == "MethylExtractor"
+    assert manifest["metadata"]["extractor"] == "GoliathExtractor"
     assert manifest["h5_files"] == ["1-CG.h5", "1-CHG.h5", "1-CHH.h5"]
     assert manifest["pattern_files"] == []
 
@@ -519,7 +522,7 @@ def test_synthesizes_manifest_from_sidecars_when_no_native(tmp_path: Path) -> No
     assert manifest["per_chromosome"]["1"]["CG"]["mean_coverage"] == 12.0
     assert manifest["summary"]["cpg_weighted_mean_coverage"] == 12.0
     assert "cpg_fraction_sites_covered" not in manifest["summary"]
-    assert manifest["metadata"]["extractor"] == "MethylExtractor"
+    assert manifest["metadata"]["extractor"] == "GoliathExtractor"
     assert manifest["metadata"]["action"] == "sample.methyl_extract"
 
 
