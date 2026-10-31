@@ -82,7 +82,8 @@ MANIFEST_VERSION="$(python3 -c "import json; m=json.load(open('$MANIFEST')); pri
 [[ -n "$MANIFEST_VERSION" ]] || die "manifest.json missing version"
 require_release_version "$MANIFEST_VERSION" "manifest version" || exit 1
 
-TARBALL_NAME="$(python3 -c "import json; m=json.load(open('$MANIFEST')); print(m['artifacts']['$ARCH']['methyl_extractor'])")"
+TARBALL_NAME="$(manifest_extractor_tarball_name "$MANIFEST" "$ARCH")"
+[[ -n "$TARBALL_NAME" ]] || die "manifest.json missing goliath_extractor tarball for $ARCH"
 EXPECTED_SHA="$(python3 -c "import json; m=json.load(open('$MANIFEST')); print(m.get('artifacts',{}).get('$ARCH',{}).get('sha256',''))")"
 TARBALL_PATH="$RELEASE_DIR/$TARBALL_NAME"
 DOCKER_ROOT="$(python3 -c "import json; m=json.load(open('$MANIFEST')); print(m.get('docker_data_root','/work/goliath/docker'))")"
@@ -107,6 +108,10 @@ install_extractor() {
   [[ -f "$TARBALL_PATH" ]] || die "MethylExtractor tarball not found: $TARBALL_PATH"
   verify_checksum
   # Older releases extracted onto $ROOT; that copy is unusable on a shared volume.
+  if [[ -d "$ROOT/goliath-extractor-${ARCH}" ]]; then
+    rm -rf "$ROOT/goliath-extractor-${ARCH}" 2>/dev/null \
+      || echo "[WARN] could not remove stale $ROOT/goliath-extractor-${ARCH}; ignoring it" >&2
+  fi
   if [[ -d "$ROOT/methyl-extractor-${ARCH}" ]]; then
     rm -rf "$ROOT/methyl-extractor-${ARCH}" 2>/dev/null \
       || echo "[WARN] could not remove stale $ROOT/methyl-extractor-${ARCH}; ignoring it" >&2

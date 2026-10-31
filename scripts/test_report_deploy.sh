@@ -187,8 +187,8 @@ grep -q '"failed":{"message":"host=a arch=amd64 capability=methyl-qc (exit 1)"}'
   || fail "failed payload missing"
 
 # Reset terminal by starting a different service for aborted.
-run_report start --service methyl-extractor --version ghi789 >/dev/null
-run_report aborted --service methyl-extractor --message aborted >/dev/null
+run_report start --service goliath-extractor --version ghi789 >/dev/null
+run_report aborted --service goliath-extractor --message aborted >/dev/null
 grep -q '"aborted":{}' "$CURL_LOG_DIR/bodies" || fail "aborted payload missing"
 
 # Transport failure (HTTP 000): the curl exit code and message are logged,

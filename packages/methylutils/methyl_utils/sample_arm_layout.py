@@ -45,9 +45,13 @@ ALIGN_ARM_ALIASES: Dict[str, str] = {
 }
 
 COMPARE_EXTRACT_ARMS: Tuple[str, ...] = (
-    "extract.methylextractor",
+    "extract.goliath_extractor",
     "extract.methyldackel",
 )
+
+EXTRACT_ARM_ALIASES: Dict[str, str] = {
+    "extract.methylextractor": "extract.goliath_extractor",
+}
 
 LEGACY_MODE_DIRNAMES = frozenset({"linear", "pangenome", "pangenome_wgbs"})
 
@@ -95,11 +99,15 @@ ALIGN_ARM_ACTION_CONFIG: Dict[str, Dict[str, Any]] = {
 
 _KNOWN_ARMS = frozenset(CANONICAL_ALIGN_ARMS) | frozenset(COMPARE_EXTRACT_ARMS) | frozenset(
     ALIGN_ARM_ALIASES
-)
+) | frozenset(EXTRACT_ARM_ALIASES)
 
 
 def normalize_align_arm(arm: str) -> str:
     return ALIGN_ARM_ALIASES.get(arm, arm)
+
+
+def normalize_extract_arm(arm: str) -> str:
+    return EXTRACT_ARM_ALIASES.get(arm, arm)
 
 
 def is_align_arm_dirname(name: str) -> bool:
@@ -108,7 +116,7 @@ def is_align_arm_dirname(name: str) -> bool:
 
 
 def is_extract_arm_dirname(name: str) -> bool:
-    n = str(name or "").strip()
+    n = normalize_extract_arm(str(name or "").strip())
     return n in COMPARE_EXTRACT_ARMS or n.startswith("extract.")
 
 
@@ -137,6 +145,7 @@ def sample_root_from_sample_dir(
 
 def align_arm_dir(sample_root: Path | str, arm: str) -> Path:
     arm = normalize_align_arm(arm)
+    arm = normalize_extract_arm(arm)
     if arm not in _KNOWN_ARMS and arm not in COMPARE_EXTRACT_ARMS:
         raise ValueError(
             f"unsupported comparison arm: {arm}; "

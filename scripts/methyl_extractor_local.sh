@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install MethylExtractor from a release tarball into a pod-local directory.
+# Install GoliathExtractor from a release tarball into a pod-local directory.
 #
 # Shared volumes (a Runpod network volume at /work, some NFS mounts) ignore
 # exec bits, and native files extracted onto them can be listed but not read
@@ -7,10 +7,10 @@
 # the binary onto its own local disk.
 #
 # Location (first match wins):
-#   METHYL_EXTRACTOR_HOME            explicit install dir
-#   $GOLIATH_LOCAL_ROOT/methyl-extractor-<arch>   (default /opt/goliath)
+#   GOLIATH_EXTRACTOR_HOME / METHYL_EXTRACTOR_HOME   explicit install dir
+#   $GOLIATH_LOCAL_ROOT/goliath-extractor-<arch>   (default /opt/goliath)
 # A location under GOLIATH_WORK_MOUNT (default /work), or one that cannot be
-# created, falls back to /tmp/goliath/methyl-extractor-<arch>.
+# created, falls back to /tmp/goliath/goliath-extractor-<arch>.
 #
 # Source this file for methyl_extractor_local_home / install_methyl_extractor_local,
 # or run it:
@@ -30,23 +30,57 @@ _mel_on_work() {
   return 1
 }
 
+_mel_home_override() {
+  if [[ -n "${GOLIATH_EXTRACTOR_HOME:-}" ]]; then
+    printf '%s\n' "${GOLIATH_EXTRACTOR_HOME%/}"
+  elif [[ -n "${METHYL_EXTRACTOR_HOME:-}" ]]; then
+    printf '%s\n' "${METHYL_EXTRACTOR_HOME%/}"
+  fi
+}
+
+_mel_default_home_suffix() {
+  printf 'goliath-extractor-%s' "$1"
+}
+
+# Resolve bin/goliath-extractor or legacy bin/MethylExtractor under $1.
+_mel_bin_in_home() {
+  local home="$1"
+  if [[ -x "$home/bin/goliath-extractor" ]]; then
+    printf '%s\n' "$home/bin/goliath-extractor"
+  elif [[ -x "$home/bin/MethylExtractor" ]]; then
+    printf '%s\n' "$home/bin/MethylExtractor"
+  fi
+}
+
+# Tarball filename from manifest.json artifacts[arch] (goliath_extractor, else methyl_extractor).
+manifest_extractor_tarball_name() {
+  local manifest="$1" arch="$2"
+  python3 - "$manifest" "$arch" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1], encoding="utf-8"))
+arts = m.get("artifacts", {}).get(sys.argv[2], {})
+print(arts.get("goliath_extractor") or arts.get("methyl_extractor") or "")
+PY
+}
+
 # Print the pod-local install directory for ARCH.
 methyl_extractor_local_home() {
-  local arch="$1" home parent
-  if [[ -n "${METHYL_EXTRACTOR_HOME:-}" ]]; then
-    home="${METHYL_EXTRACTOR_HOME%/}"
+  local arch="$1" home parent override
+  override="$(_mel_home_override || true)"
+  if [[ -n "$override" ]]; then
+    home="$override"
   else
     home="${GOLIATH_LOCAL_ROOT:-/opt/goliath}"
-    home="${home%/}/methyl-extractor-${arch}"
+    home="${home%/}/$(_mel_default_home_suffix "$arch")"
   fi
   parent="$(dirname "$home")"
   if _mel_on_work "$home"; then
     echo "[WARN] ${home} is on the shared work mount; using /tmp instead" >&2
-    home="/tmp/goliath/methyl-extractor-${arch}"
+    home="/tmp/goliath/$(_mel_default_home_suffix "$arch")"
   elif ! mkdir -p "$parent" 2>/dev/null || [[ ! -w "$parent" ]]; then
     if [[ ! -w "$home" ]]; then
       echo "[WARN] cannot write ${parent}; using /tmp instead" >&2
-      home="/tmp/goliath/methyl-extractor-${arch}"
+      home="/tmp/goliath/$(_mel_default_home_suffix "$arch")"
     fi
   fi
   printf '%s\n' "$home"
@@ -88,57 +122,29 @@ _mel_ld_path_without() {
   printf '%s' "$out"
 }
 
-# install_methyl_extractor_local TARBALL ARCH [EXPECTED_SHA256]
-# Prints nothing on stdout; sets METHYL_EXTRACTOR_HOME, METHYL_EXTRACTOR_BIN
-# and HDF5_PLUGIN_PATH in the caller (exported), and removes <home>/lib from
-# LD_LIBRARY_PATH if an earlier step put it there. Idempotent: skips
-# extraction when the installed copy came from a tarball with the same sha256.
-install_methyl_extractor_local() {
-  local tarball="$1" arch="$2" expected="${3:-}"
-  local home bin actual stamp stage
-  [[ -f "$tarball" ]] || { _mel_die "MethylExtractor tarball not found: ${tarball}"; return 1; }
-  home="$(methyl_extractor_local_home "$arch")" || return 1
-  bin="$home/bin/MethylExtractor"
-  stamp="$home/.tarball.sha256"
-  actual="$(sha256sum "$tarball" | awk '{print $1}')" || { _mel_die "cannot read ${tarball}"; return 1; }
-  if [[ -n "$expected" && "$actual" != "$expected" ]]; then
-    _mel_die "checksum mismatch for ${tarball} (expected ${expected}, got ${actual})"
-    return 1
+_mel_stage_bin_path() {
+  local stage="$1"
+  if [[ -f "$stage/bin/goliath-extractor" ]]; then
+    printf '%s\n' "$stage/bin/goliath-extractor"
+  elif [[ -f "$stage/bin/MethylExtractor" ]]; then
+    printf '%s\n' "$stage/bin/MethylExtractor"
   fi
-  if [[ -f "$stamp" && "$(cat "$stamp" 2>/dev/null)" == "$actual" ]] && _mel_check_exec "$bin" 2>/dev/null; then
-    _mel_info "MethylExtractor already installed at ${home} (sha256 ${actual:0:12})" >&2
-  else
-    _mel_info "Extracting MethylExtractor to local disk: ${home}" >&2
-    mkdir -p "$(dirname "$home")" || { _mel_die "cannot create $(dirname "$home")"; return 1; }
-    stage="$(mktemp -d "${home}.new.XXXXXX")" || return 1
-    if ! tar -xzf "$tarball" -C "$stage"; then
-      rm -rf "$stage"
-      _mel_die "could not extract ${tarball} (corrupt or truncated archive?)"
-      return 1
-    fi
-    if [[ ! -f "$stage/bin/MethylExtractor" ]]; then
-      rm -rf "$stage"
-      _mel_die "${tarball} has no bin/MethylExtractor"
-      return 1
-    fi
-    chmod 0755 "$stage" "$stage/bin/MethylExtractor"
-    if ! _mel_check_exec "$stage/bin/MethylExtractor"; then
-      rm -rf "$stage"
-      return 1
-    fi
-    printf '%s\n' "$actual" >"$stage/.tarball.sha256"
-    rm -rf "$home"
-    mv "$stage" "$home"
-    _mel_check_exec "$bin" || return 1
-  fi
+}
+
+_mel_export_extractor_env() {
+  local home="$1" bin="$2"
   cat >"$home/env.sh" <<ENV
 # Source this file: source "$home/env.sh"
+export GOLIATH_EXTRACTOR_HOME="$home"
+export GOLIATH_EXTRACTOR_BIN="$bin"
 export METHYL_EXTRACTOR_HOME="$home"
 export METHYL_EXTRACTOR_BIN="$bin"
 export HDF5_PLUGIN_PATH="$home/lib/hdf5_zstd_plugin"
 # No LD_LIBRARY_PATH: the binary finds its bundled libs through RUNPATH.
 export PATH="$home/bin:\$PATH"
 ENV
+  export GOLIATH_EXTRACTOR_HOME="$home"
+  export GOLIATH_EXTRACTOR_BIN="$bin"
   export METHYL_EXTRACTOR_HOME="$home"
   export METHYL_EXTRACTOR_BIN="$bin"
   export HDF5_PLUGIN_PATH="$home/lib/hdf5_zstd_plugin"
@@ -148,7 +154,56 @@ ENV
       if [[ -n "$LD_LIBRARY_PATH" ]]; then export LD_LIBRARY_PATH; else unset LD_LIBRARY_PATH; fi
       ;;
   esac
-  _mel_info "MethylExtractor: ${bin}" >&2
+}
+
+# install_methyl_extractor_local TARBALL ARCH [EXPECTED_SHA256]
+# Prints nothing on stdout; sets GOLIATH_EXTRACTOR_* / METHYL_EXTRACTOR_* /
+# HDF5_PLUGIN_PATH in the caller (exported). Idempotent when sha256 matches.
+install_methyl_extractor_local() {
+  local tarball="$1" arch="$2" expected="${3:-}"
+  local home bin stage_bin actual stamp stage
+  [[ -f "$tarball" ]] || { _mel_die "GoliathExtractor tarball not found: ${tarball}"; return 1; }
+  home="$(methyl_extractor_local_home "$arch")" || return 1
+  bin="$(_mel_bin_in_home "$home" || true)"
+  [[ -n "$bin" ]] || bin="$home/bin/goliath-extractor"
+  stamp="$home/.tarball.sha256"
+  actual="$(sha256sum "$tarball" | awk '{print $1}')" || { _mel_die "cannot read ${tarball}"; return 1; }
+  if [[ -n "$expected" && "$actual" != "$expected" ]]; then
+    _mel_die "checksum mismatch for ${tarball} (expected ${expected}, got ${actual})"
+    return 1
+  fi
+  if [[ -f "$stamp" && "$(cat "$stamp" 2>/dev/null)" == "$actual" ]] \
+    && bin="$(_mel_bin_in_home "$home" || true)" \
+    && [[ -n "$bin" ]] && _mel_check_exec "$bin" 2>/dev/null; then
+    _mel_info "GoliathExtractor already installed at ${home} (sha256 ${actual:0:12})" >&2
+  else
+    _mel_info "Extracting GoliathExtractor to local disk: ${home}" >&2
+    mkdir -p "$(dirname "$home")" || { _mel_die "cannot create $(dirname "$home")"; return 1; }
+    stage="$(mktemp -d "${home}.new.XXXXXX")" || return 1
+    if ! tar -xzf "$tarball" -C "$stage"; then
+      rm -rf "$stage"
+      _mel_die "could not extract ${tarball} (corrupt or truncated archive?)"
+      return 1
+    fi
+    stage_bin="$(_mel_stage_bin_path "$stage" || true)"
+    if [[ -z "$stage_bin" ]]; then
+      rm -rf "$stage"
+      _mel_die "${tarball} has no bin/goliath-extractor or bin/MethylExtractor"
+      return 1
+    fi
+    chmod 0755 "$stage" "$stage_bin"
+    if ! _mel_check_exec "$stage_bin"; then
+      rm -rf "$stage"
+      return 1
+    fi
+    printf '%s\n' "$actual" >"$stage/.tarball.sha256"
+    rm -rf "$home"
+    mv "$stage" "$home"
+    bin="$(_mel_bin_in_home "$home" || true)"
+    _mel_check_exec "$bin" || return 1
+  fi
+  _mel_export_extractor_env "$home" "$bin"
+  _mel_info "GoliathExtractor: ${bin}" >&2
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
@@ -165,7 +220,10 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     esac
   done
   if [[ -z "$_arch" ]]; then
-    if [[ "$(basename "$_tarball")" =~ methyl-extractor-linux-(aarch64|amd64) ]]; then
+    base="$(basename "$_tarball")"
+    if [[ "$base" =~ goliath-extractor-linux-(aarch64|amd64) ]]; then
+      _arch="${BASH_REMATCH[1]}"
+    elif [[ "$base" =~ methyl-extractor-linux-(aarch64|amd64) ]]; then
       _arch="${BASH_REMATCH[1]}"
     else
       case "$(uname -m)" in aarch64|arm64) _arch=aarch64 ;; *) _arch=amd64 ;; esac
@@ -178,6 +236,6 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   [[ -n "$_tarball" ]] || { echo "[ERROR] --tarball is required" >&2; exit 1; }
   install_methyl_extractor_local "$_tarball" "$_arch" "$_sha"
   if [[ "$_print" -eq 1 ]]; then
-    printf '%s\n' "$METHYL_EXTRACTOR_HOME"
+    printf '%s\n' "$GOLIATH_EXTRACTOR_HOME"
   fi
 fi

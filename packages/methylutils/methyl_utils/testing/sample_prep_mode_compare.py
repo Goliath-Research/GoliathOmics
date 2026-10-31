@@ -17,7 +17,7 @@ align.linear.parabricks/
 align.linear.mojo/
 align.pangenome_wgbs.vg/
 align.pangenome_wgbs.mojo/
-extract.methylextractor/
+extract.goliath_extractor/
 extract.methyldackel/
 ```
 

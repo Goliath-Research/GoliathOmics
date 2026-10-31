@@ -43,7 +43,8 @@ EXEMPT=(
   pbrun         # Clara Parabricks CLI: baked in goliath-worker / NGC image (not apt)
   nvidia-smi    # NVIDIA driver, provided by the GPU host
   rocm-smi rocminfo  # AMD driver tools, provided by the host
-  MethylExtractor    # release artifact installed by install_local_extractor
+  MethylExtractor    # legacy name; release artifact is goliath-extractor
+  goliath-extractor  # release artifact installed by install_local_extractor
   methyl-validation methyl-detector methyl-cfg methyl-worker  # venv console scripts
   sage          # proteomics, Docker image or METHYL_SAGE_BIN
   vg            # inside the methylgrapher Docker image

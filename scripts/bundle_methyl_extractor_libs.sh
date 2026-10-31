@@ -56,7 +56,10 @@ done
 
 [[ -f "$TARBALL" ]] || die "--tarball is required and must exist (got '${TARBALL}')"
 if [[ -z "$ARCH" ]]; then
-  if [[ "$(basename "$TARBALL")" =~ methyl-extractor-linux-(aarch64|amd64) ]]; then
+  base="$(basename "$TARBALL")"
+  if [[ "$base" =~ goliath-extractor-linux-(aarch64|amd64) ]]; then
+    ARCH="${BASH_REMATCH[1]}"
+  elif [[ "$base" =~ methyl-extractor-linux-(aarch64|amd64) ]]; then
     ARCH="${BASH_REMATCH[1]}"
   else
     die "--arch is required when the tarball name has no arch"
@@ -73,7 +76,14 @@ trap 'rm -rf "$WORK"' EXIT
 STAGE="$WORK/stage"
 mkdir -p "$STAGE"
 tar -xzf "$TARBALL" -C "$STAGE"
-[[ -f "$STAGE/bin/MethylExtractor" ]] || die "${TARBALL} has no bin/MethylExtractor"
+BIN=""
+if [[ -f "$STAGE/bin/goliath-extractor" ]]; then
+  BIN="$STAGE/bin/goliath-extractor"
+elif [[ -f "$STAGE/bin/MethylExtractor" ]]; then
+  BIN="$STAGE/bin/MethylExtractor"
+else
+  die "${TARBALL} has no bin/goliath-extractor or bin/MethylExtractor"
+fi
 mkdir -p "$STAGE/lib"
 
 have_all() {
@@ -161,9 +171,9 @@ done
 
 if command -v patchelf >/dev/null 2>&1; then
   # shellcheck disable=SC2016
-  if ! patchelf --set-rpath '$ORIGIN/../lib' "$STAGE/bin/MethylExtractor"; then
-    [[ "$REQUIRE_PATCHELF" -eq 1 ]] && die "patchelf failed on bin/MethylExtractor"
-    warn "patchelf failed on bin/MethylExtractor; relying on LD_LIBRARY_PATH"
+  if ! patchelf --set-rpath '$ORIGIN/../lib' "$BIN"; then
+    [[ "$REQUIRE_PATCHELF" -eq 1 ]] && die "patchelf failed on $BIN"
+    warn "patchelf failed on $BIN; relying on LD_LIBRARY_PATH"
   fi
   for f in "$STAGE"/lib/*.so.*; do
     [[ -L "$f" ]] && continue
@@ -180,7 +190,7 @@ fi
 # Report anything still unresolved when the binary is for this machine.
 # (ldd prints nothing useful for a foreign-arch binary.)
 if command -v ldd >/dev/null 2>&1; then
-  missing="$(for f in "$STAGE/bin/MethylExtractor" "$STAGE"/lib/*.so*; do
+  missing="$(for f in "$BIN" "$STAGE"/lib/*.so*; do
     LD_LIBRARY_PATH="$STAGE/lib" ldd "$f" 2>/dev/null | grep 'not found' || true
   done | sort -u)"
   if [[ -n "$missing" ]]; then
@@ -189,16 +199,18 @@ if command -v ldd >/dev/null 2>&1; then
   fi
 fi
 
-cat >"$STAGE/env.sh" <<'ENVEOF'
+bin_name="$(basename "$BIN")"
+cat >"$STAGE/env.sh" <<ENVEOF
 #!/bin/sh
 # Source after extract: . <install root>/env.sh
-_ROOT="$(cd "$(dirname "$0")" && pwd)"
-export METHYL_EXTRACTOR_BIN="$_ROOT/bin/MethylExtractor"
-export HDF5_PLUGIN_PATH="$_ROOT/lib/hdf5_zstd_plugin"
-export LD_LIBRARY_PATH="$_ROOT/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-export PATH="$_ROOT/bin:$PATH"
+_ROOT="\$(cd "\$(dirname "\$0")" && pwd)"
+export GOLIATH_EXTRACTOR_BIN="\$_ROOT/bin/${bin_name}"
+export METHYL_EXTRACTOR_BIN="\$_ROOT/bin/${bin_name}"
+export HDF5_PLUGIN_PATH="\$_ROOT/lib/hdf5_zstd_plugin"
+export LD_LIBRARY_PATH="\$_ROOT/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
+export PATH="\$_ROOT/bin:\$PATH"
 ENVEOF
-chmod 0755 "$STAGE/env.sh" "$STAGE/bin/MethylExtractor"
+chmod 0755 "$STAGE/env.sh" "$BIN"
 
 out="$WORK/out.tar.gz"
 ( cd "$STAGE" && tar -czf "$out" --owner=0 --group=0 ./* )

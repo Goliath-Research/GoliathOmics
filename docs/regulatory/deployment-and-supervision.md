@@ -50,7 +50,7 @@ Release layout:
     requirements-worker.lock
     wheels/
     runtime-bundle/
-    methyl-extractor-linux-<arch>.tar.gz
+    goliath-extractor-linux-<arch>.tar.gz
 ```
 
 `wheels/` holds, best-effort, a wheel for each pin in

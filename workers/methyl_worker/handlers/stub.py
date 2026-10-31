@@ -27,7 +27,7 @@ def _write_stub_extract_artifacts(sample_path: Path, sample_id: str) -> list[str
             json.dumps(
                 {
                     "metadata": {
-                        "schema_name": "methylextractor.extraction_manifest",
+                        "schema_name": "goliath_extractor.extraction_manifest",
                         "schema_version": "1.0.0",
                         "contexts_extracted": ["CG"],
                     },

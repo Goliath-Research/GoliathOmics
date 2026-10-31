@@ -7,6 +7,12 @@ import os
 import shutil
 from typing import FrozenSet, Optional, Sequence
 
+from methyl_utils.goliath_extractor import (
+    DEFAULT_EXTRACTOR_CLI,
+    LEGACY_EXTRACTOR_CLI,
+    resolve_extractor_bin_env,
+)
+
 logger = logging.getLogger(__name__)
 
 OMNIBUS_WILDCARD = "*"
@@ -154,9 +160,12 @@ def _parabricks_available() -> bool:
 
 
 def _extractor_available() -> bool:
-    if os.environ.get("METHYL_EXTRACTOR_BIN", "").strip():
+    if resolve_extractor_bin_env():
         return True
-    return shutil.which("MethylExtractor") is not None
+    return (
+        shutil.which(DEFAULT_EXTRACTOR_CLI) is not None
+        or shutil.which(LEGACY_EXTRACTOR_CLI) is not None
+    )
 
 
 def _cli_on_path(binary: str) -> bool:
@@ -299,8 +308,8 @@ def assert_node_can_serve_capability(capability: str) -> None:
         )
     if capability == "methyl-extract" and not _extractor_available():
         raise RuntimeError(
-            "Worker configured for methyl-extract but MethylExtractor is not on PATH. "
-            "Set METHYL_EXTRACTOR_BIN or install MethylExtractor."
+            "Worker configured for methyl-extract but GoliathExtractor is not on PATH. "
+            "Set GOLIATH_EXTRACTOR_BIN (or METHYL_EXTRACTOR_BIN) or install goliath-extractor."
         )
     if capability in HOST_SAMTOOLS_CAPABILITIES and not _cli_on_path("samtools"):
         raise RuntimeError(

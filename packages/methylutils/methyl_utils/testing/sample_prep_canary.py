@@ -22,6 +22,7 @@ from ..test_data_registry import (
     SamplePrepCanaryThresholds,
     load_sample_prep_canary,
 )
+from ..goliath_extractor import is_extraction_manifest_schema
 
 MODE_ALIGN_ACTION = {
     "linear": "sample.parabricks_fq2bam",
@@ -278,7 +279,7 @@ def validate_mode_artifacts(
             report.checks.append(
                 CheckResult(
                     "canonical_extraction_manifest",
-                    meta.get("schema_name") == "methylextractor.extraction_manifest",
+                    is_extraction_manifest_schema(meta.get("schema_name")),
                     f"schema_name={meta.get('schema_name')}",
                 )
             )

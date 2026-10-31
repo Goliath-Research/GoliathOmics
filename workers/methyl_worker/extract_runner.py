@@ -1,4 +1,4 @@
-"""MethylExtractor BAM → per-chromosome HDF5 via native CLI."""
+"""GoliathExtractor BAM → per-chromosome HDF5 via native CLI."""
 
 from __future__ import annotations
 
@@ -15,6 +15,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
+from methyl_utils.goliath_extractor import (
+    DEFAULT_EXTRACTOR_CLI,
+    EXTRACTION_MANIFEST_SCHEMA,
+    EXTRACTOR_METADATA_NAME,
+    is_extraction_manifest_schema,
+    resolve_extractor_bin_env,
+)
 from methyl_worker.work_share import (
     copy_to_work,
     append_work_text,
@@ -279,7 +286,7 @@ def resolve_methyl_extract_config(
         raise RuntimeError("extract_contexts must be set in profile/site actionConfig.methyl_extract")
     extract_contexts = _normalize_contexts(extract_contexts_raw)
 
-    extractor_bin = str(step_cfg.get("extractor_bin") or "MethylExtractor").strip()
+    extractor_bin = str(step_cfg.get("extractor_bin") or DEFAULT_EXTRACTOR_CLI).strip()
     read_level, tile_size = _resolve_read_level(step_cfg)
     mhap = _resolve_mhap(step_cfg)
 
@@ -416,7 +423,7 @@ def _is_complete_native_extraction_manifest(
     manifest: Mapping[str, Any],
     chromosomes: Sequence[str],
 ) -> bool:
-    """True when the file is a complete ``methylextractor.extraction_manifest``.
+    """True when the file is a complete GoliathExtractor extraction manifest.
 
     Completeness: schema name matches, every expected chromosome is present in
     ``per_chromosome``, and ``summary.cpg_weighted_mean_coverage`` is set.
@@ -425,7 +432,7 @@ def _is_complete_native_extraction_manifest(
     metadata = manifest.get("metadata")
     if not isinstance(metadata, dict):
         return False
-    if metadata.get("schema_name") != "methylextractor.extraction_manifest":
+    if not is_extraction_manifest_schema(metadata.get("schema_name")):
         return False
     summary = manifest.get("summary")
     if not isinstance(summary, dict):
@@ -459,7 +466,7 @@ def _overlay_worker_owned_manifest_fields(
     if not metadata.get("action"):
         metadata["action"] = "sample.methyl_extract"
     if not metadata.get("extractor"):
-        metadata["extractor"] = "MethylExtractor"
+        metadata["extractor"] = EXTRACTOR_METADATA_NAME
     if not metadata.get("sample_id"):
         metadata["sample_id"] = sample_id
     if "h5_files" not in manifest:
@@ -558,11 +565,11 @@ def build_canonical_extraction_manifest_from_stats(
 
     return {
         "metadata": {
-            "schema_name": "methylextractor.extraction_manifest",
+            "schema_name": EXTRACTION_MANIFEST_SCHEMA,
             "schema_version": "1.0.0",
             "sample_id": sample_id,
             "contexts_extracted": contexts_list,
-            "extractor": "MethylExtractor",
+            "extractor": EXTRACTOR_METADATA_NAME,
             "action": "sample.methyl_extract",
         },
         "summary": summary,
@@ -598,7 +605,7 @@ def ensure_extraction_manifest(
     """Preserve a complete native MethylExtractor manifest, or synthesize one.
 
     When ``{sampleId}.extraction_manifest.json`` is a complete
-    ``methylextractor.extraction_manifest`` (expected chromosomes in
+    ``goliath_extractor.extraction_manifest`` (expected chromosomes in
     ``per_chromosome``, ``summary.cpg_weighted_mean_coverage`` set), keep native
     ``read_filtering``, ``summary.cpg_fraction_sites_covered``, and metadata, and
     overlay worker-owned ``h5_files`` / ``pattern_files`` / action provenance if
@@ -723,16 +730,16 @@ def _extractor_bin(cfg: MethylExtractConfig) -> str:
     if Path(cfg.extractor_bin).is_file():
         return str(Path(cfg.extractor_bin).resolve())
     found = shutil.which(cfg.extractor_bin)
-    if found is None and cfg.extractor_bin == "MethylExtractor":
-        # Workers install the binary on local disk (METHYL_EXTRACTOR_HOME) and
-        # publish its path in worker.env; the shared volume cannot run it.
-        env_bin = os.environ.get("METHYL_EXTRACTOR_BIN", "").strip()
+    if found is None and cfg.extractor_bin in (DEFAULT_EXTRACTOR_CLI, "MethylExtractor"):
+        # Workers install the binary on local disk and publish its path in worker.env.
+        env_bin = resolve_extractor_bin_env()
         if env_bin and Path(env_bin).is_file():
             return str(Path(env_bin).resolve())
     if found is None:
         raise RuntimeError(
-            f"MethylExtractor binary not found: {cfg.extractor_bin!r}; "
-            "set METHYL_EXTRACTOR_BIN or run scripts/methyl_extractor_local.sh --tarball <release tarball>"
+            f"GoliathExtractor binary not found: {cfg.extractor_bin!r}; "
+            "set GOLIATH_EXTRACTOR_BIN (or METHYL_EXTRACTOR_BIN) or run "
+            "scripts/methyl_extractor_local.sh --tarball <release tarball>"
         )
     return found
 
@@ -1037,7 +1044,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         input_json["threads"] = args.threads
     if args.min_mapq is not None:
         input_json["minMapq"] = args.min_mapq
-    extractor_bin = args.extractor_bin or os.environ.get("METHYL_EXTRACTOR_BIN")
+    extractor_bin = args.extractor_bin or resolve_extractor_bin_env() or None
     if extractor_bin:
         input_json["extractorBin"] = extractor_bin
 

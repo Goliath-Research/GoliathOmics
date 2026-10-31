@@ -14,7 +14,7 @@ These are the Rollouts service ids. Each deploy script opens one deployment for 
 | `goliath-reclaim-leases` | `scripts/install_reclaim_leases_timer.sh` |
 | `workflow-definitions` | `scripts/deploy_workflow_definitions.sh` and `scripts/deploy_mc_workflow_definitions.sh` |
 | `process-pack-catalog` | `scripts/deploy_process_pack_catalog.sh` |
-| `methyl-extractor` | `scripts/install_methyl_extractor_tarball.sh` |
+| `goliath-extractor` | `scripts/install_methyl_extractor_tarball.sh` |
 | `goliath-db-schema` | `scripts/deploy_target.sh` around the GoliathApp schema apply (`scripts/apply_goliathapp_schema.sh`) and `workflow_engine/sql_pg/deploy_test_bed.sh` |
 
 The actor recorded on each event is `user@hostname`. The environment defaults to `$GOLIATH_ENV` or `production-work`. The version defaults to a SHA field on the release manifest (`sha`, `commit`, `git_sha`, `source_sha`, or `revision`) or `git rev-parse HEAD`.
