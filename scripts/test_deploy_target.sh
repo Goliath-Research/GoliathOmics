@@ -707,6 +707,7 @@ cat >"$worker_local/venv-amd64/bin/methyl-worker" <<'EOF'
 dump="${METHYL_WORKER_ENV_DUMP:-}"
 if [[ -n "$dump" && ! -f "$dump" ]]; then
   {
+    printf 'GOLIATH_EXTRACTOR_BIN=%s\n' "${GOLIATH_EXTRACTOR_BIN-}"
     printf 'METHYL_EXTRACTOR_BIN=%s\n' "${METHYL_EXTRACTOR_BIN-}"
     printf 'METHYL_PARABRICKS_IMAGE=%s\n' "${METHYL_PARABRICKS_IMAGE-}"
     printf 'METHYL_SAMPLE_CAAS_ENABLED=%s\n' "${METHYL_SAMPLE_CAAS_ENABLED-}"
