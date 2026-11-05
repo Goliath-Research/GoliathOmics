@@ -32,6 +32,7 @@ SCRIPTS=(
   portal_semantic_row_types.sql
   omics_meta_clinical_classes.sql
   omics_meta_semantic_writes.sql
+  omics_meta_backfill_api.sql
 )
 
 exec bash "$REPO_ROOT/scripts/apply_domain_schema.sh"

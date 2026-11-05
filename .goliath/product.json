@@ -47,6 +47,10 @@
       "description": "Domain DDL lives under database/schema/ with scripts/apply_domain_schema.sh. The goliath-omics package registers ActionSpec entry points and semantic export stubs; NavTree and clinical semantic MVP follow in R3."
     },
     {
+      "title": "Meta-backed clinical cutover (R4)",
+      "description": "OmicsCustomer, OmicsDisease, OmicsPatient, OmicsSample, and OmicsLabBatch Meta classes sync to the semantic registry; legacy portal tables keep MetaObjectID mirrors with dual-write flags and per-entity backfill scripts."
+    },
+    {
       "title": "Release profiles and worker enrollment",
       "description": "A version tag builds the MethylPipeline archive, assemble publishes the GoliathOmics bundle, and deploy applies a target profile or promotes on the runner. Optional goliath_gateway and goliath_portal database role passwords are set after schema apply."
     }
