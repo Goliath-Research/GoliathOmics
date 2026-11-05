@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-setuptools python3-wheel python3-venv
+        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-setuptools python3-wheel python3-venv python3-pip
 
       # GoliathApp c7ae4d8 (P3 worker sessions) is what the next release bundles.
       # test_apply_goliathapp_schema.sh applies its sql_pg scripts twice to
@@ -131,7 +131,15 @@ jobs:
         run: |
           set -o pipefail
           bash scripts/test_report_deploy.sh
-          bash scripts/test_deploy_target.sh 2>&1 | tee /tmp/test_deploy_target.log
+          set +e
+          bash scripts/test_deploy_target.sh > /tmp/test_deploy_target.log 2>&1
+          tdt_rc=$?
+          set -e
+          if [[ "$tdt_rc" -ne 0 ]]; then
+            echo "test_deploy_target.sh failed (exit $tdt_rc); last 120 lines:"
+            tail -120 /tmp/test_deploy_target.log
+            exit "$tdt_rc"
+          fi
           bash scripts/test_apply_goliathapp_schema.sh
           bash scripts/test_gateway_wheel_release.sh
           bash scripts/test_worker_venv_local.sh
