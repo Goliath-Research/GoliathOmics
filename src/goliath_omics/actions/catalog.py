@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, List, cast
 
 if TYPE_CHECKING:
-    from goliath_app import ActionSpec
+    from goliath_app.actions.spec import ActionSpec
 
 _ACTION_CATALOG: List[ActionSpec] | None = None
 
