@@ -6,8 +6,6 @@ import importlib
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
-from domain.pipeline_profiles import _deep_merge, load_profile_file
-
 
 # Deprecated profile names → canonical file (preset flags also aliased in PROFILE_PRESETS).
 _PROFILE_ALIASES: Dict[str, str] = {
@@ -368,7 +366,7 @@ def load_mode_overlay(mode_id: str) -> Dict[str, Any]:
         path = profiles_dir / "modes" / f"{mode_id}.mode.json"
         candidates.append(path)
         if path.is_file():
-            return load_profile_file(path)
+            return _pipeline_profiles_module().load_profile_file(path)
     known: list[str] = []
     for profiles_dir in _mode_search_dirs():
         modes_dir = profiles_dir / "modes"
@@ -386,7 +384,7 @@ def load_procedure(name_or_path: str | Path) -> Dict[str, Any]:
     resolve_procedure_path = _profile_paths_module().resolve_procedure_path
 
     path = resolve_procedure_path(name_or_path)
-    data = load_profile_file(path)
+    data = _pipeline_profiles_module().load_profile_file(path)
     proc_id = str(data.get("pipelineProcedure") or path.name.replace(".procedure.json", ""))
     data["pipelineProcedure"] = proc_id
     return data
@@ -425,7 +423,7 @@ def apply_pipeline_procedure(
     proc_ac = procedure.get("actionConfig") or procedure.get("step_config_overrides") or {}
     if isinstance(proc_ac, dict) and proc_ac:
         existing = dict(out.get("actionConfig") or {})
-        out["actionConfig"] = _deep_merge(dict(proc_ac), existing)
+        out["actionConfig"] = _pipeline_profiles_module()._deep_merge(dict(proc_ac), existing)
 
     # Mirror libraryProtocol into actionConfig when procedure pins it and instance
     # did not already set sample_prep.library_protocol.
@@ -494,8 +492,9 @@ def load_samd_research_with_mode(
     """
     resolve_profile_path = _profile_paths_module().resolve_profile_path
 
-    base = load_profile_file(resolve_profile_path("samd_research"))
-    merged = _deep_merge(base, load_mode_overlay(mode_id))
+    pp = _pipeline_profiles_module()
+    base = pp.load_profile_file(resolve_profile_path("samd_research"))
+    merged = pp._deep_merge(base, load_mode_overlay(mode_id))
     merged["pipelineProfile"] = pipeline_profile
     merged["researchMode"] = mode_id
     if pipeline_profile in _SAMD_RESEARCH_MODES:
@@ -536,7 +535,7 @@ def load_profile(name_or_path: str | Path) -> Dict[str, Any]:
 
     p = Path(name_or_path)
     if p.is_file():
-        data = load_profile_file(p)
+        data = _pipeline_profiles_module().load_profile_file(p)
         key = str(data.get("pipelineProfile") or "")
         if key in _PROFILE_ALIASES:
             key = _PROFILE_ALIASES[key]
@@ -561,7 +560,7 @@ def load_profile(name_or_path: str | Path) -> Dict[str, Any]:
         # Allow pipelineProfile / name = mode id → samd_research + overlay.
         return load_samd_research_with_mode(key, pipeline_profile="samd_research")
     try:
-        data = load_profile_file(resolve_profile_path(key))
+        data = _pipeline_profiles_module().load_profile_file(resolve_profile_path(key))
     except FileNotFoundError:
         if key in PROFILE_PRESETS:
             return {"pipelineProfile": key, **PROFILE_PRESETS[key]}
@@ -578,6 +577,10 @@ def profile_action_config(profile: Mapping[str, Any]) -> Dict[str, Any]:
 
 def _profile_paths_module():
     return importlib.import_module("meth" + "yl_utils.profile_paths")
+
+
+def _pipeline_profiles_module():
+    return importlib.import_module("domain.pipeline_profiles")
 
 
 def _action_config_resolver():
