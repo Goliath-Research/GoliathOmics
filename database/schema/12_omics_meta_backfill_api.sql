@@ -126,38 +126,38 @@ BEGIN
     WHEN 'disease' THEN
       FOR v_obj_id IN SELECT d."MetaObjectID" FROM portal."Diseases" d WHERE d."MetaObjectID" IS NOT NULL
       LOOP
+        UPDATE portal."Diseases" SET "MetaObjectID" = NULL WHERE "MetaObjectID" = v_obj_id;
         DELETE FROM "Meta"."Objs" o WHERE o."ID" = v_obj_id;
         v_cleared := v_cleared + 1;
       END LOOP;
-      UPDATE portal."Diseases" SET "MetaObjectID" = NULL WHERE "MetaObjectID" IS NOT NULL;
     WHEN 'customer' THEN
       FOR v_obj_id IN SELECT c."MetaObjectID" FROM portal."Customers" c WHERE c."MetaObjectID" IS NOT NULL
       LOOP
+        UPDATE portal."Customers" SET "MetaObjectID" = NULL WHERE "MetaObjectID" = v_obj_id;
         DELETE FROM "Meta"."Objs" o WHERE o."ID" = v_obj_id;
         v_cleared := v_cleared + 1;
       END LOOP;
-      UPDATE portal."Customers" SET "MetaObjectID" = NULL WHERE "MetaObjectID" IS NOT NULL;
     WHEN 'patient' THEN
       FOR v_obj_id IN SELECT p."MetaObjectID" FROM portal."Patients" p WHERE p."MetaObjectID" IS NOT NULL
       LOOP
+        UPDATE portal."Patients" SET "MetaObjectID" = NULL WHERE "MetaObjectID" = v_obj_id;
         DELETE FROM "Meta"."Objs" o WHERE o."ID" = v_obj_id;
         v_cleared := v_cleared + 1;
       END LOOP;
-      UPDATE portal."Patients" SET "MetaObjectID" = NULL WHERE "MetaObjectID" IS NOT NULL;
     WHEN 'sample' THEN
       FOR v_obj_id IN SELECT s."MetaObjectID" FROM portal."Samples" s WHERE s."MetaObjectID" IS NOT NULL
       LOOP
+        UPDATE portal."Samples" SET "MetaObjectID" = NULL WHERE "MetaObjectID" = v_obj_id;
         DELETE FROM "Meta"."Objs" o WHERE o."ID" = v_obj_id;
         v_cleared := v_cleared + 1;
       END LOOP;
-      UPDATE portal."Samples" SET "MetaObjectID" = NULL WHERE "MetaObjectID" IS NOT NULL;
     WHEN 'lab_batch' THEN
       FOR v_obj_id IN SELECT b."MetaObjectID" FROM portal."Batches" b WHERE b."MetaObjectID" IS NOT NULL
       LOOP
+        UPDATE portal."Batches" SET "MetaObjectID" = NULL WHERE "MetaObjectID" = v_obj_id;
         DELETE FROM "Meta"."Objs" o WHERE o."ID" = v_obj_id;
         v_cleared := v_cleared + 1;
       END LOOP;
-      UPDATE portal."Batches" SET "MetaObjectID" = NULL WHERE "MetaObjectID" IS NOT NULL;
     ELSE
       RAISE EXCEPTION 'unknown entity_code %', p_entity_code;
   END CASE;

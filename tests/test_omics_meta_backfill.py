@@ -70,6 +70,7 @@ def _psql(sql: str, env: dict[str, str]) -> str:
 
 def test_backfill_and_rollback_disease(pg_backfill_env: dict[str, str]) -> None:
     env = pg_backfill_env
+    pending_before = int(_psql("SELECT omics_clinical.fn_meta_backfill_count('disease')", env))
     suffix = uuid.uuid4().hex[:8]
     disease_id = _psql(
         f"""
@@ -80,7 +81,7 @@ def test_backfill_and_rollback_disease(pg_backfill_env: dict[str, str]) -> None:
         env,
     )
     before_sum = _psql("SELECT omics_clinical.fn_meta_legacy_checksum('disease')", env)
-    assert _psql("SELECT omics_clinical.fn_meta_backfill_count('disease')", env) == "1"
+    assert int(_psql("SELECT omics_clinical.fn_meta_backfill_count('disease')", env)) == pending_before + 1
     mirrored = _psql("SELECT omics_clinical.sp_meta_backfill_entity('disease')", env)
     assert int(mirrored) >= 1
     assert _psql("SELECT omics_clinical.fn_meta_backfill_count('disease')", env) == "0"
