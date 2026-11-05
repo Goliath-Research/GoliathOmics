@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -45,6 +46,12 @@ def pg_meta_classes_env():
         pytest.skip("PostgreSQL not reachable")
     subprocess.run(["bash", str(app_apply)], env=env, check=True, cwd=str(app_sql))
     subprocess.run(["bash", str(omics_apply)], env=env, check=True, cwd=str(omics_apply.parent))
+    subprocess.run(
+        [sys.executable, "-m", "goliath_omics.seed.meta_classes"],
+        env=env,
+        check=True,
+        cwd=str(REPO_ROOT),
+    )
     return env
 
 
@@ -63,6 +70,14 @@ def _psql(sql: str, env: dict[str, str]) -> str:
 
 def test_meta_class_registry_seeded(pg_meta_classes_env: dict[str, str]) -> None:
     env = pg_meta_classes_env
+    count = _psql("SELECT count(*) FROM omics_clinical.meta_class_registry", env)
+    assert int(count) == 5
+    subprocess.run(
+        [sys.executable, "-m", "goliath_omics.seed.meta_classes"],
+        env=env,
+        check=True,
+        cwd=str(REPO_ROOT),
+    )
     count = _psql("SELECT count(*) FROM omics_clinical.meta_class_registry", env)
     assert int(count) == 5
 
