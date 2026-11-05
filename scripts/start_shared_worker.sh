@@ -1100,7 +1100,7 @@ write_worker_env() {
   fi
   append_kv "$tmp" WORKER_API_BASE "${WORKER_API_BASE:-}"
   append_kv "$tmp" GOLIATH_ENV "$GOLIATH_ENV"
-  if [[ "${GOLIATH_DUAL_ACTIVATION:-}" == "1" && "${GOLIATH_WORKER_NEEDS_DATABASE:-}" == "1" && -n "${POSTGRES_HOST:-}" ]]; then
+  if [[ "${GOLIATH_DUAL_ACTIVATION:-}" == "1" && "${GOLIATH_WORKER_NEEDS_DATABASE:-}" == "1" && -n "${POSTGRES_HOST:-}" && -n "${NEON_TEST_PASSWORD:-${POSTGRES_PASSWORD:-}}" ]]; then
     append_kv "$tmp" WORKER_WAKE_POSTGRES 1
   fi
   append_kv "$tmp" GOLIATH_GATEWAY_CA_FILE "${GOLIATH_GATEWAY_CA_FILE:-}"

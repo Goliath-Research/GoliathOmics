@@ -16,11 +16,15 @@ export GOLIATH_ROOT="$ROOT"
 # Tier-1 dual activation for the goliath-test RunPod pool (override with 0 to disable).
 export GOLIATH_DUAL_ACTIVATION="${GOLIATH_DUAL_ACTIVATION:-1}"
 if [[ "${GOLIATH_DUAL_ACTIVATION}" == "1" ]]; then
-  export GOLIATH_WORKER_NEEDS_DATABASE="${GOLIATH_WORKER_NEEDS_DATABASE:-1}"
+  if [[ -n "${GOLIATH_WORKER_NEEDS_DATABASE:-}" ]]; then
+    export GOLIATH_WORKER_NEEDS_DATABASE
+  elif [[ -n "${NEON_TEST_PASSWORD:-${POSTGRES_PASSWORD:-}}" ]]; then
+    export GOLIATH_WORKER_NEEDS_DATABASE=1
+  fi
   # deploy_target.sh merges Postgres into SSH worker.env; self-provision pods only
   # get what the template (or this adapter) exports. Use the direct Neon host for
   # LISTEN/NOTIFY when the profile matches goliath-test and the template omits it.
-  if [[ -z "${POSTGRES_HOST:-}" && "${GOLIATH_ENV:-}" == "goliath-test" ]]; then
+  if [[ -z "${POSTGRES_HOST:-}" && "${GOLIATH_ENV:-goliath-test}" == "goliath-test" ]]; then
     export POSTGRES_HOST="ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech"
     export POSTGRES_DB="${POSTGRES_DB:-GoliathOmics}"
     export POSTGRES_USER="${POSTGRES_USER:-neondb_owner}"

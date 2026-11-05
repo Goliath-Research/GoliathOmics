@@ -984,7 +984,6 @@ worker_env_file() {
     if [[ -n "$db_channel" ]]; then
       pairs+=(POSTGRES_CHANNEL_BINDING "$db_channel")
     fi
-    pairs+=(POSTGRES_PASSWORD "$DB_PASSWORD")
   fi
   write_kv_file "$dest_file" "${pairs[@]}"
 }
