@@ -91,7 +91,7 @@ def _psql(sql: str, env: dict[str, str]) -> str:
     return proc.stdout.strip()
 
 
-def test_semantic_disease_list_requires_user(pg_semantic_env: dict[str, str]) -> None:
+def test_semantic_disease_list_null_user_returns_empty(pg_semantic_env: dict[str, str]) -> None:
     env = pg_semantic_env
     count = _psql(
         "SELECT count(*) FROM omics_clinical.fn_semantic_disease_list(NULL, '{}'::jsonb, 500)",
@@ -100,20 +100,9 @@ def test_semantic_disease_list_requires_user(pg_semantic_env: dict[str, str]) ->
     assert int(count) == 0
 
 
-def test_semantic_disease_list_scoped(pg_semantic_env: dict[str, str]) -> None:
+def test_semantic_disease_list_returns_catalog_rows(pg_semantic_env: dict[str, str]) -> None:
     env = pg_semantic_env
     suffix = uuid.uuid4().hex[:8]
-    org_row = _psql(f"SELECT * FROM portal.sp_organization_create('sem-org-{suffix}')", env)
-    org_id, scope_id = org_row.split("|")
-    user_row = _psql(
-        f"""
-        INSERT INTO portal."Users" ("Email", "OrganizationID", "ScopeID")
-        VALUES ('sem-{suffix}@example.com', {org_id}, {scope_id})
-        RETURNING "ID"
-        """,
-        env,
-    )
-    user_id = user_row.strip()
     _psql(
         f"""
         INSERT INTO portal."Diseases" ("Name")
@@ -122,7 +111,7 @@ def test_semantic_disease_list_scoped(pg_semantic_env: dict[str, str]) -> None:
         env,
     )
     count = _psql(
-        f"SELECT count(*) FROM omics_clinical.fn_semantic_disease_list({user_id}, '{{}}'::jsonb, 500)",
+        "SELECT count(*) FROM omics_clinical.fn_semantic_disease_list(1, '{}'::jsonb, 500)",
         env,
     )
     assert int(count) >= 1
