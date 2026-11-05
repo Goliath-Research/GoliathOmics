@@ -65,7 +65,7 @@ GoliathApp's `workflow_engine/sql_pg/apply_schema.sh`, `scripts/apply_domain_sch
 
 ## Gateway configuration
 
-`scripts/deploy_target.sh --component gateway` writes `<install_root>/env/gateway.env` and runs `scripts/install_gateway_systemd.sh` and `scripts/setup_gateway_nginx.sh`. The unit file is [`deploy/systemd/methyl-gateway.service`](../../deploy/systemd/methyl-gateway.service). The nginx site is [`deploy/nginx/methyl-gateway.conf`](../../deploy/nginx/methyl-gateway.conf).
+`scripts/deploy_target.sh --component gateway` writes `<install_root>/env/gateway.env` and runs `scripts/install_gateway_systemd.sh` and `scripts/setup_gateway_nginx.sh`. The unit file is [`deploy/systemd/goliath-gateway.service`](../../deploy/systemd/goliath-gateway.service) (`methyl-gateway.service` is a one-release symlink). The nginx site is [`deploy/nginx/goliath-gateway.conf`](../../deploy/nginx/goliath-gateway.conf).
 
 Env template: [`deploy/env/gateway.postgres.env.example`](../../deploy/env/gateway.postgres.env.example).
 
@@ -80,7 +80,7 @@ Worker auth is enroll (identity token in `WORKER_TOKEN`), `POST /v1/workers/sess
 
 ## Worker configuration
 
-Each worker runs `methyl-worker` (unit [`deploy/systemd/methyl-worker.service`](../../deploy/systemd/methyl-worker.service), or the templated `methyl-worker@.service` when that file is present).
+Each worker runs `goliath-worker` (unit [`deploy/systemd/goliath-worker.service`](../../deploy/systemd/goliath-worker.service), or the templated `goliath-worker@.service` when that file is present; legacy `methyl-worker*` names are symlinked one release).
 
 | Variable | Purpose |
 |----------|---------|

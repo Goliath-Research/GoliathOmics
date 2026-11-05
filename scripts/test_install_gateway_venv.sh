@@ -297,7 +297,7 @@ set +e
 bash "$SCRIPT" --root "$work/only-worker-root" --arch amd64 --release "$only_worker" >"$out" 2>"$err"
 status=$?
 set -e
-[[ "$status" -ne 0 ]] || fail "a release without the methyl-gateway console script must fail"
+[[ "$status" -ne 0 ]] || fail "a release without the goliath-gateway console script must fail"
 grep -q 'console script' "$err" || fail "missing wheel error should mention the console script"
 
 rm -f "$out" "$err"

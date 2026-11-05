@@ -60,7 +60,7 @@ EOF
 
 cert_hash() {
   local dest="$1"
-  sha256sum "$dest/etc/ssl/methyl-gateway/fullchain.pem" "$dest/etc/ssl/methyl-gateway/privkey.pem"
+  sha256sum "$dest/etc/ssl/goliath-gateway/fullchain.pem" "$dest/etc/ssl/goliath-gateway/privkey.pem"
 }
 
 run_setup() {
@@ -76,20 +76,20 @@ make_fakes "$FAKE_BIN" "$LOG" inactive
 DEST="$(mktemp -d)"
 run_setup "$DEST" --public-url "https://45.76.21.8/v1" >"$DEST/first.out"
 cert_hash "$DEST" >"$DEST/hash1"
-openssl verify -CAfile "$DEST/etc/ssl/methyl-gateway/fullchain.pem" \
-  "$DEST/etc/ssl/methyl-gateway/fullchain.pem" >/dev/null
-openssl x509 -in "$DEST/etc/ssl/methyl-gateway/fullchain.pem" -noout -ext subjectAltName \
+openssl verify -CAfile "$DEST/etc/ssl/goliath-gateway/fullchain.pem" \
+  "$DEST/etc/ssl/goliath-gateway/fullchain.pem" >/dev/null
+openssl x509 -in "$DEST/etc/ssl/goliath-gateway/fullchain.pem" -noout -ext subjectAltName \
   | grep -q '45.76.21.8' || fail "certificate SAN should include the public IP"
-[[ "$(stat -c %a "$DEST/etc/ssl/methyl-gateway/privkey.pem")" == "600" ]] \
+[[ "$(stat -c %a "$DEST/etc/ssl/goliath-gateway/privkey.pem")" == "600" ]] \
   || fail "private key must be mode 600"
-[[ "$(stat -c %a "$DEST/etc/ssl/methyl-gateway/ca.pem")" == "644" ]] \
+[[ "$(stat -c %a "$DEST/etc/ssl/goliath-gateway/ca.pem")" == "644" ]] \
   || fail "ca.pem must be mode 644"
-cmp -s "$DEST/etc/ssl/methyl-gateway/fullchain.pem" "$DEST/etc/ssl/methyl-gateway/ca.pem" \
+cmp -s "$DEST/etc/ssl/goliath-gateway/fullchain.pem" "$DEST/etc/ssl/goliath-gateway/ca.pem" \
   || fail "ca.pem should be a copy of the self-signed certificate"
-site="$DEST/etc/nginx/sites-available/methyl-gateway.conf"
+site="$DEST/etc/nginx/sites-available/goliath-gateway.conf"
 grep -q 'server_name 45.76.21.8;' "$site" || fail "site server_name should be the public IP"
 grep -q 'server 127.0.0.1:8080;' "$site" || fail "site should proxy to 127.0.0.1:8080"
-grep -q 'proxy_pass http://methyl_gateway;' "$site" || fail "site should proxy /v1/"
+grep -q 'proxy_pass http://goliath_gateway;' "$site" || fail "site should proxy /v1/"
 grep -q 'listen 443 default_server ssl http2;' "$site" || fail "site should listen on 443"
 grep -q 'systemctl enable nginx' "$LOG" || fail "nginx should be enabled"
 grep -q 'systemctl reload nginx' "$LOG" || fail "nginx should be reloaded"
@@ -165,7 +165,7 @@ env PATH="$FAKE_BIN:$PATH" CURL_CODE=200 \
   bash "$SCRIPT" --dest-root "$LE_DEST" --probe-attempts 1 \
   --public-host "$LE_DOMAIN" --tls letsencrypt --domain "$LE_DOMAIN" --email "ops@example.com" \
   >"$LE_DEST/out"
-[[ -L "$LE_DEST/etc/ssl/methyl-gateway/fullchain.pem" ]] || fail "letsencrypt should symlink the live certificate"
+[[ -L "$LE_DEST/etc/ssl/goliath-gateway/fullchain.pem" ]] || fail "letsencrypt should symlink the live certificate"
 grep -q 'reusing Let' "$LE_DEST/out" || fail "existing letsencrypt files should be reused"
 if grep -q 'certbot' "$LOG"; then
   fail "certbot should not run when the live certificate already exists"

@@ -61,7 +61,7 @@ rm -f "$src/wheels/methyl_gateway-"*.whl
 if python3 "$ROOT/scripts/gateway_release_subset.py" "$src" "$work/out2" 2>"$work/err"; then
   fail "subset without methyl-gateway must fail"
 fi
-grep -q 'methyl-gateway console script' "$work/err" || fail "error should name the console script"
+grep -q 'goliath-gateway console script' "$work/err" || fail "error should name the console script"
 
 # deploy_target.sh wiring.
 d="$ROOT/scripts/deploy_target.sh"

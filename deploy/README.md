@@ -39,7 +39,7 @@ Releases are `/work/goliath/releases/<version>`. `/work/goliath/current` is a po
 
 ### What stays on `/work` per node
 
-`/work/goliath/nodes/<id>/` keeps only small state the next boot reads back: `status/joined` (skip re-provisioning), `env/worker.env` (non-secret EnvironmentFile for the worker), and `tmp/` (release download staging before it is published under `releases/`). Logs and the supervisor pid file are local (`GOLIATH_LOG_DIR`). Read a worker's log on that machine (`/var/log/goliath/methyl-worker.log`) or through `journalctl -u methyl-worker` under systemd.
+`/work/goliath/nodes/<id>/` keeps only small state the next boot reads back: `status/joined` (skip re-provisioning), `env/worker.env` (non-secret EnvironmentFile for the worker), and `tmp/` (release download staging before it is published under `releases/`). Logs and the supervisor pid file are local (`GOLIATH_LOG_DIR`). Read a worker's log on that machine (`/var/log/goliath/methyl-worker.log`) or through `journalctl -u goliath-worker` under systemd (legacy unit name `methyl-worker` still works one release).
 
 ### Rollouts reporting
 

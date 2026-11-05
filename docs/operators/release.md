@@ -74,7 +74,7 @@ Secrets in the profile are `secret:NAME` references. The workflow maps these Git
 
 Schema apply runs `scripts/apply_goliathapp_schema.sh` against the release's `goliathapp-sql/` once per release, recorded in `wf.schema_release`, then `scripts/apply_omics_schema.sh` for Omics domain SQL. When the profile sets gateway or portal role passwords, `scripts/apply_gateway_db_roles.sh` runs next. Catalog sync seeds the merged ActionSpec catalog with `workflow_engine/sql_pg/seed_action_catalog.py --use-db` before DomainProgram deploy. Legacy databases upgrading to organization tenancy run `workflow_engine/sql_pg/migrations/20261023_semantic_p1b_organization_cutover.sql` once before the first P1b apply. See [Semantic layer integration](../architecture/semantic-layer.md). `--force-schema` / `forceSchema` applies GoliathApp SQL again. Pods do not run SQL.
 
-Gateway install copies a subset wheel to the host and runs `install_gateway_systemd.sh` and `setup_gateway_nginx.sh`. The unit name is `methyl-gateway.service`. nginx proxies public `/v1/` to `127.0.0.1:8080`.
+Gateway install copies a subset wheel to the host and runs `install_gateway_systemd.sh` and `setup_gateway_nginx.sh`. The unit name is `goliath-gateway.service` (legacy `methyl-gateway.service` symlink). nginx proxies public `/v1/` to `127.0.0.1:8080`.
 
 The **goliath-test** profile sets `"dual_activation": true`, which writes `WF_WAKE_POSTGRES=1` on the gateway and `WORKER_WAKE_POSTGRES=1` on SSH workers (RunPod pools inherit `GOLIATH_DUAL_ACTIVATION=1` from `deploy/runpod/goliath-worker-start.sh`). Poll remains the safety net. See [Dual activation spike](../dual-activation-omics-spike.md).
 

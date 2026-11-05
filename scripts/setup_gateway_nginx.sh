@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install nginx, a TLS certificate, and the methyl-gateway site.
+# Install nginx, a TLS certificate, and the goliath-gateway site.
 # Safe to re-run. Does not enable ufw and does not change SSH rules.
 # When ufw is already active, opens 80/tcp and 443/tcp only.
 #
@@ -12,10 +12,10 @@ usage() {
   cat <<'EOF'
 Usage: scripts/setup_gateway_nginx.sh [options]
 
-Install nginx if it is missing, install deploy/nginx/methyl-gateway.conf as
+Install nginx if it is missing, install deploy/nginx/goliath-gateway.conf as
 the TLS proxy to the loopback gateway, and reload nginx. A self-signed
-certificate is created once under /etc/ssl/methyl-gateway when that directory
-has no key yet. Later runs keep the same key.
+certificate is created once under /etc/ssl/goliath-gateway when that directory
+has no key yet (reuses /etc/ssl/methyl-gateway when present). Later runs keep the same key.
 
 Options:
   --public-host HOST    Name clients use (IP or DNS). Required unless --public-url is set.
@@ -27,7 +27,7 @@ Options:
   --email ADDR          ACME account email. Required when --tls letsencrypt.
   --bind HOST           Upstream host (default: 127.0.0.1)
   --port PORT           Upstream port (default: 8080)
-  --site-src PATH       Site template (default: deploy/nginx/methyl-gateway.conf)
+  --site-src PATH       Site template (default: deploy/nginx/goliath-gateway.conf)
   --dest-root PATH      Prefix for /etc and /var. Used by tests. Omit on a host.
   --probe-attempts N    How many times to curl the local proxy (default: 12)
   --skip-probe          Do not curl https://127.0.0.1/v1/
@@ -50,7 +50,7 @@ DOMAIN=""
 EMAIL=""
 BIND="127.0.0.1"
 PORT="8080"
-SITE_SRC="$SCRIPT_DIR/../deploy/nginx/methyl-gateway.conf"
+SITE_SRC="$SCRIPT_DIR/../deploy/nginx/goliath-gateway.conf"
 DEST_ROOT=""
 PROBE_ATTEMPTS=12
 SKIP_PROBE=0
@@ -134,9 +134,24 @@ prefixed() {
 }
 
 NGINX_ETC="$(prefixed /etc/nginx)"
-SSL_DIR="$(prefixed /etc/ssl/methyl-gateway)"
+SSL_DIR="$(prefixed /etc/ssl/goliath-gateway)"
+LEGACY_SSL_DIR="$(prefixed /etc/ssl/methyl-gateway)"
 WEBROOT="$(prefixed /var/www/html)"
 LE_ROOT="$(prefixed /etc/letsencrypt)"
+
+resolve_ssl_dir() {
+  if [[ -s "$SSL_DIR/fullchain.pem" && -s "$SSL_DIR/privkey.pem" ]]; then
+    return 0
+  fi
+  if [[ -s "$LEGACY_SSL_DIR/fullchain.pem" && -s "$LEGACY_SSL_DIR/privkey.pem" ]]; then
+    info "reusing TLS material from deprecated ${LEGACY_SSL_DIR}"
+    SSL_DIR="$LEGACY_SSL_DIR"
+    return 0
+  fi
+  SSL_DIR="$(prefixed /etc/ssl/goliath-gateway)"
+}
+
+resolve_ssl_dir
 
 apt_install() {
   local pkg="$1"
@@ -296,8 +311,9 @@ install_letsencrypt() {
 render_site() {
   local dest="$1"
   sed \
-    -e "s/GATEWAY_HOSTNAME/${PUBLIC_HOST}/g" \
-    -e "s/127\\.0\\.0\\.1:8080/${BIND}:${PORT}/g" \
+    -e "s|GATEWAY_HOSTNAME|${PUBLIC_HOST}|g" \
+    -e "s|127\\.0\\.0\\.1:8080|${BIND}:${PORT}|g" \
+    -e "s|/etc/ssl/goliath-gateway/|${SSL_DIR}/|g" \
     "$SITE_SRC" >"$dest"
 }
 
@@ -305,15 +321,17 @@ install_site() {
   local avail link
   if [[ -d "$NGINX_ETC/sites-available" || -d "$NGINX_ETC/sites-enabled" || -n "$DEST_ROOT" ]]; then
     mkdir -p "$NGINX_ETC/sites-available" "$NGINX_ETC/sites-enabled"
-    avail="$NGINX_ETC/sites-available/methyl-gateway.conf"
+    avail="$NGINX_ETC/sites-available/goliath-gateway.conf"
     render_site "$avail"
-    link="$NGINX_ETC/sites-enabled/methyl-gateway.conf"
+    link="$NGINX_ETC/sites-enabled/goliath-gateway.conf"
     ln -sfn "$avail" "$link"
+    ln -sfn "$avail" "$NGINX_ETC/sites-enabled/methyl-gateway.conf"
     rm -f "$NGINX_ETC/sites-enabled/default"
   else
     mkdir -p "$NGINX_ETC/conf.d"
-    avail="$NGINX_ETC/conf.d/methyl-gateway.conf"
+    avail="$NGINX_ETC/conf.d/goliath-gateway.conf"
     render_site "$avail"
+    ln -sfn "$avail" "$NGINX_ETC/conf.d/methyl-gateway.conf"
   fi
   printf '%s' "$avail"
 }
@@ -388,7 +406,7 @@ probe_proxy() {
     fi
   done
   if ! proxy_ok "$code"; then
-    die "nginx did not respond at https://127.0.0.1/v1/ (last HTTP ${code:-000}). curl -k through the local nginx listener failed. methyl-gateway should be listening on ${BIND}:${PORT}. HTTP 000 means nothing accepted TLS on 127.0.0.1:443. HTTP 502/504 means nginx is up and the gateway process did not answer. This loopback check does not traverse the Vultr cloud firewall; that group must still allow inbound TCP 443 for workers."
+    die "nginx did not respond at https://127.0.0.1/v1/ (last HTTP ${code:-000}). curl -k through the local nginx listener failed. goliath-gateway should be listening on ${BIND}:${PORT}. HTTP 000 means nothing accepted TLS on 127.0.0.1:443. HTTP 502/504 means nginx is up and the gateway process did not answer. This loopback check does not traverse the Vultr cloud firewall; that group must still allow inbound TCP 443 for workers."
   fi
   if [[ "$TLS_MODE" == "letsencrypt" ]]; then
     code="$(curl_code --resolve "${PUBLIC_HOST}:443:127.0.0.1" "https://${PUBLIC_HOST}/v1/")"
@@ -426,4 +444,4 @@ nginx_test "$site"
 reload_nginx
 probe_proxy
 publish_cert_hint
-info "methyl-gateway nginx site installed (${TLS_MODE}, ${PUBLIC_HOST} -> ${BIND}:${PORT})"
+info "goliath-gateway nginx site installed (${TLS_MODE}, ${PUBLIC_HOST} -> ${BIND}:${PORT})"

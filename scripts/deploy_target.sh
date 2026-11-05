@@ -753,9 +753,9 @@ install_remote_tree() {
       scripts/install_gateway_venv.sh
       scripts/install_reclaim_leases_timer.sh
       scripts/setup_gateway_nginx.sh
-      deploy/systemd/methyl-gateway.service
-      deploy/systemd/methyl-reclaim-leases.service
-      deploy/systemd/methyl-reclaim-leases.timer
+      deploy/systemd/goliath-gateway.service
+      deploy/systemd/goliath-reclaim-leases.service
+      deploy/systemd/goliath-reclaim-leases.timer
       deploy/nginx
     )
   else
@@ -799,19 +799,20 @@ run_gateway() {
   gw_db_password="$(gateway_db_password_for_runtime)"
   # The release artifact is already on the runner (GOLIATH_RELEASE_SRC).
   # Runtime promote does not stage it onto this gateway: goliath-test workers
-  # are self-provision and skip SSH. Without the wheel, /opt/methyl-gateway
-  # only receives env/ and methyl-gateway.service exits 203/EXEC.
+  # are self-provision and skip SSH. Without the wheel, /opt/goliath-gateway
+  # only receives env/ and goliath-gateway.service exits 203/EXEC.
   if [[ -z "${GOLIATH_RELEASE_SRC:-}" ]]; then
-    die "GOLIATH_RELEASE_SRC is not set. Gateway deploy installs the methyl-gateway package from the goliathomics release into the gateway venv before enabling the service."
+    die "GOLIATH_RELEASE_SRC is not set. Gateway deploy installs the goliath-gateway package from the goliathomics release into the gateway venv before enabling the service."
   fi
   [[ -d "$GOLIATH_RELEASE_SRC" ]] || die "GOLIATH_RELEASE_SRC is not a directory: $GOLIATH_RELEASE_SRC"
   [[ -f "$GOLIATH_RELEASE_SRC/manifest.json" ]] || die "GOLIATH_RELEASE_SRC has no manifest.json: $GOLIATH_RELEASE_SRC"
-  # The core package wheel is identified by the methyl-gateway console script
+  # The core package wheel is identified by the goliath-gateway console script
+  # (legacy methyl-gateway accepted for one release).
   # in entry_points.txt. Plugin wheels in the same directory do not match,
   # and a filename such as methyl-pipeline-*.whl is not enough.
   local gateway_wheel_meta="" gateway_wheel_path=""
   if ! gateway_wheel_meta="$(bash "$REPO_ROOT/scripts/install_gateway_venv.sh" --find-wheel "$GOLIATH_RELEASE_SRC")"; then
-    die "no wheel under $GOLIATH_RELEASE_SRC provides the methyl-gateway console script in entry_points.txt"
+    die "no wheel under $GOLIATH_RELEASE_SRC provides the goliath-gateway console script in entry_points.txt"
   fi
   while IFS= read -r line || [[ -n "$line" ]]; do
     case "$line" in
@@ -846,7 +847,7 @@ run_gateway() {
     [[ -n "$tls_email" ]] || die "gateway.tls.mode=letsencrypt requires gateway.tls.email"
   fi
   local i dest envfile remote_env root user port bind release_remote public_host
-  root="$(jq_get '.gateway.install_root // "/opt/methyl-gateway"')"
+  root="$(jq_get '.gateway.install_root // "/opt/goliath-gateway"')"
   user="$(jq_get '.gateway.user // "goliath"')"
   port="$(jq_get '.gateway.port // 8080')"
   bind="$(jq_get '.gateway.bind_host // "127.0.0.1"')"
@@ -903,7 +904,7 @@ run_gateway() {
     fi
     scp_to "$dest" "$envfile" /tmp/goliath-gateway.env
     rm -f "$envfile"
-    # methyl-gateway.service reads <root>/env/gateway.env. The unit has no
+    # goliath-gateway.service reads <root>/env/gateway.env. The unit has no
     # --env-file or User= flag. An extra profile env_file is copied beside it.
     # trap removes the secret copy when mkdir/install fails before the explicit rm.
     local gw_env_cmd="trap 'rm -f /tmp/goliath-gateway.env' EXIT; sudo mkdir -p '$root/env' && sudo install -m 600 -o root /tmp/goliath-gateway.env '$root/env/gateway.env'"
@@ -1053,7 +1054,7 @@ run_workers() {
     local envfile="$stage_dir/worker.env"
     worker_env_file "$envfile" "$cap"
     install_remote_tree "$dest"
-    # methyl-worker.service loads /work/goliath/env/worker.env. Merge API and
+    # goliath-worker.service loads /work/goliath/env/worker.env. Merge API and
     # storage keys into that file (and <root>/env/worker.env when it differs)
     # so promote's extractor, profile, and TMPDIR settings stay in place.
     local cap_flag=""

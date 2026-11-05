@@ -91,8 +91,8 @@ if [[ "$RUNTIME_MODE" -eq 1 ]]; then
   require_dir "$RUNTIME/schemas" "schemas"
   require_dir "$RUNTIME/deploy" "deploy"
   require_file "$RUNTIME/deploy/env/gateway.postgres.env.example" "gateway env template"
-  require_file "$RUNTIME/deploy/systemd/methyl-gateway.service" "gateway systemd unit"
-  require_file "$RUNTIME/deploy/systemd/methyl-worker.service" "worker systemd unit"
+  require_file "$RUNTIME/deploy/systemd/goliath-gateway.service" "gateway systemd unit"
+  require_file "$RUNTIME/deploy/systemd/goliath-worker.service" "worker systemd unit"
   require_file "$CURRENT/manifest.json" "release manifest.json"
   require_dir "$CURRENT/wheels" "release wheels/"
   require_file "$CURRENT/requirements-worker.lock" "requirements-worker.lock"
@@ -102,10 +102,10 @@ if [[ "$RUNTIME_MODE" -eq 1 ]]; then
   else
     fail "methyl-worker missing in $VENV (run worker_venv_local.sh --release $CURRENT)"
   fi
-  if [[ -x "$VENV/bin/methyl-gateway" ]]; then
-    pass "methyl-gateway in $VENV"
+  if [[ -x "$VENV/bin/goliath-gateway" || -x "$VENV/bin/methyl-gateway" ]]; then
+    pass "goliath-gateway (or legacy methyl-gateway) in $VENV"
   else
-    fail "methyl-gateway missing in $VENV (run install_release.sh)"
+    fail "goliath-gateway missing in $VENV (run install_release.sh)"
   fi
   if [[ -x "$VENV/bin/methyl-study-start" ]]; then
     pass "methyl-study-start in $VENV"

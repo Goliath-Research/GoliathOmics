@@ -6,13 +6,13 @@ Usage: gateway_release_subset.py SRC_RELEASE DEST_DIR
 The gateway host is only the REST API gateway (workers -> DB). It never
 receives the release bundle (worker wheels, CUDA/RAPIDS, methyl-extractor,
 runtime-bundle, manifest). DEST_DIR gets:
-  - wheels/: the wheel(s) declaring the methyl-gateway and
-    methyl-reclaim-leases console scripts, plus the wheels/ entries in their
+  - wheels/: the wheel(s) declaring the goliath-gateway and
+    goliath-reclaim-leases console scripts (legacy methyl-* names accepted),
     Requires-Dist closure (anything else comes from the package index)
   - requirements-pipeline.txt: only the lines of the release's
     requirements-pipeline.txt that name a gateway dependency (the file
     install_gateway_venv.sh reads for pins)
-Prints the file count and size. Exit 1 when no wheel provides methyl-gateway.
+Prints the file count and size. Exit 1 when no wheel provides goliath-gateway.
 """
 from __future__ import annotations
 
@@ -23,7 +23,13 @@ import zipfile
 from email.parser import Parser
 from pathlib import Path
 
-GATEWAY_SCRIPTS = {"methyl-gateway", "methyl-reclaim-leases"}
+GATEWAY_SCRIPTS = {
+    "goliath-gateway",
+    "methyl-gateway",
+    "goliath-reclaim-leases",
+    "methyl-reclaim-leases",
+}
+GATEWAY_MAIN = ("goliath-gateway", "methyl-gateway")
 
 
 def norm(name: str) -> str:
@@ -75,9 +81,12 @@ def main() -> int:
         except (zipfile.BadZipFile, OSError):
             print(f"[WARN] skipping unreadable wheel {whl.name}", file=sys.stderr)
     roots = [w for w, (_, scripts, _) in info.items() if scripts & GATEWAY_SCRIPTS]
-    if not any("methyl-gateway" in info[w][1] for w in roots):
-        print(f"[ERROR] no wheel under {src}/wheels provides the methyl-gateway console script "
-              "(entry_points.txt [console_scripts])", file=sys.stderr)
+    if not any(info[w][1] & set(GATEWAY_MAIN) for w in roots):
+        print(
+            f"[ERROR] no wheel under {src}/wheels provides the goliath-gateway console script "
+            "(or legacy methyl-gateway; entry_points.txt [console_scripts])",
+            file=sys.stderr,
+        )
         return 1
     by_name: dict[str, list[Path]] = {}
     for whl, (name, _, _) in info.items():

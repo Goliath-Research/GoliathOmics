@@ -1,12 +1,13 @@
 #!/bin/bash
-# Install methyl-gateway into <root>/venv-<arch> from a GoliathOmics release.
+# Install goliath-gateway into <root>/venv-<arch> from a GoliathOmics release.
 #
-# methyl-gateway.service ExecStart is <root>/venv-<arch>/bin/methyl-gateway.
+# goliath-gateway.service ExecStart is <root>/venv-<arch>/bin/goliath-gateway.
 # Enabling that unit before this script runs makes systemd exit 203/EXEC,
 # because the directory only contains env/. The console scripts live in the
 # core package wheel shipped inside the release wheels/ directory.
 # That wheel is selected by entry_points.txt, not by its filename.
-# methyl-reclaim-leases is installed from the same release.
+# goliath-reclaim-leases is installed from the same release.
+# Legacy methyl-* console script names are symlinked for one release (D8).
 
 set -euo pipefail
 
@@ -15,20 +16,20 @@ usage() {
 Usage: scripts/install_gateway_venv.sh [options]
 
 Create <root>/venv-<arch> and install the package whose entry_points.txt
-declares the methyl-gateway console script. Re-running is safe: an existing
+declares the goliath-gateway console script (or legacy methyl-gateway). Re-running is safe: an existing
 venv is reused when its Python still satisfies Requires-Python, and pip
 install is repeated so a new wheel upgrades the entry points.
 
 The wheel is chosen by reading *.dist-info/entry_points.txt. A filename such
-as methyl-pipeline-*.whl or methyl-gateway-*.whl is not sufficient. pip
+as methyl-pipeline-*.whl or goliath-gateway-*.whl is not sufficient. pip
 installs that wheel with --find-links pointing at wheels/, and any
 requirements-pipeline.txt lines that name a dependency of the wheel.
 
 Options:
-  --root PATH           Gateway local root (default: /opt/methyl-gateway)
+  --root PATH           Gateway local root (default: /opt/goliath-gateway)
   --arch KEY            aarch64 or amd64 (default: detect)
   --release PATH        Extracted goliathomics release (wheels/ or a wheel)
-  --find-wheel PATH     Print the wheel that provides methyl-gateway and exit
+  --find-wheel PATH     Print the wheel that provides goliath-gateway and exit
   --check-requires SPEC VERSION
                         Exit 0 when VERSION satisfies Requires-Python SPEC
   --select-python SPEC  Print the newest CPython uv should provision for SPEC
@@ -47,6 +48,8 @@ die() { echo "[ERROR] $*" >&2; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
+# shellcheck source=gateway_entry_compat.sh
+source "$SCRIPT_DIR/gateway_entry_compat.sh"
 
 py_compat() {
   python3 - "$@" <<'PY'
@@ -180,7 +183,7 @@ if [[ "${1:-}" == "--select-python" ]]; then
   exit 0
 fi
 
-ROOT="${GOLIATH_ROOT:-/opt/methyl-gateway}"
+ROOT="${GOLIATH_ROOT:-/opt/goliath-gateway}"
 ARCH=""
 RELEASE=""
 FIND_WHEEL_ONLY=0
@@ -219,11 +222,16 @@ if [[ -z "$RELEASE" ]]; then
 fi
 
 if [[ -z "$RELEASE" ]]; then
-  if [[ -x "$VENV/bin/methyl-gateway" && -x "$VENV/bin/methyl-reclaim-leases" ]]; then
+  if [[ -x "$VENV/bin/goliath-gateway" && -x "$VENV/bin/goliath-reclaim-leases" ]]; then
     info "entry points already installed in $VENV; no release directory to upgrade from"
     exit 0
   fi
-  die "no release directory. Pass --release (the extracted goliathomics-release tarball) so methyl-gateway can be installed into $VENV. $VENV/bin/methyl-gateway is missing, so the service would fail with status 203/EXEC."
+  if [[ -x "$VENV/bin/methyl-gateway" && -x "$VENV/bin/methyl-reclaim-leases" ]]; then
+    link_gateway_entry_compat "$VENV"
+    info "entry points already installed in $VENV (legacy methyl-* console scripts; linked goliath-* names)"
+    exit 0
+  fi
+  die "no release directory. Pass --release (the extracted goliathomics-release tarball) so goliath-gateway can be installed into $VENV. $VENV/bin/goliath-gateway is missing, so the service would fail with status 203/EXEC."
 fi
 
 [[ -d "$RELEASE" ]] || die "release directory not found: $RELEASE"
@@ -245,8 +253,10 @@ skip = {
     "__pycache__",
     "node_modules",
 }
-gateway_script = "methyl-gateway"
-reclaim_script = "methyl-reclaim-leases"
+gateway_script = "goliath-gateway"
+legacy_gateway_script = "methyl-gateway"
+reclaim_script = "goliath-reclaim-leases"
+legacy_reclaim_script = "methyl-reclaim-leases"
 
 def dist_info(zf, filename):
     suffix = "/" + filename
@@ -287,8 +297,12 @@ for path in wheels:
         continue
     score = 0
     if gateway_script in scripts:
+        score += 150
+    elif legacy_gateway_script in scripts:
         score += 100
     if reclaim_script in scripts:
+        score += 50
+    elif legacy_reclaim_script in scripts:
         score += 40
     # Distribution name and filename are not evidence. Plugin wheels share
     # the wheels/ directory and must not be selected in place of the core
@@ -297,12 +311,15 @@ for path in wheels:
         continue
     candidates.append((score, str(path), name, requires, scripts))
 
-gateway_rows = [item for item in candidates if gateway_script in item[4]]
+gateway_rows = [
+    item for item in candidates
+    if gateway_script in item[4] or legacy_gateway_script in item[4]
+]
 if not gateway_rows:
     print(
-        "[ERROR] no wheel under %s provides the methyl-gateway console script. "
-        "Looked at entry_points.txt [console_scripts] under wheels/*.whl. "
-        "A filename such as methyl-pipeline-*.whl or methyl-gateway-*.whl is not enough."
+        "[ERROR] no wheel under %s provides the goliath-gateway console script "
+        "(or legacy methyl-gateway). Looked at entry_points.txt [console_scripts] under wheels/*.whl. "
+        "A filename such as methyl-pipeline-*.whl or goliath-gateway-*.whl is not enough."
         % release,
         file=sys.stderr,
     )
@@ -312,7 +329,10 @@ def best(rows):
     return max(rows, key=lambda item: (item[0], -len(item[1]), item[1]))
 
 chosen = best(gateway_rows)
-reclaim_rows = [item for item in candidates if reclaim_script in item[4]]
+reclaim_rows = [
+    item for item in candidates
+    if reclaim_script in item[4] or legacy_reclaim_script in item[4]
+]
 reclaim = best(reclaim_rows) if reclaim_rows else None
 reclaim_path = ""
 reclaim_requires = ""
@@ -336,7 +356,7 @@ fi
 
 meta=""
 if ! meta="$(find_gateway_wheel "$RELEASE")"; then
-  die "methyl-gateway was not installed. $VENV/bin/methyl-gateway is missing, so the service would fail with status 203/EXEC."
+  die "goliath-gateway was not installed. $VENV/bin/goliath-gateway is missing, so the service would fail with status 203/EXEC."
 fi
 
 WHEEL=""
@@ -355,7 +375,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done <<<"$meta"
 
 [[ -n "$WHEEL" && -f "$WHEEL" ]] || die "wheel discovery did not return a file under $RELEASE"
-info "using ${DIST_NAME:-methyl-gateway} wheel $WHEEL"
+info "using ${DIST_NAME:-goliath-gateway} wheel $WHEEL"
 info "Requires-Python: ${REQUIRES:-unspecified}"
 
 COMBINED="$REQUIRES"
@@ -580,6 +600,7 @@ verify_entry() {
   info "verified $path"
 }
 
-verify_entry methyl-gateway
-verify_entry methyl-reclaim-leases
+link_gateway_entry_compat "$VENV"
+verify_entry goliath-gateway
+verify_entry goliath-reclaim-leases
 info "gateway venv ready: $VENV"
