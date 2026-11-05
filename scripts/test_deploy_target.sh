@@ -259,10 +259,9 @@ if floor_errors:
         sys.exit(1)
 PY
 
-# Gateway/nginx/venv contract tests need a fresh temp directory; run before the
-# large deploy fixtures below exhaust /tmp on CI runners.
+# Gateway/nginx contract tests; gateway venv install is exercised separately in CI
+# (see .github/workflows/pr.yml deploy-scripts rollouts step).
 bash "$ROOT/scripts/test_setup_gateway_nginx.sh"
-bash "$ROOT/scripts/test_install_gateway_venv.sh" || fail "test_install_gateway_venv failed"
 bash "$ROOT/scripts/test_worker_venv_local.sh" || fail "test_worker_venv_local failed"
 
 if jq -e '[.. | strings | select(test("secret:") | not) | select(test("(?i)(password|api[_-]?key|secret_access|BEGIN .*PRIVATE KEY)\\s*[:=]\\s*\\S"))] | length == 0' "$real" >/dev/null; then

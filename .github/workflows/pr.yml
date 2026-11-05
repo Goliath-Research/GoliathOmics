@@ -133,6 +133,7 @@ jobs:
           bash scripts/test_deploy_target.sh
           bash scripts/test_apply_goliathapp_schema.sh
           bash scripts/test_gateway_wheel_release.sh
+          bash scripts/test_install_gateway_venv.sh
           bash scripts/test_worker_venv_local.sh
           bash scripts/test_gateway_release_subset.sh
           bash scripts/test_current_pointer.sh
