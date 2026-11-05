@@ -161,6 +161,16 @@ EOF
 cat >"$uv_bin/uv" <<EOF
 #!/bin/bash
 printf '%s\n' "\$*" >>"$uv_log"
+real_uv=""
+for candidate in /usr/local/bin/uv "\$HOME/.local/bin/uv" /usr/bin/uv; do
+  if [[ -x "\$candidate" && "\$candidate" != "\$0" ]]; then
+    real_uv="\$candidate"
+    break
+  fi
+done
+if [[ -n "\$real_uv" ]]; then
+  exec "\$real_uv" "\$@"
+fi
 if [[ "\$1" == "python" ]]; then
   exit 0
 fi
