@@ -134,7 +134,6 @@ jobs:
         env:
           GOLIATH_REQUIRE_PG_TEST: "1"
           GOLIATH_APP_SQL_DIR: ${{ github.workspace }}/_goliathapp/workflow_engine/sql_pg
-          PATH: /home/runner/.local/bin:${{ env.PATH }}
         run: |
           set -o pipefail
           uv --version
