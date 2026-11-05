@@ -6,7 +6,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fail() {
   echo "FAIL: $*" >&2
-  echo "FAIL: $*"
   exit 1
 }
 
@@ -784,11 +783,7 @@ run_start() {
     GOLIATH_SYSTEM_CA_BUNDLE="$work_root/system-ca.pem" \
     METHYL_WORKER_ENV_DUMP="$work_root/methyl-worker-env" \
     PATH="$work_root:$PATH" \
-    bash "$start_script" >"$out" 2>"$err" || {
-      cat "$out" >&2
-      cat "$err" >&2
-      fail "goliath-worker-start.sh exited non-zero"
-    }
+    bash "$start_script" >"$out" 2>"$err"
 }
 
 run_start
@@ -805,12 +800,9 @@ grep -q 'GPU=NVIDIA RTX 6000 Ada Generation' "$report_log" || fail "report shoul
 grep -q 'host=' "$report_log" || fail "report should include host"
 grep -q 'GPU detected via nvidia-smi' "$out" || fail "start script should log nvidia-smi detection"
 grep -q 'local scratch preflight:' "$out" || fail "start script should run the local scratch preflight"
-[[ -f "$token_file" ]] || fail "worker token file missing after start"
 [[ "$(stat -c %a "$token_file")" == "600" ]] || fail "worker token file must be mode 600"
 grep -q '^WORKER_ID=7$' "$token_file" || fail "enroll token should be kept"
-pid_file="$worker_local/logs/methyl-worker.supervisor.pid"
-[[ -f "$pid_file" ]] || fail "supervisor pid file missing after start"
-supervisor_pid="$(cat "$pid_file")"
+supervisor_pid="$(cat "$worker_local/logs/methyl-worker.supervisor.pid")"
 # Runtime logs are on local disk; /work keeps only per-node state.
 [[ ! -e "$work_root/goliath/nodes/pod-test-1/logs" ]] || fail "worker logs must not be created on /work"
 [[ ! -e "$work_root/goliath/logs/methyl-worker.supervisor.pid" ]] || fail "supervisor pid must not be on /work"
@@ -839,11 +831,9 @@ if grep -q 'POSTGRES_PASSWORD' "$work_root/goliath/env/worker.env" \
 fi
 worker_env="$work_root/goliath/nodes/pod-test-1/env/worker.env"
 secrets_env="$private_root/secrets.env"
-[[ -f "$worker_env" ]] || fail "node worker.env missing after start"
 [[ "$(stat -c %a "$worker_env")" == "644" ]] || fail "node worker.env must be world-readable"
 grep -q '^GOLIATH_NODE_ID="pod-test-1"$' "$worker_env" \
   || fail "node worker.env should record GOLIATH_NODE_ID"
-[[ -f "$secrets_env" ]] || fail "secrets env missing after start"
 [[ "$(stat -c %a "$secrets_env")" == "600" ]] || fail "secrets env must be mode 600"
 if grep -q 'b2-sekret\|lt-sekret\|stale-aws-sekret\|stale-lt-sekret' \
   "$work_root/goliath/env/worker.env" "$worker_env"; then
@@ -1794,11 +1784,6 @@ fi
 grep -q 'methyl_worker' "$out" || fail "dry-run join should still enroll"
 
 rm -rf "$fixture_dir"
-bash "$ROOT/scripts/test_setup_gateway_nginx.sh"
-if ! bash "$ROOT/scripts/test_install_gateway_venv.sh" > /tmp/test_install_gateway_venv.log 2>&1; then
-  echo "--- test_install_gateway_venv.sh log (tail) ---"
-  tail -60 /tmp/test_install_gateway_venv.log
-  fail "test_install_gateway_venv.sh failed"
-fi
-bash "$ROOT/scripts/test_worker_venv_local.sh"
+# Gateway nginx/venv and worker venv contracts run in CI as separate steps after
+# this script so they are not affected by deploy dry-run PATH stubs.
 echo "test_deploy_target ok"

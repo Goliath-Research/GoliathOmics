@@ -139,15 +139,14 @@ jobs:
           set -o pipefail
           uv --version
           bash scripts/test_report_deploy.sh
-          set +e
-          bash scripts/test_deploy_target.sh > /tmp/test_deploy_target.log 2>&1
-          tdt_rc=$?
-          set -e
-          if [[ "$tdt_rc" -ne 0 ]]; then
-            echo "test_deploy_target.sh failed (exit $tdt_rc); last 120 lines:"
-            tail -120 /tmp/test_deploy_target.log
-            exit "$tdt_rc"
-          fi
+          bash scripts/test_deploy_target.sh
+          bash scripts/test_setup_gateway_nginx.sh
+          env -i \
+            HOME="$HOME" \
+            USER="${USER:-runner}" \
+            LOGNAME="${LOGNAME:-runner}" \
+            PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${HOME}/.local/bin" \
+            bash scripts/test_install_gateway_venv.sh
           bash scripts/test_apply_goliathapp_schema.sh
           bash scripts/test_gateway_wheel_release.sh
           bash scripts/test_worker_venv_local.sh

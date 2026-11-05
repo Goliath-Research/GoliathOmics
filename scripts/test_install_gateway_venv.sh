@@ -7,7 +7,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$ROOT/scripts/install_gateway_venv.sh"
 fail() {
   echo "FAIL: $*" >&2
-  echo "FAIL: $*"
   exit 1
 }
 
@@ -38,11 +37,14 @@ assert_requires '!=3.14.*' 3.13.1 yes
 assert_requires '==3.12.*' 3.12.3 yes
 assert_requires '>=3.10,<3.15' 3.12.3 yes
 
-selected="$(bash "$SCRIPT" --select-python '>=3.10,<3.14')"
+selected="$(bash "$SCRIPT" --select-python '>=3.10,<3.14')" \
+  || fail "--select-python failed for >=3.10,<3.14"
 [[ "$selected" == "3.13" ]] || fail "expected uv to provision 3.13 for >=3.10,<3.14, got $selected"
-selected="$(bash "$SCRIPT" --select-python '>=3.12,<3.13')"
+selected="$(bash "$SCRIPT" --select-python '>=3.12,<3.13')" \
+  || fail "--select-python failed for >=3.12,<3.13"
 [[ "$selected" == "3.12" ]] || fail "expected 3.12 for >=3.12,<3.13, got $selected"
-selected="$(bash "$SCRIPT" --select-python '==3.11.9')"
+selected="$(bash "$SCRIPT" --select-python '==3.11.9')" \
+  || fail "--select-python failed for ==3.11.9"
 [[ "$selected" == "3.11.9" ]] || fail "expected exact 3.11.9, got $selected"
 
 err="$(mktemp)"
@@ -121,8 +123,7 @@ build_wheel "$release/wheels" methyl-worker 1.0.0 '>=3.10,<3.15' '' >/dev/null
 
 out="$(mktemp)"
 err="$(mktemp)"
-bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err" \
-  || fail "install_gateway_venv.sh failed: $(tr '\n' ' ' <"$err")"
+bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err"
 [[ -x "$root/venv-amd64/bin/methyl-gateway" ]] || fail "methyl-gateway entry point was not installed"
 [[ -x "$root/venv-amd64/bin/methyl-reclaim-leases" ]] || fail "methyl-reclaim-leases entry point was not installed"
 [[ "$("$root/venv-amd64/bin/methyl-gateway")" == "gateway" ]] || fail "methyl-gateway did not run"
@@ -133,8 +134,7 @@ if grep -q 'methyl_worker-1.0.0' "$out"; then
 fi
 grep -q 'satisfies Requires-Python' "$out" || fail "install should record the Requires-Python check"
 
-bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err" \
-  || fail "install_gateway_venv.sh failed (reuse path): $(tr '\n' ' ' <"$err")"
+bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err"
 grep -q 'reusing venv' "$out" || fail "second install should reuse the venv"
 [[ -x "$root/venv-amd64/bin/methyl-gateway" ]] || fail "reused venv lost methyl-gateway"
 
