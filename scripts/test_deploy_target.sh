@@ -784,7 +784,11 @@ run_start() {
     GOLIATH_SYSTEM_CA_BUNDLE="$work_root/system-ca.pem" \
     METHYL_WORKER_ENV_DUMP="$work_root/methyl-worker-env" \
     PATH="$work_root:$PATH" \
-    bash "$start_script" >"$out" 2>"$err"
+    bash "$start_script" >"$out" 2>"$err" || {
+      cat "$out" >&2
+      cat "$err" >&2
+      fail "goliath-worker-start.sh exited non-zero"
+    }
 }
 
 run_start
@@ -839,6 +843,7 @@ secrets_env="$private_root/secrets.env"
 [[ "$(stat -c %a "$worker_env")" == "644" ]] || fail "node worker.env must be world-readable"
 grep -q '^GOLIATH_NODE_ID="pod-test-1"$' "$worker_env" \
   || fail "node worker.env should record GOLIATH_NODE_ID"
+[[ -f "$secrets_env" ]] || fail "secrets env missing after start"
 [[ "$(stat -c %a "$secrets_env")" == "600" ]] || fail "secrets env must be mode 600"
 if grep -q 'b2-sekret\|lt-sekret\|stale-aws-sekret\|stale-lt-sekret' \
   "$work_root/goliath/env/worker.env" "$worker_env"; then
