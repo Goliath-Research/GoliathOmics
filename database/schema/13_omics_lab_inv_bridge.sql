@@ -71,7 +71,7 @@ BEGIN
     lab_id
   )
   VALUES (v_stock_lot_id, p_organization_id, p_lab_id)
-  ON CONFLICT (stock_lot_id) DO UPDATE SET
+  ON CONFLICT ON CONSTRAINT lab_stock_context_pkey DO UPDATE SET
     lab_id = COALESCE(EXCLUDED.lab_id, omics_lab_inv.lab_stock_context.lab_id),
     organization_id = EXCLUDED.organization_id;
 
@@ -115,7 +115,7 @@ BEGIN
     FROM omics_lab_inv.lab_stock_context c
     WHERE c.stock_lot_id = p_stock_lot_id
       AND c.organization_id = p_organization_id
-      AND (c.lab_id IS NULL OR c.lab_id = v_lab_id)
+      AND c.lab_id = v_lab_id
   ) THEN
     PERFORM portal.fn_semantic_raise('GS404', 'stock lot not linked to omics lab inventory');
   END IF;
@@ -131,10 +131,10 @@ BEGIN
     p_batch_id::text
   ) AS i;
 
-  UPDATE omics_lab_inv.lab_stock_context
+  UPDATE omics_lab_inv.lab_stock_context c
   SET batch_id = p_batch_id
-  WHERE stock_lot_id = p_stock_lot_id
-    AND batch_id IS NULL;
+  WHERE c.stock_lot_id = p_stock_lot_id
+    AND c.batch_id IS NULL;
 
   RETURN;
 END;
