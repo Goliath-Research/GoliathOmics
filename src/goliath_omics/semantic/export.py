@@ -94,9 +94,16 @@ def export_omics_row_types_sql() -> str:
         "  Do not edit by hand; run goliath-omics-semantic-export -o database/schema/09_portal_semantic_row_types.sql\n"
         "*/\n\n"
     )
-    lines = _align_omics_row_type_sql(export_row_types_sql(list(SEMANTIC_CATALOG))).splitlines()
+    lines: list[str] = []
+    emitted: set[str] = set()
+    for entity in SEMANTIC_CATALOG:
+        type_name = _row_type_name(entity)
+        if type_name in emitted:
+            continue
+        emitted.add(type_name)
+        model_schema = entity.row_model.model_json_schema(mode="serialization")
+        lines.extend(_row_type_sql_block(type_name, model_schema))
     catalog_entities = {e.code: e for e in SEMANTIC_CATALOG}
-    emitted = {line.split("'")[1] for line in lines if "t.typname = '" in line}
     for req in SEMANTIC_REQUESTS:
         entity = catalog_entities[req.entity_code]
         if req.result_row_model is entity.row_model:
@@ -107,7 +114,8 @@ def export_omics_row_types_sql() -> str:
         emitted.add(type_name)
         model_schema = req.result_row_model.model_json_schema(mode="serialization")
         lines.extend(_row_type_sql_block(type_name, model_schema))
-    return header + "\n".join(lines) + "\n"
+    body = _align_omics_row_type_sql("\n".join(lines))
+    return header + body + "\n"
 
 
 def export_catalog_document() -> dict[str, Any]:

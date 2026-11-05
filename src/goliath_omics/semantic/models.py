@@ -115,7 +115,7 @@ class SampleCreatePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     patient_id: int
-    customer_id: Optional[int] = None
+    customer_id: int
     disease_id: Optional[int] = None
     sample_name: Optional[str] = None
     age: Optional[int] = None

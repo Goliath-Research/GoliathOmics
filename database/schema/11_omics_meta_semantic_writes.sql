@@ -331,8 +331,8 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS401', 'user required');
   END IF;
   v_customer_id := NULLIF(p_payload->>'customer_id', '')::integer;
-  IF v_customer_id IS NOT NULL
-    AND NOT omics_clinical.fn_user_can_access_customer(p_user_id, v_customer_id) THEN
+  IF v_customer_id IS NULL
+    OR NOT omics_clinical.fn_user_can_access_customer(p_user_id, v_customer_id) THEN
     PERFORM portal.fn_semantic_raise('GS403', 'customer scope denied');
   END IF;
   INSERT INTO portal."Samples" (
@@ -371,7 +371,8 @@ AS $$
 DECLARE
   v_group_id integer;
   v_sample_id integer;
-  v_customer_id integer;
+  v_group_customer_id integer;
+  v_sample_customer_id integer;
   v_row portal.omics_group_row;
 BEGIN
   IF p_user_id IS NULL THEN
@@ -379,10 +380,20 @@ BEGIN
   END IF;
   v_group_id := NULLIF(p_payload->>'group_id', '')::integer;
   v_sample_id := NULLIF(p_payload->>'sample_id', '')::integer;
-  SELECT g."CustomerID" INTO v_customer_id FROM portal."Groups" g WHERE g."ID" = v_group_id;
-  IF v_customer_id IS NOT NULL
-    AND NOT omics_clinical.fn_user_can_access_customer(p_user_id, v_customer_id) THEN
+  SELECT g."CustomerID" INTO v_group_customer_id FROM portal."Groups" g WHERE g."ID" = v_group_id;
+  IF NOT FOUND THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'group not found');
+  END IF;
+  IF v_group_customer_id IS NULL
+    OR NOT omics_clinical.fn_user_can_access_customer(p_user_id, v_group_customer_id) THEN
     PERFORM portal.fn_semantic_raise('GS403', 'group scope denied');
+  END IF;
+  SELECT s."CustomerID" INTO v_sample_customer_id FROM portal."Samples" s WHERE s."ID" = v_sample_id;
+  IF NOT FOUND THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'sample not found');
+  END IF;
+  IF NOT omics_clinical.fn_user_can_access_customer(p_user_id, v_sample_customer_id) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'sample scope denied');
   END IF;
   INSERT INTO portal."GroupSamples" ("GroupID", "SampleID")
   VALUES (v_group_id, v_sample_id)
@@ -394,34 +405,6 @@ BEGIN
   RETURN v_row;
 END;
 $$;
-
-CREATE OR REPLACE VIEW omics_clinical.v_disease_read AS
-SELECT
-  COALESCE((m.legacy_disease_id)::integer, d."ID") AS disease_id,
-  COALESCE(m.name::text, d."Name"::text) AS name,
-  COALESCE(m.parent_id::integer, d."ParentID") AS parent_id
-FROM portal."Diseases" d
-LEFT JOIN "Meta"."VOmicsDisease" m ON m."ID" = d."MetaObjectID";
-
-CREATE OR REPLACE VIEW omics_clinical.v_customer_read AS
-SELECT
-  COALESCE((m.legacy_customer_id)::integer, c."ID") AS customer_id,
-  COALESCE(m.name::text, c."Name"::text) AS name,
-  COALESCE(m.organization_id::integer, c."OrganizationID") AS organization_id
-FROM portal."Customers" c
-LEFT JOIN "Meta"."VOmicsCustomer" m ON m."ID" = c."MetaObjectID";
-
-CREATE OR REPLACE VIEW omics_clinical.v_sample_read AS
-SELECT
-  COALESCE((m.legacy_sample_id)::integer, s."ID") AS sample_id,
-  COALESCE(m.patient_id::integer, s."PatientID") AS patient_id,
-  COALESCE(m.customer_id::integer, s."CustomerID") AS customer_id,
-  COALESCE(m.disease_id::integer, s."DiseaseID") AS disease_id,
-  COALESCE(m.sample_name::text, s."SampleName"::text) AS sample_name,
-  COALESCE(m.age::numeric, s."Age"::numeric) AS age,
-  COALESCE(m.bmi::double precision, s."BMI") AS bmi
-FROM portal."Samples" s
-LEFT JOIN "Meta"."VOmicsSample" m ON m."ID" = s."MetaObjectID";
 
 CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_disease_list(
   p_user_id integer,
@@ -449,10 +432,14 @@ BEGIN
   v_lim := GREATEST(0, COALESCE(p_limit, 500));
   IF omics_clinical.fn_meta_read_from_meta('disease') THEN
     RETURN QUERY
-    SELECT v.disease_id, v.name, v.parent_id
-    FROM omics_clinical.v_disease_read v
-    WHERE (v_parent_id IS NULL OR v.parent_id = v_parent_id)
-    ORDER BY v.disease_id
+    SELECT
+      COALESCE((m.legacy_disease_id)::integer, d."ID") AS disease_id,
+      COALESCE(m.name::text, d."Name"::text) AS name,
+      COALESCE(m.parent_id::integer, d."ParentID") AS parent_id
+    FROM portal."Diseases" d
+    LEFT JOIN "Meta"."VOmicsDisease" m ON m."ID" = d."MetaObjectID"
+    WHERE (v_parent_id IS NULL OR COALESCE(m.parent_id::integer, d."ParentID") = v_parent_id)
+    ORDER BY COALESCE((m.legacy_disease_id)::integer, d."ID")
     LIMIT v_lim;
   ELSE
     RETURN QUERY
@@ -495,11 +482,19 @@ BEGIN
   v_lim := GREATEST(0, COALESCE(p_limit, 500));
   IF omics_clinical.fn_meta_read_from_meta('customer') THEN
     RETURN QUERY
-    SELECT v.customer_id, v.name, v.organization_id
-    FROM omics_clinical.v_customer_read v
-    WHERE v.organization_id = ANY (portal.fn_semantic_user_organization_ids(p_user_id))
-      AND (v_org_id IS NULL OR v.organization_id = v_org_id)
-    ORDER BY v.name
+    SELECT
+      COALESCE((m.legacy_customer_id)::integer, c."ID") AS customer_id,
+      COALESCE(m.name::text, c."Name"::text) AS name,
+      COALESCE(m.organization_id::integer, c."OrganizationID") AS organization_id
+    FROM portal."Customers" c
+    LEFT JOIN "Meta"."VOmicsCustomer" m ON m."ID" = c."MetaObjectID"
+    WHERE COALESCE(m.organization_id::integer, c."OrganizationID")
+        = ANY (portal.fn_semantic_user_organization_ids(p_user_id))
+      AND (
+        v_org_id IS NULL
+        OR COALESCE(m.organization_id::integer, c."OrganizationID") = v_org_id
+      )
+    ORDER BY COALESCE(m.name::text, c."Name"::text)
     LIMIT v_lim;
   ELSE
     RETURN QUERY
@@ -551,29 +546,61 @@ BEGIN
   v_lim := GREATEST(0, COALESCE(p_limit, 500));
   IF omics_clinical.fn_meta_read_from_meta('sample') THEN
     RETURN QUERY
-    SELECT v.sample_id, v.patient_id, v.customer_id, v.disease_id, v.sample_name, v.age, v.bmi
-    FROM omics_clinical.v_sample_read v
-    LEFT JOIN portal."GroupSamples" gs ON gs."SampleID" = v.sample_id
-    WHERE (v_customer_id IS NULL OR v.customer_id = v_customer_id)
-      AND (v_disease_id IS NULL OR v.disease_id = v_disease_id)
-      AND (v_group_id IS NULL OR gs."GroupID" = v_group_id)
-      AND (
-        v.customer_id IS NULL
-        OR omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
+    SELECT
+      COALESCE((m.legacy_sample_id)::integer, s."ID") AS sample_id,
+      COALESCE(m.patient_id::integer, s."PatientID") AS patient_id,
+      COALESCE(m.customer_id::integer, s."CustomerID") AS customer_id,
+      COALESCE(m.disease_id::integer, s."DiseaseID") AS disease_id,
+      COALESCE(m.sample_name::text, s."SampleName"::text) AS sample_name,
+      COALESCE(m.age::numeric, s."Age"::numeric) AS age,
+      COALESCE(m.bmi::double precision, s."BMI") AS bmi
+    FROM portal."Samples" s
+    LEFT JOIN "Meta"."VOmicsSample" m ON m."ID" = s."MetaObjectID"
+    WHERE omics_clinical.fn_user_can_access_customer(
+        p_user_id,
+        COALESCE(m.customer_id::integer, s."CustomerID")
       )
-    ORDER BY v.sample_id
+      AND (
+        v_customer_id IS NULL
+        OR COALESCE(m.customer_id::integer, s."CustomerID") = v_customer_id
+      )
+      AND (
+        v_disease_id IS NULL
+        OR COALESCE(m.disease_id::integer, s."DiseaseID") = v_disease_id
+      )
+      AND (
+        v_group_id IS NULL
+        OR EXISTS (
+          SELECT 1
+          FROM portal."GroupSamples" gs
+          WHERE gs."GroupID" = v_group_id
+            AND gs."SampleID" = COALESCE((m.legacy_sample_id)::integer, s."ID")
+        )
+      )
+    ORDER BY COALESCE((m.legacy_sample_id)::integer, s."ID")
     LIMIT v_lim;
   ELSE
     RETURN QUERY
-    SELECT v.sample_id, v.patient_id, v.customer_id, v.disease_id, v.sample_name, v.age, v.bmi
+    SELECT
+      v.sample_id,
+      v.patient_id,
+      v.customer_id,
+      v.disease_id,
+      v.sample_name,
+      v.age,
+      v.bmi
     FROM omics_clinical.v_sample v
-    LEFT JOIN portal."GroupSamples" gs ON gs."SampleID" = v.sample_id
-    WHERE (v_customer_id IS NULL OR v.customer_id = v_customer_id)
+    WHERE omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
+      AND (v_customer_id IS NULL OR v.customer_id = v_customer_id)
       AND (v_disease_id IS NULL OR v.disease_id = v_disease_id)
-      AND (v_group_id IS NULL OR gs."GroupID" = v_group_id)
       AND (
-        v.customer_id IS NULL
-        OR omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
+        v_group_id IS NULL
+        OR EXISTS (
+          SELECT 1
+          FROM portal."GroupSamples" gs
+          WHERE gs."GroupID" = v_group_id
+            AND gs."SampleID" = v.sample_id
+        )
       )
     ORDER BY v.sample_id
     LIMIT v_lim;

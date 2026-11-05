@@ -39,7 +39,7 @@ After FASTQ download, SamplePrep chooses **one alignment path** per sample (and 
 - Buffy linear Clara: `buffy_wgbs_linear_gene_fc`.
 - Buffy linear GoliathAlign: `buffy_wgbs_linear_mojo_gene_fc`.
 
-`seed_pipeline_scope_flags` (gateway `pipeline_profiles` module, called from `enrich_instance_context`) derives `usePangenome` and `useWgbsPangenome` from the merged profile and procedure. Set those flags, or `alignmentMode`, on the start request when the procedure should not be the only source.
+`seed_pipeline_scope_flags` (local `workflow_engine/domain/pipeline_profiles.py`, called from `enrich_instance_context`) derives `usePangenome` and `useWgbsPangenome` from the merged profile and procedure. Set those flags, or `alignmentMode`, on the start request when the procedure should not be the only source.
 
 **WGBS note:** stock HPRC graphs are not bisulfite-aware. Provision the bisulfite bundle the procedure names (`pangenome-grch38-d9-bs-1.70` in the canary notes) and set `actionConfig.methylgrapher_wgbs`. The canary checklist is `workers/tests/test_methylgrapher_wgbs_canary.md`. Unset `align_engine` runs `cpu_vg` (`methylgrapher_wgbs_runner._normalize_align_engine`).
 

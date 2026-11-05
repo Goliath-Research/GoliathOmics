@@ -44,3 +44,7 @@ Consumer: `workers/methyl_worker/extract_runner.py` (`sample.methyl_extract`) an
 | `--read-level` | Pattern-level output is skipped and only marginal H5 is emitted. |
 | `{chrom}-{context}.json` sidecars | `methylextractionqc` cannot build the extraction manifest. |
 | HDF5 output plus the zstd plugin | Sample H5 files do not open under `HDF5_PLUGIN_PATH`. |
+
+## Workflow contracts (GoliathOmics-owned)
+
+Sample prep, validation planner, and domain scope types are documented under [`workflow_engine/contract/`](../../workflow_engine/contract/) (`sample_prep_capabilities.md`, `validation_planner_capabilities.md`, `domain_types.md`, `SamplePrepFlow.md`). DomainProgram fixtures live under [`workflow_engine/domain/fixtures/`](../../workflow_engine/domain/fixtures/) (with a CI mirror at [`workflow_engine/tests/fixtures/sample_prep.program.json`](../../workflow_engine/tests/fixtures/sample_prep.program.json)).
