@@ -130,7 +130,6 @@ jobs:
           GOLIATH_APP_SQL_DIR: ${{ github.workspace }}/_goliathapp/workflow_engine/sql_pg
         run: |
           bash scripts/test_report_deploy.sh
-          bash scripts/test_install_gateway_venv.sh
           bash scripts/test_deploy_target.sh
           bash scripts/test_apply_goliathapp_schema.sh
           bash scripts/test_gateway_wheel_release.sh

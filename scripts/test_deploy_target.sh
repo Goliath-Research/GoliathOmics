@@ -259,11 +259,6 @@ if floor_errors:
         sys.exit(1)
 PY
 
-# Gateway/nginx contract tests; gateway venv install is exercised separately in CI
-# (see .github/workflows/pr.yml deploy-scripts rollouts step).
-bash "$ROOT/scripts/test_setup_gateway_nginx.sh"
-bash "$ROOT/scripts/test_worker_venv_local.sh" || fail "test_worker_venv_local failed"
-
 if jq -e '[.. | strings | select(test("secret:") | not) | select(test("(?i)(password|api[_-]?key|secret_access|BEGIN .*PRIVATE KEY)\\s*[:=]\\s*\\S"))] | length == 0' "$real" >/dev/null; then
   :
 else
@@ -1789,4 +1784,7 @@ fi
 grep -q 'methyl_worker' "$out" || fail "dry-run join should still enroll"
 
 rm -rf "$fixture_dir"
+bash "$ROOT/scripts/test_setup_gateway_nginx.sh"
+bash "$ROOT/scripts/test_install_gateway_venv.sh"
+bash "$ROOT/scripts/test_worker_venv_local.sh"
 echo "test_deploy_target ok"
