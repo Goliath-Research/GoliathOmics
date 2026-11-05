@@ -749,6 +749,7 @@ install_remote_tree() {
       scripts/rollouts_hook.sh
       scripts/detect_platform.sh
       scripts/platform_matrix.env
+      scripts/gateway_entry_compat.sh
       scripts/install_gateway_systemd.sh
       scripts/install_gateway_venv.sh
       scripts/install_reclaim_leases_timer.sh
@@ -762,6 +763,7 @@ install_remote_tree() {
     files=(
       scripts/report_deploy.sh
       scripts/rollouts_hook.sh
+      scripts/gateway_entry_compat.sh
       scripts/install_worker_systemd.sh
       scripts/promote_release.sh
       scripts/install_release.sh

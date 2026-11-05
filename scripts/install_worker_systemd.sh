@@ -80,6 +80,12 @@ _render_unit() {
       "$src" >"$dest"
 }
 
+_disable_legacy_pinned_worker() {
+  local cap="$1"
+  local legacy="methyl-worker@${cap}.service"
+  systemctl disable --now "$legacy" 2>/dev/null || true
+}
+
 _detect_capabilities() {
   local py="$VENV/bin/python"
   [[ -x "$py" ]] || py="python3"
@@ -108,6 +114,7 @@ if [[ "$DETECT_CAPABILITIES" -eq 1 && -z "$CAPABILITY" ]]; then
     for cap in "${CAPS[@]}"; do
       [[ -z "$cap" || "$cap" == "*" ]] && continue
       UNIT="goliath-worker@${cap}.service"
+      _disable_legacy_pinned_worker "$cap"
       systemctl enable "$UNIT"
       [[ "$NO_START" -eq 0 ]] && systemctl restart "$UNIT"
       systemctl status "$UNIT" --no-pager -l -n 8
@@ -124,6 +131,7 @@ if [[ -n "$CAPABILITY" ]]; then
   _render_unit "$SRC" "/etc/systemd/system/goliath-worker@.service"
   install_systemd_unit_alias goliath-worker@.service methyl-worker@.service
   systemctl daemon-reload
+  _disable_legacy_pinned_worker "$CAPABILITY"
   systemctl enable "$UNIT"
   [[ "$NO_START" -eq 0 ]] && systemctl restart "$UNIT"
   systemctl status "$UNIT" --no-pager -l -n 15

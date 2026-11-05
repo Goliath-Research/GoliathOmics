@@ -325,13 +325,13 @@ install_site() {
     render_site "$avail"
     link="$NGINX_ETC/sites-enabled/goliath-gateway.conf"
     ln -sfn "$avail" "$link"
-    ln -sfn "$avail" "$NGINX_ETC/sites-enabled/methyl-gateway.conf"
+    rm -f "$NGINX_ETC/sites-enabled/methyl-gateway.conf"
     rm -f "$NGINX_ETC/sites-enabled/default"
   else
     mkdir -p "$NGINX_ETC/conf.d"
     avail="$NGINX_ETC/conf.d/goliath-gateway.conf"
     render_site "$avail"
-    ln -sfn "$avail" "$NGINX_ETC/conf.d/methyl-gateway.conf"
+    rm -f "$NGINX_ETC/conf.d/methyl-gateway.conf"
   fi
   printf '%s' "$avail"
 }
