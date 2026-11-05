@@ -28,6 +28,7 @@ dev = ["pytest>=8,<9"]
 [project.scripts]
 goliath-omics-semantic-export = "goliath_omics.semantic.export:main"
 goliath-omics-seed-semantic = "goliath_omics.seed.semantic_catalog:main"
+goliath-omics-seed-meta-classes = "goliath_omics.seed.meta_classes:main"
 goliath-omics-seed-nav = "goliath_omics.seed.nav_tree:main"
 
 [project.entry-points."goliath.action_catalogs"]

@@ -30,6 +30,7 @@ SCRIPTS=(
   cfg_analyte_catalog.sql
   omics_semantic_mvp.sql
   portal_semantic_row_types.sql
+  omics_meta_clinical_classes.sql
 )
 
 exec bash "$REPO_ROOT/scripts/apply_domain_schema.sh"

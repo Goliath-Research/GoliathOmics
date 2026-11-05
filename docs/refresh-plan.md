@@ -298,5 +298,6 @@ R1 and R2 can overlap in planning but **merge R1 first** (green CI on new Goliat
 - [x] R1 execution (follow-on PRs)
 - [x] R2 child-app shell (follow-on PR)
 - [ ] R3 NavTree + semantic MVP (follow-on PR)
+- [ ] R4 Meta clinical cutover (PR1–PR3)
 
 **Related:** [Semantic layer integration (O-phases)](architecture/semantic-layer.md), [Dual activation spike](dual-activation-omics-spike.md), [Dependency direction](architecture/dependencies.md).
