@@ -159,6 +159,10 @@ EOF
 cat >"$uv_bin/uv" <<EOF
 #!/bin/bash
 printf '%s\n' "\$*" >>"$uv_log"
+# GitHub-hosted runners may ship Python 3.14; the stub uv must still provision 3.13.
+if [[ "\${GITHUB_ACTIONS:-}" == "true" && -x "\${HOME}/.local/bin/uv" ]]; then
+  exec "\${HOME}/.local/bin/uv" "\$@"
+fi
 if [[ "\$1" == "python" ]]; then
   exit 0
 fi
