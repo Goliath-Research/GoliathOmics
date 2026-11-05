@@ -85,6 +85,39 @@ List functions require **`p_user_id`** and scope through GoliathApp RBAC helpers
 
 CI drift check: `goliath-omics-semantic-export --check schemas/semantic/catalog.json --row-types database/schema/09_portal_semantic_row_types.sql`.
 
+## Meta-backed clinical cutover (R4)
+
+During incremental cutover, **legacy portal tables remain authoritative storage**; each row may carry optional `"MetaObjectID"` linking to `"Meta"."Objs"`. Meta classes (`OmicsCustomer`, `OmicsDisease`, `OmicsPatient`, `OmicsSample`, `OmicsLabBatch`) are registered with `Meta.sp_semantic_sync_class_entity` via `goliath-omics-seed-meta-classes` after domain DDL apply.
+
+| Entity | Meta class | Legacy table | Semantic write requests (PR2) | Cutover flags (`omics_clinical.meta_cutover_flag`) |
+|--------|------------|--------------|--------------------------------|-----------------------------------------------------|
+| Customer | `OmicsCustomer` | `portal."Customers"` | `omics.customer.create` | `dual_write_legacy_meta`, `read_from_meta` |
+| Disease | `OmicsDisease` | `portal."Diseases"` | `omics.disease.create`, `omics.disease.update` | same |
+| Patient | `OmicsPatient` | `portal."Patients"` | (mirror/backfill; portal writes TBD) | same |
+| Sample | `OmicsSample` | `portal."Samples"` | `omics.sample.create`, `omics.group.add_sample` | same |
+| Lab batch | `OmicsLabBatch` | `portal."Batches"` | (mirror/backfill) | same |
+
+**Apply (release):** `10_omics_meta_clinical_classes.sql`, `11_omics_meta_semantic_writes.sql`, `12_omics_meta_backfill_api.sql` via `scripts/apply_domain_schema.sh`.
+
+**Seed (once per environment after apply):**
+
+```bash
+goliath-omics-seed-meta-classes
+goliath-omics-seed-semantic
+```
+
+**Production backfill (one entity at a time, after Neon backup):**
+
+```bash
+export PGHOST=... PGDATABASE=... PGUSER=...   # use deploy profile / Neon direct host
+# PGPASSWORD from secret store — do not log
+./scripts/omics_meta_backfill_verify.sh disease
+./scripts/omics_meta_backfill.sh disease --enable-dual-write
+./scripts/omics_meta_backfill_verify.sh disease
+```
+
+Rollback per entity: `./scripts/omics_meta_backfill_rollback.sh disease` (clears Meta mirrors only; legacy rows untouched).
+
 ## Typed ActionSpec catalog (O1)
 
 Workflow actions are **data**: each action has a stable name, capability, JSON input/output schemas, and optional in-process handler path. GoliathApp provides `ActionSpec`, the merged catalog loader (`goliath_app.actions.registry.load_action_catalog`), and engine actions in the `engine` namespace. GoliathOmics registers domain actions through setuptools entry points:
