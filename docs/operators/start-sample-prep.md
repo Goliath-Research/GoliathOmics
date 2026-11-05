@@ -1,16 +1,58 @@
 # Start a SamplePrep instance
 
-SamplePrepPipeline is the per-sample workflow that turns paired FASTQs into methylation matrices. The graph is the DomainProgram [`workflow_engine/domain/fixtures/sample_prep.program.json`](../../workflow_engine/domain/fixtures/sample_prep.program.json). An operator starts an instance with `methyl-study-start sample-prep-start`. That command plans the sample list, calls `finalize_instance_context`, compiles the program into a workflow version when the request does not already name one, then creates and starts the instance.
+SamplePrepPipeline is the per-sample workflow that turns paired FASTQs into methylation matrices. The graph is the DomainProgram [`workflow_engine/domain/fixtures/sample_prep.program.json`](../../workflow_engine/domain/fixtures/sample_prep.program.json).
 
-The admin CLI lives in [`workflow_engine/admin/study_start.py`](../../workflow_engine/admin/study_start.py). A release virtualenv exposes it as `methyl-study-start` (`scripts/verify_setup.sh` checks for that script). From a checkout:
+GoliathApp is study-agnostic: it ships the platform queue (`cfg.study_start_request`, `portal.sp_request_study_start`) and instance SQL, not an admin “start study” CLI. **Test and operator SamplePrep starts in GoliathOmics use PostgreSQL** to enqueue intent; Python drains the queue to bake context and start the instance.
+
+## PostgreSQL test start (recommended)
+
+Use [`workflow_engine/sql_pg/enqueue_sample_prep_test_start.sql`](../../workflow_engine/sql_pg/enqueue_sample_prep_test_start.sql) against the Omics workflow database. It calls `portal.sp_request_study_start` with stage `sample_prep`, so the same drain path as production portal intent applies.
+
+**Prerequisites**
+
+1. GoliathApp schema applied, including `cfg_study_start_request.sql` (`portal.sp_request_study_start`, `portal.sp_preview_study_start`).
+2. A **published** `cfg.study` row (`study_row_id`) with study config materialized under `/work` (see [Before the first start](#before-the-first-start)).
+3. An active `SamplePrepPipeline` workflow version (from `scripts/deploy_workflow_definitions.sh`), unless you pass `workflow_version_id` explicitly.
+
+**Enqueue**
+
+```bash
+export PGHOST=... PGDATABASE=... PGUSER=... PGPASSWORD=...
+psql -v ON_ERROR_STOP=1 \
+  -v study_row_id=42 \
+  -v workflow_version_id=0 \
+  -v project_path='/work/projects/my-study/configs/project_my-study.json' \
+  -v samples_json='[{"sampleId":"S1","fastqPrefix":"S1/"}]' \
+  -v fastq_storage_json='{"type":"file","basePath":"/data/fastqs"}' \
+  -f workflow_engine/sql_pg/enqueue_sample_prep_test_start.sql
+```
+
+Set `workflow_version_id=0` to resolve the newest active `SamplePrepPipeline` version. Omit `samples_json` (leave `[]`) and set `sample_id`, optional `sample_dir`, and `fastq_prefix` to queue a single sample. Optional `sample_storage_json` adds `sampleStorage` to the request. The script prints a `NOTICE` with the new `cfg.study_start_request` id.
+
+**Drain (bake + create/start instance)**
+
+Queue rows are not instances until drained. From a release venv with gateway DB env (`BACKEND_DB=postgres`, `POSTGRES_*`; see [`deploy/env/gateway.postgres.env.example`](../../deploy/env/gateway.postgres.env.example)):
+
+```bash
+methyl-study-start drain-requests --limit 1
+# or: python workflow_engine/admin/study_start.py drain-requests --limit 1
+```
+
+`drain-requests` claims the row, runs `finalize_instance_context` against materialized `/work`, and calls `portal.sp_create_and_start_instance`. Schedule or rerun drain until the request status is `succeeded`.
+
+This path **replaces** `methyl-study-start sample-prep-start` for manual test starts. CI smokes may still call the admin CLI directly; that bypasses the queue but uses the same bake/start SQL inside Python.
+
+## Direct admin start (dev / smoke only)
+
+[`workflow_engine/admin/study_start.py`](../../workflow_engine/admin/study_start.py) exposes `sample-prep-start`, which plans the sample list, bakes context, and creates/starts an instance in one step (no `cfg.study_start_request` row). A release virtualenv may expose it as `methyl-study-start`:
 
 ```bash
 python workflow_engine/admin/study_start.py sample-prep-start request.json
 ```
 
-The CLI opens the workflow database with the gateway settings (`BACKEND_DB=postgres` and `POSTGRES_*`). The template is [`deploy/env/gateway.postgres.env.example`](../../deploy/env/gateway.postgres.env.example). It imports `rest.db_client` from the methyl-gateway wheel, which is built from GoliathApp. See [Dependency direction](../architecture/dependencies.md).
+The CLI imports `rest.db_client` from the methyl-gateway wheel (built from GoliathApp). See [Dependency direction](../architecture/dependencies.md).
 
-Portal starts go through `cfg.study_start_request`. `methyl-study-start drain-requests` claims those rows, bakes context from materialized `/work`, and calls `portal.sp_create_and_start_instance`.
+Production portal UI queues the same table via `portal.sp_request_study_start`; operators testing against PostgreSQL should use the script above instead of `sample-prep-start`.
 
 ## Before the first start
 
