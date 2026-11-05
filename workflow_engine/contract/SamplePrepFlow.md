@@ -165,7 +165,7 @@ Examples:
 - [`instance_context_examples/sample_prep_plasma.json`](instance_context_examples/sample_prep_plasma.json)
 - [`instance_context_examples/sample_prep_from_planner.json`](instance_context_examples/sample_prep_from_planner.json)
 
-**Planner:** `methyl-study-start sample-prep-start` or `methyl_validation.sample_prep_planner.plan_sample_prep_context()`. See [`../docs/sample_prep_test_bed.md`](../docs/sample_prep_test_bed.md).
+**Planner:** `methyl-study-start sample-prep-start` or `methyl_validation.sample_prep_planner.plan_sample_prep_context()`. See [`../../docs/operators/start-sample-prep.md`](../../docs/operators/start-sample-prep.md) and `scripts/refresh_sample_prep_test_bed.sh`.
 
 ## Storage contract
 
@@ -227,7 +227,7 @@ Workers poll by capability; task count scales with `len(samples) × actions per 
 1. Start **SamplePrepPipeline** when laboratory FASTQs are ready.
 2. On instance **COMPLETED**, start **StudyValidationLifecycle** or **DataDrivenPipeline** with the same `projectPath`.
 
-See [pipeline architecture §0](../docs/pipeline_architecture.md).
+See [end-to-end workflow architecture](../../docs/architecture/end-to-end-workflow.md).
 
 ## Worker capability matrix
 
@@ -254,6 +254,6 @@ Contract details: [`../contract/sample_prep_capabilities.md`](../contract/sample
 
 - DomainProgram fixture: [`../domain/fixtures/sample_prep.program.json`](../domain/fixtures/sample_prep.program.json)
 - Remediation cohort: [`../domain/fixtures/sample_prep_remediate.program.json`](../domain/fixtures/sample_prep_remediate.program.json)
-- Test bed: [`../docs/sample_prep_test_bed.md`](../docs/sample_prep_test_bed.md)
+- Test bed refresh: `scripts/refresh_sample_prep_test_bed.sh`
 - Extraction QC contract (upstream): GoliathExtractor `docs/extraction_qc_contract.md`
 - Downstream analysis: [`DataDrivenPipeline.md`](DataDrivenPipeline.md)
