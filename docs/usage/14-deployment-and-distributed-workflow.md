@@ -42,7 +42,7 @@ flowchart TB
 
 | Component | Role |
 |-----------|------|
-| **Database** | Workflow definitions, instances, scope, task queue. GoliathApp `sql_pg` plus this repo's `cfg_analyte_catalog.sql`. |
+| **Database** | Workflow definitions, instances, scope, task queue. GoliathApp `sql_pg` plus Omics `database/schema/` (legacy `workflow_engine/sql_pg/` symlinks). |
 | **Portal SQL** (`portal.sp_*`) | Starts instances from `cfg.study_start_request`. Preregisters worker IPs with `portal.sp_upsert_worker_enrollment`. |
 | **Gateway** (`methyl-gateway`) | Worker REST under `/v1/workers/*`: enroll, session open, task request, submit. nginx proxies public 443 to loopback `8080`. |
 | **Workers** (`methyl-worker`) | Claim tasks via poll (default 5 s idle interval). Align through `delete_bam` is pinned to one worker. Optional tier-1 **dual activation** (Postgres wake + claim, poll as safety net) is platform-owned—see [Dual activation spike (Omics)](../dual-activation-omics-spike.md). |
@@ -61,7 +61,7 @@ Follow [Release](../operators/release.md). In order:
 5. Load process packs with `scripts/deploy_process_pack_catalog.sh --backend postgres --sync` when the release schema is applied. See [Process packs](../operators/process-packs.md).
 6. Compile DomainPrograms into database nodes with `scripts/deploy_workflow_definitions.sh`.
 
-GoliathApp's `workflow_engine/sql_pg/apply_schema.sh`, `scripts/bootstrap_distributed_workers.sh`, `contracts/openapi.yaml`, and `workers/WORKER_PROTOCOL.md` are not in this repository. `pip install -e workflow_engine/` does not install the gateway: this checkout has no `workflow_engine/pyproject.toml`. The gateway wheel is produced by `scripts/build_gateway_wheel.sh` from a GoliathApp checkout.
+GoliathApp's `workflow_engine/sql_pg/apply_schema.sh`, `scripts/apply_domain_schema.sh` (Omics domain DDL), `scripts/bootstrap_distributed_workers.sh`, `contracts/openapi.yaml`, and `workers/WORKER_PROTOCOL.md` are not in this repository. `pip install -e workflow_engine/` does not install the gateway: this checkout has no `workflow_engine/pyproject.toml`. The gateway wheel is produced by `scripts/build_gateway_wheel.sh` from a GoliathApp checkout.
 
 ## Gateway configuration
 

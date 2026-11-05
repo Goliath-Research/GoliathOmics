@@ -967,10 +967,23 @@ worker_env_file() {
     GOLIATH_LONGTERM_SECRET_ACCESS_KEY "$long_secret"
   )
   if [[ "$DUAL_ACTIVATION" == "true" ]]; then
+    load_db_password
+    local worker_pg_host="$db_host"
+    if [[ "$db_schema_host" != "$db_host" ]]; then
+      worker_pg_host="$db_schema_host"
+    fi
     pairs+=(
-      WORKER_WAKE_POSTGRES 1
       GOLIATH_DUAL_ACTIVATION 1
+      GOLIATH_WORKER_NEEDS_DATABASE 1
+      POSTGRES_HOST "$worker_pg_host"
+      POSTGRES_DB "$db_name"
+      POSTGRES_USER "$db_user"
+      POSTGRES_SSLMODE "$db_ssl"
+      WORKER_WAKE_POSTGRES 1
     )
+    if [[ -n "$db_channel" ]]; then
+      pairs+=(POSTGRES_CHANNEL_BINDING "$db_channel")
+    fi
   fi
   write_kv_file "$dest_file" "${pairs[@]}"
 }

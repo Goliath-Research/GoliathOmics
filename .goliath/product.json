@@ -3,7 +3,7 @@
   "id": "goliathomics",
   "name": "GoliathOmics",
   "tagline": "Genomics workflows on GoliathApp: sample alignment, QC, and process packs.",
-  "description": "GoliathOmics specializes the GoliathApp platform for genomics. Organization-scoped customers and clinical portal APIs live in this product's PostgreSQL domain scripts; the portal shell and semantic registry core ship with GoliathApp. A SamplePrep instance aligns each sample, runs alignment QC and extraction QC, and leaves methylation matrices for later study steps. Process packs choose analyte, library technique, and cohort on methylation, RNA-seq, or proteomics. Typed ActionSpec catalogs and worker handlers register through omics entry points; release deploy seeds the merged catalog after schema apply.",
+  "description": "GoliathOmics specializes the GoliathApp platform for genomics. Organization-scoped customers and clinical portal APIs live in this product's PostgreSQL domain scripts under database/schema/; the portal shell and semantic registry core ship with GoliathApp. A SamplePrep instance aligns each sample, runs alignment QC and extraction QC, and leaves methylation matrices for later study steps. Process packs choose analyte, library technique, and cohort on methylation, RNA-seq, or proteomics. Typed ActionSpec catalogs and worker handlers register through the goliath-omics package; release deploy seeds the merged catalog after schema apply. Meta-backed clinical cutover and full semantic NavTree are planned in R3–R4.",
   "category": "application",
   "features": [
     {
@@ -41,6 +41,10 @@
     {
       "title": "Worker gateway sessions (O2)",
       "description": "After enroll, workers open POST /v1/workers/session bearer sessions with the enrollment identity token, refresh before TTL, and call tasks with Authorization Bearer plus X-Goliath-Worker-Token."
+    },
+    {
+      "title": "Child-app packaging (R2)",
+      "description": "Domain DDL lives under database/schema/ with scripts/apply_domain_schema.sh. The goliath-omics package registers ActionSpec entry points and semantic export stubs; NavTree and clinical semantic MVP follow in R3."
     },
     {
       "title": "Release profiles and worker enrollment",
