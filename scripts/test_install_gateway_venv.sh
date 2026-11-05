@@ -172,7 +172,8 @@ exit 1
 EOF
 chmod +x "$uv_bin/python3" "$uv_bin/uv"
 : >"$uv_log"
-PATH="$uv_bin:$PATH" bash "$SCRIPT" --root "$uv_root" --arch amd64 --release "$uv_release" >"$out" 2>"$err"
+PATH="$uv_bin:$PATH" bash "$SCRIPT" --root "$uv_root" --arch amd64 --release "$uv_release" >"$out" 2>"$err" \
+  || fail "uv-path install failed: $(tr '\n' ' ' <"$err") $(tr '\n' ' ' <"$out")"
 grep -q 'does not satisfy Requires-Python' "$out" || fail "3.14.4 should be rejected by >=3.10,<3.14"
 grep -q 'python install 3.13' "$uv_log" || fail "uv should provision 3.13 when 3.14 is too new: $(cat "$uv_log")"
 [[ -x "$uv_root/venv-amd64/bin/methyl-gateway" ]] || fail "uv path did not install methyl-gateway"

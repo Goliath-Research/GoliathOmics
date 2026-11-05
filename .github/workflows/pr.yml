@@ -142,7 +142,15 @@ jobs:
           bash scripts/test_deploy_target.sh
           bash scripts/test_setup_gateway_nginx.sh
           unset GOLIATH_SYSTEM_DEPS_SCRIPT || true
-          bash scripts/test_install_gateway_venv.sh
+          set +e
+          bash scripts/test_install_gateway_venv.sh > /tmp/gw-test.log 2>&1
+          gw_rc=$?
+          set -e
+          if [[ "$gw_rc" -ne 0 ]]; then
+            echo "test_install_gateway_venv.sh failed (exit $gw_rc); last 100 lines:"
+            tail -100 /tmp/gw-test.log
+            exit "$gw_rc"
+          fi
           bash scripts/test_apply_goliathapp_schema.sh
           bash scripts/test_gateway_wheel_release.sh
           bash scripts/test_worker_venv_local.sh
