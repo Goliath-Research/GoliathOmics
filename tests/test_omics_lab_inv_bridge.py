@@ -147,7 +147,7 @@ def _seed_inv(env: dict[str, str], org_id: int) -> dict[str, int]:
         _psql(
             f"""
             INSERT INTO inv.purchase_order (organization_id, supplier_id, po_number, status)
-            VALUES ({org_id}, {supplier_id}, 'PO-{uuid.uuid4().hex[:6]}', 'open')
+            VALUES ({org_id}, {supplier_id}, 'PO-{uuid.uuid4().hex[:6]}', 'submitted')
             RETURNING purchase_order_id
             """,
             env,
