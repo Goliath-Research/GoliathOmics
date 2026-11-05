@@ -31,7 +31,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, TypeVar
 
-from .platform_env import resolve_work_root
+from .platform_env import explicit_work_root_override
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def _chmod_image() -> str:
 def work_roots() -> tuple[Path, ...]:
     """Resolved ``/work``-equivalent roots (NFS bind mounts included)."""
     roots: list[Path] = []
-    extra = str(resolve_work_root())
+    extra = (explicit_work_root_override() or "").strip()
     if extra:
         try:
             roots.append(Path(extra).expanduser().resolve())

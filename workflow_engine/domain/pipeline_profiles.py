@@ -908,7 +908,7 @@ def apply_pipeline_profile(
             out.setdefault(key, val)
             continue
         if isinstance(val, bool) or key in PIPELINE_FLAG_DEFAULTS:
-            out[key] = bool(val)
+            out.setdefault(key, bool(val))
     if profile.get("researchMode") and "researchMode" not in out:
         out["researchMode"] = profile["researchMode"]
     profile_ac = profile_action_config(profile)

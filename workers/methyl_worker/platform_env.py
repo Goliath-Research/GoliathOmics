@@ -44,6 +44,11 @@ def env_first(*pairs: tuple[str, str], default: str | None = None) -> str | None
     return default
 
 
+def explicit_work_root_override() -> str | None:
+    """GOLIATH/METHYL work-root override only (not generic ``WORK_ROOT``)."""
+    return env_first(("GOLIATH_WORK_ROOT", _L_WORK_ROOT))
+
+
 def resolve_work_root() -> Path:
     raw = env_first(
         ("GOLIATH_WORK_ROOT", _L_WORK_ROOT),
