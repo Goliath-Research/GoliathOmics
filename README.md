@@ -1,6 +1,6 @@
 # GoliathOmics
 
-GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/GoliathApp) for genomics. It calls [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) and [GoliathExtractor](https://github.com/Goliath-Research/GoliathExtractor) as standalone utilities. GoliathApp contains no GoliathOmics types. GoliathAlign and GoliathExtractor contain no reference to GoliathApp or GoliathOmics. The edges are drawn in [docs/architecture/dependencies.md](docs/architecture/dependencies.md).
+GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/GoliathApp) for genomics. It calls [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) and [GoliathExtractor](https://github.com/Goliath-Research/GoliathExtractor) as standalone utilities. GoliathApp contains no GoliathOmics types. GoliathAlign and GoliathExtractor contain no reference to GoliathApp or GoliathOmics. The edges are drawn in [docs/architecture/dependencies.md](docs/architecture/dependencies.md). Platform env aliases during decoupling: [docs/goliathapp-extension.md](docs/goliathapp-extension.md).
 
 Platform alignment roadmap: [docs/refresh-plan.md](docs/refresh-plan.md).
 

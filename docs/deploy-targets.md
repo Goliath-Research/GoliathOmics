@@ -10,6 +10,8 @@ One JSON profile plus one GitHub environment describes a customer setup, includi
 
 Infrastructure from that list is not a Rollouts service. Service ids and the API key are documented in [rollouts.md](rollouts.md).
 
+**Ownership:** Omics deploy target JSON and the **`goliath-test`** runbook live in this repository (`deploy/targets/`, [goliath-test](#goliath-test)). GoliathApp deploy bundles stay platform-neutral (decoupling D7).
+
 ## Profile
 
 Profiles live in `deploy/targets/<name>.json`. The schema is `deploy/targets/target.schema.json`. `deploy/targets/goliath-test.json` is the real test profile. `deploy/targets/goliath-test.example.json` is a shape example. When both exist, `scripts/deploy_target.sh --target goliath-test` uses the real file. The driver refuses to apply an `*.example.json` profile unless `--dry-run` is set and the real file is absent.
