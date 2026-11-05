@@ -129,9 +129,8 @@ jobs:
           GOLIATH_REQUIRE_PG_TEST: "1"
           GOLIATH_APP_SQL_DIR: ${{ github.workspace }}/_goliathapp/workflow_engine/sql_pg
         run: |
-          set -o pipefail
           bash scripts/test_report_deploy.sh
-          bash scripts/test_deploy_target.sh 2>&1 | tee /tmp/test_deploy_target.log
+          bash scripts/test_deploy_target.sh
           bash scripts/test_apply_goliathapp_schema.sh
           bash scripts/test_gateway_wheel_release.sh
           bash scripts/test_worker_venv_local.sh

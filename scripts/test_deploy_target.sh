@@ -6,7 +6,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fail() {
   echo "FAIL: $*" >&2
-  echo "FAIL: $*"
   exit 1
 }
 
@@ -784,11 +783,7 @@ run_start() {
     GOLIATH_SYSTEM_CA_BUNDLE="$work_root/system-ca.pem" \
     METHYL_WORKER_ENV_DUMP="$work_root/methyl-worker-env" \
     PATH="$work_root:$PATH" \
-    bash "$start_script" >"$out" 2>"$err" || {
-      cat "$out" >&2
-      cat "$err" >&2
-      fail "goliath-worker-start.sh exited non-zero"
-    }
+    bash "$start_script" >"$out" 2>"$err"
 }
 
 run_start
@@ -805,12 +800,9 @@ grep -q 'GPU=NVIDIA RTX 6000 Ada Generation' "$report_log" || fail "report shoul
 grep -q 'host=' "$report_log" || fail "report should include host"
 grep -q 'GPU detected via nvidia-smi' "$out" || fail "start script should log nvidia-smi detection"
 grep -q 'local scratch preflight:' "$out" || fail "start script should run the local scratch preflight"
-[[ -f "$token_file" ]] || fail "worker token file missing after start"
 [[ "$(stat -c %a "$token_file")" == "600" ]] || fail "worker token file must be mode 600"
 grep -q '^WORKER_ID=7$' "$token_file" || fail "enroll token should be kept"
-pid_file="$worker_local/logs/methyl-worker.supervisor.pid"
-[[ -f "$pid_file" ]] || fail "supervisor pid file missing after start (see stdout above)"
-supervisor_pid="$(cat "$pid_file")"
+supervisor_pid="$(cat "$worker_local/logs/methyl-worker.supervisor.pid")"
 # Runtime logs are on local disk; /work keeps only per-node state.
 [[ ! -e "$work_root/goliath/nodes/pod-test-1/logs" ]] || fail "worker logs must not be created on /work"
 [[ ! -e "$work_root/goliath/logs/methyl-worker.supervisor.pid" ]] || fail "supervisor pid must not be on /work"
