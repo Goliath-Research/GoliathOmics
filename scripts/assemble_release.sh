@@ -109,7 +109,7 @@ rsync_safe=(rsync -rl --delete --no-perms --no-owner --no-group --no-times)
 "${rsync_safe[@]}" \
   --exclude manifest.json \
   --exclude 'goliath-extractor-linux-*.tar.gz' \
-  --exclude 'goliath-extractor-linux-*.tar.gz' \
+  --exclude 'methyl-extractor-linux-*.tar.gz' \
   --exclude 'goliath-align-host-linux-*.tar.gz' \
   "$MP_DIR/" "$OUTPUT/"
 
