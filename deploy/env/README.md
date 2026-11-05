@@ -11,9 +11,9 @@ Committed examples for production `/work/goliath/env/`. Copy and edit on the clu
 
 | Backend | Required env |
 |---------|----------------|
-| **PostgreSQL** | `BACKEND_DB=postgres`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (or `METHYLPIPELINE_DB`) |
+| **PostgreSQL** | `BACKEND_DB=postgres`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, or a full URL via `GOLIATH_DATABASE_URL` / `WF_DATABASE_URL` (`METHYLPIPELINE_DB` legacy alias) |
 
-Do **not** use `PGHOST` / `PGDATABASE` — the Python gateway and Admin CLI read `POSTGRES_*` via [`workflow_engine/rest/connection.py`](../../workflow_engine/rest/connection.py).
+Do **not** use `PGHOST` / `PGDATABASE` — the Python gateway and Admin CLI read `POSTGRES_*` via GoliathApp `workflow_engine/rest/connection.py` (with `GOLIATH_DATABASE_URL` / `WF_DATABASE_URL` overrides). See [GoliathApp extension](../docs/goliathapp-extension.md).
 
 ## PostgreSQL schema
 
