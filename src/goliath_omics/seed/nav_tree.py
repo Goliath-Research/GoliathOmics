@@ -27,6 +27,7 @@ NAV_SPEC = (
     ("Samples", "Clinical", 40, "omics_samples", "omics.sample.list"),
     ("Study enrollment", "Clinical", 50, "omics_enrollment", "omics.group.list_for_enrollment"),
     ("Labs", "Omics", 20, "omics_labs", "omics.lab.list"),
+    ("Lab inventory", "Labs", 10, "omics_lab_inventory", "omics.lab_reagent.list"),
 )
 
 

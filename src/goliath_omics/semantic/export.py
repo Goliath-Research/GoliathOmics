@@ -37,7 +37,7 @@ def request_row_type(req: SemanticRequestSpec, entity: SemanticEntitySpec) -> st
 
 
 def _align_omics_row_type_sql(sql: str) -> str:
-    """Match PostgreSQL list functions: bigint sample_count, numeric sample age."""
+    """Match PostgreSQL list/view types: bigint sample_count, numeric age and inv quantities."""
     return (
         sql.replace("sample_count integer", "sample_count bigint")
         .replace(
@@ -49,6 +49,8 @@ def _align_omics_row_type_sql(sql: str) -> str:
             "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'double precision', 'double precision']",
             "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'numeric', 'double precision']",
         )
+        .replace("qty_on_hand double precision", "qty_on_hand numeric")
+        .replace("unit_cost double precision", "unit_cost numeric")
     )
 
 

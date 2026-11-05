@@ -128,3 +128,47 @@ class GroupAddSamplePayload(BaseModel):
 
     group_id: int
     sample_id: int
+
+
+class LabReagentRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    stock_lot_id: int
+    organization_id: int
+    lab_id: Optional[int] = None
+    item_id: int
+    item_number: str
+    lot_number: Optional[str] = None
+    qty_on_hand: float
+    unit_cost: Optional[float] = None
+    location_code: Optional[str] = None
+    bin_code: Optional[str] = None
+
+
+class LabReagentListParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    organization_id: int
+    lab_id: Optional[int] = None
+    item_id: Optional[int] = None
+
+
+class LabReagentReceivePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    organization_id: int
+    lab_id: Optional[int] = None
+    po_line_id: int
+    bin_id: int
+    qty: float
+    lot_number: Optional[str] = None
+    unit_price_override: Optional[float] = None
+
+
+class LabReagentConsumePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    organization_id: int
+    batch_id: int
+    stock_lot_id: int
+    qty: float

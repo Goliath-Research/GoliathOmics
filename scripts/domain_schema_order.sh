@@ -19,6 +19,7 @@ DOMAIN_SCHEMA_SCRIPTS=(
   11_omics_meta_semantic_writes.sql
   12_omics_meta_backfill_api.sql
   13_omics_lab_inv_bridge.sql
+  14_omics_inv_semantic.sql
 )
 
 # Legacy sql_pg names (same order); used by release bundles and apply_schema.sh SCRIPTS=.
@@ -36,6 +37,7 @@ DOMAIN_SCHEMA_LEGACY_NAMES=(
   omics_meta_semantic_writes.sql
   omics_meta_backfill_api.sql
   omics_lab_inv_bridge.sql
+  omics_inv_semantic.sql
 )
 
 if ((${#DOMAIN_SCHEMA_SCRIPTS[@]} != ${#DOMAIN_SCHEMA_LEGACY_NAMES[@]})); then

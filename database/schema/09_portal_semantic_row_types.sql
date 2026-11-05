@@ -83,3 +83,25 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'portal' AND t.typname = 'omics_lab_reagent_row'
+  ) THEN
+    CREATE TYPE portal.omics_lab_reagent_row AS (
+  stock_lot_id integer,
+  organization_id integer,
+  lab_id integer,
+  item_id integer,
+  item_number text,
+  lot_number text,
+  qty_on_hand numeric,
+  unit_cost numeric,
+  location_code text,
+  bin_code text
+    );
+  END IF;
+END $$;
+
