@@ -242,6 +242,7 @@ def seed(conn) -> int:
     count = 0
     with conn.cursor() as cur:
         cur.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
+        cur.execute("SELECT encode(digest('omics-meta-probe', 'sha256'), 'hex')")
         for spec in META_CLASS_SPECS:
             cur.execute(
                 """

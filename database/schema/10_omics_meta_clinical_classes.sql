@@ -123,7 +123,7 @@ CREATE OR REPLACE FUNCTION omics_clinical.fn_meta_ensure_wf_type(
 RETURNS bigint
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = wf, pg_temp
+SET search_path = public, wf, pg_temp
 AS $$
 DECLARE
   v_id bigint;
@@ -157,7 +157,7 @@ CREATE OR REPLACE FUNCTION omics_clinical.sp_meta_upsert_class_field(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = "Meta", omics_clinical, wf, pg_temp
+SET search_path = public, "Meta", omics_clinical, wf, pg_temp
 AS $$
 DECLARE
   v_type_id bigint;
@@ -181,7 +181,7 @@ CREATE OR REPLACE FUNCTION omics_clinical.sp_meta_register_clinical_class(
 RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = "Meta", omics_clinical, portal, wf, pg_temp
+SET search_path = public, "Meta", omics_clinical, portal, wf, pg_temp
 AS $$
 DECLARE
   v_class_id integer;
