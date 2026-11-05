@@ -672,6 +672,8 @@ shellcheck -S warning -e SC1091 \
   "$ROOT/scripts/provision_gateway_node.sh" \
   "$ROOT/scripts/test_setup_gateway_nginx.sh"
 
+echo "test_deploy_target: after gateway nginx contract"
+
 work_root="$(mktemp -d)"
 # The worker start installs system tools (install_system_deps.sh) before
 # anything else; these flows test the start itself, so stub the installer.
