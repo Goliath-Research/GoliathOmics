@@ -672,8 +672,6 @@ shellcheck -S warning -e SC1091 \
   "$ROOT/scripts/provision_gateway_node.sh" \
   "$ROOT/scripts/test_setup_gateway_nginx.sh"
 
-echo "test_deploy_target: after gateway nginx contract"
-
 work_root="$(mktemp -d)"
 # The worker start installs system tools (install_system_deps.sh) before
 # anything else; these flows test the start itself, so stub the installer.
@@ -1797,6 +1795,6 @@ grep -q 'methyl_worker' "$out" || fail "dry-run join should still enroll"
 
 rm -rf "$fixture_dir"
 bash "$ROOT/scripts/test_setup_gateway_nginx.sh"
-bash "$ROOT/scripts/test_install_gateway_venv.sh"
+bash "$ROOT/scripts/test_install_gateway_venv.sh" || fail "test_install_gateway_venv.sh failed"
 bash "$ROOT/scripts/test_worker_venv_local.sh"
 echo "test_deploy_target ok"

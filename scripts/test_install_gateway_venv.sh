@@ -133,7 +133,8 @@ if grep -q 'methyl_worker-1.0.0' "$out"; then
 fi
 grep -q 'satisfies Requires-Python' "$out" || fail "install should record the Requires-Python check"
 
-bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err"
+bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err" \
+  || fail "install_gateway_venv.sh failed (reuse path): $(tr '\n' ' ' <"$err")"
 grep -q 'reusing venv' "$out" || fail "second install should reuse the venv"
 [[ -x "$root/venv-amd64/bin/methyl-gateway" ]] || fail "reused venv lost methyl-gateway"
 
