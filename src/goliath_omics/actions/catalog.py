@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, cast
 
 if TYPE_CHECKING:
     from goliath_app import ActionSpec
@@ -14,12 +14,10 @@ def _load_action_catalog() -> List["ActionSpec"]:
     global _ACTION_CATALOG
     if _ACTION_CATALOG is not None:
         return _ACTION_CATALOG
-    from goliath_app import ActionSpec
     from methyl_worker.action_catalog import ACTION_CATALOG
 
-    catalog: List[ActionSpec] = ACTION_CATALOG
-    _ACTION_CATALOG = catalog
-    return catalog
+    _ACTION_CATALOG = cast(List["ActionSpec"], ACTION_CATALOG)
+    return _ACTION_CATALOG
 
 
 def __getattr__(name: str):
