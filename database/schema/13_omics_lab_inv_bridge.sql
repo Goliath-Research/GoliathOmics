@@ -108,6 +108,7 @@ BEGIN
     FROM omics_lab_inv.lab_stock_context c
     WHERE c.stock_lot_id = p_stock_lot_id
       AND c.organization_id = p_organization_id
+      AND (c.lab_id IS NULL OR c.lab_id = v_lab_id)
   ) THEN
     PERFORM portal.fn_semantic_raise('GS404', 'stock lot not linked to omics lab inventory');
   END IF;
