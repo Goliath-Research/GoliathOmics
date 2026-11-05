@@ -68,7 +68,7 @@ Wake does **not** shorten in-flight GPU time; it reduces **queue wait before cla
 
 ## 4. Omics pools and suggested wake channels
 
-Workers enroll with a **capability list** ([`workers/methyl_worker/capabilities.py`](../workers/methyl_worker/capabilities.py)). Systemd supports omnibus (`methyl-worker.service`) or pinned [`methyl-worker@<capability>.service`](../deploy/systemd/methyl-worker@.service) with `WORKER_CAPABILITY=%i`.
+Workers enroll with a **capability list** ([`workers/methyl_worker/capabilities.py`](../workers/methyl_worker/capabilities.py)). Systemd supports omnibus (`goliath-worker.service`) or pinned [`goliath-worker@<capability>.service`](../deploy/systemd/goliath-worker@.service) with `WORKER_CAPABILITY=%i`.
 
 Tier-1 platform wake is expected to key off the same **capability** (and/or wildcard) used in claim filters—exact NOTIFY topic naming lives in GoliathApp dual-activation docs; Omics only needs to align **enrollment pins** with those topics.
 
@@ -83,7 +83,7 @@ Tier-1 platform wake is expected to key off the same **capability** (and/or wild
 | RNA-seq SamplePrep | `parabricks.rna_fq2bam`, `parabricks.kallisto`, `rna-qc` | [`sample_prep_rnaseq.program.json`](../workflow_engine/domain/fixtures/sample_prep_rnaseq.program.json) |
 | Proteomics SamplePrep | `proteomics.diann`, `proteomics.prosit`, `proteomics.casanovo`, `proteomics.sage` | [`sample_prep_proteomics.program.json`](../workflow_engine/domain/fixtures/sample_prep_proteomics.program.json) |
 | Validation MC / freeze | `methyl-centroid`, `methyl-detector`, `methyl-mapper`, … | [`study_validation_lifecycle.program.json`](../workflow_engine/domain/fixtures/study_validation_lifecycle.program.json) |
-| Omnibus dev / small fleet | `*` | [`deploy/systemd/methyl-worker.service`](../deploy/systemd/methyl-worker.service) |
+| Omnibus dev / small fleet | `*` | [`deploy/systemd/goliath-worker.service`](../deploy/systemd/goliath-worker.service) |
 
 No new Omics-specific NOTIFY tables are required for tier-1 if the broker publishes on capability strings already used in `wf.worker` enrollment and claim.
 

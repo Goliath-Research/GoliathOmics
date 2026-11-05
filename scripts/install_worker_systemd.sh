@@ -9,7 +9,7 @@ Usage: scripts/install_worker_systemd.sh [options]
 Options:
   --root PATH           GoliathOmics root (default: /work/goliath)
   --arch KEY            aarch64 or amd64 (default: detect)
-  --capability NAME     Install methyl-worker@NAME.service instead of omnibus
+  --capability NAME     Install goliath-worker@NAME.service instead of omnibus
   --detect-capabilities Install one unit per auto-detected capability (or omnibus for '*')
   --runtime PATH        Path to runtime-bundle (default: <root>/current/runtime-bundle)
   --no-start            Install/enable only; do not start
@@ -24,6 +24,8 @@ source "$SCRIPT_DIR/detect_platform.sh"
 source "$SCRIPT_DIR/worker_venv_local.sh"
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
+# shellcheck source=gateway_entry_compat.sh
+source "$SCRIPT_DIR/gateway_entry_compat.sh"
 
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 ARCH=""
@@ -60,7 +62,8 @@ RUNTIME="${RUNTIME:-$(readlink -f "${_cur:-$ROOT/current}/runtime-bundle" 2>/dev
 DEPLOY="$RUNTIME/deploy/systemd"
 [[ -d "$DEPLOY" ]] || DEPLOY="$SCRIPT_DIR/../deploy/systemd"
 
-WORKER_BIN="$VENV/bin/methyl-worker"
+link_worker_entry_compat "$VENV"
+WORKER_BIN="$VENV/bin/goliath-worker"
 [[ -x "$WORKER_BIN" ]] || echo "[WARN] $WORKER_BIN is missing; build the local venv with worker_venv_local.sh --release <release>" >&2
 
 # shellcheck disable=SC2034 # rendered units set PATH; kept from upstream
@@ -77,6 +80,16 @@ _render_unit() {
       "$src" >"$dest"
 }
 
+_disable_legacy_pinned_worker() {
+  local cap="$1"
+  local legacy="methyl-worker@${cap}.service"
+  if [[ "$NO_START" -eq 1 ]]; then
+    systemctl disable "$legacy" 2>/dev/null || true
+  else
+    systemctl disable --now "$legacy" 2>/dev/null || true
+  fi
+}
+
 _detect_capabilities() {
   local py="$VENV/bin/python"
   [[ -x "$py" ]] || py="python3"
@@ -84,9 +97,10 @@ _detect_capabilities() {
 }
 
 _install_template_unit() {
-  local src="$DEPLOY/methyl-worker@.service"
+  local src="$DEPLOY/goliath-worker@.service"
   [[ -f "$src" ]] || { echo "Missing $src" >&2; exit 1; }
-  _render_unit "$src" "/etc/systemd/system/methyl-worker@.service"
+  _render_unit "$src" "/etc/systemd/system/goliath-worker@.service"
+  install_systemd_unit_alias goliath-worker@.service methyl-worker@.service
 }
 
 if [[ "$DETECT_CAPABILITIES" -eq 1 && -z "$CAPABILITY" ]]; then
@@ -99,11 +113,15 @@ if [[ "$DETECT_CAPABILITIES" -eq 1 && -z "$CAPABILITY" ]]; then
     CAPABILITY=""
   else
     rollouts_set_message "host=${_rollouts_host} arch=${ARCH} capability=$(IFS=,; echo "${CAPS[*]}")"
+    for cap in "${CAPS[@]}"; do
+      [[ -z "$cap" || "$cap" == "*" ]] && continue
+      _disable_legacy_pinned_worker "$cap"
+    done
     _install_template_unit
     systemctl daemon-reload
     for cap in "${CAPS[@]}"; do
       [[ -z "$cap" || "$cap" == "*" ]] && continue
-      UNIT="methyl-worker@${cap}.service"
+      UNIT="goliath-worker@${cap}.service"
       systemctl enable "$UNIT"
       [[ "$NO_START" -eq 0 ]] && systemctl restart "$UNIT"
       systemctl status "$UNIT" --no-pager -l -n 8
@@ -114,10 +132,12 @@ fi
 
 if [[ -n "$CAPABILITY" ]]; then
   rollouts_set_message "host=${_rollouts_host} arch=${ARCH} capability=${CAPABILITY}"
-  UNIT="methyl-worker@${CAPABILITY}.service"
-  SRC="$DEPLOY/methyl-worker@.service"
+  UNIT="goliath-worker@${CAPABILITY}.service"
+  SRC="$DEPLOY/goliath-worker@.service"
   [[ -f "$SRC" ]] || { echo "Missing $SRC" >&2; exit 1; }
-  _render_unit "$SRC" "/etc/systemd/system/methyl-worker@.service"
+  _disable_legacy_pinned_worker "$CAPABILITY"
+  _render_unit "$SRC" "/etc/systemd/system/goliath-worker@.service"
+  install_systemd_unit_alias goliath-worker@.service methyl-worker@.service
   systemctl daemon-reload
   systemctl enable "$UNIT"
   [[ "$NO_START" -eq 0 ]] && systemctl restart "$UNIT"
@@ -125,10 +145,11 @@ if [[ -n "$CAPABILITY" ]]; then
   exit 0
 fi
 
-SRC="$DEPLOY/methyl-worker.service"
+SRC="$DEPLOY/goliath-worker.service"
 [[ -f "$SRC" ]] || { echo "Missing $SRC" >&2; exit 1; }
 
-_render_unit "$SRC" "/etc/systemd/system/methyl-worker.service"
+_render_unit "$SRC" "/etc/systemd/system/goliath-worker.service"
+install_systemd_unit_alias goliath-worker.service methyl-worker.service
 
 if [[ "$DETECT_CAPABILITIES" -eq 1 && -z "$CAPABILITY" ]]; then
   rollouts_set_message "host=${_rollouts_host} arch=${ARCH} capability=*"
@@ -136,6 +157,6 @@ else
   rollouts_set_message "host=${_rollouts_host} arch=${ARCH} capability=${CAPABILITY:-unspecified}"
 fi
 systemctl daemon-reload
-systemctl enable methyl-worker.service
-[[ "$NO_START" -eq 0 ]] && systemctl restart methyl-worker.service
-systemctl status methyl-worker.service --no-pager -l -n 15
+systemctl enable goliath-worker.service
+[[ "$NO_START" -eq 0 ]] && systemctl restart goliath-worker.service
+systemctl status goliath-worker.service --no-pager -l -n 15

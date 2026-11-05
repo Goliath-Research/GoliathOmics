@@ -1,24 +1,27 @@
 #!/bin/bash
-# Install methyl-gateway systemd unit on this VM.
+# Install goliath-gateway systemd unit on this VM.
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
 Usage: scripts/install_gateway_systemd.sh [options]
 
-Install methyl-gateway on this VM's local disk. Do not point --root at /work
-(the worker share). Default: /opt/methyl-gateway
+Install goliath-gateway on this VM's local disk. Do not point --root at /work
+(the worker share). Default: /opt/goliath-gateway
 
 Options:
-  --root PATH           Gateway local root (default: /opt/methyl-gateway)
+  --root PATH           Gateway local root (default: /opt/goliath-gateway)
   --arch KEY            aarch64 or amd64 (default: detect)
   --runtime PATH        Path to runtime-bundle (default: <root>/runtime-bundle or this repo)
-  --release PATH        Extracted release whose wheels/ entry_points.txt provides methyl-gateway
+  --release PATH        Extracted release whose wheels/ entry_points.txt provides goliath-gateway
   --no-start            Install/enable only; do not start
   -h, --help
 
-Creates <root>/venv-<arch>, installs methyl-gateway from the release wheel,
+Creates <root>/venv-<arch>, installs goliath-gateway from the release wheel,
 and only then enables the unit. Without that binary systemd exits 203/EXEC.
+
+Legacy /opt/methyl-gateway and methyl-gateway.service remain supported for one
+release (deprecation log + unit alias symlink).
 EOF
 }
 
@@ -27,8 +30,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/detect_platform.sh"
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
+# shellcheck source=gateway_entry_compat.sh
+source "$SCRIPT_DIR/gateway_entry_compat.sh"
 
-ROOT="${GOLIATH_ROOT:-/opt/methyl-gateway}"
+ROOT="${GOLIATH_ROOT:-/opt/goliath-gateway}"
 ARCH=""
 RUNTIME=""
 RELEASE=""
@@ -46,6 +51,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "$ROOT" == /opt/methyl-gateway ]]; then
+  echo "[WARN] --root /opt/methyl-gateway is deprecated; use /opt/goliath-gateway (D8 one-release compat)" >&2
+fi
+
 if [[ "$ROOT" == /work || "$ROOT" == /work/* ]]; then
   echo "Gateway --root must be this VM's local disk, not the worker /work share (got $ROOT)." >&2
   exit 1
@@ -57,7 +66,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 ARCH="${ARCH:-$(platform_arch_key "$(detect_uname_arch)")}"
-# The unit's ExecStart is venv-<arch>/bin/methyl-gateway. Install that
+# The unit's ExecStart is venv-<arch>/bin/goliath-gateway. Install that
 # entry point before enable/restart, or systemd reports status 203/EXEC.
 VENV_INSTALL="$SCRIPT_DIR/install_gateway_venv.sh"
 [[ -f "$VENV_INSTALL" ]] || { echo "Missing $VENV_INSTALL" >&2; exit 1; }
@@ -66,14 +75,15 @@ if [[ -n "$RELEASE" ]]; then
   venv_args+=(--release "$RELEASE")
 fi
 bash "$VENV_INSTALL" "${venv_args[@]}"
-if [[ -x "$ROOT/venv-${ARCH}/bin/methyl-gateway" ]]; then
+if [[ -x "$ROOT/venv-${ARCH}/bin/goliath-gateway" ]]; then
   VENV="$ROOT/venv-${ARCH}"
-elif [[ -x "$ROOT/venv/bin/methyl-gateway" ]]; then
+elif [[ -x "$ROOT/venv/bin/goliath-gateway" ]]; then
   VENV="$ROOT/venv"
 else
-  echo "[ERROR] methyl-gateway entry point missing at $ROOT/venv-${ARCH}/bin/methyl-gateway" >&2
+  echo "[ERROR] goliath-gateway entry point missing at $ROOT/venv-${ARCH}/bin/goliath-gateway" >&2
   exit 1
 fi
+link_gateway_entry_compat "$VENV"
 if [[ -d "$ROOT/runtime-bundle" ]]; then
   RUNTIME="${RUNTIME:-$(readlink -f "$ROOT/runtime-bundle")}"
 elif [[ -d "$ROOT/current/runtime-bundle" ]]; then
@@ -84,19 +94,20 @@ fi
 DEPLOY="$RUNTIME/deploy/systemd"
 [[ -d "$DEPLOY" ]] || DEPLOY="$SCRIPT_DIR/../deploy/systemd"
 
-SRC="$DEPLOY/methyl-gateway.service"
+SRC="$DEPLOY/goliath-gateway.service"
 [[ -f "$SRC" ]] || { echo "Missing $SRC" >&2; exit 1; }
 
 rollouts_begin goliath-gateway "gateway $(hostname -s 2>/dev/null || hostname)"
 
 sed -e "s|__GOLIATH_ROOT__|$ROOT|g" \
     -e "s|__GOLIATH_VENV__|$VENV|g" \
-    "$SRC" >"/etc/systemd/system/methyl-gateway.service"
+    "$SRC" >"/etc/systemd/system/goliath-gateway.service"
+install_systemd_unit_alias goliath-gateway.service methyl-gateway.service
 
 systemctl daemon-reload
-systemctl enable methyl-gateway.service
-[[ "$NO_START" -eq 0 ]] && systemctl restart methyl-gateway.service
-systemctl status methyl-gateway.service --no-pager -l -n 15
+systemctl enable goliath-gateway.service
+[[ "$NO_START" -eq 0 ]] && systemctl restart goliath-gateway.service
+systemctl status goliath-gateway.service --no-pager -l -n 15
 
 # Lease reclaim timer (expired RUNNING → READY); same gateway.env credentials.
 RECLAIM_INSTALL="$SCRIPT_DIR/install_reclaim_leases_timer.sh"

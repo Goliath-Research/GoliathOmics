@@ -1,0 +1,14 @@
+[Unit]
+Description=Run Goliath lease reclaim every 2 minutes
+Requires=goliath-reclaim-leases.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=30s
+Persistent=true
+Unit=goliath-reclaim-leases.service
+
+[Install]
+WantedBy=timers.target
+Alias=methyl-reclaim-leases.timer

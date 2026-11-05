@@ -1,5 +1,5 @@
 #!/bin/bash
-# Fail unless a wheel declares the methyl-gateway console script.
+# Fail unless a wheel declares the goliath-gateway console script (or legacy methyl-gateway).
 #
 # Filename is not evidence. Plugin wheels (methyl_worker, methylutils, …)
 # live under wheels/ and do not provide the gateway entry point. The core
@@ -19,7 +19,8 @@ import zipfile
 from pathlib import Path
 
 wheels_dir = Path(sys.argv[1])
-script_name = "methyl-gateway"
+preferred = "goliath-gateway"
+legacy = "methyl-gateway"
 
 def console_scripts(text):
     found = []
@@ -36,6 +37,7 @@ def console_scripts(text):
     return found
 
 matches = []
+legacy_matches = []
 seen = 0
 for path in sorted(wheels_dir.glob("*.whl")):
     seen += 1
@@ -50,15 +52,21 @@ for path in sorted(wheels_dir.glob("*.whl")):
         print("[WARN] skipping invalid wheel %s" % path, file=sys.stderr)
         continue
     scripts = console_scripts(entry)
-    if script_name in scripts:
+    if preferred in scripts:
         matches.append(path.name)
+    elif legacy in scripts:
+        legacy_matches.append(path.name)
 
 if matches:
-    print("[INFO] methyl-gateway console script provided by: %s" % ", ".join(matches))
+    print("[INFO] goliath-gateway console script provided by: %s" % ", ".join(matches))
+    sys.exit(0)
+if legacy_matches:
+    print("[INFO] legacy methyl-gateway console script provided by: %s" % ", ".join(legacy_matches))
     sys.exit(0)
 
 print(
-    "[ERROR] no wheel in %s provides the methyl-gateway console script. "
+    "[ERROR] no wheel in %s provides the goliath-gateway console script "
+    "(or legacy methyl-gateway). "
     "Checked entry_points.txt [console_scripts] in %d wheel(s). "
     "The core package wheel must be built into wheels/; plugin wheels alone are not enough."
     % (wheels_dir, seen),

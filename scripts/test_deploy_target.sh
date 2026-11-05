@@ -478,7 +478,7 @@ cat >"$ssh_fixture" <<'EOF'
   },
   "schema": {"apply": "none"},
   "gateway": {
-    "install_root": "/opt/methyl-gateway",
+    "install_root": "/opt/goliath-gateway",
     "hosts": [
       {
         "name": "goliath-gateway",
@@ -539,7 +539,7 @@ env NEON_TEST_PASSWORD='neon-secret-value' GOLIATH_DEPLOY_SSH_KEY="$fake_key" \
   bash "$ROOT/scripts/deploy_target.sh" --target ssh-key-ci --component gateway >"$out" 2>"$err"
 status=$?
 set -e
-[[ "$status" -ne 0 ]] || fail "gateway deploy without the methyl-gateway console script must fail"
+[[ "$status" -ne 0 ]] || fail "gateway deploy without the goliath-gateway console script must fail"
 grep -q 'entry_points.txt' "$err" || fail "gateway deploy should say the wheel was selected from entry_points.txt"
 if [[ -s "$ssh_log" ]]; then
   fail "gateway deploy without the console script should fail before SSH"
@@ -570,7 +570,7 @@ fi
 if grep -q 'neon-secret-value' "$out" "$err" "$ssh_log"; then
   fail "deploy printed the database password"
 fi
-grep -q "install_gateway_systemd.sh --root '/opt/methyl-gateway' --release '/opt/methyl-gateway/gateway-dist'" "$ssh_log" \
+grep -q "install_gateway_systemd.sh --root '/opt/goliath-gateway' --release '/opt/goliath-gateway/gateway-dist'" "$ssh_log" \
   || fail "gateway deploy should install the venv from the staged release before enabling the service"
 grep -q 'scripts/install_gateway_venv.sh' "$ROOT/scripts/deploy_target.sh" \
   || fail "gateway bundle must ship install_gateway_venv.sh"

@@ -38,6 +38,10 @@ Capability markdown, domain types, DomainProgram fixtures, and pipeline profile 
 
 Paired plan: [GoliathApp `docs/decoupling-plan.md`](https://github.com/Goliath-Research/GoliathApp/blob/main/docs/decoupling-plan.md) phases D5–D7.
 
-## Production renames (D8)
+## Production renames (D8 — approved)
 
-Database **service names**, Neon database identifiers, and systemd unit renames (`methyl-gateway` → `goliath-gateway`) on shared hosts require a coordinated maintenance window. Do not rename production databases or services until David confirms (see decoupling plan D8).
+Gateway install root, systemd units, and nginx site templates use **`goliath-*`** names (`/opt/goliath-gateway`, `goliath-gateway.service`, `deploy/nginx/goliath-gateway.conf`). Installers symlink legacy **`methyl-*`** unit names and accept legacy console scripts for **one release**.
+
+The Neon database name **`GoliathOmics`** on omics test/prod is unchanged. Legacy `methylpipeline` host/db names on older Azure stacks are unrelated to this cutover.
+
+Operator cutover: redeploy gateway with `scripts/deploy_target.sh --target goliath-test --component gateway` (or `scripts/provision_gateway_node.sh` on the host). Existing TLS under `/etc/ssl/methyl-gateway` is reused automatically until reissued under `/etc/ssl/goliath-gateway`.

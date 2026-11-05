@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install methyl-gateway on this VM and publish it through nginx.
+# Install goliath-gateway on this VM and publish it through nginx.
 # Local disk only. Do not point --root at the worker /work share.
 set -euo pipefail
 
@@ -12,9 +12,9 @@ Does not enable ufw. When ufw is already active, the nginx step opens
 80/tcp and 443/tcp and leaves SSH rules alone.
 
 Options:
-  --root PATH           Gateway local root (default: /opt/methyl-gateway)
+  --root PATH           Gateway local root (default: /opt/goliath-gateway)
   --arch KEY            aarch64 or amd64 (default: detect)
-  --release PATH        Extracted release whose wheel provides methyl-gateway
+  --release PATH        Extracted release whose wheel provides goliath-gateway
   --public-host HOST    Public IP or DNS name
   --public-url URL      https://host/v1 (used when --public-host is omitted)
   --tls MODE            self-signed (default) or letsencrypt
@@ -30,7 +30,7 @@ EOF
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-ROOT="${GOLIATH_ROOT:-/opt/methyl-gateway}"
+ROOT="${GOLIATH_ROOT:-/opt/goliath-gateway}"
 ARCH=""
 RELEASE=""
 PUBLIC_HOST=""

@@ -411,6 +411,7 @@ build_runtime_bundle() {
            download_goliath_extractor_artifacts.sh download_methyl_extractor_artifacts.sh \
            goliath_extractor_env_compat.sh goliath_extractor_local.sh methyl_extractor_local.sh \
            assemble_release.sh bootstrap_goliath.sh \
+           gateway_entry_compat.sh \
            install_gateway_systemd.sh install_gateway_venv.sh install_worker_systemd.sh \
            install_reclaim_leases_timer.sh provision_gateway_node.sh \
            setup_gateway_nginx.sh \

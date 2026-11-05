@@ -4,8 +4,8 @@ Committed examples for production `/work/goliath/env/`. Copy and edit on the clu
 
 | Template | Target on cluster | Consumers |
 |----------|-------------------|-----------|
-| `gateway.postgres.env.example` | `/opt/methyl-gateway/env/gateway.env` (gateway VM local disk) | `methyl-gateway`, privileged-host `bootstrap_distributed_workers.sh` |
-| `worker.env.example` | `/work/goliath/env/worker.env` | `methyl-worker` systemd units |
+| `gateway.postgres.env.example` | `/opt/goliath-gateway/env/gateway.env` (gateway VM local disk; legacy `/opt/methyl-gateway` one release) | `goliath-gateway`, privileged-host bootstrap scripts |
+| `worker.env.example` | `/work/goliath/env/worker.env` | `goliath-worker` systemd units |
 
 ## Database variables
 

@@ -122,7 +122,7 @@ bash "$CHECK" "$empty" >"$work/check.out" 2>"$work/check.err"
 status=$?
 set -e
 [[ "$status" -ne 0 ]] || fail "plugin wheels must not satisfy the methyl-gateway check"
-grep -q 'methyl-gateway console script' "$work/check.err" || fail "check error should name the console script"
+grep -q 'goliath-gateway console script' "$work/check.err" || fail "check error should name the console script"
 
 if grep -R -n '2026.10.0' "$BUILD" "$CHECK" "$ROOT/scripts/build_release.sh" "$ROOT/.github/workflows/release.yml" >/dev/null 2>&1; then
   fail "release packaging hardcodes 2026.10.0"
