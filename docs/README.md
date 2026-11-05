@@ -14,6 +14,7 @@ Release **2026.10.27** follows the tag, assemble, and deploy process in [operato
 | [usage](usage/index.md) | How to run studies, SamplePrep, and validation |
 | [theory](theory/index.md) | Statistical and biological background |
 | [architecture](architecture/dependencies.md) | Dependency direction, semantic layer on GoliathApp, sample-prep tooling |
+| [refresh-plan](refresh-plan.md) | R0 gap audit and phased alignment with GoliathApp Meta + Crop/Factory child-app pattern |
 | [regulatory](regulatory/README.md) | SaMD and operational controls |
 | [research](research/README.md) | Notes and assessments. These are not the operator contract. |
 | [contracts](contracts/omics-tool-requirements.md) | Features required from GoliathAlign and GoliathExtractor |

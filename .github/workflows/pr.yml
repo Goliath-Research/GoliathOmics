@@ -42,11 +42,13 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-setuptools python3-wheel python3-venv python3-pip curl ca-certificates
+
+      - name: Install uv (gateway venv tests)
         run: |
-          sudo apt-get update && sudo apt-get install -y shellcheck python3-pip python3-setuptools python3-wheel python3-venv curl ca-certificates
-          if ! command -v uv >/dev/null 2>&1; then
-            curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
-          fi
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          uv --version
 
       # GoliathApp c7ae4d8 (P3 worker sessions) is what the next release bundles.
       # test_apply_goliathapp_schema.sh applies its sql_pg scripts twice to
@@ -133,8 +135,22 @@ jobs:
           GOLIATH_REQUIRE_PG_TEST: "1"
           GOLIATH_APP_SQL_DIR: ${{ github.workspace }}/_goliathapp/workflow_engine/sql_pg
         run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          set -o pipefail
+          uv --version
           bash scripts/test_report_deploy.sh
           bash scripts/test_deploy_target.sh
+          bash scripts/test_setup_gateway_nginx.sh
+          unset GOLIATH_SYSTEM_DEPS_SCRIPT || true
+          set +e
+          bash scripts/test_install_gateway_venv.sh > /tmp/gw-test.log 2>&1
+          gw_rc=$?
+          set -e
+          if [[ "$gw_rc" -ne 0 ]]; then
+            echo "test_install_gateway_venv.sh failed (exit $gw_rc); last 100 lines:"
+            tail -100 /tmp/gw-test.log
+            exit "$gw_rc"
+          fi
           bash scripts/test_apply_goliathapp_schema.sh
           bash scripts/test_gateway_wheel_release.sh
           bash scripts/test_worker_venv_local.sh

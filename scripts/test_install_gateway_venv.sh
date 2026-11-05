@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$ROOT/scripts/install_gateway_venv.sh"
 fail() {
   echo "FAIL: $*" >&2
+  echo "FAIL: $*"
   exit 1
 }
 
@@ -45,11 +46,14 @@ assert_requires '!=3.14.*' 3.13.1 yes
 assert_requires '==3.12.*' 3.12.3 yes
 assert_requires '>=3.10,<3.15' 3.12.3 yes
 
-selected="$(bash "$SCRIPT" --select-python '>=3.10,<3.14')"
+selected="$(bash "$SCRIPT" --select-python '>=3.10,<3.14')" \
+  || fail "--select-python failed for >=3.10,<3.14"
 [[ "$selected" == "3.13" ]] || fail "expected uv to provision 3.13 for >=3.10,<3.14, got $selected"
-selected="$(bash "$SCRIPT" --select-python '>=3.12,<3.13')"
+selected="$(bash "$SCRIPT" --select-python '>=3.12,<3.13')" \
+  || fail "--select-python failed for >=3.12,<3.13"
 [[ "$selected" == "3.12" ]] || fail "expected 3.12 for >=3.12,<3.13, got $selected"
-selected="$(bash "$SCRIPT" --select-python '==3.11.9')"
+selected="$(bash "$SCRIPT" --select-python '==3.11.9')" \
+  || fail "--select-python failed for ==3.11.9"
 [[ "$selected" == "3.11.9" ]] || fail "expected exact 3.11.9, got $selected"
 
 err="$(mktemp)"
@@ -161,6 +165,9 @@ EOF
 cat >"$uv_bin/uv" <<EOF
 #!/bin/bash
 printf '%s\n' "\$*" >>"$uv_log"
+if [[ "\${GITHUB_ACTIONS:-}" == "true" && -x "\${HOME}/.local/bin/uv" ]]; then
+  exec "\${HOME}/.local/bin/uv" "\$@"
+fi
 real_uv=""
 for candidate in /usr/local/bin/uv "\$HOME/.local/bin/uv" /usr/bin/uv; do
   if [[ -x "\$candidate" && "\$candidate" != "\$0" ]]; then
