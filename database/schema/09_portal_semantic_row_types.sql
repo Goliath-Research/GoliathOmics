@@ -104,7 +104,7 @@ DO $$
 DECLARE
   v_typname constant text := 'omics_group_row';
   v_desired text[] := ARRAY['group_id', 'name', 'description', 'customer_id', 'sample_count'];
-  v_desired_types text[] := ARRAY['integer', 'text', 'text', 'integer', 'integer'];
+  v_desired_types text[] := ARRAY['integer', 'text', 'text', 'integer', 'bigint'];
   v_existing text[];
   v_i int;
 BEGIN
@@ -122,7 +122,7 @@ BEGIN
   name text,
   description text,
   customer_id integer,
-  sample_count integer
+  sample_count bigint
     );
   ELSIF v_existing = v_desired THEN
     NULL;
@@ -145,7 +145,7 @@ BEGIN
   name text,
   description text,
   customer_id integer,
-  sample_count integer
+  sample_count bigint
     );
   END IF;
 END $$;
@@ -154,7 +154,7 @@ DO $$
 DECLARE
   v_typname constant text := 'omics_sample_row';
   v_desired text[] := ARRAY['sample_id', 'patient_id', 'customer_id', 'disease_id', 'sample_name', 'age', 'bmi'];
-  v_desired_types text[] := ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'double precision', 'double precision'];
+  v_desired_types text[] := ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'numeric', 'double precision'];
   v_existing text[];
   v_i int;
 BEGIN
@@ -173,7 +173,7 @@ BEGIN
   customer_id integer,
   disease_id integer,
   sample_name text,
-  age double precision,
+  age numeric,
   bmi double precision
     );
   ELSIF v_existing = v_desired THEN
@@ -198,7 +198,7 @@ BEGIN
   customer_id integer,
   disease_id integer,
   sample_name text,
-  age double precision,
+  age numeric,
   bmi double precision
     );
   END IF;

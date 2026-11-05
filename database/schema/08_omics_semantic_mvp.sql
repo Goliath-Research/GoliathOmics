@@ -186,10 +186,7 @@ BEGIN
   RETURN QUERY
   SELECT v.group_id, v.name, v.description, v.customer_id, v.sample_count
   FROM omics_clinical.v_group v
-  WHERE (
-    v.customer_id IS NULL
-    OR omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
-  )
+  WHERE omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
   AND (v_customer_id IS NULL OR v.customer_id = v_customer_id)
   AND (
     v_disease_id IS NULL
@@ -239,10 +236,7 @@ BEGIN
   RETURN QUERY
   SELECT v.group_id, v.name, v.description, v.customer_id, v.sample_count
   FROM omics_clinical.v_group v
-  WHERE (
-    v.customer_id IS NULL
-    OR omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
-  )
+  WHERE omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
   AND (v_customer_id IS NULL OR v.customer_id = v_customer_id)
   ORDER BY v.name
   LIMIT v_lim;
@@ -295,10 +289,7 @@ BEGIN
     v.age,
     v.bmi
   FROM omics_clinical.v_sample v
-  WHERE (
-    v.customer_id IS NULL
-    OR omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
-  )
+  WHERE omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
   AND (v_customer_id IS NULL OR v.customer_id = v_customer_id)
   AND (v_disease_id IS NULL OR v.disease_id = v_disease_id)
   AND (

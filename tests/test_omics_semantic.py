@@ -93,8 +93,11 @@ def _psql(sql: str, env: dict[str, str]) -> str:
 
 def test_semantic_disease_list_requires_user(pg_semantic_env: dict[str, str]) -> None:
     env = pg_semantic_env
-    with pytest.raises(RuntimeError):
-        _psql("SELECT count(*) FROM omics_clinical.fn_semantic_disease_list(NULL)", env)
+    count = _psql(
+        "SELECT count(*) FROM omics_clinical.fn_semantic_disease_list(NULL, '{}'::jsonb, 500)",
+        env,
+    )
+    assert int(count) == 0
 
 
 def test_semantic_disease_list_scoped(pg_semantic_env: dict[str, str]) -> None:
@@ -119,7 +122,7 @@ def test_semantic_disease_list_scoped(pg_semantic_env: dict[str, str]) -> None:
         env,
     )
     count = _psql(
-        f"SELECT count(*) FROM omics_clinical.fn_semantic_disease_list({user_id})",
+        f"SELECT count(*) FROM omics_clinical.fn_semantic_disease_list({user_id}, '{{}}'::jsonb, 500)",
         env,
     )
     assert int(count) >= 1

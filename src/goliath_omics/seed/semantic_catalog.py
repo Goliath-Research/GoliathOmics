@@ -114,7 +114,7 @@ def seed(conn) -> int:
             cur.execute(
                 """
                 CALL portal.sp_semantic_register_request(
-                  %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s::jsonb, %s, %s, %s
+                  %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s::jsonb, %s, %s, %s
                 )
                 """,
                 (

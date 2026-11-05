@@ -36,6 +36,22 @@ def request_row_type(req: SemanticRequestSpec, entity: SemanticEntitySpec) -> st
     return f"portal.{_result_row_type_name(req)}"
 
 
+def _align_omics_row_type_sql(sql: str) -> str:
+    """Match PostgreSQL list functions: bigint sample_count, numeric sample age."""
+    return (
+        sql.replace("sample_count integer", "sample_count bigint")
+        .replace(
+            "ARRAY['integer', 'text', 'text', 'integer', 'integer']",
+            "ARRAY['integer', 'text', 'text', 'integer', 'bigint']",
+        )
+        .replace("age double precision", "age numeric")
+        .replace(
+            "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'double precision', 'double precision']",
+            "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'numeric', 'double precision']",
+        )
+    )
+
+
 def _pg_type_for_schema_field(field_schema: dict[str, Any]) -> str:
     any_of = field_schema.get("anyOf")
     if isinstance(any_of, list):
@@ -78,7 +94,7 @@ def export_omics_row_types_sql() -> str:
         "  Do not edit by hand; run goliath-omics-semantic-export -o database/schema/09_portal_semantic_row_types.sql\n"
         "*/\n\n"
     )
-    lines = export_row_types_sql(list(SEMANTIC_CATALOG)).splitlines()
+    lines = _align_omics_row_type_sql(export_row_types_sql(list(SEMANTIC_CATALOG))).splitlines()
     catalog_entities = {e.code: e for e in SEMANTIC_CATALOG}
     emitted = {line.split("'")[1] for line in lines if "t.typname = '" in line}
     for req in SEMANTIC_REQUESTS:
