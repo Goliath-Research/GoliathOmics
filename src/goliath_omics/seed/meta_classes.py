@@ -1,4 +1,7 @@
-"""Register Omics Meta clinical classes (run after domain schema apply)."""
+"""Register Omics Meta clinical classes (run after domain schema apply).
+
+Idempotent: safe to re-run after ``scripts/apply_domain_schema.sh``.
+"""
 
 from __future__ import annotations
 
