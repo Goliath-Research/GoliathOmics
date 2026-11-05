@@ -136,8 +136,8 @@ def _seed_inv(env: dict[str, str], org_id: int) -> dict[str, int]:
     bin_id = int(
         _psql(
             f"""
-            INSERT INTO inv.bin (location_id, bin_code, name)
-            VALUES ({location_id}, 'BIN-1', 'Shelf')
+            INSERT INTO inv.bin (location_id, bin_code)
+            VALUES ({location_id}, 'BIN-1')
             RETURNING bin_id
             """,
             env,
