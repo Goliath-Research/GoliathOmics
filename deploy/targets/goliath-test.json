@@ -88,5 +88,6 @@
   "schema": {
     "goliathapp": "per-release",
     "apply": "test-bed"
-  }
+  },
+  "dual_activation": true
 }

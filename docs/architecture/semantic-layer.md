@@ -42,6 +42,10 @@ flowchart TB
   SEED --> CFG
 ```
 
+## Platform bundle (`goliathapp-sql`)
+
+Each release records a GoliathApp commit in `manifest.json` → `goliathapp_sql` and ships the ordered `workflow_engine/sql_pg` scripts in `goliathapp-sql/` (see [Deploy targets](../deploy-targets.md#goliathapp-schema-once-per-release)). As of the R1 platform pin (**GoliathApp `1a0fe269`**, Nov 2026), that bundle includes the Meta redesign DDL (`meta_schema.sql`, `meta_model_phase_*`, `meta_model_semantic.sql`, `meta_api_parity.sql`), shared inventory (`inv_schema.sql`, `inv_api.sql`, `inv_semantic.sql`), portal shell and semantic registry scripts, `wf` engine DDL, RBAC/session APIs, and cfg/process-pack DDL. Omics does not fork that list: `scripts/bundle_goliathapp_sql.py` copies GoliathApp’s `apply_schema.sh` order verbatim. Greenfield and per-release upgrades apply the **full** bundle once per release via `scripts/apply_goliathapp_schema.sh`; existing production databases that predated Meta or `inv` must already be on a GoliathApp baseline that includes those scripts before the first post-R1 release apply (coordinate apply order with platform DBAs—there is no separate Omics-owned migration for platform DDL).
+
 ## Organization tenancy (P1b)
 
 Every `portal."Customers"` row carries a non-null **`OrganizationID`** foreign key to `portal."Organizations"`. Clinical list APIs and cross-schema joins scope data through that column (see `portal_clinical_api.sql`). Contract rows use **`OrganizationID`** instead of legacy `CustomerID` after cutover.

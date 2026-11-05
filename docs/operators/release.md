@@ -10,7 +10,7 @@ Push a tag `v<semver>` on this repository. The workflow **GoliathOmics release**
 
 The archive contains:
 
-- First-party wheels from `scripts/packages.list`, including the `methyl-gateway` wheel built from GoliathApp `main` by `scripts/build_gateway_wheel.sh`
+- First-party wheels from `scripts/packages.list`, including the `methyl-gateway` wheel built from GoliathApp **`1a0fe269`** (Nov 2026 platform pin: Meta phases, `inv` DDL, tier-1 wake broker) by `scripts/build_gateway_wheel.sh`
 - `goliathapp-sql/` (the GoliathApp `sql_pg` scripts, `manifest.sha256`, `source.json`)
 - `runtime-bundle/` (schemas, scripts, deploy files, domain fixtures)
 - Third-party wheels, the venv bootstrap lock, and `system-deps/` derived from `deploy/targets/*.json`
@@ -75,6 +75,8 @@ Secrets in the profile are `secret:NAME` references. The workflow maps these Git
 Schema apply runs `scripts/apply_goliathapp_schema.sh` against the release's `goliathapp-sql/` once per release, recorded in `wf.schema_release`, then `scripts/apply_omics_schema.sh` for Omics domain SQL. When the profile sets gateway or portal role passwords, `scripts/apply_gateway_db_roles.sh` runs next. Catalog sync seeds the merged ActionSpec catalog with `workflow_engine/sql_pg/seed_action_catalog.py --use-db` before DomainProgram deploy. Legacy databases upgrading to organization tenancy run `workflow_engine/sql_pg/migrations/20261023_semantic_p1b_organization_cutover.sql` once before the first P1b apply. See [Semantic layer integration](../architecture/semantic-layer.md). `--force-schema` / `forceSchema` applies GoliathApp SQL again. Pods do not run SQL.
 
 Gateway install copies a subset wheel to the host and runs `install_gateway_systemd.sh` and `setup_gateway_nginx.sh`. The unit name is `methyl-gateway.service`. nginx proxies public `/v1/` to `127.0.0.1:8080`.
+
+The **goliath-test** profile sets `"dual_activation": true`, which writes `WF_WAKE_POSTGRES=1` on the gateway and `WORKER_WAKE_POSTGRES=1` on SSH workers (RunPod pools inherit `GOLIATH_DUAL_ACTIVATION=1` from `deploy/runpod/goliath-worker-start.sh`). Poll remains the safety net. See [Dual activation spike](../dual-activation-omics-spike.md).
 
 Workers with `self_provision: true` are not installed over SSH. The driver prints the pool and returns success. The pool boots itself and enrolls, below. SSH workers receive `worker.env` and `install_worker_systemd.sh`.
 

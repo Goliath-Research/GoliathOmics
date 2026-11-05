@@ -647,6 +647,11 @@ grep -q '"goliathapp_sql": mp_manifest.get("goliathapp_sql")' "$ROOT/scripts/ass
   || fail "assemble_release.sh should keep goliathapp_sql in manifest.json"
 jq -e '.schema.goliathapp == "per-release"' "$real" >/dev/null \
   || fail "goliath-test should apply GoliathApp SQL once per release"
+jq -e '.dual_activation == true' "$real" >/dev/null \
+  || fail "goliath-test should enable tier-1 dual activation"
+bash "$ROOT/scripts/deploy_target.sh" --target goliath-test --dry-run >"$out" 2>"$err" \
+  || fail "dry-run for dual activation profile"
+grep -q 'dual_activation: true' "$out" || fail "goliath-test dry-run should show dual_activation enabled"
 
 awk '
   /name: Install gateway SSH known hosts/ { seen_hosts = 1 }
