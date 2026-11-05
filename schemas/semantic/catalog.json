@@ -1085,7 +1085,7 @@
     },
     "omics.sample.create": {
       "base_namespace": null,
-      "content_hash": "79a88944f85dd2c92b584bc1f931cf048f450dda92dfd720e554fdfabca46009",
+      "content_hash": "bfb247963828e4b2f03f4872f4652dbd6445cfeaac9d23b11eb1df8aa1f5e847",
       "entity_code": "sample",
       "filter_template": null,
       "max_rows": 1,
@@ -1118,16 +1118,8 @@
             "title": "Bmi"
           },
           "customer_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Customer Id"
+            "title": "Customer Id",
+            "type": "integer"
           },
           "disease_id": {
             "anyOf": [
@@ -1171,7 +1163,8 @@
           }
         },
         "required": [
-          "patient_id"
+          "patient_id",
+          "customer_id"
         ],
         "title": "SampleCreatePayload",
         "type": "object"

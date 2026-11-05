@@ -439,7 +439,7 @@ BEGIN
     FROM portal."Diseases" d
     LEFT JOIN "Meta"."VOmicsDisease" m ON m."ID" = d."MetaObjectID"
     WHERE (v_parent_id IS NULL OR COALESCE(m.parent_id::integer, d."ParentID") = v_parent_id)
-    ORDER BY disease_id
+    ORDER BY COALESCE((m.legacy_disease_id)::integer, d."ID")
     LIMIT v_lim;
   ELSE
     RETURN QUERY
@@ -494,7 +494,7 @@ BEGIN
         v_org_id IS NULL
         OR COALESCE(m.organization_id::integer, c."OrganizationID") = v_org_id
       )
-    ORDER BY name
+    ORDER BY COALESCE(m.name::text, c."Name"::text)
     LIMIT v_lim;
   ELSE
     RETURN QUERY
@@ -577,7 +577,7 @@ BEGIN
             AND gs."SampleID" = COALESCE((m.legacy_sample_id)::integer, s."ID")
         )
       )
-    ORDER BY sample_id
+    ORDER BY COALESCE((m.legacy_sample_id)::integer, s."ID")
     LIMIT v_lim;
   ELSE
     RETURN QUERY
