@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional, cast
 
 
 # Deprecated profile names → canonical file (preset flags also aliased in PROFILE_PRESETS).
@@ -366,7 +366,7 @@ def load_mode_overlay(mode_id: str) -> Dict[str, Any]:
         path = profiles_dir / "modes" / f"{mode_id}.mode.json"
         candidates.append(path)
         if path.is_file():
-            return _pipeline_profiles_module().load_profile_file(path)
+            return _load_profile_file(path)
     known: list[str] = []
     for profiles_dir in _mode_search_dirs():
         modes_dir = profiles_dir / "modes"
@@ -384,7 +384,7 @@ def load_procedure(name_or_path: str | Path) -> Dict[str, Any]:
     resolve_procedure_path = _profile_paths_module().resolve_procedure_path
 
     path = resolve_procedure_path(name_or_path)
-    data = _pipeline_profiles_module().load_profile_file(path)
+    data = _load_profile_file(path)
     proc_id = str(data.get("pipelineProcedure") or path.name.replace(".procedure.json", ""))
     data["pipelineProcedure"] = proc_id
     return data
@@ -493,8 +493,8 @@ def load_samd_research_with_mode(
     resolve_profile_path = _profile_paths_module().resolve_profile_path
 
     pp = _pipeline_profiles_module()
-    base = pp.load_profile_file(resolve_profile_path("samd_research"))
-    merged = pp._deep_merge(base, load_mode_overlay(mode_id))
+    base = _load_profile_file(resolve_profile_path("samd_research"))
+    merged = cast(Dict[str, Any], pp._deep_merge(base, load_mode_overlay(mode_id)))
     merged["pipelineProfile"] = pipeline_profile
     merged["researchMode"] = mode_id
     if pipeline_profile in _SAMD_RESEARCH_MODES:
@@ -535,7 +535,7 @@ def load_profile(name_or_path: str | Path) -> Dict[str, Any]:
 
     p = Path(name_or_path)
     if p.is_file():
-        data = _pipeline_profiles_module().load_profile_file(p)
+        data = _load_profile_file(p)
         key = str(data.get("pipelineProfile") or "")
         if key in _PROFILE_ALIASES:
             key = _PROFILE_ALIASES[key]
@@ -560,7 +560,7 @@ def load_profile(name_or_path: str | Path) -> Dict[str, Any]:
         # Allow pipelineProfile / name = mode id → samd_research + overlay.
         return load_samd_research_with_mode(key, pipeline_profile="samd_research")
     try:
-        data = _pipeline_profiles_module().load_profile_file(resolve_profile_path(key))
+        data = _load_profile_file(resolve_profile_path(key))
     except FileNotFoundError:
         if key in PROFILE_PRESETS:
             return {"pipelineProfile": key, **PROFILE_PRESETS[key]}
@@ -581,6 +581,10 @@ def _profile_paths_module():
 
 def _pipeline_profiles_module():
     return importlib.import_module("domain.pipeline_profiles")
+
+
+def _load_profile_file(path: Path) -> Dict[str, Any]:
+    return cast(Dict[str, Any], _pipeline_profiles_module().load_profile_file(path))
 
 
 def _action_config_resolver():
@@ -645,7 +649,7 @@ def apply_study_analyte(context: Dict[str, Any], project: Any | None = None) -> 
 
 def load_site_manifest(site_path: Any | None = None) -> Dict[str, Any]:
     resolver = _action_config_resolver()
-    return resolver.load_site_manifest(site_path)
+    return cast(Dict[str, Any], resolver.load_site_manifest(site_path))
 
 
 def finalize_science_gates(context: Dict[str, Any]) -> Dict[str, Any]:
