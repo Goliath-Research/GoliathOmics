@@ -2,6 +2,8 @@
 -- Prerequisites: GoliathApp Meta phases + omics_clinical semantic MVP (08/09).
 SET client_min_messages = warning;
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE SCHEMA IF NOT EXISTS omics_clinical;
 
 CREATE TABLE IF NOT EXISTS omics_clinical.meta_cutover_flag (
