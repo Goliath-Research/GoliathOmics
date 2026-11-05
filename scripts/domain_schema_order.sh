@@ -13,6 +13,8 @@ DOMAIN_SCHEMA_SCRIPTS=(
   05_portal_clinical_api_parity.sql
   06_portal_clinical_nav.sql
   07_cfg_analyte_catalog.sql
+  08_omics_semantic_mvp.sql
+  09_portal_semantic_row_types.sql
 )
 
 # Legacy sql_pg names (same order); used by release bundles and apply_schema.sh SCRIPTS=.
@@ -24,6 +26,8 @@ DOMAIN_SCHEMA_LEGACY_NAMES=(
   portal_clinical_api_parity.sql
   portal_clinical_nav.sql
   cfg_analyte_catalog.sql
+  omics_semantic_mvp.sql
+  portal_semantic_row_types.sql
 )
 
 if ((${#DOMAIN_SCHEMA_SCRIPTS[@]} != ${#DOMAIN_SCHEMA_LEGACY_NAMES[@]})); then

@@ -1,0 +1,1 @@
+../../database/schema/09_portal_semantic_row_types.sql

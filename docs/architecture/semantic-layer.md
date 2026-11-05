@@ -67,8 +67,23 @@ GoliathApp P1a owns the **portal shell**: navigation tree, organizations, sessio
 - `database/schema/01_portal_clinical_schema.sql` — customer, disease, sample, and related tables (with `Customers.OrganizationID`)
 - `database/schema/02_portal_sample_extras_schema.sql`, `03_legacy_cross_schema_fks.sql`
 - `database/schema/04_portal_clinical_api.sql`, `05_portal_clinical_api_parity.sql`, `06_portal_clinical_nav.sql`
+- `database/schema/08_omics_semantic_mvp.sql`, `09_portal_semantic_row_types.sql` — read-only `omics_clinical.fn_semantic_*` list functions and composite row types for Exograph (R3)
 
 Apply order is fixed in `scripts/domain_schema_order.sh` (`scripts/apply_domain_schema.sh`). Release bundles still list legacy `sql_pg/` names via symlinks; `scripts/bundle_omics_sql.py` reads `workflow_engine/sql_pg/apply_schema.sh`, which delegates to the same order.
+
+## Omics semantic catalog (R3, read-only MVP)
+
+Clinical portal reads can register as **semantic entities** and **requests** in namespace `omics` (Crop/Factory pattern). Python specs live in `src/goliath_omics/semantic/`; export produces `schemas/semantic/catalog.json` and `database/schema/09_portal_semantic_row_types.sql`. After domain SQL apply, seed the platform registry:
+
+```bash
+pip install -e domain
+goliath-omics-seed-semantic   # portal.sp_semantic_register_* from SEMANTIC_CATALOG
+goliath-omics-seed-nav        # NavTree nodes + frame keys for list frames
+```
+
+List functions require **`p_user_id`** and scope through GoliathApp RBAC helpers (`portal.fn_semantic_user_organization_ids`). Legacy `portal.sp_list_*` procs remain for Delphi compatibility; new portal frames should call semantic requests via the gateway/Exograph path.
+
+CI drift check: `goliath-omics-semantic-export --check schemas/semantic/catalog.json --row-types database/schema/09_portal_semantic_row_types.sql`.
 
 ## Typed ActionSpec catalog (O1)
 

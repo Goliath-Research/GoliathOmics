@@ -216,7 +216,14 @@ jobs:
           . .venv/bin/activate
           python -m pip install -U pip pytest
           bash scripts/install_packages.sh --with-deps
+          python -m pip install -e domain
           python -m pip install -e workers
+
+      - name: Omics semantic catalog drift check
+        run: |
+          . .venv/bin/activate
+          goliath-omics-semantic-export --check schemas/semantic/catalog.json \
+            --row-types database/schema/09_portal_semantic_row_types.sql
 
       - name: Semantic action schema drift check
         run: |
@@ -239,4 +246,4 @@ jobs:
         run: |
           . .venv/bin/activate
           python -m pip install -U pytest
-          python -m pytest workflow_engine/tests/test_omics_sql_fk_direction.py workflow_engine/tests/test_omics_pg_schema_apply.py -q
+          python -m pytest workflow_engine/tests/test_omics_sql_fk_direction.py workflow_engine/tests/test_omics_pg_schema_apply.py tests/test_omics_semantic.py tests/test_goliath_omics_shell.py -q

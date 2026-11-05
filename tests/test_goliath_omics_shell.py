@@ -25,7 +25,7 @@ def test_domain_schema_order_lists_existing_files() -> None:
     text = ORDER_SH.read_text(encoding="utf-8")
     canonical = _parse_bash_array("DOMAIN_SCHEMA_SCRIPTS", text)
     legacy = _parse_bash_array("DOMAIN_SCHEMA_LEGACY_NAMES", text)
-    assert len(canonical) == len(legacy) == 7
+    assert len(canonical) == len(legacy) == 9
     for name in canonical:
         path = SCHEMA_DIR / name
         assert path.is_file(), name
@@ -48,19 +48,21 @@ def test_legacy_apply_schema_delegates_to_domain_apply() -> None:
     assert "apply_domain_schema.sh" in apply
 
 
-def test_semantic_export_stub_json() -> None:
-    from goliath_omics.semantic.export import export_catalog
+def test_semantic_export_json() -> None:
+    from goliath_omics.semantic.catalog import SEMANTIC_CATALOG, SEMANTIC_REQUESTS
+    from goliath_omics.semantic.export import export_catalog_document
 
-    payload = export_catalog()
-    assert payload["namespace"] == "omics"
-    assert payload["entities"] == []
+    payload = export_catalog_document()
+    assert len(payload["entities"]) == len(SEMANTIC_CATALOG)
+    assert len(payload["requests"]) == len(SEMANTIC_REQUESTS)
+    assert all(k.startswith("omics.") for k in payload["entities"])
 
 
-def test_semantic_catalog_namespace_shell() -> None:
-    from goliath_omics.semantic.catalog import OMICS_NAMESPACE, SEMANTIC_CATALOG
+def test_semantic_catalog_namespace() -> None:
+    from goliath_omics.semantic.catalog import SEMANTIC_CATALOG
 
-    assert OMICS_NAMESPACE == "omics"
-    assert SEMANTIC_CATALOG == ()
+    assert SEMANTIC_CATALOG
+    assert all(e.namespace == "omics" for e in SEMANTIC_CATALOG)
 
 
 def test_bundle_omics_sql_list() -> None:
