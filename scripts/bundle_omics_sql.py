@@ -36,9 +36,12 @@ def write_bundle(sql_dir: Path, out: Path, commit: str, repository: str) -> int:
     sources: list[Path] = []
     for name in names:
         path = sql_dir / name
-        if path.is_symlink() or not path.is_file():
-            raise BundleError(f"{ORDER_FILE} lists {name} but {path} is not a regular file")
-        sources.append(path)
+        if not path.is_file():
+            raise BundleError(f"{ORDER_FILE} lists {name} but {path} is not a readable file")
+        resolved = path.resolve()
+        if not resolved.is_file():
+            raise BundleError(f"{ORDER_FILE} lists {name} but {resolved} is not a regular file")
+        sources.append(resolved)
     if out.exists():
         shutil.rmtree(out)
     (out / "sql_pg").mkdir(parents=True)

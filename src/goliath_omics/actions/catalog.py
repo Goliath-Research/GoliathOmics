@@ -10,14 +10,16 @@ if TYPE_CHECKING:
 _ACTION_CATALOG: List[ActionSpec] | None = None
 
 
-def _load_action_catalog() -> List[ActionSpec]:
+def _load_action_catalog() -> List["ActionSpec"]:
     global _ACTION_CATALOG
     if _ACTION_CATALOG is not None:
         return _ACTION_CATALOG
+    from goliath_app import ActionSpec
     from methyl_worker.action_catalog import ACTION_CATALOG
 
-    _ACTION_CATALOG = ACTION_CATALOG
-    return _ACTION_CATALOG
+    catalog: List[ActionSpec] = ACTION_CATALOG
+    _ACTION_CATALOG = catalog
+    return catalog
 
 
 def __getattr__(name: str):
