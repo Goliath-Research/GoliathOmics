@@ -1795,6 +1795,9 @@ grep -q 'methyl_worker' "$out" || fail "dry-run join should still enroll"
 
 rm -rf "$fixture_dir"
 bash "$ROOT/scripts/test_setup_gateway_nginx.sh"
-bash "$ROOT/scripts/test_install_gateway_venv.sh" || fail "test_install_gateway_venv.sh failed"
+if ! bash "$ROOT/scripts/test_install_gateway_venv.sh" > /tmp/test_install_gateway_venv.log 2>&1; then
+  tail -40 /tmp/test_install_gateway_venv.log >&2
+  fail "test_install_gateway_venv.sh failed"
+fi
 bash "$ROOT/scripts/test_worker_venv_local.sh"
 echo "test_deploy_target ok"
