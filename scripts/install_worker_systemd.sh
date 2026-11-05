@@ -83,7 +83,11 @@ _render_unit() {
 _disable_legacy_pinned_worker() {
   local cap="$1"
   local legacy="methyl-worker@${cap}.service"
-  systemctl disable --now "$legacy" 2>/dev/null || true
+  if [[ "$NO_START" -eq 1 ]]; then
+    systemctl disable "$legacy" 2>/dev/null || true
+  else
+    systemctl disable --now "$legacy" 2>/dev/null || true
+  fi
 }
 
 _detect_capabilities() {
@@ -109,12 +113,15 @@ if [[ "$DETECT_CAPABILITIES" -eq 1 && -z "$CAPABILITY" ]]; then
     CAPABILITY=""
   else
     rollouts_set_message "host=${_rollouts_host} arch=${ARCH} capability=$(IFS=,; echo "${CAPS[*]}")"
+    for cap in "${CAPS[@]}"; do
+      [[ -z "$cap" || "$cap" == "*" ]] && continue
+      _disable_legacy_pinned_worker "$cap"
+    done
     _install_template_unit
     systemctl daemon-reload
     for cap in "${CAPS[@]}"; do
       [[ -z "$cap" || "$cap" == "*" ]] && continue
       UNIT="goliath-worker@${cap}.service"
-      _disable_legacy_pinned_worker "$cap"
       systemctl enable "$UNIT"
       [[ "$NO_START" -eq 0 ]] && systemctl restart "$UNIT"
       systemctl status "$UNIT" --no-pager -l -n 8
@@ -128,10 +135,10 @@ if [[ -n "$CAPABILITY" ]]; then
   UNIT="goliath-worker@${CAPABILITY}.service"
   SRC="$DEPLOY/goliath-worker@.service"
   [[ -f "$SRC" ]] || { echo "Missing $SRC" >&2; exit 1; }
+  _disable_legacy_pinned_worker "$CAPABILITY"
   _render_unit "$SRC" "/etc/systemd/system/goliath-worker@.service"
   install_systemd_unit_alias goliath-worker@.service methyl-worker@.service
   systemctl daemon-reload
-  _disable_legacy_pinned_worker "$CAPABILITY"
   systemctl enable "$UNIT"
   [[ "$NO_START" -eq 0 ]] && systemctl restart "$UNIT"
   systemctl status "$UNIT" --no-pager -l -n 15
