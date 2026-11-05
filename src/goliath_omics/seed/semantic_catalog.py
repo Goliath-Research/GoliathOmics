@@ -31,11 +31,27 @@ def _entity_by_code(code: str):
     raise KeyError(f"unknown entity code {code}")
 
 
+def _resolve_meta_class_id(cur, entity):
+    if entity.meta_class_id is not None:
+        return entity.meta_class_id
+    if not entity.meta_class_name:
+        return None
+    cur.execute(
+        """
+        SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = %s
+        """,
+        (entity.meta_class_name,),
+    )
+    row = cur.fetchone()
+    return int(row[0]) if row is not None else None
+
+
 def seed(conn) -> int:
     count = 0
     entity_ids: dict[str, int] = {}
     with conn.cursor() as cur:
         for entity in SEMANTIC_CATALOG:
+            meta_class_id = _resolve_meta_class_id(cur, entity)
             row_schema = entity.row_model.model_json_schema(mode="serialization")
             entity_hash = content_hash_for(
                 {
@@ -63,7 +79,7 @@ def seed(conn) -> int:
                     entity.schema_version,
                     entity_hash,
                     entity.storage_relation,
-                    entity.meta_class_id,
+                    meta_class_id,
                 ),
             )
             cur.execute(

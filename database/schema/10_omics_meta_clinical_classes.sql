@@ -133,7 +133,7 @@ BEGIN
     'published',
     p_kind,
     p_schema_json,
-    encode(digest(p_name || '/1/' || p_schema_json::text, 'sha256'), 'hex')
+    encode(public.digest(p_name || '/1/' || p_schema_json::text, 'sha256'), 'hex')
   )
   ON CONFLICT ON CONSTRAINT uq_wf_data_type_name_version DO UPDATE SET
     kind = EXCLUDED.kind,

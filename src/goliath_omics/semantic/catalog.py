@@ -28,7 +28,7 @@ DISEASE_ENTITY = SemanticEntitySpec(
     storage_relation='"Meta"."VOmicsDisease"',
     meta_class_name="OmicsDisease",
     attributes=(
-        SemanticAttributeSpec("disease_id", "disease_id", "integer", "key", ()),
+        SemanticAttributeSpec("disease_id", "legacy_disease_id", "integer", "key", ()),
         SemanticAttributeSpec("name", "name", "string", "label", ("ilike",)),
         SemanticAttributeSpec(
             "parent_id",
@@ -50,7 +50,7 @@ CUSTOMER_ENTITY = SemanticEntitySpec(
     storage_relation='"Meta"."VOmicsCustomer"',
     meta_class_name="OmicsCustomer",
     attributes=(
-        SemanticAttributeSpec("customer_id", "customer_id", "integer", "key", ()),
+        SemanticAttributeSpec("customer_id", "legacy_customer_id", "integer", "key", ()),
         SemanticAttributeSpec(
             "organization_id",
             "organization_id",
@@ -101,7 +101,7 @@ SAMPLE_ENTITY = SemanticEntitySpec(
     storage_relation='"Meta"."VOmicsSample"',
     meta_class_name="OmicsSample",
     attributes=(
-        SemanticAttributeSpec("sample_id", "sample_id", "integer", "key", ()),
+        SemanticAttributeSpec("sample_id", "legacy_sample_id", "integer", "key", ()),
         SemanticAttributeSpec("patient_id", "patient_id", "integer", "filter", ("eq",)),
         SemanticAttributeSpec(
             "customer_id",

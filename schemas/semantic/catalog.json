@@ -4,7 +4,7 @@
       "attributes": [
         {
           "code": "customer_id",
-          "column_name": "customer_id",
+          "column_name": "legacy_customer_id",
           "filterable_ops": [],
           "json_type": "integer",
           "role": "key"
@@ -30,7 +30,7 @@
       ],
       "catalog_type_name": null,
       "code": "customer",
-      "content_hash": "45447ce57c062b2ee4ef362cb80cf0d972d59d1e2f2d2c9e8e292c57f2c85d4f",
+      "content_hash": "cab66c4ac2aec5ec2a964e2eb8dee040e139c625f5db502cf9fe6d53bde2f908",
       "description": "Organization-scoped omics customer.",
       "display_name": "Customer",
       "meta_class_id": null,
@@ -69,7 +69,7 @@
       "attributes": [
         {
           "code": "disease_id",
-          "column_name": "disease_id",
+          "column_name": "legacy_disease_id",
           "filterable_ops": [],
           "json_type": "integer",
           "role": "key"
@@ -95,7 +95,7 @@
       ],
       "catalog_type_name": null,
       "code": "disease",
-      "content_hash": "efaf669706767d851669eb198b0a5bb419de26172012f3adca92795140fd00c9",
+      "content_hash": "7092d029c441f2f09e065e9eccf1a3f8f2cb5b75fe901d6683ddea57c97eb26d",
       "description": "Clinical disease or trait catalog entry.",
       "display_name": "Disease",
       "meta_class_id": null,
@@ -298,7 +298,7 @@
       "attributes": [
         {
           "code": "sample_id",
-          "column_name": "sample_id",
+          "column_name": "legacy_sample_id",
           "filterable_ops": [],
           "json_type": "integer",
           "role": "key"
@@ -356,7 +356,7 @@
       ],
       "catalog_type_name": null,
       "code": "sample",
-      "content_hash": "0460387f2d694559b1bb12a39671d68614e6bbdd2e4f0726d87bc6574c28fd8d",
+      "content_hash": "7283ef40695292e73c5459b51b740313c30b3afc226acb7a2efda0bf758b70b4",
       "description": "Clinical portal sample linked to a patient and customer.",
       "display_name": "Portal sample",
       "meta_class_id": null,
