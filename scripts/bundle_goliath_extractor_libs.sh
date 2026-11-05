@@ -63,7 +63,7 @@ if [[ -z "$ARCH" ]]; then
   base="$(basename "$TARBALL")"
   if [[ "$base" =~ goliath-extractor-linux-(aarch64|amd64) ]]; then
     ARCH="${BASH_REMATCH[1]}"
-  elif [[ "$base" =~ goliath-extractor-linux-(aarch64|amd64) ]]; then
+  elif [[ "$base" =~ methyl-extractor-linux-(aarch64|amd64) ]]; then
     ARCH="${BASH_REMATCH[1]}"
   else
     die "--arch is required when the tarball name has no arch"
@@ -83,10 +83,10 @@ tar -xzf "$TARBALL" -C "$STAGE"
 BIN=""
 if [[ -f "$STAGE/bin/goliath-extractor" ]]; then
   BIN="$STAGE/bin/goliath-extractor"
-elif [[ -f "$STAGE/bin/goliath-extractor" ]]; then
-  BIN="$STAGE/bin/goliath-extractor"
+elif [[ -f "$STAGE/bin/MethylExtractor" ]]; then
+  BIN="$STAGE/bin/MethylExtractor"
 else
-  die "${TARBALL} has no bin/goliath-extractor or bin/goliath-extractor"
+  die "${TARBALL} has no bin/goliath-extractor or bin/MethylExtractor"
 fi
 mkdir -p "$STAGE/lib"
 

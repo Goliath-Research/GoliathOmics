@@ -98,7 +98,7 @@ command -v gh >/dev/null 2>&1 || die "gh CLI is required to download GoliathExtr
 download_one() {
   local arch_key="$1"
   local pkg_new="goliath-extractor-linux-${arch_key}"
-  local pkg_legacy="goliath-extractor-linux-${arch_key}"
+  local pkg_legacy="methyl-extractor-linux-${arch_key}"
   local tarball="$RELEASE_DIR/${pkg_new}.tar.gz"
 
   info "Downloading ${pkg_new} from $REPO@$TAG"

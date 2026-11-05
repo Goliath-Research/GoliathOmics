@@ -63,7 +63,7 @@ basename_tar="$(basename "$TARBALL")"
 if [[ -z "$ARCH" ]]; then
   if [[ "$basename_tar" =~ goliath-extractor-linux-(aarch64|amd64) ]]; then
     ARCH="${BASH_REMATCH[1]}"
-  elif [[ "$basename_tar" =~ goliath-extractor-linux-(aarch64|amd64) ]]; then
+  elif [[ "$basename_tar" =~ methyl-extractor-linux-(aarch64|amd64) ]]; then
     ARCH="${BASH_REMATCH[1]}"
   else
     ARCH="$(platform_arch_key "$(detect_uname_arch)")"

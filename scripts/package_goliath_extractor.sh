@@ -31,9 +31,9 @@ source "$SCRIPT_DIR/goliath_extractor_env_compat.sh"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
 
-BUILD_DIR="${GOLIATH_EXTRACTOR_ROOT:-${GOLIATH_EXTRACTOR_ROOT:-.}}"
-if [[ -z "${GOLIATH_EXTRACTOR_ROOT:-}" && -n "${GOLIATH_EXTRACTOR_ROOT:-}" ]]; then
-  _goliath_extractor_warn_deprecated_env "GOLIATH_EXTRACTOR_ROOT" "GOLIATH_EXTRACTOR_ROOT"
+BUILD_DIR="${GOLIATH_EXTRACTOR_ROOT:-${METHYL_EXTRACTOR_ROOT:-.}}"
+if [[ -z "${GOLIATH_EXTRACTOR_ROOT:-}" && -n "${METHYL_EXTRACTOR_ROOT:-}" ]]; then
+  _goliath_extractor_warn_deprecated_env "METHYL_EXTRACTOR_ROOT" "GOLIATH_EXTRACTOR_ROOT"
 fi
 ARCH=""
 VERSION=""
@@ -130,9 +130,9 @@ tar -czf "$OUTPUT" -C "$STAGING" bin lib VERSION.txt env.sh
 bundle_args=(--tarball "$OUTPUT" --arch "$ARCH_KEY")
 if [[ -n "${GOLIATH_EXTRACTOR_BUNDLE_LIB_DIR:-}" ]]; then
   bundle_args+=(--lib-dir "$GOLIATH_EXTRACTOR_BUNDLE_LIB_DIR")
-elif [[ -n "${GOLIATH_EXTRACTOR_BUNDLE_LIB_DIR:-}" ]]; then
-  _goliath_extractor_warn_deprecated_env "GOLIATH_EXTRACTOR_BUNDLE_LIB_DIR" "GOLIATH_EXTRACTOR_BUNDLE_LIB_DIR"
-  bundle_args+=(--lib-dir "$GOLIATH_EXTRACTOR_BUNDLE_LIB_DIR")
+elif [[ -n "${METHYL_EXTRACTOR_BUNDLE_LIB_DIR:-}" ]]; then
+  _goliath_extractor_warn_deprecated_env "METHYL_EXTRACTOR_BUNDLE_LIB_DIR" "GOLIATH_EXTRACTOR_BUNDLE_LIB_DIR"
+  bundle_args+=(--lib-dir "$METHYL_EXTRACTOR_BUNDLE_LIB_DIR")
 fi
 bash "$SCRIPT_DIR/bundle_goliath_extractor_libs.sh" "${bundle_args[@]}"
 SHA="$(sha256sum "$OUTPUT" | awk '{print $1}')"

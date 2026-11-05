@@ -147,7 +147,7 @@ fi
 ENV_DIR="$ROOT/env"
 mkdir -p "$ENV_DIR"
 WORKER_PATH="$(expand_worker_path "$VENV_DIR")"
-if [[ -x "$ME_ROOT/bin/goliath-extractor" || -x "$ME_ROOT/bin/goliath-extractor" ]] \
+if [[ -x "$ME_ROOT/bin/goliath-extractor" || -x "$ME_ROOT/bin/MethylExtractor" ]] \
   && [[ ":$WORKER_PATH:" != *":$ME_ROOT/bin:"* ]]; then
   WORKER_PATH="$ME_ROOT/bin:$WORKER_PATH"
 fi
