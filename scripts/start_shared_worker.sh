@@ -1098,6 +1098,9 @@ write_worker_env() {
   fi
   append_kv "$tmp" WORKER_API_BASE "${WORKER_API_BASE:-}"
   append_kv "$tmp" GOLIATH_ENV "$GOLIATH_ENV"
+  if [[ "${GOLIATH_DUAL_ACTIVATION:-}" == "1" ]]; then
+    append_kv "$tmp" WORKER_WAKE_POSTGRES 1
+  fi
   append_kv "$tmp" GOLIATH_GATEWAY_CA_FILE "${GOLIATH_GATEWAY_CA_FILE:-}"
   append_kv "$tmp" REQUESTS_CA_BUNDLE "${REQUESTS_CA_BUNDLE:-}"
   append_kv "$tmp" SSL_CERT_FILE "${SSL_CERT_FILE:-}"

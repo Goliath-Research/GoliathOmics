@@ -50,14 +50,14 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           uv --version
 
-      # GoliathApp c7ae4d8 (P3 worker sessions) is what the next release bundles.
+      # GoliathApp 1a0fe269 (Meta + inv + wake broker; R1 pin) matches release bundles.
       # test_apply_goliathapp_schema.sh applies its sql_pg scripts twice to
       # prove the apply is idempotent.
       - name: Check out GoliathApp sql_pg
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: c7ae4d807f37569cded3a6d34ed436cb40d52f48
+          ref: 1a0fe269978e99131d7971bb74be5add4bf1ab1e
           path: _goliathapp
           sparse-checkout: workflow_engine/sql_pg
 
@@ -191,7 +191,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: c7ae4d807f37569cded3a6d34ed436cb40d52f48
+          ref: 1a0fe269978e99131d7971bb74be5add4bf1ab1e
           path: _goliathapp
           sparse-checkout: workflow_engine/sql_pg
 
@@ -207,7 +207,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: c7ae4d807f37569cded3a6d34ed436cb40d52f48
+          ref: 1a0fe269978e99131d7971bb74be5add4bf1ab1e
           path: _goliathapp
 
       - name: Install science packages and the methyl worker

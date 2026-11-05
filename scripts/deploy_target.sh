@@ -169,6 +169,7 @@ gateway_public_host() {
 
 export GOLIATH_ENV
 GOLIATH_ENV="$(jq_get '.rollouts_environment')"
+DUAL_ACTIVATION="$(jq -r '.dual_activation // false' "$PROFILE")"
 [[ -n "$GOLIATH_ENV" && "$GOLIATH_ENV" != "null" ]] || die "rollouts_environment is required"
 info "target=${TARGET} component=${COMPONENT} rollouts_environment=${GOLIATH_ENV}"
 
@@ -186,6 +187,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   info "workers: $(jq_get '[.workers[]? | if .self_provision == true then "\(.name) self_provision \(.provider // "unknown") \(.arch) \(.template // "")" else "\(.name) \(.ssh // "") \(.arch) \(.capability // "")" end] | join("; ")')"
   info "database host: $(jq_get '.database.host') schema_host=$(jq_get '.database.schema_host // ""') kind=$(jq_get '.database.kind') channel_binding=$(jq_get '.database.channel_binding // ""')"
   info "schema: goliathapp=$(jq_get '.schema.goliathapp // "per-release"') apply=$(jq_get '.schema.apply // "unset"') force=${FORCE_SCHEMA}"
+  info "dual_activation: $(jq -r '.dual_activation // false' "$PROFILE") (gateway WF_WAKE_POSTGRES / worker WORKER_WAKE_POSTGRES when true)"
   info "shared storage: $(jq_get '.shared_storage.provider // "none"') $(jq_get '.shared_storage.endpoint // ""') bucket=$(jq_get '.shared_storage.bucket // ""')"
   info "long-term storage: $(jq_get '.long_term_storage.provider // "none"') endpoint=$(jq_get '.long_term_storage.endpoint // ""') roles=$(jq_get '[.long_term_storage.roles[]?] | join(",")')"
   if jq -e '[.. | objects | .identity_file? // empty | select(. != "")] | length > 0' "$PROFILE" >/dev/null; then
@@ -881,6 +883,12 @@ run_gateway() {
       WF_GATEWAY_PORT "$port"
       GOLIATH_ENV "$GOLIATH_ENV"
     )
+    if [[ "$DUAL_ACTIVATION" == "true" ]]; then
+      gw_pairs+=(
+        WF_WAKE_POSTGRES 1
+        GOLIATH_DUAL_ACTIVATION 1
+      )
+    fi
     write_kv_file "$envfile" "${gw_pairs[@]}"
     install_remote_tree "$dest" gateway
     if ! stage_gateway_release "$dest" "$root"; then
@@ -936,22 +944,30 @@ run_gateway() {
 worker_env_file() {
   local dest_file="$1"
   local capability="$2"
-  write_kv_file "$dest_file" \
-    WORKER_API_BASE "$gateway_url" \
-    WORKER_CAPABILITY "$capability" \
-    GOLIATH_ENV "$GOLIATH_ENV" \
-    GOLIATH_SHARED_PROVIDER "$shared_provider" \
-    GOLIATH_SHARED_BUCKET "$shared_bucket" \
-    AWS_ENDPOINT_URL "$shared_endpoint" \
-    AWS_ACCESS_KEY_ID "$shared_key" \
-    AWS_SECRET_ACCESS_KEY "$shared_secret" \
-    GOLIATH_LONGTERM_PROVIDER "$long_provider" \
-    GOLIATH_LONGTERM_BUCKET "$long_bucket" \
-    GOLIATH_LONGTERM_ENDPOINT "$long_endpoint" \
-    GOLIATH_LONGTERM_HOST "$long_host" \
-    GOLIATH_LONGTERM_SHARE "$long_share" \
-    GOLIATH_LONGTERM_ACCESS_KEY_ID "$long_key" \
+  local -a pairs=(
+    WORKER_API_BASE "$gateway_url"
+    WORKER_CAPABILITY "$capability"
+    GOLIATH_ENV "$GOLIATH_ENV"
+    GOLIATH_SHARED_PROVIDER "$shared_provider"
+    GOLIATH_SHARED_BUCKET "$shared_bucket"
+    AWS_ENDPOINT_URL "$shared_endpoint"
+    AWS_ACCESS_KEY_ID "$shared_key"
+    AWS_SECRET_ACCESS_KEY "$shared_secret"
+    GOLIATH_LONGTERM_PROVIDER "$long_provider"
+    GOLIATH_LONGTERM_BUCKET "$long_bucket"
+    GOLIATH_LONGTERM_ENDPOINT "$long_endpoint"
+    GOLIATH_LONGTERM_HOST "$long_host"
+    GOLIATH_LONGTERM_SHARE "$long_share"
+    GOLIATH_LONGTERM_ACCESS_KEY_ID "$long_key"
     GOLIATH_LONGTERM_SECRET_ACCESS_KEY "$long_secret"
+  )
+  if [[ "$DUAL_ACTIVATION" == "true" ]]; then
+    pairs+=(
+      WORKER_WAKE_POSTGRES 1
+      GOLIATH_DUAL_ACTIVATION 1
+    )
+  fi
+  write_kv_file "$dest_file" "${pairs[@]}"
 }
 
 describe_self_provision_worker() {

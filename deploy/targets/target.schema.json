@@ -207,6 +207,11 @@
           "description": "per-release: apply the release's GoliathApp sql_pg scripts (goliathapp-sql/) on the first deploy of each release, recorded in wf.schema_release. none: never apply them."
         }
       }
+    },
+    "dual_activation": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, deploy enables tier-1 Postgres wake on the gateway (WF_WAKE_POSTGRES) and workers (WORKER_WAKE_POSTGRES). See docs/dual-activation-omics-spike.md."
     }
   },
   "definitions": {
