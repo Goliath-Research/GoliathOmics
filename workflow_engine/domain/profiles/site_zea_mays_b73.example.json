@@ -33,7 +33,7 @@
         "analyte": "plant_tissue",
         "chromosomes": ["1"],
         "contexts": ["CG", "CHG", "CHH"],
-        "provenance": "Public/consented Zea mays WGBS; MethylExtractor <release>."
+        "provenance": "Public/consented Zea mays WGBS; GoliathExtractor <release>."
       }
     },
     "groups": {

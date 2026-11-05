@@ -102,7 +102,7 @@ jobs:
             scripts/test_gateway_release_subset.sh \
             scripts/test_current_pointer.sh \
             scripts/test_enroll_wait.sh \
-            scripts/install_methyl_extractor_tarball.sh \
+            scripts/install_goliath_extractor_tarball.sh \
             scripts/provision_worker_node.sh \
             scripts/test_report_deploy.sh \
             scripts/test_deploy_target.sh \

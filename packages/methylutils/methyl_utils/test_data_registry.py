@@ -62,7 +62,7 @@ class TestSampleRef(BaseModel):
     )
     provenance: Optional[str] = Field(
         default=None,
-        description="Source, consent basis, and producing MethylExtractor release for "
+        description="Source, consent basis, and producing GoliathExtractor release for "
         "regulatory traceability (non-PHI sources only).",
     )
 
@@ -242,7 +242,7 @@ class SamplePrepCanaryThresholds(BaseModel):
         ge=0.0,
         description=(
             "Max median (wgbs_cov / linear_cov) on overlapping sites. Optional — "
-            "MethylCall vs MethylExtractor coverage scales differ; leave unset "
+            "MethylCall vs GoliathExtractor coverage scales differ; leave unset "
             "unless comparing like-for-like extractors."
         ),
     )

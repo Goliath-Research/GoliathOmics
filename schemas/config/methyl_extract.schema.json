@@ -288,7 +288,7 @@
         }
       ],
       "default": null,
-      "description": "Total MethylExtractor worker budget (--threads). Split across in-flight chromosomes. Operator-set per site/profile.",
+      "description": "Total GoliathExtractor worker budget (--threads). Split across in-flight chromosomes. Operator-set per site/profile.",
       "title": "Threads"
     },
     "tile_size": {

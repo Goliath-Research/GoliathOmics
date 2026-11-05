@@ -135,7 +135,7 @@ CLI mirror: MethylExtractor README.
 
 Extraction QC (`extraction_qc.guardrails`) is site-published: CpG weighted
 mean coverage, mammalian CHG/CHH caps, autosomal uniformity, discard fraction.
-The extractor sidecar contract lives in the sibling MethylExtractor repo
+The extractor sidecar contract lives in the sibling GoliathExtractor repo
 (`docs/extraction_qc_contract.md`).
 
 

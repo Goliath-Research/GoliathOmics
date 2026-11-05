@@ -33,7 +33,7 @@
         "analyte": "plant_tissue",
         "chromosomes": ["1"],
         "contexts": ["CG", "CHG", "CHH"],
-        "provenance": "Public/consented Glycine max WGBS; MethylExtractor <release>."
+        "provenance": "Public/consented Glycine max WGBS; GoliathExtractor <release>."
       }
     },
     "groups": {

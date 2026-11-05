@@ -1,6 +1,6 @@
 # SamplePrepPipeline — per-sample upstream workflow
 
-**SamplePrepPipeline** is the per-sample workflow for every sample entering GoliathOmics. It ingests a structured `fastqSource` (file / S3 / Azure Blob), aligns on one of four paths (linear Clara Parabricks, linear GoliathAlign on the same `sample.parabricks_fq2bam` node, stock Clara Giraffe, or methylGrapher), runs alignment QC (optional fastp remediation on that same path), optional cfDNA fragmentomics, methylation extraction (MethylExtractor, or methylGrapher MethylCall on the WGBS path), extraction QC, optional HDF5 archive, and cleanup. Samples run in parallel. Later study workflows consume the published `{chrom}-CG.h5` files.
+**SamplePrepPipeline** is the per-sample workflow for every sample entering GoliathOmics. It ingests a structured `fastqSource` (file / S3 / Azure Blob), aligns on one of four paths (linear Clara Parabricks, linear GoliathAlign on the same `sample.parabricks_fq2bam` node, stock Clara Giraffe, or methylGrapher), runs alignment QC (optional fastp remediation on that same path), optional cfDNA fragmentomics, methylation extraction (GoliathExtractor, or methylGrapher MethylCall on the WGBS path), extraction QC, optional HDF5 archive, and cleanup. Samples run in parallel. Later study workflows consume the published `{chrom}-CG.h5` files.
 
 The BAM stays on the align worker's local scratch from align through `sample.delete_bam`. Both QC gates use the baked `resolvedConfig` window plus a per-sample overlay. Operator steps: [`docs/operators/start-sample-prep.md`](../../docs/operators/start-sample-prep.md).
 
@@ -74,7 +74,7 @@ Instance (project-specific)         Performance stack
 context_json: samples[],            native-Mojo methylGrapher (pangenome_wgbs: NVIDIA CUDA / AMD HIP)
   fastqStorage, projectPath           Clara Parabricks (explicit linear / stock Giraffe only)
                                     fastp (R2 trim remediation)
-                                    MethylExtractor (GPU) or native-Mojo MethylCall/MergeCpG
+                                    GoliathExtractor (GPU) or native-Mojo MethylCall/MergeCpG
 ```
 
 ## Workflow tree
@@ -123,7 +123,7 @@ SEQUENCE root
 
 Alignment QC may recommend **REALIGN_TRIM** (Picard cycle screening, or WGBS `remediate_without_cycles` from conversion/mapped-rate signals). When `remediateAlignment` is true, fastp trims Read 1/2 start or end bases per `trimFront1`/`trimTail1`/`trimFront2`/`trimTail2`, then the **same-mode** aligner re-runs (`methylgrapher_wgbs_realign` when `useWgbsPangenome`, else Parabricks), and methyl_qc runs again — **FASTQs must remain on disk** until archive (pass or reject).
 
-Extraction QC reads `{sampleId}.extraction_manifest.json` (MethylExtractor or methylGrapher canonical shape) and writes `{sampleId}.extraction_qc.json`. Failures are **terminal** (no retry loop today). Read-level `{chr}-CG.patterns.h5` sidecars are emitted at extract time; **`pipeline.info_measures` runs later in the study lifecycle**, not inside SamplePrep.
+Extraction QC reads `{sampleId}.extraction_manifest.json` (GoliathExtractor or methylGrapher canonical shape) and writes `{sampleId}.extraction_qc.json`. Failures are **terminal** (no retry loop today). Read-level `{chr}-CG.patterns.h5` sidecars are emitted at extract time; **`pipeline.info_measures` runs later in the study lifecycle**, not inside SamplePrep.
 
 **Ordering:** methyl-qc runs **before** fragmentomics so failed samples skip BAM scanning. Fragmentomics runs before extraction (needs aligned BAM).
 
@@ -146,7 +146,7 @@ Top-level keys become scope-0 variables. FOREACH object elements flatten into pe
 | `projectPath` | string | yes | Absolute path to `project.json` |
 | `primaryAnalyte` | string | yes | `cfdna`, `buffy_coat`, etc. |
 | `isCfdna` | boolean | yes | Drives fragmentomics **IF** |
-| `referenceFasta` | string | yes | Reference FASTA for linear Parabricks fq2bam and MethylExtractor |
+| `referenceFasta` | string | yes | Reference FASTA for linear Parabricks fq2bam and GoliathExtractor |
 | `referenceGtf` | string | no | GTF for Parabricks |
 | `alignmentMode` | string | no | `linear` (default when unset), `pangenome` (stock Giraffe), or `pangenome_wgbs` (methylGrapher WGBS; binds `useWgbsPangenome` + `usePangenome`). **Buffy default procedure:** `buffy_wgbs_pangenome_gene_fc`; linear alternate `buffy_wgbs_linear_gene_fc`. |
 | `deleteFastqs` | boolean | no | **Default `true`.** When true, run `sample.delete_fastqs` after archive/terminal QC. Set `false` (or profile `actionConfig.sample_prep.delete_fastqs: false`) to retain FASTQs under `/work/samples/{id}/`. |
@@ -171,13 +171,13 @@ Examples:
 
 Per sample under `/work/samples/{sample_id}/`. FASTQs stay at the **sample root**; alignment/extract products live in the **arm leaf** (`sampleDir` = `{sampleRoot}/align.{mode}.{engine}/`). Switching engines must not overwrite another arm.
 
-No Align BAM or `.bai` is ever on `/work`. `sample.parabricks_fq2bam`, `sample.parabricks_giraffe`, `sample.methylgrapher_wgbs_align` (QC BAM and every BAM intermediate) and `sample.docker_align` (argv placeholders `{bam}` / `{bam_dir}`) write them to worker-local scratch at `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/{sample_id}.bam` (`METHYL_LOCAL_TMP` defaults to `$TMPDIR/methyl-pb`, else `/tmp/methyl-pb`; `digest` hashes the resolved `sampleDir`). `bamPath` in task output is that worker-local path. Alignment QC, fragmentomics and MethylExtractor read it there on the pinned worker. `sample.delete_bam` removes the local BAM, index and directory on the pass and every reject path, and a failing align, QC, fragmentomics, extract or extraction-QC task removes it as well. Alignment QC that returns `remediateAlignment` also removes it on success: the remediating Align is exclusive and may run on another worker, which cannot delete this copy. Every BAM-producing Align is a hard CAAS opt-out (`worker_local_bam`): the BAM is never harvested into or restored from `.caas`.
+No Align BAM or `.bai` is ever on `/work`. `sample.parabricks_fq2bam`, `sample.parabricks_giraffe`, `sample.methylgrapher_wgbs_align` (QC BAM and every BAM intermediate) and `sample.docker_align` (argv placeholders `{bam}` / `{bam_dir}`) write them to worker-local scratch at `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/{sample_id}.bam` (`METHYL_LOCAL_TMP` defaults to `$TMPDIR/methyl-pb`, else `/tmp/methyl-pb`; `digest` hashes the resolved `sampleDir`). `bamPath` in task output is that worker-local path. Alignment QC, fragmentomics and GoliathExtractor read it there on the pinned worker. `sample.delete_bam` removes the local BAM, index and directory on the pass and every reject path, and a failing align, QC, fragmentomics, extract or extraction-QC task removes it as well. Alignment QC that returns `remediateAlignment` also removes it on success: the remediating Align is exclusive and may run on another worker, which cannot delete this copy. Every BAM-producing Align is a hard CAAS opt-out (`worker_local_bam`): the BAM is never harvested into or restored from `.caas`.
 
-MethylExtractor (`sample.methyl_extract`) writes to worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`. On success only `*.h5` and `*.json` (per-context stats, native manifest) are copied into `sampleDir`: bytes go to a sibling `.tmp-*` file and one rename publishes it, with no `utime`, `chmod` or hardlink (geesefs-safe). The local directory is removed on success and failure, so partial output never reaches `/work`.
+GoliathExtractor (`sample.methyl_extract`) writes to worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`. On success only `*.h5` and `*.json` (per-context stats, native manifest) are copied into `sampleDir`: bytes go to a sibling `.tmp-*` file and one rename publishes it, with no `utime`, `chmod` or hardlink (geesefs-safe). The local directory is removed on success and failure, so partial output never reaches `/work`.
 
 **FASTQ staging (`stageFastqs: "local"`).** Every Align node in the program (fq2bam incl. GoliathAlign/Mojo, giraffe, methylGrapher, and `sample.docker_align` when used) sets `with: {"stageFastqs": "local"}`. The Align task copies the resolved pair (trimmed when present) from `/work` into `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/fastq/` (geesefs-safe read + local rename) and aligns from there; the copies are freed with the BAM by `delete_bam` and failure / remediation cleanup. Staging happens inside the exclusive Align, so the copies are on the worker the pin starts on. The `/work` FASTQs stay until the sample finishes: `archive_sample` (unpinned, soft affinity, no GPU capability) uploads them from `/work`, then `delete_fastqs` (unpinned) removes the `/work` copies. A remediation re-Align re-stages from `/work` (trimmed FASTQs are written to `sampleDir`).
 
-**methylGrapher extract (`workDirMode: "local"`).** Both `methylgrapher_wgbs_extract` nodes run MethylCall/MergeCpG and write H5, patterns and the manifest under `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`, then publish only `*.h5` / `*.json` to `sampleDir` like MethylExtractor; the local directory is removed on success and failure.
+**methylGrapher extract (`workDirMode: "local"`).** Both `methylgrapher_wgbs_extract` nodes run MethylCall/MergeCpG and write H5, patterns and the manifest under `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`, then publish only `*.h5` / `*.json` to `sampleDir` like GoliathExtractor; the local directory is removed on success and failure.
 
 At boot `scripts/check_local_scratch.sh` deletes `{METHYL_LOCAL_TMP}/bam/*` (including staged `fastq/`) and `/extract/*` directories with nothing modified in `METHYL_LOCAL_STALE_HOURS` (default 72; 0 disables). This frees BAMs a dead worker process could not delete.
 
@@ -191,7 +191,7 @@ At boot `scripts/check_local_scratch.sh` deletes `{METHYL_LOCAL_TMP}/bam/*` (inc
     {sample_id}.json                  Parabricks / align metrics (retained)
     *.qc-metrics.tar                  optional Parabricks tar (retained)
     {sample_id}.sample_prep_log.jsonl append-only audit (retained)
-    {sample_id}.extraction_manifest.json   MethylExtractor or methylGrapher export (retained)
+    {sample_id}.extraction_manifest.json   GoliathExtractor or methylGrapher export (retained)
     {sample_id}.extraction_qc.json    post-extract guardrails (retained)
     {chr}-{ctx}.h5                    methylation matrices (retained; optional remote copy)
 ```
@@ -242,7 +242,7 @@ See [pipeline architecture §0](../docs/pipeline_architecture.md).
 | `sample.delete_fastqs` | `sample.delete-fastqs` | In-process |
 | `sample.methyl_qc` | `methyl-qc` | In-repo methylalignmentqc |
 | `sample.fragmentomics` | `methyl-fragmentomics` | In-repo (cfDNA only) |
-| `sample.methyl_extract` | `methyl-extract` | External MethylExtractor |
+| `sample.methyl_extract` | `methyl-extract` | External GoliathExtractor |
 | `sample.extraction_qc` | `methyl-extraction-qc` | In-repo methylextractionqc |
 | `sample.archive_sample` | `sample.archive-sample` | In-process (curated qc/fastq/h5 bundle; replaces retired `sample.upload_h5`) |
 | `sample.delete_bam` | `sample.delete-bam` | In-process |
@@ -255,5 +255,5 @@ Contract details: [`../contract/sample_prep_capabilities.md`](../contract/sample
 - DomainProgram fixture: [`../domain/fixtures/sample_prep.program.json`](../domain/fixtures/sample_prep.program.json)
 - Remediation cohort: [`../domain/fixtures/sample_prep_remediate.program.json`](../domain/fixtures/sample_prep_remediate.program.json)
 - Test bed: [`../docs/sample_prep_test_bed.md`](../docs/sample_prep_test_bed.md)
-- Extraction QC contract (upstream): MethylExtractor `docs/extraction_qc_contract.md`
+- Extraction QC contract (upstream): GoliathExtractor `docs/extraction_qc_contract.md`
 - Downstream analysis: [`DataDrivenPipeline.md`](DataDrivenPipeline.md)

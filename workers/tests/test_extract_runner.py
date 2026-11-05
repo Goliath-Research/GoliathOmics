@@ -224,8 +224,8 @@ def test_build_command_includes_chg_chh_flags(tmp_path: Path) -> None:
         log_path=sample_dir / "S1.methyl_extract.log",
     )
 
-    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/MethylExtractor"):
-        cmd = runner.build_methyl_extractor_command(cfg, paths)
+    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/goliath-extractor"):
+        cmd = runner.build_goliath_extractor_command(cfg, paths)
 
     assert "--CHG" in cmd
     assert "--CHH" in cmd
@@ -282,7 +282,7 @@ def test_build_command_includes_chrom_parallel_when_supported(tmp_path: Path) ->
         bam_path=bam,
         log_path=sample_dir / "S1.methyl_extract.log",
     )
-    cmd = runner.build_methyl_extractor_command(cfg, paths)
+    cmd = runner.build_goliath_extractor_command(cfg, paths)
     assert "--chrom-parallel=2" in cmd
     assert "--max-rss-gb=32" in cmd
     assert "--threads=10" in cmd
@@ -310,8 +310,8 @@ def test_build_command_cg_only_skips_chg_chh(tmp_path: Path) -> None:
         log_path=sample_dir / "S2.methyl_extract.log",
     )
 
-    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/MethylExtractor"):
-        cmd = runner.build_methyl_extractor_command(cfg, paths)
+    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/goliath-extractor"):
+        cmd = runner.build_goliath_extractor_command(cfg, paths)
 
     assert "--CHG" not in cmd
     assert "--CHH" not in cmd
@@ -474,7 +474,7 @@ def test_complete_native_manifest_survives_post_extract_rewrite(tmp_path: Path) 
         )
         return type("P", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
 
-    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/MethylExtractor"):
+    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/goliath-extractor"):
         with patch("methyl_worker.extract_runner.subprocess.run", side_effect=fake_run):
             out = runner.run_methyl_extract(
                 sample_id="S_native_run",
@@ -554,7 +554,7 @@ def test_build_manifest_from_stats_covers_all_chroms(tmp_path: Path) -> None:
     assert manifest["summary"]["cpg_weighted_mean_coverage"] > 0
 
 
-def test_run_invokes_methyl_extractor(tmp_path: Path) -> None:
+def test_run_invokes_goliath_extractor(tmp_path: Path) -> None:
     project = tmp_path / "project.json"
     ref, action_config = _write_min_project(project, chromosomes=["1"])
     sample_dir = tmp_path / "S5"
@@ -579,7 +579,7 @@ def test_run_invokes_methyl_extractor(tmp_path: Path) -> None:
             )
         return type("P", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
 
-    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/MethylExtractor"):
+    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/goliath-extractor"):
         with patch("methyl_worker.extract_runner.subprocess.run", side_effect=fake_run):
             out = runner.run_methyl_extract(
                 sample_id="S5",
@@ -633,7 +633,7 @@ def test_extractor_writes_local_then_copies_only_h5_and_json_to_work(
         return real_chmod(path, *a, **k)
 
     monkeypatch.setattr(os, "chmod", no_work_chmod)
-    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/MethylExtractor"):
+    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/goliath-extractor"):
         with patch("methyl_worker.extract_runner.subprocess.run", side_effect=fake_run):
             out = runner.run_methyl_extract(
                 sample_id="S_local",
@@ -672,7 +672,7 @@ def test_extractor_failure_removes_local_output(tmp_path: Path, monkeypatch: pyt
         (out_dir / "1-CG.h5").write_bytes(b"partial")
         return type("P", (), {"returncode": 3, "stdout": "", "stderr": "boom"})()
 
-    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/MethylExtractor"):
+    with patch.object(runner, "_extractor_bin", return_value="/usr/bin/goliath-extractor"):
         with patch("methyl_worker.extract_runner.subprocess.run", side_effect=fake_run):
             with pytest.raises(RuntimeError, match="boom"):
                 runner.run_methyl_extract(

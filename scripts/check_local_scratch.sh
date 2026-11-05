@@ -9,7 +9,7 @@
 #   METHYL_LOCAL_TMP_MIN_GB   free-space floor in GB (default 60; 1024-based,
 #                             the same unit as `df -BG`). Create refuses a
 #                             container disk under 150 GB so this floor still
-#                             holds after MethylExtractor, GoliathAlign, and
+#                             holds after GoliathExtractor, GoliathAlign, and
 #                             the venv are installed. Start runs this check
 #                             before those installs.
 #   GOLIATH_WORK_MOUNT        shared mount to reject (default /work)

@@ -9,7 +9,7 @@ GoliathOmics worker. It owns everything that is the same on every cloud:
 - container-local disk size: `local_disk_gb` from `--local-disk-gb`, else the
   self-provision worker in `--profile`, else `GOLIATH_LOCAL_DISK_GB`, else
   200. Values below 150 are refused, so the 60 GB free-space floor still
-  holds after MethylExtractor, GoliathAlign, and the venv are installed. The
+  holds after GoliathExtractor, GoliathAlign, and the venv are installed. The
   resolved value is `LOCAL_DISK_GB`. A provider that sizes a container disk
   puts that value on the create request;
 - picking the lowest free `goliath-worker-N` name and refusing a duplicate `--name`;

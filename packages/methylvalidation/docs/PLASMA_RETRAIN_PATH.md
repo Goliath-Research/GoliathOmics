@@ -39,7 +39,7 @@ Recommended order (SamplePrepPipeline) — see [`workflow_engine/contract/Sample
 3. `methyl-qc` — alignment guardrails + cycle screening; **`qcPass`** gates extract; optional fastp remediation
 4. Delete FASTQs (after **final** alignment QC — retained through trim/realign if remediation runs)
 5. **If QC pass and `primary_analyte` is `cfdna`:** `methyl-fragmentomics` (BAM WPS + end motifs)
-6. MethylExtractor (GPU) → `{chrom}-{ctx}.h5` + `{sampleId}.extraction_manifest.json`
+6. GoliathExtractor (GPU) → `{chrom}-{ctx}.h5` + `{sampleId}.extraction_manifest.json`
 7. `methyl-extraction-qc` — post-extract guardrails; **`extractionQcPass`** gates archive/cleanup
 8. Optional `sample.upload-h5` → durable archive
 9. Delete BAM (after extraction QC pass)

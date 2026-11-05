@@ -67,9 +67,9 @@ fi
 if [[ -n "${GOLIATH_EXTRACTOR_BIN:-}${METHYL_EXTRACTOR_BIN:-}" ]] \
   || command -v goliath-extractor >/dev/null 2>&1 \
   || command -v MethylExtractor >/dev/null 2>&1; then
-  run_check "verify_methyl_extractor" bash "$SCRIPT_DIR/verify_methyl_extractor.sh"
+  run_check "verify_goliath_extractor" bash "$SCRIPT_DIR/verify_goliath_extractor.sh"
 else
-  echo "SKIP verify_methyl_extractor (GoliathExtractor not configured)"
+  echo "SKIP verify_goliath_extractor (GoliathExtractor not configured)"
 fi
 
 run_check "methyl-worker --help" methyl-worker --help

@@ -33,7 +33,7 @@
         "analyte": "plant_tissue",
         "chromosomes": ["1A"],
         "contexts": ["CG", "CHG", "CHH"],
-        "provenance": "Public/consented Triticum aestivum WGBS; MethylExtractor <release>."
+        "provenance": "Public/consented Triticum aestivum WGBS; GoliathExtractor <release>."
       }
     },
     "groups": {

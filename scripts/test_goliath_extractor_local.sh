@@ -1,5 +1,5 @@
 #!/bin/bash
-# Tests for scripts/methyl_extractor_local.sh (pod-local goliath-extractor install).
+# Tests for scripts/goliath_extractor_local.sh (pod-local goliath-extractor install).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,10 +19,10 @@ sha="$(sha256sum "$tarball" | awk '{print $1}')"
 export GOLIATH_WORK_MOUNT="$tmp/work"
 export GOLIATH_LOCAL_ROOT="$tmp/local"
 unset METHYL_EXTRACTOR_HOME
-# shellcheck source=methyl_extractor_local.sh
-source "$ROOT/scripts/methyl_extractor_local.sh"
+# shellcheck source=goliath_extractor_local.sh
+source "$ROOT/scripts/goliath_extractor_local.sh"
 
-install_methyl_extractor_local "$tarball" amd64 "$sha" 2>/dev/null || fail "install failed"
+install_goliath_extractor_local "$tarball" amd64 "$sha" 2>/dev/null || fail "install failed"
 [[ "$METHYL_EXTRACTOR_HOME" == "$tmp/local/goliath-extractor-amd64" ]] || fail "wrong home $METHYL_EXTRACTOR_HOME"
 [[ -x "$METHYL_EXTRACTOR_BIN" ]] || fail "binary not executable"
 [[ "$HDF5_PLUGIN_PATH" == "$METHYL_EXTRACTOR_HOME/lib/hdf5_zstd_plugin" ]] || fail "wrong HDF5_PLUGIN_PATH"
@@ -31,29 +31,29 @@ install_methyl_extractor_local "$tarball" amd64 "$sha" 2>/dev/null || fail "inst
 
 # Idempotent: a second run must not re-extract.
 touch "$METHYL_EXTRACTOR_HOME/marker"
-out="$(install_methyl_extractor_local "$tarball" amd64 "$sha" 2>&1)" || fail "second install failed"
+out="$(install_goliath_extractor_local "$tarball" amd64 "$sha" 2>&1)" || fail "second install failed"
 [[ "$out" == *"already installed"* ]] || fail "second install should skip: $out"
 [[ -f "$METHYL_EXTRACTOR_HOME/marker" ]] || fail "second install re-extracted"
 
 # A new tarball replaces the local copy.
 printf 'v2\n' >"$tmp/pkg/VERSION.txt"
 tar -czf "$tarball" -C "$tmp/pkg" bin lib VERSION.txt
-install_methyl_extractor_local "$tarball" amd64 2>/dev/null || fail "upgrade failed"
+install_goliath_extractor_local "$tarball" amd64 2>/dev/null || fail "upgrade failed"
 [[ -f "$METHYL_EXTRACTOR_HOME/VERSION.txt" && ! -f "$METHYL_EXTRACTOR_HOME/marker" ]] || fail "upgrade did not replace"
 
 # Checksum mismatch fails.
-if install_methyl_extractor_local "$tarball" amd64 deadbeef 2>/dev/null; then
+if install_goliath_extractor_local "$tarball" amd64 deadbeef 2>/dev/null; then
   fail "checksum mismatch should fail"
 fi
 
 # A local root under the work mount falls back to /tmp.
-home="$(unset METHYL_EXTRACTOR_HOME GOLIATH_EXTRACTOR_HOME; GOLIATH_LOCAL_ROOT="$tmp/work/opt" methyl_extractor_local_home amd64 2>/dev/null)"
+home="$(unset METHYL_EXTRACTOR_HOME GOLIATH_EXTRACTOR_HOME; GOLIATH_LOCAL_ROOT="$tmp/work/opt" goliath_extractor_local_home amd64 2>/dev/null)"
 [[ "$home" == "/tmp/goliath/goliath-extractor-amd64" ]] || fail "work-mount root should fall back to /tmp, got $home"
-home="$(unset GOLIATH_EXTRACTOR_HOME; METHYL_EXTRACTOR_HOME="$tmp/work/me" methyl_extractor_local_home amd64 2>/dev/null)"
+home="$(unset GOLIATH_EXTRACTOR_HOME; METHYL_EXTRACTOR_HOME="$tmp/work/me" goliath_extractor_local_home amd64 2>/dev/null)"
 [[ "$home" == "/tmp/goliath/goliath-extractor-amd64" ]] || fail "work-mount home should fall back to /tmp, got $home"
 
 # CLI entry point.
-home="$(env -u METHYL_EXTRACTOR_HOME -u GOLIATH_EXTRACTOR_HOME GOLIATH_LOCAL_ROOT="$tmp/cli" bash "$ROOT/scripts/methyl_extractor_local.sh" --tarball "$tarball" --print-home 2>/dev/null)"
+home="$(env -u METHYL_EXTRACTOR_HOME -u GOLIATH_EXTRACTOR_HOME GOLIATH_LOCAL_ROOT="$tmp/cli" bash "$ROOT/scripts/goliath_extractor_local.sh" --tarball "$tarball" --print-home 2>/dev/null)"
 [[ -x "$home/bin/goliath-extractor" && "$home" == "$tmp/cli/goliath-extractor-amd64" ]] || fail "CLI install failed"
 
 # A binary that loads its bundled lib (like libhts.so.3) through RUNPATH
@@ -75,15 +75,15 @@ hts_tb="$tmp/work/goliath/releases/1.0.0/goliath-extractor-linux-aarch64.tar.gz"
 tar -czf "$hts_tb" -C "$tmp/hts" bin lib
 (
   unset METHYL_EXTRACTOR_HOME GOLIATH_EXTRACTOR_HOME
-  home="$(methyl_extractor_local_home aarch64)"
+  home="$(goliath_extractor_local_home aarch64)"
   export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$home/lib"
-  install_methyl_extractor_local "$hts_tb" aarch64 2>/dev/null || fail "RUNPATH binary run check failed"
+  install_goliath_extractor_local "$hts_tb" aarch64 2>/dev/null || fail "RUNPATH binary run check failed"
   [[ "$LD_LIBRARY_PATH" == /usr/local/cuda/lib64 ]] || fail "stale <home>/lib must be removed from LD_LIBRARY_PATH: ${LD_LIBRARY_PATH:-}"
   grep -q LD_LIBRARY_PATH= "$METHYL_EXTRACTOR_HOME/env.sh" && fail "env.sh must not set LD_LIBRARY_PATH"
   # shellcheck source=/dev/null
   ( unset LD_LIBRARY_PATH; . "$METHYL_EXTRACTOR_HOME/env.sh"; "$METHYL_EXTRACTOR_BIN" ) || fail "env.sh does not make the binary runnable"
   unset LD_LIBRARY_PATH
-  install_methyl_extractor_local "$hts_tb" aarch64 2>/dev/null || fail "reinstall failed"
+  install_goliath_extractor_local "$hts_tb" aarch64 2>/dev/null || fail "reinstall failed"
   [[ -z "${LD_LIBRARY_PATH+x}" ]] || fail "installer must not set LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
 )
 # A binary that only runs with <home>/lib on LD_LIBRARY_PATH (no RUNPATH)
@@ -97,7 +97,7 @@ esac
 exit 127
 SH
 tar -czf "$hts_tb" -C "$tmp/hts" bin lib
-if (unset METHYL_EXTRACTOR_HOME GOLIATH_EXTRACTOR_HOME; install_methyl_extractor_local "$hts_tb" aarch64 2>/dev/null); then
+if (unset METHYL_EXTRACTOR_HOME GOLIATH_EXTRACTOR_HOME; install_goliath_extractor_local "$hts_tb" aarch64 2>/dev/null); then
   fail "a binary without RUNPATH must fail the run check"
 fi
 # Without the lib in the tarball the run check reports exit 127.
@@ -109,7 +109,7 @@ exit 127
 SH
 rm -f "$tmp/hts/lib/libhts.so.3" "$tmp/hts/lib/libhts.so.3.1"
 tar -czf "$hts_tb" -C "$tmp/hts" bin lib
-if (unset METHYL_EXTRACTOR_HOME GOLIATH_EXTRACTOR_HOME; install_methyl_extractor_local "$hts_tb" aarch64 2>/dev/null); then
+if (unset METHYL_EXTRACTOR_HOME GOLIATH_EXTRACTOR_HOME; install_goliath_extractor_local "$hts_tb" aarch64 2>/dev/null); then
   fail "missing libhts should fail the run check"
 fi
 
@@ -124,7 +124,7 @@ ln -s libhtscodecs.so.2.1.1 "$tmp/sys/libhtscodecs.so.2"
 cp "$tmp/hts/bin/goliath-extractor" "$tmp/bare/bin/"
 bare_tb="$tmp/goliath-extractor-linux-amd64.tar.gz"
 tar -czf "$bare_tb" -C "$tmp/bare" bin
-bash "$ROOT/scripts/bundle_methyl_extractor_libs.sh" --tarball "$bare_tb" --lib-dir "$tmp/sys" 2>/dev/null \
+bash "$ROOT/scripts/bundle_goliath_extractor_libs.sh" --tarball "$bare_tb" --lib-dir "$tmp/sys" 2>/dev/null \
   || fail "bundle_methyl_extractor_libs.sh failed"
 listing="$(tar -tzvf "$bare_tb")"
 [[ "$listing" == *"lib/libhts.so.3.1.13"* ]] || fail "real libhts file not bundled: $listing"
@@ -133,14 +133,14 @@ listing="$(tar -tzvf "$bare_tb")"
 [[ "$listing" == *"lib/libhtscodecs.so.2 -> libhtscodecs.so.2.1.1"* ]] || fail "libhtscodecs not bundled"
 [[ "$listing" == *"env.sh"* ]] || fail "env.sh not written"
 sum1="$(sha256sum "$bare_tb")"
-bash "$ROOT/scripts/bundle_methyl_extractor_libs.sh" --tarball "$bare_tb" --lib-dir "$tmp/sys" 2>/dev/null || fail "re-bundle failed"
+bash "$ROOT/scripts/bundle_goliath_extractor_libs.sh" --tarball "$bare_tb" --lib-dir "$tmp/sys" 2>/dev/null || fail "re-bundle failed"
 [[ "$(sha256sum "$bare_tb")" == "$sum1" ]] || fail "re-bundle should be a no-op"
 (
   unset LD_LIBRARY_PATH METHYL_EXTRACTOR_HOME GOLIATH_EXTRACTOR_HOME
-  install_methyl_extractor_local "$bare_tb" amd64 2>/dev/null || fail "bundled tarball does not install/run"
+  install_goliath_extractor_local "$bare_tb" amd64 2>/dev/null || fail "bundled tarball does not install/run"
 )
-if bash "$ROOT/scripts/bundle_methyl_extractor_libs.sh" --tarball "$bare_tb" --lib-dir "$tmp/nolibs" --force 2>/dev/null; then
+if bash "$ROOT/scripts/bundle_goliath_extractor_libs.sh" --tarball "$bare_tb" --lib-dir "$tmp/nolibs" --force 2>/dev/null; then
   fail "bundle should fail when libhts cannot be found"
 fi
 
-echo "PASS test_methyl_extractor_local"
+echo "PASS test_goliath_extractor_local"

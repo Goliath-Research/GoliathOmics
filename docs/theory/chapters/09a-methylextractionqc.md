@@ -7,7 +7,7 @@ Operator guide: [Usage ch.03 — Sample Prep and QC](../../usage/03-sample-prep-
 
 ## Input: extraction manifest
 
-MethylExtractor or methylGrapher (`sample.methylgrapher_wgbs_extract`) writes `{sample_id}.extraction_manifest.json` with the **same canonical blocks** consumed by `methylextractionqc`:
+GoliathExtractor or methylGrapher (`sample.methylgrapher_wgbs_extract`) writes `{sample_id}.extraction_manifest.json` with the **same canonical blocks** consumed by `methylextractionqc`:
 
 - `metadata` — `schema_name`, `schema_version`, `contexts_extracted`, `sample_id` (methylGrapher adds graph provenance sidecars)
 - `summary` — genome-wide CpG weighted mean coverage, CHH/CHG methylation levels

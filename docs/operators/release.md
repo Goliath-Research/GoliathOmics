@@ -32,10 +32,10 @@ Run **GoliathOmics release assemble** (`.github/workflows/release-assemble.yml`)
 |-------|------|
 | `releaseVersion` | SemVer of the product bundle. For this release, `2026.10.27`. |
 | `methylPipelineVersion` | Tag of step 1 without the leading `v` |
-| `methylExtractorVersion` | GoliathExtractor GitHub Release version |
+| `goliathExtractorVersion` | GoliathExtractor GitHub Release version |
 | `goliathAlignVersion` | GoliathAlign jammy host-runtime GitHub Release version |
 
-`scripts/assemble_release.sh` copies the MethylPipeline tree, downloads the GoliathExtractor and GoliathAlign tarballs, bundles GoliathExtractor's `libhts` with `patchelf`, checks `goliathapp-sql/manifest.sha256`, and writes `manifest.json` with `components.methyl_pipeline`, `components.methyl_extractor`, and `components.goliath_align`.
+`scripts/assemble_release.sh` copies the MethylPipeline tree, downloads the GoliathExtractor and GoliathAlign tarballs, bundles GoliathExtractor's `libhts` with `patchelf`, checks `goliathapp-sql/manifest.sha256`, and writes `manifest.json` with `components.methyl_pipeline`, `components.goliath_extractor`, and `components.goliath_align`.
 
 The job publishes GitHub Release `goliathomics-<releaseVersion>` with asset `goliathomics-release-<releaseVersion>.tar.gz`. The tag is the workflow's checkout, so `deploy/runpod/goliath-worker-bootstrap.sh`, `goliath-worker-start.sh`, `keepalive.sh`, `scripts/start_shared_worker.sh`, `scripts/check_local_scratch.sh`, `scripts/detect_platform.sh`, and `scripts/platform_matrix.env` must exist on that commit. The RunPod template reads those paths from the tag.
 

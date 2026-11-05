@@ -59,17 +59,36 @@ resolve_methylgrapher_image() {
   echo "${METHYL_METHYLGRAPHER_IMAGE:-${!var:-}}"
 }
 
-resolve_methyl_extractor_subdir() {
+resolve_goliath_extractor_subdir() {
   local uname_arch="${1:-$(detect_uname_arch)}"
   if [[ -f "$MATRIX_FILE" ]]; then
     # shellcheck disable=SC1090
     source "$MATRIX_FILE"
   fi
   case "$uname_arch" in
-    aarch64|arm64) echo "${METHYL_EXTRACTOR_ARCH_aarch64:-arm64}" ;;
-    x86_64|amd64) echo "${METHYL_EXTRACTOR_ARCH_x86_64:-x64}" ;;
+    aarch64|arm64)
+      if [[ -n "${GOLIATH_EXTRACTOR_ARCH_aarch64:-}" ]]; then
+        echo "${GOLIATH_EXTRACTOR_ARCH_aarch64}"
+      else
+        [[ -n "${METHYL_EXTRACTOR_ARCH_aarch64:-}" ]] && echo "[DEPRECATED] METHYL_EXTRACTOR_ARCH_aarch64 is deprecated; set GOLIATH_EXTRACTOR_ARCH_aarch64 in platform_matrix.env (see docs/operators/goliath-extractor-migration.md)" >&2
+        echo "${METHYL_EXTRACTOR_ARCH_aarch64:-arm64}"
+      fi
+      ;;
+    x86_64|amd64)
+      if [[ -n "${GOLIATH_EXTRACTOR_ARCH_x86_64:-}" ]]; then
+        echo "${GOLIATH_EXTRACTOR_ARCH_x86_64}"
+      else
+        [[ -n "${METHYL_EXTRACTOR_ARCH_x86_64:-}" ]] && echo "[DEPRECATED] METHYL_EXTRACTOR_ARCH_x86_64 is deprecated; set GOLIATH_EXTRACTOR_ARCH_x86_64 in platform_matrix.env (see docs/operators/goliath-extractor-migration.md)" >&2
+        echo "${METHYL_EXTRACTOR_ARCH_x86_64:-x64}"
+      fi
+      ;;
     *) return 1 ;;
   esac
+}
+
+resolve_methyl_extractor_subdir() {
+  echo "[DEPRECATED] resolve_methyl_extractor_subdir() is deprecated; use resolve_goliath_extractor_subdir() (see docs/operators/goliath-extractor-migration.md)" >&2
+  resolve_goliath_extractor_subdir "$@"
 }
 
 # Build a literal PATH for worker.env / systemd (no $PATH suffix — EnvironmentFile does not expand).
@@ -202,5 +221,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   echo "uname: $(detect_uname_arch)"
   echo "arch_key: $(platform_arch_key)"
   echo "parabricks_image: $(resolve_parabricks_image)"
-  echo "methyl_extractor_subdir: $(resolve_methyl_extractor_subdir)"
+  echo "goliath_extractor_subdir: $(resolve_goliath_extractor_subdir)"
 fi

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Bootstrap MethylPipeline + MethylExtractor on shared storage (/work/goliath).
-# Host-native worker provisioning: .venv, Python packages, MethylExtractor build, env files.
+# Bootstrap MethylPipeline + GoliathExtractor on shared storage (/work/goliath).
+# Host-native worker provisioning: .venv, Python packages, GoliathExtractor build, env files.
 #
 # Production path: use --release-dir to install from a versioned release (no git sources).
 
@@ -16,13 +16,13 @@ Options:
   --arch KEY               aarch64 or amd64 (default: detect); used with --release-dir
   --promote-release        Run promote_release.sh (extract, venv, flip current, worker.env)
   --pipeline-url URL       MethylPipeline git remote (dev/bootstrap path)
-  --extractor-url URL      MethylExtractor git remote (dev/bootstrap path)
+  --extractor-url URL      GoliathExtractor git remote (dev/bootstrap path)
   --branch NAME            Git branch for both repos (default: current or main)
   --system-deps            Pass --system-deps to setup_host.sh
   --gpu                    Force GPU Python requirements
   --skip-docker            Skip Docker Engine / NVIDIA CTK install (verify-only)
   --skip-parabricks-pull   Do not docker pull Parabricks image (node join default)
-  --skip-methyl-extractor  Skip MethylExtractor build
+  --skip-goliath-extractor  Skip GoliathExtractor build
   --docker-data-root PATH  Shared Docker data-root (default: /work/goliath/docker with --release-dir)
   --dry-run                Print actions without executing
   --require-arc            Fail if Arc agent is not Connected (production workers)
@@ -32,7 +32,7 @@ Options:
 Environment:
   GOLIATH_ROOT             Same as --root
   METHYL_PIPELINE_URL        Git URL for MethylPipeline
-  METHYL_EXTRACTOR_URL       Git URL for MethylExtractor
+  GOLIATH_EXTRACTOR_URL       Git URL for GoliathExtractor
   WORKER_API_BASE            Written to worker.env (default: http://localhost:8080/v1)
 EOF
 }
@@ -43,21 +43,25 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/detect_platform.sh"
 # shellcheck source=worker_venv_local.sh
 source "$SCRIPT_DIR/worker_venv_local.sh"
-# shellcheck source=methyl_extractor_local.sh
-source "$SCRIPT_DIR/methyl_extractor_local.sh"
+# shellcheck source=goliath_extractor_local.sh
+source "$SCRIPT_DIR/goliath_extractor_local.sh"
 
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 RELEASE_DIR=""
 ARCH=""
 PROMOTE_RELEASE=0
 PIPELINE_URL="${METHYL_PIPELINE_URL:-}"
-EXTRACTOR_URL="${METHYL_EXTRACTOR_URL:-}"
+EXTRACTOR_URL="${GOLIATH_EXTRACTOR_URL:-}"
+if [[ -z "$EXTRACTOR_URL" && -n "${METHYL_EXTRACTOR_URL:-}" ]]; then
+  echo "[DEPRECATED] METHYL_EXTRACTOR_URL is deprecated; set GOLIATH_EXTRACTOR_URL (see docs/operators/goliath-extractor-migration.md)" >&2
+  EXTRACTOR_URL="$METHYL_EXTRACTOR_URL"
+fi
 BRANCH=""
 SYSTEM_DEPS=0
 GPU_FLAG=0
 SKIP_DOCKER=0
 SKIP_PARABRICKS_PULL=0
-SKIP_METHYL_EXTRACTOR=0
+SKIP_GOLIATH_EXTRACTOR=0
 DOCKER_DATA_ROOT=""
 DRY_RUN=0
 REQUIRE_ARC=0
@@ -76,7 +80,11 @@ while [[ $# -gt 0 ]]; do
     --gpu) GPU_FLAG=1; shift ;;
     --skip-docker) SKIP_DOCKER=1; shift ;;
     --skip-parabricks-pull) SKIP_PARABRICKS_PULL=1; shift ;;
-    --skip-methyl-extractor) SKIP_METHYL_EXTRACTOR=1; shift ;;
+    --skip-goliath-extractor) SKIP_GOLIATH_EXTRACTOR=1; shift ;;
+    --skip-methyl-extractor)
+      echo "[DEPRECATED] --skip-methyl-extractor is deprecated; use --skip-goliath-extractor (see docs/operators/goliath-extractor-migration.md)" >&2
+      SKIP_GOLIATH_EXTRACTOR=1; shift
+      ;;
     --docker-data-root) DOCKER_DATA_ROOT="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --require-arc) REQUIRE_ARC=1; shift ;;
@@ -100,7 +108,7 @@ run() {
 
 UNAME_ARCH="$(detect_uname_arch)"
 ARCH_KEY="${ARCH:-$(platform_arch_key "$UNAME_ARCH")}"
-ME_SUBDIR="$(resolve_methyl_extractor_subdir "$UNAME_ARCH")"
+ME_SUBDIR="$(resolve_goliath_extractor_subdir "$UNAME_ARCH")"
 PARABRICKS_IMAGE="${METHYL_PARABRICKS_IMAGE:-$(resolve_parabricks_image)}"
 
 REPOS="$ROOT/repos"
@@ -160,16 +168,16 @@ if [[ -n "$RELEASE_DIR" ]]; then
     # MethylExtractor runs from local disk; the tarball stays on shared storage.
     ME_TARBALL="$(manifest_extractor_tarball_name "$RELEASE_DIR/manifest.json" "$ARCH_KEY")"
     if [[ -n "$ME_TARBALL" && -f "$RELEASE_DIR/$ME_TARBALL" ]]; then
-      install_methyl_extractor_local "$RELEASE_DIR/$ME_TARBALL" "$ARCH_KEY" \
+      install_goliath_extractor_local "$RELEASE_DIR/$ME_TARBALL" "$ARCH_KEY" \
         || die "local GoliathExtractor install failed"
     fi
-    ME_HOME="$(methyl_extractor_local_home "$ARCH_KEY")"
+    ME_HOME="$(goliath_extractor_local_home "$ARCH_KEY")"
     ME_BIN="$(_mel_bin_in_home "$ME_HOME" || true)"
     PLUGIN_DIR="$ME_HOME/lib/hdf5_zstd_plugin"
     if [[ -z "$ME_BIN" ]]; then
       ME_BIN="${GOLIATH_EXTRACTOR_BIN:-${METHYL_EXTRACTOR_BIN:-goliath-extractor}}"
       PLUGIN_DIR="${HDF5_PLUGIN_PATH:-/usr/local/hdf5/lib/plugin}"
-      warn "GoliathExtractor not at local path $ME_HOME; run promote_release.sh or install_methyl_extractor_tarball.sh"
+      warn "GoliathExtractor not at local path $ME_HOME; run promote_release.sh or install_goliath_extractor_tarball.sh"
     fi
     if [[ -n "${WORKER_API_BASE:-}" ]]; then
       run bash "$SCRIPTS_DIR/write_worker_env.sh" --root "$ROOT" --manifest "$RELEASE_DIR/manifest.json" \
@@ -230,7 +238,7 @@ clone_or_update() {
       fi
       return 0
     fi
-    die "No git URL for $name and $dest does not exist. Set METHYL_PIPELINE_URL / METHYL_EXTRACTOR_URL or clone manually."
+    die "No git URL for $name and $dest does not exist. Set METHYL_PIPELINE_URL / GOLIATH_EXTRACTOR_URL or clone manually."
   fi
 
   run mkdir -p "$(dirname "$dest")"
@@ -281,7 +289,7 @@ if [[ "$GPU_FLAG" -eq 1 ]] || command -v nvidia-smi >/dev/null 2>&1; then
 fi
 run bash "$PIPELINE_DIR/scripts/install_all.sh" "${INSTALL_ARGS[@]}" --skip-marp
 
-if [[ "$SKIP_METHYL_EXTRACTOR" -eq 0 && -d "$EXTRACTOR_DIR" ]]; then
+if [[ "$SKIP_GOLIATH_EXTRACTOR" -eq 0 && -d "$EXTRACTOR_DIR" ]]; then
   info "Building GoliathExtractor ($ME_SUBDIR) ..."
   run bash -c "cd '$EXTRACTOR_DIR' && make"
   build_dir="$EXTRACTOR_DIR/build/dynamic/$ME_SUBDIR"

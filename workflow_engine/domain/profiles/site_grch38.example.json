@@ -115,7 +115,7 @@
         "contexts": [
           "CG"
         ],
-        "provenance": "Non-PHI public/consented WGBS; MethylExtractor <release>."
+        "provenance": "Non-PHI public/consented WGBS; GoliathExtractor <release>."
       },
       "buffy_coat": {
         "sample_id": "REF_BUFFY_01",
@@ -127,7 +127,7 @@
         "contexts": [
           "CG"
         ],
-        "provenance": "Non-PHI public/consented WGBS; MethylExtractor <release>."
+        "provenance": "Non-PHI public/consented WGBS; GoliathExtractor <release>."
       }
     },
     "groups": {

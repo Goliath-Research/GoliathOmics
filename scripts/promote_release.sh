@@ -30,8 +30,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/detect_platform.sh"
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
-# shellcheck source=methyl_extractor_local.sh
-source "$SCRIPT_DIR/methyl_extractor_local.sh"
+# shellcheck source=goliath_extractor_local.sh
+source "$SCRIPT_DIR/goliath_extractor_local.sh"
 # shellcheck source=worker_venv_local.sh
 source "$SCRIPT_DIR/worker_venv_local.sh"
 
@@ -105,7 +105,7 @@ verify_checksum() {
 # on every pod boot.
 install_extractor() {
   [[ "$SKIP_EXTRACTOR" -eq 1 ]] && return 0
-  [[ -f "$TARBALL_PATH" ]] || die "MethylExtractor tarball not found: $TARBALL_PATH"
+  [[ -f "$TARBALL_PATH" ]] || die "GoliathExtractor tarball not found: $TARBALL_PATH"
   verify_checksum
   # Older releases extracted onto $ROOT; that copy is unusable on a shared volume.
   if [[ -d "$ROOT/goliath-extractor-${ARCH}" ]]; then
@@ -116,9 +116,9 @@ install_extractor() {
     rm -rf "$ROOT/methyl-extractor-${ARCH}" 2>/dev/null \
       || echo "[WARN] could not remove stale $ROOT/methyl-extractor-${ARCH}; ignoring it" >&2
   fi
-  install_methyl_extractor_local "$TARBALL_PATH" "$ARCH" "$EXPECTED_SHA" \
+  install_goliath_extractor_local "$TARBALL_PATH" "$ARCH" "$EXPECTED_SHA" \
     || die "local MethylExtractor install failed"
-  info "MethylExtractor installed: $METHYL_EXTRACTOR_BIN"
+  info "GoliathExtractor installed: $METHYL_EXTRACTOR_BIN"
 }
 
 # The worker venv is executables (bin/python, entry points), so it is built on

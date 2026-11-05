@@ -52,7 +52,7 @@ Local scratch: METHYL_LOCAL_TMP (default /tmp/methyl-pb) must have
 METHYL_LOCAL_TMP_MIN_GB free (default 60). A smaller disk refuses to start.
 The shared work mount is not scratch. --skip-preflight does not skip this check.
 Create's minimum container disk is 150 GB, so this floor still holds after
-MethylExtractor, GoliathAlign, and the venv are installed.
+GoliathExtractor, GoliathAlign, and the venv are installed.
 EOF
 }
 

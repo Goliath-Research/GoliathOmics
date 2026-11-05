@@ -70,7 +70,7 @@ class MethylExtractPaths:
     sample_id: str
     bam_path: Path
     log_path: Path
-    # MethylExtractor --output-dir; worker-local scratch, published to sample_dir after.
+    # GoliathExtractor --output-dir; worker-local scratch, published to sample_dir after.
     output_dir: Optional[Path] = None
 
 
@@ -88,7 +88,7 @@ def _normalize_contexts(raw: Any) -> tuple[str, ...]:
     invalid = [p for p in parts if p not in ALLOWED_CONTEXTS]
     if invalid:
         raise RuntimeError(f"Unsupported extract contexts: {invalid}")
-    # Preserve order while deduplicating; CG is always implicit in MethylExtractor.
+    # Preserve order while deduplicating; CG is always implicit in GoliathExtractor.
     seen: set[str] = set()
     ordered: List[str] = []
     for ctx in parts:
@@ -386,7 +386,7 @@ def extract_outputs_complete(sample_dir: Path, expected_names: Sequence[str]) ->
 
 
 def _load_context_stat_json(sample_dir: Path, chrom: str, context: str) -> Optional[Dict[str, Any]]:
-    """Load MethylExtractor ``{chrom}-{context}.json`` sidecar stats when present."""
+    """Load GoliathExtractor ``{chrom}-{context}.json`` sidecar stats when present."""
     path = sample_dir / f"{chrom}-{context}.json"
     if not path.is_file():
         return None
@@ -487,7 +487,7 @@ def build_canonical_extraction_manifest_from_stats(
 ) -> Dict[str, Any]:
     """Build ``methyl_extraction_qc`` canonical manifest from MethylExtractor JSON sidecars.
 
-    MethylExtractor writes per-chromosome ``{chrom}-{ctx}.json`` sidecars
+    GoliathExtractor writes per-chromosome ``{chrom}-{ctx}.json`` sidecars
     (``avg_coverage``, ``avg_methylation_level``, …), HDF5s, and a native
     ``{sampleId}.extraction_manifest.json`` (including ``read_filtering``).
     This helper synthesizes the sample manifest from sidecars when that native
@@ -536,7 +536,7 @@ def build_canonical_extraction_manifest_from_stats(
 
     if missing:
         raise RuntimeError(
-            "MethylExtractor per-chromosome stats incomplete for extraction manifest; "
+            "GoliathExtractor per-chromosome stats incomplete for extraction manifest; "
             f"missing {len(missing)} sidecar(s) under {sample_dir}: "
             + ", ".join(missing[:12])
             + ("…" if len(missing) > 12 else "")
@@ -602,7 +602,7 @@ def ensure_extraction_manifest(
     h5_files: Sequence[str],
     pattern_files: Sequence[str] | None = None,
 ) -> Path:
-    """Preserve a complete native MethylExtractor manifest, or synthesize one.
+    """Preserve a complete native GoliathExtractor manifest, or synthesize one.
 
     When ``{sampleId}.extraction_manifest.json`` is a complete
     ``goliath_extractor.extraction_manifest`` (expected chromosomes in
@@ -739,7 +739,7 @@ def _extractor_bin(cfg: MethylExtractConfig) -> str:
         raise RuntimeError(
             f"GoliathExtractor binary not found: {cfg.extractor_bin!r}; "
             "set GOLIATH_EXTRACTOR_BIN (or METHYL_EXTRACTOR_BIN) or run "
-            "scripts/methyl_extractor_local.sh --tarball <release tarball>"
+            "scripts/goliath_extractor_local.sh --tarball <release tarball>"
         )
     return found
 
@@ -760,12 +760,12 @@ def _extractor_help_text(bin_path: str) -> str:
 
 
 def _extractor_supports_flag(bin_path: str, flag: str) -> bool:
-    """Return True when ``MethylExtractor --help`` documents ``flag``."""
+    """Return True when ``GoliathExtractor --help`` documents ``flag``."""
     return flag in _extractor_help_text(bin_path)
 
 
 def _extractor_supports_read_level(bin_path: str) -> bool:
-    """Return True when ``MethylExtractor --help`` documents ``--read-level``.
+    """Return True when ``GoliathExtractor --help`` documents ``--read-level``.
 
     Older aarch64 builds on some workers omit the flag; asking for it aborts
     extraction with ``unrecognized option``. Probe help text rather than
@@ -774,7 +774,7 @@ def _extractor_supports_read_level(bin_path: str) -> bool:
     return _extractor_supports_flag(bin_path, "--read-level")
 
 
-def build_methyl_extractor_command(cfg: MethylExtractConfig, paths: MethylExtractPaths) -> List[str]:
+def build_goliath_extractor_command(cfg: MethylExtractConfig, paths: MethylExtractPaths) -> List[str]:
     bin_path = _extractor_bin(cfg)
     cmd: List[str] = [
         bin_path,
@@ -813,7 +813,7 @@ def build_methyl_extractor_command(cfg: MethylExtractConfig, paths: MethylExtrac
         else:
             logger.warning(
                 "methyl_extract.read_level requested but %s has no --read-level; "
-                "emitting marginal H5 only (upgrade MethylExtractor for patterns)",
+                "emitting marginal H5 only (upgrade GoliathExtractor for patterns)",
                 bin_path,
             )
     if cfg.mhap:
@@ -822,13 +822,13 @@ def build_methyl_extractor_command(cfg: MethylExtractConfig, paths: MethylExtrac
         else:
             logger.warning(
                 "methyl_extract.mhap requested but %s has no --mhap; "
-                "upgrade MethylExtractor for haplotype sidecars",
+                "upgrade GoliathExtractor for haplotype sidecars",
                 bin_path,
             )
     cmd.append(f"--output-dir={paths.output_dir or paths.sample_dir}")
     cmd.append(str(paths.bam_path))
-    # With --output-dir set, MethylExtractor treats the next positional as ref.fa only
-    # (see MethylExtractor/src/main.c: output_dir positional is skipped when -o is used).
+    # With --output-dir set, GoliathExtractor treats the next positional as ref.fa only
+    # (see GoliathExtractor/src/main.c: output_dir positional is skipped when -o is used).
     cmd.append(str(cfg.reference_fasta))
     return cmd
 
@@ -837,7 +837,7 @@ def _append_log(log_path: Path, text: str) -> None:
     append_work_text(log_path, text)
 
 
-# MethylExtractor products copied from local scratch to sampleDir: HDF5s and
+# GoliathExtractor products copied from local scratch to sampleDir: HDF5s and
 # their per-context JSON stats / manifests. Nothing else (no BAM) reaches /work.
 _PUBLISHED_SUFFIXES = (".h5", ".json")
 
@@ -858,7 +858,7 @@ def run_methyl_extract(
     project: str | Path,
     input_json: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Extract methylation HDF5s with MethylExtractor."""
+    """Extract methylation HDF5s with GoliathExtractor."""
     payload: Dict[str, Any] = dict(input_json or {})
     payload.setdefault("sampleId", sample_id)
     payload.setdefault("sampleDir", str(sample_dir))
@@ -881,7 +881,7 @@ def run_methyl_extract(
         or extract_pattern_outputs_complete(cfg.sample_dir, pattern_expected)
     )
     if marginals_ok and patterns_ok:
-        logger.info("Skipping MethylExtractor; outputs already present for %s", cfg.sample_id)
+        logger.info("Skipping GoliathExtractor; outputs already present for %s", cfg.sample_id)
         # Still (re)write the canonical manifest — H5 skip must not leave a stale
         # stub from WORKER_STUB_EXTERNAL / prior runs for extraction QC.
         pattern_present = [
@@ -951,9 +951,9 @@ def run_methyl_extract(
     local_out.mkdir(parents=True)
     paths = replace(paths, output_dir=local_out)
     try:
-        cmd = build_methyl_extractor_command(cfg, paths)
+        cmd = build_goliath_extractor_command(cfg, paths)
 
-        logger.info("Running MethylExtractor for %s", cfg.sample_id)
+        logger.info("Running GoliathExtractor for %s", cfg.sample_id)
         _append_log(paths.log_path, "COMMAND: " + " ".join(shlex.quote(part) for part in cmd))
 
         proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
@@ -963,7 +963,7 @@ def run_methyl_extract(
             _append_log(paths.log_path, proc.stderr)
         if proc.returncode != 0:
             raise RuntimeError(
-                proc.stderr.strip() or proc.stdout.strip() or "MethylExtractor failed"
+                proc.stderr.strip() or proc.stdout.strip() or "GoliathExtractor failed"
             )
         _publish_extract_outputs(local_out, cfg.sample_dir)
     finally:
@@ -976,7 +976,7 @@ def run_methyl_extract(
         ]
         if cfg.read_level and not pattern_files:
             logger.warning(
-                "MethylExtractor read_level enabled but no *.patterns.h5 files produced for %s "
+                "GoliathExtractor read_level enabled but no *.patterns.h5 files produced for %s "
                 "(continuing; pipeline.info_measures will skip if cohort has no patterns)",
                 cfg.sample_id,
             )
@@ -987,7 +987,7 @@ def run_methyl_extract(
             if not p.name.endswith(".patterns.h5") and not p.name.endswith(".mhap.h5")
         )
     if not h5_files:
-        raise RuntimeError(f"MethylExtractor did not produce HDF5 files under {cfg.sample_dir}")
+        raise RuntimeError(f"GoliathExtractor did not produce HDF5 files under {cfg.sample_dir}")
 
     pattern_files = [
         name for name in pattern_expected if (cfg.sample_dir / name).is_file()
@@ -1009,7 +1009,7 @@ def run_methyl_extract(
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Run MethylExtractor for one sample (local dev / HPC)")
+    parser = argparse.ArgumentParser(description="Run GoliathExtractor for one sample (local dev / HPC)")
     parser.add_argument("sample_id", help="Sample identifier")
     parser.add_argument("--sample-dir", help="Sample directory (default: /work/samples/{sample_id})")
     parser.add_argument("--project", required=True, help="Pipeline project JSON on shared storage")
@@ -1021,7 +1021,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     parser.add_argument("--threads", type=int)
     parser.add_argument("--min-mapq", type=int)
-    parser.add_argument("--extractor-bin", help="Dev override for MethylExtractor binary path")
+    parser.add_argument("--extractor-bin", help="Dev override for GoliathExtractor binary path")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     sample_dir = Path(
