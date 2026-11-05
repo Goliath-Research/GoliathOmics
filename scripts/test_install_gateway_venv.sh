@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$ROOT/scripts/install_gateway_venv.sh"
 fail() {
   echo "FAIL: $*" >&2
+  echo "FAIL: $*"
   exit 1
 }
 
@@ -37,11 +38,14 @@ assert_requires '!=3.14.*' 3.13.1 yes
 assert_requires '==3.12.*' 3.12.3 yes
 assert_requires '>=3.10,<3.15' 3.12.3 yes
 
-selected="$(bash "$SCRIPT" --select-python '>=3.10,<3.14')"
+selected="$(bash "$SCRIPT" --select-python '>=3.10,<3.14')" \
+  || fail "--select-python failed for >=3.10,<3.14"
 [[ "$selected" == "3.13" ]] || fail "expected uv to provision 3.13 for >=3.10,<3.14, got $selected"
-selected="$(bash "$SCRIPT" --select-python '>=3.12,<3.13')"
+selected="$(bash "$SCRIPT" --select-python '>=3.12,<3.13')" \
+  || fail "--select-python failed for >=3.12,<3.13"
 [[ "$selected" == "3.12" ]] || fail "expected 3.12 for >=3.12,<3.13, got $selected"
-selected="$(bash "$SCRIPT" --select-python '==3.11.9')"
+selected="$(bash "$SCRIPT" --select-python '==3.11.9')" \
+  || fail "--select-python failed for ==3.11.9"
 [[ "$selected" == "3.11.9" ]] || fail "expected exact 3.11.9, got $selected"
 
 err="$(mktemp)"
@@ -120,7 +124,8 @@ build_wheel "$release/wheels" methyl-worker 1.0.0 '>=3.10,<3.15' '' >/dev/null
 
 out="$(mktemp)"
 err="$(mktemp)"
-bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err"
+bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err" \
+  || fail "install_gateway_venv.sh failed: $(tr '\n' ' ' <"$err")"
 [[ -x "$root/venv-amd64/bin/methyl-gateway" ]] || fail "methyl-gateway entry point was not installed"
 [[ -x "$root/venv-amd64/bin/methyl-reclaim-leases" ]] || fail "methyl-reclaim-leases entry point was not installed"
 [[ "$("$root/venv-amd64/bin/methyl-gateway")" == "gateway" ]] || fail "methyl-gateway did not run"
@@ -131,7 +136,8 @@ if grep -q 'methyl_worker-1.0.0' "$out"; then
 fi
 grep -q 'satisfies Requires-Python' "$out" || fail "install should record the Requires-Python check"
 
-bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err"
+bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err" \
+  || fail "install_gateway_venv.sh failed (reuse path): $(tr '\n' ' ' <"$err")"
 grep -q 'reusing venv' "$out" || fail "second install should reuse the venv"
 [[ -x "$root/venv-amd64/bin/methyl-gateway" ]] || fail "reused venv lost methyl-gateway"
 
@@ -153,6 +159,10 @@ EOF
 cat >"$uv_bin/uv" <<EOF
 #!/bin/bash
 printf '%s\n' "\$*" >>"$uv_log"
+# GitHub-hosted runners may ship Python 3.14; the stub uv must still provision 3.13.
+if [[ "\${GITHUB_ACTIONS:-}" == "true" && -x "\${HOME}/.local/bin/uv" ]]; then
+  exec "\${HOME}/.local/bin/uv" "\$@"
+fi
 if [[ "\$1" == "python" ]]; then
   exit 0
 fi
@@ -166,7 +176,8 @@ exit 1
 EOF
 chmod +x "$uv_bin/python3" "$uv_bin/uv"
 : >"$uv_log"
-PATH="$uv_bin:$PATH" bash "$SCRIPT" --root "$uv_root" --arch amd64 --release "$uv_release" >"$out" 2>"$err"
+PATH="$uv_bin:$PATH" bash "$SCRIPT" --root "$uv_root" --arch amd64 --release "$uv_release" >"$out" 2>"$err" \
+  || fail "uv-path install failed: $(tr '\n' ' ' <"$err") $(tr '\n' ' ' <"$out")"
 grep -q 'does not satisfy Requires-Python' "$out" || fail "3.14.4 should be rejected by >=3.10,<3.14"
 grep -q 'python install 3.13' "$uv_log" || fail "uv should provision 3.13 when 3.14 is too new: $(cat "$uv_log")"
 [[ -x "$uv_root/venv-amd64/bin/methyl-gateway" ]] || fail "uv path did not install methyl-gateway"

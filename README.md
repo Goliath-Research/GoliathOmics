@@ -1,6 +1,8 @@
 # GoliathOmics
 
-GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/GoliathApp) for genomics. It calls [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) and [MethylExtractor](https://github.com/Goliath-Research/MethylExtractor) as standalone utilities. GoliathApp contains no GoliathOmics types. GoliathAlign and MethylExtractor contain no reference to GoliathApp or GoliathOmics. The edges are drawn in [docs/architecture/dependencies.md](docs/architecture/dependencies.md).
+GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/GoliathApp) for genomics. It calls [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) and [GoliathExtractor](https://github.com/Goliath-Research/GoliathExtractor) as standalone utilities. GoliathApp contains no GoliathOmics types. GoliathAlign and GoliathExtractor contain no reference to GoliathApp or GoliathOmics. The edges are drawn in [docs/architecture/dependencies.md](docs/architecture/dependencies.md).
+
+Platform alignment roadmap: [docs/refresh-plan.md](docs/refresh-plan.md).
 
 The product is ready for a full sample-alignment workflow with QC and configurable parameters, and for process packs that cover analytes, library techniques, and disease or trait studies. Release **2026.10.27** is the tag, assemble, and deploy process in [docs/operators/release.md](docs/operators/release.md).
 
@@ -33,7 +35,7 @@ GoliathWorkflow is not a run path.
 
 ## Tools
 
-GoliathOmics calls GoliathAlign and MethylExtractor through a pinned image and binary. A change in either tool can break this product. The required features are listed in [docs/contracts/omics-tool-requirements.md](docs/contracts/omics-tool-requirements.md).
+GoliathOmics calls GoliathAlign and GoliathExtractor through a pinned image and binary. A change in either tool can break this product. The required features are listed in [docs/contracts/omics-tool-requirements.md](docs/contracts/omics-tool-requirements.md).
 
 `GOLIATH_ALIGN_ROOT` points at the GoliathAlign checkout (sibling `../GoliathAlign`). `MOJO_ALIGN_ROOT` and sibling `../mojo-align` remain one-cycle aliases.
 
