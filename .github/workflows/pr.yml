@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-setuptools python3-wheel
+        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-setuptools python3-wheel python3-venv
 
       # GoliathApp c7ae4d8 (P3 worker sessions) is what the next release bundles.
       # test_apply_goliathapp_schema.sh applies its sql_pg scripts twice to

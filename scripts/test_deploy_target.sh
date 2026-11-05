@@ -800,9 +800,12 @@ grep -q 'GPU=NVIDIA RTX 6000 Ada Generation' "$report_log" || fail "report shoul
 grep -q 'host=' "$report_log" || fail "report should include host"
 grep -q 'GPU detected via nvidia-smi' "$out" || fail "start script should log nvidia-smi detection"
 grep -q 'local scratch preflight:' "$out" || fail "start script should run the local scratch preflight"
+[[ -f "$token_file" ]] || fail "worker token file missing after start"
 [[ "$(stat -c %a "$token_file")" == "600" ]] || fail "worker token file must be mode 600"
 grep -q '^WORKER_ID=7$' "$token_file" || fail "enroll token should be kept"
-supervisor_pid="$(cat "$worker_local/logs/methyl-worker.supervisor.pid")"
+pid_file="$worker_local/logs/methyl-worker.supervisor.pid"
+[[ -f "$pid_file" ]] || fail "supervisor pid file missing after start"
+supervisor_pid="$(cat "$pid_file")"
 # Runtime logs are on local disk; /work keeps only per-node state.
 [[ ! -e "$work_root/goliath/nodes/pod-test-1/logs" ]] || fail "worker logs must not be created on /work"
 [[ ! -e "$work_root/goliath/logs/methyl-worker.supervisor.pid" ]] || fail "supervisor pid must not be on /work"
@@ -831,6 +834,7 @@ if grep -q 'POSTGRES_PASSWORD' "$work_root/goliath/env/worker.env" \
 fi
 worker_env="$work_root/goliath/nodes/pod-test-1/env/worker.env"
 secrets_env="$private_root/secrets.env"
+[[ -f "$worker_env" ]] || fail "node worker.env missing after start"
 [[ "$(stat -c %a "$worker_env")" == "644" ]] || fail "node worker.env must be world-readable"
 grep -q '^GOLIATH_NODE_ID="pod-test-1"$' "$worker_env" \
   || fail "node worker.env should record GOLIATH_NODE_ID"

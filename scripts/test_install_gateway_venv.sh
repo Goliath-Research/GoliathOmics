@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$ROOT/scripts/install_gateway_venv.sh"
 fail() {
   echo "FAIL: $*" >&2
+  echo "FAIL: $*"
   exit 1
 }
 
@@ -120,7 +121,8 @@ build_wheel "$release/wheels" methyl-worker 1.0.0 '>=3.10,<3.15' '' >/dev/null
 
 out="$(mktemp)"
 err="$(mktemp)"
-bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err"
+bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err" \
+  || fail "install_gateway_venv.sh failed: $(tr '\n' ' ' <"$err")"
 [[ -x "$root/venv-amd64/bin/methyl-gateway" ]] || fail "methyl-gateway entry point was not installed"
 [[ -x "$root/venv-amd64/bin/methyl-reclaim-leases" ]] || fail "methyl-reclaim-leases entry point was not installed"
 [[ "$("$root/venv-amd64/bin/methyl-gateway")" == "gateway" ]] || fail "methyl-gateway did not run"
