@@ -42,7 +42,11 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-pip python3-setuptools python3-wheel
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck python3-pip python3-setuptools python3-wheel python3-venv curl ca-certificates
+          if ! command -v uv >/dev/null 2>&1; then
+            curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
+          fi
 
       # GoliathApp c7ae4d8 (P3 worker sessions) is what the next release bundles.
       # test_apply_goliathapp_schema.sh applies its sql_pg scripts twice to

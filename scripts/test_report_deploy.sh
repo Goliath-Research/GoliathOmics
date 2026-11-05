@@ -270,4 +270,8 @@ grep -q '^/auth/exchange|yes|' "$TMP/server.log" || fail "python exchange missin
 grep -q '^/factory/CreateDeployment|yes|.*"deployVersion":"py1"' "$TMP/server.log" || fail "python CreateDeployment payload"
 kill "$server_pid" 2>/dev/null || true
 
+# Do not leave fake curl or Rollouts test PATH on the shell CI uses for later scripts.
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+unset CURL_LOG_DIR CURSOR_API_KEY ROLLOUTS_STATE_DIR GOLIATH_ENV DEPLOY_ACTOR || true
+
 echo "test_report_deploy ok"
