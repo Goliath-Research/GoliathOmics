@@ -51,6 +51,9 @@ omics = "methyl_worker.execution_scope_hooks:sync_after_submit"
 [project.entry-points."goliath.foreach_bundle"]
 omics = "methyl_worker.foreach_bundle_plugin"
 
+[project.entry-points."goliath.application_profiles"]
+omics = "methyl_worker.application_profiles"
+
 [project.scripts]
 methyl-worker = "methyl_worker.__main__:main"
 methyl-export-action-catalog = "methyl_worker.action_catalog_export:main"
