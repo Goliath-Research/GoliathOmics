@@ -13,8 +13,11 @@ set -euo pipefail
 
 ROOT="${GOLIATH_ROOT:-/work/goliath}"
 export GOLIATH_ROOT="$ROOT"
-# Tier-1 dual activation for the goliath-test RunPod pool (override with 0 to disable).
-export GOLIATH_DUAL_ACTIVATION="${GOLIATH_DUAL_ACTIVATION:-1}"
+# Tier-1 dual activation when the RunPod template opts in (set GOLIATH_DUAL_ACTIVATION=1).
+export GOLIATH_DUAL_ACTIVATION="${GOLIATH_DUAL_ACTIVATION:-0}"
+if [[ "${GOLIATH_DUAL_ACTIVATION}" == "1" ]]; then
+  export GOLIATH_WORKER_NEEDS_DATABASE="${GOLIATH_WORKER_NEEDS_DATABASE:-1}"
+fi
 
 if [[ -z "${GOLIATH_NODE_ID:-}" && -n "${RUNPOD_POD_ID:-}" ]]; then
   export GOLIATH_NODE_ID="$RUNPOD_POD_ID"
