@@ -14,6 +14,8 @@ from typing import Any, Dict, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from .platform_env import resolve_api_base, resolve_arc_env_path
+
 logger = logging.getLogger(__name__)
 
 WORKER_IDENTITY_HEADER = "X-Goliath-Worker-Token"
@@ -130,7 +132,7 @@ def _load_arc_resource_id() -> Optional[str]:
     explicit = os.environ.get("ARC_RESOURCE_ID", "").strip()
     if explicit:
         return explicit
-    arc_env = Path(os.environ.get("METHYL_ARC_ENV", "/etc/methyl/arc.env"))
+    arc_env = resolve_arc_env_path()
     if not arc_env.is_file():
         return None
     for line in arc_env.read_text(encoding="utf-8").splitlines():
@@ -172,8 +174,7 @@ class WorkflowRestClient:
         timeout_seconds: float = 120.0,
         arc_resource_id: Optional[str] = None,
     ) -> None:
-        raw = base_url or os.environ.get("METHYL_API_BASE", "http://localhost:8080/v1")
-        self.base_url = raw.rstrip("/")
+        self.base_url = resolve_api_base() if base_url is None else base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.arc_resource_id = arc_resource_id if arc_resource_id is not None else _load_arc_resource_id()
         self._worker_id: Optional[int] = None

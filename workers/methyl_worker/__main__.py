@@ -17,6 +17,7 @@ from .capabilities import (
     resolve_worker_capabilities,
 )
 from .client import WorkflowRestClient
+from .platform_env import resolve_api_base
 from .runner import WorkerRunner
 
 DEFAULT_TOKEN_FILE = Path("/etc/methyl/worker-token")
@@ -24,12 +25,8 @@ _SUBCOMMANDS = frozenset({"poll", "enroll", "plan-iterations"})
 
 
 def _default_api_base() -> str:
-    """Match register_worker / provision: WORKER_API_BASE then METHYL_API_BASE."""
-    return (
-        os.environ.get("WORKER_API_BASE")
-        or os.environ.get("METHYL_API_BASE")
-        or "http://localhost:8080/v1"
-    )
+    """Match register_worker / provision (GOLIATH_API_BASE with legacy fallbacks)."""
+    return resolve_api_base()
 
 
 def main(argv: list[str] | None = None) -> int:
