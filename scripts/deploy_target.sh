@@ -866,9 +866,14 @@ run_gateway() {
     # the nested reports, so the driver records both services for this host.
     report_component start goliath-reclaim-leases "reclaim-leases ${dest}"
     envfile="$stage_dir/gateway.env"
+    # WF_WAKE_POSTGRES uses LISTEN/NOTIFY; Neon transaction poolers reject that.
+    local gw_postgres_host="$db_host"
+    if [[ "$DUAL_ACTIVATION" == "true" && "$db_schema_host" != "$db_host" ]]; then
+      gw_postgres_host="$db_schema_host"
+    fi
     local -a gw_pairs=(
       BACKEND_DB postgres
-      POSTGRES_HOST "$db_host"
+      POSTGRES_HOST "$gw_postgres_host"
       POSTGRES_PORT "$db_port"
       POSTGRES_DB "$db_name"
       POSTGRES_USER "$gw_db_user"
