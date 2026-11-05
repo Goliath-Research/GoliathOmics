@@ -34,6 +34,7 @@ SCRIPTS=(
   omics_meta_semantic_writes.sql
   omics_meta_backfill_api.sql
   omics_lab_inv_bridge.sql
+  omics_inv_semantic.sql
 )
 
 exec bash "$REPO_ROOT/scripts/apply_domain_schema.sh"

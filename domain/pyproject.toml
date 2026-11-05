@@ -40,6 +40,7 @@ packages = [
   "goliath_omics.actions",
   "goliath_omics.semantic",
   "goliath_omics.seed",
+  "goliath_omics.inv",
 ]
 
 [tool.setuptools.package-dir]
@@ -47,3 +48,4 @@ packages = [
 "goliath_omics.actions" = "../src/goliath_omics/actions"
 "goliath_omics.semantic" = "../src/goliath_omics/semantic"
 "goliath_omics.seed" = "../src/goliath_omics/seed"
+"goliath_omics.inv" = "../src/goliath_omics/inv"

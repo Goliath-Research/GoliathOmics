@@ -51,6 +51,10 @@
       "description": "OmicsCustomer, OmicsDisease, OmicsPatient, OmicsSample, and OmicsLabBatch Meta classes sync to the semantic registry; legacy portal tables keep MetaObjectID mirrors with dual-write flags and per-entity backfill scripts."
     },
     {
+      "title": "Lab inventory via shared inv (R5)",
+      "description": "omics_lab_inv bridge wraps inv.sp_stock_receive and batch consumption; semantic requests omics.lab_reagent.list/receive/consume and NavTree Lab inventory for org-scoped reagent lots."
+    },
+    {
       "title": "Release profiles and worker enrollment",
       "description": "A version tag builds the MethylPipeline archive, assemble publishes the GoliathOmics bundle, and deploy applies a target profile or promotes on the runner. Optional goliath_gateway and goliath_portal database role passwords are set after schema apply."
     }

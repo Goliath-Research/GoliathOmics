@@ -294,6 +294,176 @@
       "schema_version": "1",
       "storage_relation": "omics_clinical.v_lab"
     },
+    "omics.lab_reagent": {
+      "attributes": [
+        {
+          "code": "stock_lot_id",
+          "column_name": "stock_lot_id",
+          "filterable_ops": [],
+          "json_type": "integer",
+          "role": "key"
+        },
+        {
+          "code": "organization_id",
+          "column_name": "organization_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        },
+        {
+          "code": "lab_id",
+          "column_name": "lab_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        },
+        {
+          "code": "item_id",
+          "column_name": "item_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        },
+        {
+          "code": "item_number",
+          "column_name": "item_number",
+          "filterable_ops": [
+            "ilike"
+          ],
+          "json_type": "string",
+          "role": "label"
+        },
+        {
+          "code": "lot_number",
+          "column_name": "lot_number",
+          "filterable_ops": [],
+          "json_type": "string",
+          "role": "attribute"
+        },
+        {
+          "code": "qty_on_hand",
+          "column_name": "qty_on_hand",
+          "filterable_ops": [
+            "gte",
+            "lte"
+          ],
+          "json_type": "number",
+          "role": "measure"
+        }
+      ],
+      "catalog_type_name": null,
+      "code": "lab_reagent",
+      "content_hash": "935993154f830d2435d7c056c68c4f61ed52733804e231cbc2dc44a8da2e1867",
+      "description": "On-hand reagent stock lot linked to a lab via omics_lab_inv.",
+      "display_name": "Lab reagent lot",
+      "meta_class_id": null,
+      "meta_class_name": null,
+      "namespace": "omics",
+      "row_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "bin_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bin Code"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_number": {
+            "title": "Item Number",
+            "type": "string"
+          },
+          "lab_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lab Id"
+          },
+          "location_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Location Code"
+          },
+          "lot_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lot Number"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "qty_on_hand": {
+            "title": "Qty On Hand",
+            "type": "number"
+          },
+          "stock_lot_id": {
+            "title": "Stock Lot Id",
+            "type": "integer"
+          },
+          "unit_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Unit Cost"
+          }
+        },
+        "required": [
+          "stock_lot_id",
+          "organization_id",
+          "item_id",
+          "item_number",
+          "qty_on_hand"
+        ],
+        "title": "LabReagentRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_lab_reagent_row",
+      "schema_id": "goliath.semantic/omics/lab_reagent/1",
+      "schema_version": "1",
+      "storage_relation": "omics_lab_inv.v_lab_reagent"
+    },
     "omics.sample": {
       "attributes": [
         {
@@ -1081,6 +1251,465 @@
       "schema_id": "goliath.semantic/omics/omics.lab.list/1",
       "target_kind": "function",
       "target_name": "omics_clinical.fn_semantic_lab_list",
+      "version": "1"
+    },
+    "omics.lab_reagent.consume": {
+      "base_namespace": null,
+      "content_hash": "1b19249337763c24c1f47e90cda2bf0bbe27db3997bb628d25f5b14cfdf0403e",
+      "entity_code": "lab_reagent",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_id": {
+            "title": "Batch Id",
+            "type": "integer"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "qty": {
+            "title": "Qty",
+            "type": "number"
+          },
+          "stock_lot_id": {
+            "title": "Stock Lot Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_id",
+          "batch_id",
+          "stock_lot_id",
+          "qty"
+        ],
+        "title": "LabReagentConsumePayload",
+        "type": "object"
+      },
+      "request_code": "omics.lab_reagent.consume",
+      "required_permission": "omics.lab_inventory.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "bin_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bin Code"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_number": {
+            "title": "Item Number",
+            "type": "string"
+          },
+          "lab_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lab Id"
+          },
+          "location_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Location Code"
+          },
+          "lot_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lot Number"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "qty_on_hand": {
+            "title": "Qty On Hand",
+            "type": "number"
+          },
+          "stock_lot_id": {
+            "title": "Stock Lot Id",
+            "type": "integer"
+          },
+          "unit_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Unit Cost"
+          }
+        },
+        "required": [
+          "stock_lot_id",
+          "organization_id",
+          "item_id",
+          "item_number",
+          "qty_on_hand"
+        ],
+        "title": "LabReagentRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_lab_reagent_row",
+      "schema_id": "goliath.semantic/omics/omics.lab_reagent.consume/1",
+      "target_kind": "function",
+      "target_name": "omics_lab_inv.fn_semantic_lab_reagent_consume",
+      "version": "1"
+    },
+    "omics.lab_reagent.list": {
+      "base_namespace": null,
+      "content_hash": "463d3d22f3c393a75ee5af4a0f16579163a18db98e31b76416008c008b04c294",
+      "entity_code": "lab_reagent",
+      "filter_template": null,
+      "max_rows": 500,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Item Id"
+          },
+          "lab_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lab Id"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "LabReagentListParams",
+        "type": "object"
+      },
+      "request_code": "omics.lab_reagent.list",
+      "required_permission": "omics.lab_inventory.read",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "bin_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bin Code"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_number": {
+            "title": "Item Number",
+            "type": "string"
+          },
+          "lab_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lab Id"
+          },
+          "location_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Location Code"
+          },
+          "lot_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lot Number"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "qty_on_hand": {
+            "title": "Qty On Hand",
+            "type": "number"
+          },
+          "stock_lot_id": {
+            "title": "Stock Lot Id",
+            "type": "integer"
+          },
+          "unit_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Unit Cost"
+          }
+        },
+        "required": [
+          "stock_lot_id",
+          "organization_id",
+          "item_id",
+          "item_number",
+          "qty_on_hand"
+        ],
+        "title": "LabReagentRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_lab_reagent_row",
+      "schema_id": "goliath.semantic/omics/omics.lab_reagent.list/1",
+      "target_kind": "function",
+      "target_name": "omics_lab_inv.fn_semantic_lab_reagent_list",
+      "version": "1"
+    },
+    "omics.lab_reagent.receive": {
+      "base_namespace": null,
+      "content_hash": "f61a28e40b73fc61a0f50f4d2a276289ca42ef7c320910cf35d2834c808b6c27",
+      "entity_code": "lab_reagent",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "bin_id": {
+            "title": "Bin Id",
+            "type": "integer"
+          },
+          "lab_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lab Id"
+          },
+          "lot_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lot Number"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "po_line_id": {
+            "title": "Po Line Id",
+            "type": "integer"
+          },
+          "qty": {
+            "title": "Qty",
+            "type": "number"
+          },
+          "unit_price_override": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Unit Price Override"
+          }
+        },
+        "required": [
+          "organization_id",
+          "po_line_id",
+          "bin_id",
+          "qty"
+        ],
+        "title": "LabReagentReceivePayload",
+        "type": "object"
+      },
+      "request_code": "omics.lab_reagent.receive",
+      "required_permission": "omics.lab_inventory.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "bin_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bin Code"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_number": {
+            "title": "Item Number",
+            "type": "string"
+          },
+          "lab_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lab Id"
+          },
+          "location_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Location Code"
+          },
+          "lot_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lot Number"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "qty_on_hand": {
+            "title": "Qty On Hand",
+            "type": "number"
+          },
+          "stock_lot_id": {
+            "title": "Stock Lot Id",
+            "type": "integer"
+          },
+          "unit_cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Unit Cost"
+          }
+        },
+        "required": [
+          "stock_lot_id",
+          "organization_id",
+          "item_id",
+          "item_number",
+          "qty_on_hand"
+        ],
+        "title": "LabReagentRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_lab_reagent_row",
+      "schema_id": "goliath.semantic/omics/omics.lab_reagent.receive/1",
+      "target_kind": "function",
+      "target_name": "omics_lab_inv.fn_semantic_lab_reagent_receive",
       "version": "1"
     },
     "omics.sample.create": {
