@@ -262,7 +262,8 @@ mkdir -p "$work/prebuilt/venv-amd64/bin"
 cp "$root/venv-amd64/bin/methyl-gateway" "$work/prebuilt/venv-amd64/bin/methyl-gateway"
 cp "$root/venv-amd64/bin/methyl-reclaim-leases" "$work/prebuilt/venv-amd64/bin/methyl-reclaim-leases"
 chmod +x "$work/prebuilt/venv-amd64/bin/methyl-gateway" "$work/prebuilt/venv-amd64/bin/methyl-reclaim-leases"
-bash "$SCRIPT" --root "$work/prebuilt" --arch amd64 >"$out" 2>"$err"
+bash "$SCRIPT" --root "$work/prebuilt" --arch amd64 >"$out" 2>"$err" \
+  || fail "install_gateway_venv prebuilt keep failed (see stderr above)"
 grep -q 'already installed' "$out" || fail "existing entry points without a release should be kept"
 
 only_worker="$work/only-worker"
