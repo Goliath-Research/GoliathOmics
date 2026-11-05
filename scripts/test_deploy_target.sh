@@ -6,6 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fail() {
   echo "FAIL: $*" >&2
+  echo "FAIL: $*"
   exit 1
 }
 
