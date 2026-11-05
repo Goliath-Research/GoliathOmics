@@ -16,6 +16,7 @@ DOMAIN_SCHEMA_SCRIPTS=(
   08_omics_semantic_mvp.sql
   09_portal_semantic_row_types.sql
   10_omics_meta_clinical_classes.sql
+  11_omics_meta_semantic_writes.sql
 )
 
 # Legacy sql_pg names (same order); used by release bundles and apply_schema.sh SCRIPTS=.
@@ -30,6 +31,7 @@ DOMAIN_SCHEMA_LEGACY_NAMES=(
   omics_semantic_mvp.sql
   portal_semantic_row_types.sql
   omics_meta_clinical_classes.sql
+  omics_meta_semantic_writes.sql
 )
 
 if ((${#DOMAIN_SCHEMA_SCRIPTS[@]} != ${#DOMAIN_SCHEMA_LEGACY_NAMES[@]})); then

@@ -448,6 +448,64 @@
     }
   },
   "requests": {
+    "omics.customer.create": {
+      "base_namespace": null,
+      "content_hash": "699cb5e6ee0abc244c65d76c339ddb4a3f5b19608e97ae90b02aaa4695dec868",
+      "entity_code": "customer",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "organization_id"
+        ],
+        "title": "CustomerCreatePayload",
+        "type": "object"
+      },
+      "request_code": "omics.customer.create",
+      "required_permission": "omics.clinical.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_id": {
+            "title": "Customer Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "customer_id",
+          "name",
+          "organization_id"
+        ],
+        "title": "CustomerRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_customer_row",
+      "schema_id": "goliath.semantic/omics/omics.customer.create/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_customer_create",
+      "version": "1"
+    },
     "omics.customer.list": {
       "base_namespace": null,
       "content_hash": "c00a9c36a1361ab88f7620cc70b126b654fa6a489fa05e2e82520870250bd4cb",
@@ -504,6 +562,78 @@
       "schema_id": "goliath.semantic/omics/omics.customer.list/1",
       "target_kind": "function",
       "target_name": "omics_clinical.fn_semantic_customer_list",
+      "version": "1"
+    },
+    "omics.disease.create": {
+      "base_namespace": null,
+      "content_hash": "d49e48bbf6221fdb152d36312487061d8cd313ca0687510c5c1a24b4c8bd09a2",
+      "entity_code": "disease",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "DiseaseWritePayload",
+        "type": "object"
+      },
+      "request_code": "omics.disease.create",
+      "required_permission": "omics.clinical.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "disease_id": {
+            "title": "Disease Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "disease_id",
+          "name"
+        ],
+        "title": "DiseaseRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_disease_row",
+      "schema_id": "goliath.semantic/omics/omics.disease.create/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_disease_create",
       "version": "1"
     },
     "omics.disease.list": {
@@ -569,6 +699,172 @@
       "schema_id": "goliath.semantic/omics/omics.disease.list/1",
       "target_kind": "function",
       "target_name": "omics_clinical.fn_semantic_disease_list",
+      "version": "1"
+    },
+    "omics.disease.update": {
+      "base_namespace": null,
+      "content_hash": "a1fdcd26f6364c29b575e93d01db8176b4c980bc6d19140ebebd9d91265d19ea",
+      "entity_code": "disease",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "disease_id": {
+            "title": "Disease Id",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "disease_id"
+        ],
+        "title": "DiseaseUpdatePayload",
+        "type": "object"
+      },
+      "request_code": "omics.disease.update",
+      "required_permission": "omics.clinical.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "disease_id": {
+            "title": "Disease Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "disease_id",
+          "name"
+        ],
+        "title": "DiseaseRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_disease_row",
+      "schema_id": "goliath.semantic/omics/omics.disease.update/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_disease_update",
+      "version": "1"
+    },
+    "omics.group.add_sample": {
+      "base_namespace": null,
+      "content_hash": "3326dff57eee514a558de5c4882aef05a11c8b028c16281d374f88ba8ee56b70",
+      "entity_code": "group",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "group_id": {
+            "title": "Group Id",
+            "type": "integer"
+          },
+          "sample_id": {
+            "title": "Sample Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "group_id",
+          "sample_id"
+        ],
+        "title": "GroupAddSamplePayload",
+        "type": "object"
+      },
+      "request_code": "omics.group.add_sample",
+      "required_permission": "omics.clinical.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Customer Id"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sample_count": {
+            "default": 0,
+            "title": "Sample Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "group_id",
+          "name"
+        ],
+        "title": "GroupRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_group_row",
+      "schema_id": "goliath.semantic/omics/omics.group.add_sample/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_group_add_sample",
       "version": "1"
     },
     "omics.group.list": {
@@ -785,6 +1081,186 @@
       "schema_id": "goliath.semantic/omics/omics.lab.list/1",
       "target_kind": "function",
       "target_name": "omics_clinical.fn_semantic_lab_list",
+      "version": "1"
+    },
+    "omics.sample.create": {
+      "base_namespace": null,
+      "content_hash": "79a88944f85dd2c92b584bc1f931cf048f450dda92dfd720e554fdfabca46009",
+      "entity_code": "sample",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "age": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Age"
+          },
+          "bmi": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bmi"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Customer Id"
+          },
+          "disease_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Disease Id"
+          },
+          "patient_id": {
+            "title": "Patient Id",
+            "type": "integer"
+          },
+          "sample_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sample Name"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stage"
+          }
+        },
+        "required": [
+          "patient_id"
+        ],
+        "title": "SampleCreatePayload",
+        "type": "object"
+      },
+      "request_code": "omics.sample.create",
+      "required_permission": "omics.clinical.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "age": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Age"
+          },
+          "bmi": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bmi"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Customer Id"
+          },
+          "disease_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Disease Id"
+          },
+          "patient_id": {
+            "title": "Patient Id",
+            "type": "integer"
+          },
+          "sample_id": {
+            "title": "Sample Id",
+            "type": "integer"
+          },
+          "sample_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sample Name"
+          }
+        },
+        "required": [
+          "sample_id",
+          "patient_id"
+        ],
+        "title": "SampleRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_sample_row",
+      "schema_id": "goliath.semantic/omics/omics.sample.create/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_sample_create",
       "version": "1"
     },
     "omics.sample.list": {
