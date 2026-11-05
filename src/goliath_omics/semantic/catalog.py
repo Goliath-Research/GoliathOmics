@@ -25,7 +25,8 @@ DISEASE_ENTITY = SemanticEntitySpec(
     description="Clinical disease or trait catalog entry.",
     schema_version="1",
     row_model=DiseaseRow,
-    storage_relation="omics_clinical.v_disease",
+    storage_relation='"Meta"."VOmicsDisease"',
+    meta_class_name="OmicsDisease",
     attributes=(
         SemanticAttributeSpec("disease_id", "disease_id", "integer", "key", ()),
         SemanticAttributeSpec("name", "name", "string", "label", ("ilike",)),
@@ -46,7 +47,8 @@ CUSTOMER_ENTITY = SemanticEntitySpec(
     description="Organization-scoped omics customer.",
     schema_version="1",
     row_model=CustomerRow,
-    storage_relation="omics_clinical.v_customer",
+    storage_relation='"Meta"."VOmicsCustomer"',
+    meta_class_name="OmicsCustomer",
     attributes=(
         SemanticAttributeSpec("customer_id", "customer_id", "integer", "key", ()),
         SemanticAttributeSpec(
@@ -96,7 +98,8 @@ SAMPLE_ENTITY = SemanticEntitySpec(
     description="Clinical portal sample linked to a patient and customer.",
     schema_version="1",
     row_model=SampleRow,
-    storage_relation="omics_clinical.v_sample",
+    storage_relation='"Meta"."VOmicsSample"',
+    meta_class_name="OmicsSample",
     attributes=(
         SemanticAttributeSpec("sample_id", "sample_id", "integer", "key", ()),
         SemanticAttributeSpec("patient_id", "patient_id", "integer", "filter", ("eq",)),

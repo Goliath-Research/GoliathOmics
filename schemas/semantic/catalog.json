@@ -30,11 +30,11 @@
       ],
       "catalog_type_name": null,
       "code": "customer",
-      "content_hash": "3278328c55113d3c9724da9328f2345376ca0cfcf301191ffe483c617884c835",
+      "content_hash": "45447ce57c062b2ee4ef362cb80cf0d972d59d1e2f2d2c9e8e292c57f2c85d4f",
       "description": "Organization-scoped omics customer.",
       "display_name": "Customer",
       "meta_class_id": null,
-      "meta_class_name": null,
+      "meta_class_name": "OmicsCustomer",
       "namespace": "omics",
       "row_schema": {
         "additionalProperties": false,
@@ -61,9 +61,9 @@
         "type": "object"
       },
       "row_type": "portal.omics_customer_row",
-      "schema_id": "goliath.semantic/omics/customer/1",
+      "schema_id": "goliath:meta/class/OmicsCustomer",
       "schema_version": "1",
-      "storage_relation": "omics_clinical.v_customer"
+      "storage_relation": "\"Meta\".\"VOmicsCustomer\""
     },
     "omics.disease": {
       "attributes": [
@@ -95,11 +95,11 @@
       ],
       "catalog_type_name": null,
       "code": "disease",
-      "content_hash": "9131f793315b198a65080d75174804353fd0c2cd86afc5a3fb412f362732f658",
+      "content_hash": "efaf669706767d851669eb198b0a5bb419de26172012f3adca92795140fd00c9",
       "description": "Clinical disease or trait catalog entry.",
       "display_name": "Disease",
       "meta_class_id": null,
-      "meta_class_name": null,
+      "meta_class_name": "OmicsDisease",
       "namespace": "omics",
       "row_schema": {
         "additionalProperties": false,
@@ -133,9 +133,9 @@
         "type": "object"
       },
       "row_type": "portal.omics_disease_row",
-      "schema_id": "goliath.semantic/omics/disease/1",
+      "schema_id": "goliath:meta/class/OmicsDisease",
       "schema_version": "1",
-      "storage_relation": "omics_clinical.v_disease"
+      "storage_relation": "\"Meta\".\"VOmicsDisease\""
     },
     "omics.group": {
       "attributes": [
@@ -356,11 +356,11 @@
       ],
       "catalog_type_name": null,
       "code": "sample",
-      "content_hash": "eca68e997b55a08a3077b3f1a1140f0cfc30e10768c769b70b879e3333249494",
+      "content_hash": "0460387f2d694559b1bb12a39671d68614e6bbdd2e4f0726d87bc6574c28fd8d",
       "description": "Clinical portal sample linked to a patient and customer.",
       "display_name": "Portal sample",
       "meta_class_id": null,
-      "meta_class_name": null,
+      "meta_class_name": "OmicsSample",
       "namespace": "omics",
       "row_schema": {
         "additionalProperties": false,
@@ -442,9 +442,9 @@
         "type": "object"
       },
       "row_type": "portal.omics_sample_row",
-      "schema_id": "goliath.semantic/omics/sample/1",
+      "schema_id": "goliath:meta/class/OmicsSample",
       "schema_version": "1",
-      "storage_relation": "omics_clinical.v_sample"
+      "storage_relation": "\"Meta\".\"VOmicsSample\""
     }
   },
   "requests": {

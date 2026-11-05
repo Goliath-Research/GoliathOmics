@@ -1,0 +1,1 @@
+../../database/schema/10_omics_meta_clinical_classes.sql
