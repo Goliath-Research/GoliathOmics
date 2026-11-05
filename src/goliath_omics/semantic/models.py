@@ -87,3 +87,44 @@ class LabRow(BaseModel):
 
 class LabListParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class DiseaseWritePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    parent_id: Optional[int] = None
+
+
+class DiseaseUpdatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    disease_id: int
+    name: Optional[str] = None
+    parent_id: Optional[int] = None
+
+
+class CustomerCreatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    organization_id: int
+
+
+class SampleCreatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    patient_id: int
+    customer_id: int
+    disease_id: Optional[int] = None
+    sample_name: Optional[str] = None
+    age: Optional[int] = None
+    bmi: Optional[float] = None
+    stage: Optional[str] = None
+
+
+class GroupAddSamplePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    group_id: int
+    sample_id: int
