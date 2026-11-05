@@ -97,8 +97,8 @@ BEGIN
   item_id integer,
   item_number text,
   lot_number text,
-  qty_on_hand double precision,
-  unit_cost double precision,
+  qty_on_hand numeric,
+  unit_cost numeric,
   location_code text,
   bin_code text
     );
