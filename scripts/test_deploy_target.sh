@@ -1786,8 +1786,12 @@ grep -q 'methyl_worker' "$out" || fail "dry-run join should still enroll"
 rm -rf "$fixture_dir"
 # Worker stubs sleep 300; do not leak into later steps in the same CI job.
 if [[ -n "${supervisor_pid:-}" ]]; then
-  kill "$supervisor_pid" 2>/dev/null || true
-  pkill -P "$supervisor_pid" 2>/dev/null || true
+  pgid="$(ps -o pgid= -p "$supervisor_pid" 2>/dev/null | tr -d ' ' || true)"
+  if [[ -n "$pgid" && "$pgid" == "$supervisor_pid" ]]; then
+    kill -- "-${supervisor_pid}" >/dev/null 2>&1 || true
+  else
+    kill "$supervisor_pid" >/dev/null 2>&1 || true
+  fi
 fi
 # Gateway nginx/venv and worker venv contracts run in CI as separate steps after
 # this script so they are not affected by deploy dry-run PATH stubs.
