@@ -36,6 +36,10 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = omics_lab_inv, inv, portal, omics_clinical, pg_temp
 AS $$
+DECLARE
+  v_receipt_id integer;
+  v_stock_lot_id integer;
+  v_avg_unit_cost numeric;
 BEGIN
   IF p_user_id IS NULL THEN
     PERFORM portal.fn_semantic_raise('GS401', 'user required');
@@ -50,7 +54,7 @@ BEGIN
   END IF;
 
   SELECT r.receipt_id, r.stock_lot_id, r.avg_unit_cost
-  INTO receipt_id, stock_lot_id, avg_unit_cost
+  INTO v_receipt_id, v_stock_lot_id, v_avg_unit_cost
   FROM inv.sp_stock_receive(
     p_organization_id,
     p_user_id,
@@ -66,11 +70,14 @@ BEGIN
     organization_id,
     lab_id
   )
-  VALUES (stock_lot_id, p_organization_id, p_lab_id)
+  VALUES (v_stock_lot_id, p_organization_id, p_lab_id)
   ON CONFLICT (stock_lot_id) DO UPDATE SET
     lab_id = COALESCE(EXCLUDED.lab_id, omics_lab_inv.lab_stock_context.lab_id),
     organization_id = EXCLUDED.organization_id;
 
+  receipt_id := v_receipt_id;
+  stock_lot_id := v_stock_lot_id;
+  avg_unit_cost := v_avg_unit_cost;
   RETURN;
 END;
 $$;
