@@ -296,6 +296,7 @@ R1 and R2 can overlap in planning but **merge R1 first** (green CI on new Goliat
 - [x] Gap audit (this document)
 - [x] Phased R1–R5 with scope, files, migrations, risks
 - [x] R1 execution (follow-on PRs)
-- [ ] R2 child-app shell (follow-on PR)
+- [x] R2 child-app shell (follow-on PR)
+- [ ] R3 NavTree + semantic MVP (follow-on PR)
 
 **Related:** [Semantic layer integration (O-phases)](architecture/semantic-layer.md), [Dual activation spike](dual-activation-omics-spike.md), [Dependency direction](architecture/dependencies.md).

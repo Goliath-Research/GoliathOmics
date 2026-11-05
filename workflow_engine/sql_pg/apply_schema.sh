@@ -28,6 +28,8 @@ SCRIPTS=(
   portal_clinical_api_parity.sql
   portal_clinical_nav.sql
   cfg_analyte_catalog.sql
+  omics_semantic_mvp.sql
+  portal_semantic_row_types.sql
 )
 
 exec bash "$REPO_ROOT/scripts/apply_domain_schema.sh"

@@ -1,9 +1,218 @@
-"""Omics semantic namespace (R2 shell — entities arrive in R3)."""
+"""Omics semantic entity and request specifications (namespace ``omics``)."""
 
 from __future__ import annotations
 
-OMICS_NAMESPACE = "omics"
+from goliath_app.semantic.spec import SemanticAttributeSpec, SemanticEntitySpec, SemanticRequestSpec
 
-# Populated in R3 (NavTree + fn_semantic_* MVP).
-SEMANTIC_CATALOG: tuple = ()
-SEMANTIC_REQUESTS: tuple = ()
+from goliath_omics.semantic.models import (
+    CustomerListParams,
+    CustomerRow,
+    DiseaseListParams,
+    DiseaseRow,
+    GroupEnrollmentListParams,
+    GroupListParams,
+    GroupRow,
+    LabListParams,
+    LabRow,
+    SampleListParams,
+    SampleRow,
+)
+
+DISEASE_ENTITY = SemanticEntitySpec(
+    namespace="omics",
+    code="disease",
+    display_name="Disease",
+    description="Clinical disease or trait catalog entry.",
+    schema_version="1",
+    row_model=DiseaseRow,
+    storage_relation="omics_clinical.v_disease",
+    attributes=(
+        SemanticAttributeSpec("disease_id", "disease_id", "integer", "key", ()),
+        SemanticAttributeSpec("name", "name", "string", "label", ("ilike",)),
+        SemanticAttributeSpec(
+            "parent_id",
+            "parent_id",
+            "integer",
+            "filter",
+            ("eq",),
+        ),
+    ),
+)
+
+CUSTOMER_ENTITY = SemanticEntitySpec(
+    namespace="omics",
+    code="customer",
+    display_name="Customer",
+    description="Organization-scoped omics customer.",
+    schema_version="1",
+    row_model=CustomerRow,
+    storage_relation="omics_clinical.v_customer",
+    attributes=(
+        SemanticAttributeSpec("customer_id", "customer_id", "integer", "key", ()),
+        SemanticAttributeSpec(
+            "organization_id",
+            "organization_id",
+            "integer",
+            "filter",
+            ("eq",),
+        ),
+        SemanticAttributeSpec("name", "name", "string", "label", ("ilike",)),
+    ),
+)
+
+GROUP_ENTITY = SemanticEntitySpec(
+    namespace="omics",
+    code="group",
+    display_name="Sample group",
+    description="Customer-owned sample group for studies and enrollment.",
+    schema_version="1",
+    row_model=GroupRow,
+    storage_relation="omics_clinical.v_group",
+    attributes=(
+        SemanticAttributeSpec("group_id", "group_id", "integer", "key", ()),
+        SemanticAttributeSpec(
+            "customer_id",
+            "customer_id",
+            "integer",
+            "filter",
+            ("eq",),
+        ),
+        SemanticAttributeSpec("name", "name", "string", "label", ("ilike",)),
+        SemanticAttributeSpec("description", "description", "string", "attribute", ()),
+        SemanticAttributeSpec(
+            "sample_count",
+            "sample_count",
+            "integer",
+            "measure",
+            ("gte", "lte"),
+        ),
+    ),
+)
+
+SAMPLE_ENTITY = SemanticEntitySpec(
+    namespace="omics",
+    code="sample",
+    display_name="Portal sample",
+    description="Clinical portal sample linked to a patient and customer.",
+    schema_version="1",
+    row_model=SampleRow,
+    storage_relation="omics_clinical.v_sample",
+    attributes=(
+        SemanticAttributeSpec("sample_id", "sample_id", "integer", "key", ()),
+        SemanticAttributeSpec("patient_id", "patient_id", "integer", "filter", ("eq",)),
+        SemanticAttributeSpec(
+            "customer_id",
+            "customer_id",
+            "integer",
+            "filter",
+            ("eq",),
+        ),
+        SemanticAttributeSpec(
+            "disease_id",
+            "disease_id",
+            "integer",
+            "filter",
+            ("eq",),
+        ),
+        SemanticAttributeSpec("sample_name", "sample_name", "string", "label", ("ilike",)),
+        SemanticAttributeSpec("age", "age", "number", "attribute", ()),
+        SemanticAttributeSpec("bmi", "bmi", "number", "attribute", ()),
+    ),
+)
+
+LAB_ENTITY = SemanticEntitySpec(
+    namespace="omics",
+    code="lab",
+    display_name="Lab",
+    description="Processing lab reference.",
+    schema_version="1",
+    row_model=LabRow,
+    storage_relation="omics_clinical.v_lab",
+    attributes=(
+        SemanticAttributeSpec("lab_id", "lab_id", "integer", "key", ()),
+        SemanticAttributeSpec("name", "name", "string", "label", ("ilike",)),
+    ),
+)
+
+SEMANTIC_CATALOG: tuple[SemanticEntitySpec, ...] = (
+    DISEASE_ENTITY,
+    CUSTOMER_ENTITY,
+    GROUP_ENTITY,
+    SAMPLE_ENTITY,
+    LAB_ENTITY,
+)
+
+SEMANTIC_REQUESTS: tuple[SemanticRequestSpec, ...] = (
+    SemanticRequestSpec(
+        request_code="omics.disease.list",
+        version="1",
+        namespace="omics",
+        entity_code="disease",
+        target_kind="function",
+        target_name="omics_clinical.fn_semantic_disease_list",
+        params_model=DiseaseListParams,
+        result_row_model=DiseaseRow,
+        required_permission="omics.clinical.read",
+        max_rows=500,
+    ),
+    SemanticRequestSpec(
+        request_code="omics.customer.list",
+        version="1",
+        namespace="omics",
+        entity_code="customer",
+        target_kind="function",
+        target_name="omics_clinical.fn_semantic_customer_list",
+        params_model=CustomerListParams,
+        result_row_model=CustomerRow,
+        required_permission="omics.clinical.read",
+        max_rows=500,
+    ),
+    SemanticRequestSpec(
+        request_code="omics.group.list",
+        version="1",
+        namespace="omics",
+        entity_code="group",
+        target_kind="function",
+        target_name="omics_clinical.fn_semantic_group_list",
+        params_model=GroupListParams,
+        result_row_model=GroupRow,
+        required_permission="omics.clinical.read",
+        max_rows=500,
+    ),
+    SemanticRequestSpec(
+        request_code="omics.group.list_for_enrollment",
+        version="1",
+        namespace="omics",
+        entity_code="group",
+        target_kind="function",
+        target_name="omics_clinical.fn_semantic_group_list_for_enrollment",
+        params_model=GroupEnrollmentListParams,
+        result_row_model=GroupRow,
+        required_permission="omics.clinical.read",
+        max_rows=500,
+    ),
+    SemanticRequestSpec(
+        request_code="omics.sample.list",
+        version="1",
+        namespace="omics",
+        entity_code="sample",
+        target_kind="function",
+        target_name="omics_clinical.fn_semantic_sample_list",
+        params_model=SampleListParams,
+        result_row_model=SampleRow,
+        required_permission="omics.clinical.read",
+        max_rows=500,
+    ),
+    SemanticRequestSpec(
+        request_code="omics.lab.list",
+        version="1",
+        namespace="omics",
+        entity_code="lab",
+        target_kind="function",
+        target_name="omics_clinical.fn_semantic_lab_list",
+        params_model=LabListParams,
+        result_row_model=LabRow,
+        required_permission="omics.clinical.read",
+        max_rows=500,
+    ),
+)
