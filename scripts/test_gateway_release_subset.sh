@@ -72,7 +72,7 @@ if sed -n '/^run_gateway() {/,/^}/p' "$d" | grep -q 'stage_release_dir'; then
   fail "the gateway must never receive the release bundle"
 fi
 gw_tree="$(sed -n '/^install_remote_tree() {/,/^  else/p' "$d")"
-for bad in promote_release install_release install_worker_systemd methyl-worker setup_gpu_node install_methyl_extractor; do
+for bad in promote_release install_release install_worker_systemd methyl-worker setup_gpu_node install_goliath_extractor; do
   if grep -q "$bad" <<<"$gw_tree"; then fail "gateway script tree must not ship $bad"; fi
 done
 grep -q -- '-xzf - -C' "$d" || fail "gateway archive must stream into tar, not the user /tmp"

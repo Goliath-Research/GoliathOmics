@@ -11,6 +11,14 @@ fail() {
   exit 1
 }
 
+run_install() {
+  bash "$SCRIPT" "$@" >"$out" 2>"$err" || {
+    cat "$err" >&2
+    cat "$out" >&2
+    fail "install_gateway_venv failed: $*"
+  }
+}
+
 [[ -x "$SCRIPT" || -f "$SCRIPT" ]] || fail "missing install_gateway_venv.sh"
 bash "$SCRIPT" --help >/dev/null
 
@@ -124,8 +132,7 @@ build_wheel "$release/wheels" methyl-worker 1.0.0 '>=3.10,<3.15' '' >/dev/null
 
 out="$(mktemp)"
 err="$(mktemp)"
-bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err" \
-  || fail "install_gateway_venv.sh failed: $(tr '\n' ' ' <"$err")"
+run_install --root "$root" --arch amd64 --release "$release"
 [[ -x "$root/venv-amd64/bin/methyl-gateway" ]] || fail "methyl-gateway entry point was not installed"
 [[ -x "$root/venv-amd64/bin/methyl-reclaim-leases" ]] || fail "methyl-reclaim-leases entry point was not installed"
 [[ "$("$root/venv-amd64/bin/methyl-gateway")" == "gateway" ]] || fail "methyl-gateway did not run"
@@ -136,8 +143,7 @@ if grep -q 'methyl_worker-1.0.0' "$out"; then
 fi
 grep -q 'satisfies Requires-Python' "$out" || fail "install should record the Requires-Python check"
 
-bash "$SCRIPT" --root "$root" --arch amd64 --release "$release" >"$out" 2>"$err" \
-  || fail "install_gateway_venv.sh failed (reuse path): $(tr '\n' ' ' <"$err")"
+run_install --root "$root" --arch amd64 --release "$release"
 grep -q 'reusing venv' "$out" || fail "second install should reuse the venv"
 [[ -x "$root/venv-amd64/bin/methyl-gateway" ]] || fail "reused venv lost methyl-gateway"
 
@@ -159,9 +165,18 @@ EOF
 cat >"$uv_bin/uv" <<EOF
 #!/bin/bash
 printf '%s\n' "\$*" >>"$uv_log"
-# GitHub-hosted runners may ship Python 3.14; the stub uv must still provision 3.13.
 if [[ "\${GITHUB_ACTIONS:-}" == "true" && -x "\${HOME}/.local/bin/uv" ]]; then
   exec "\${HOME}/.local/bin/uv" "\$@"
+fi
+real_uv=""
+for candidate in /usr/local/bin/uv "\$HOME/.local/bin/uv" /usr/bin/uv; do
+  if [[ -x "\$candidate" && "\$candidate" != "\$0" ]]; then
+    real_uv="\$candidate"
+    break
+  fi
+done
+if [[ -n "\$real_uv" ]]; then
+  exec "\$real_uv" "\$@"
 fi
 if [[ "\$1" == "python" ]]; then
   exit 0
@@ -176,8 +191,7 @@ exit 1
 EOF
 chmod +x "$uv_bin/python3" "$uv_bin/uv"
 : >"$uv_log"
-PATH="$uv_bin:$PATH" bash "$SCRIPT" --root "$uv_root" --arch amd64 --release "$uv_release" >"$out" 2>"$err" \
-  || fail "uv-path install failed: $(tr '\n' ' ' <"$err") $(tr '\n' ' ' <"$out")"
+PATH="$uv_bin:$PATH" run_install --root "$uv_root" --arch amd64 --release "$uv_release"
 grep -q 'does not satisfy Requires-Python' "$out" || fail "3.14.4 should be rejected by >=3.10,<3.14"
 grep -q 'python install 3.13' "$uv_log" || fail "uv should provision 3.13 when 3.14 is too new: $(cat "$uv_log")"
 [[ -x "$uv_root/venv-amd64/bin/methyl-gateway" ]] || fail "uv path did not install methyl-gateway"
@@ -234,7 +248,7 @@ odd_root="$work/odd-root"
 mkdir -p "$odd/wheels"
 build_wheel "$odd/wheels" methyl-pipeline 2.0.0 '>=3.10,<3.15' '' >/dev/null
 build_wheel "$odd/wheels" corepkg 2.0.0 '>=3.10,<3.15' "$entry_scripts" >/dev/null
-bash "$SCRIPT" --root "$odd_root" --arch amd64 --release "$odd" >"$out" 2>"$err"
+run_install --root "$odd_root" --arch amd64 --release "$odd"
 grep -q 'corepkg-2.0.0' "$out" || fail "install should select the wheel by entry_points.txt, not the filename"
 if grep -q 'methyl_pipeline-2.0.0' "$out"; then
   fail "filename methyl-pipeline without the console script must not be installed"
@@ -247,7 +261,7 @@ mkdir -p "$req_release/wheels"
 build_wheel "$req_release/wheels" goliath-gateway-test-dep 1.0.0 '>=3.10,<3.15' '' >/dev/null
 build_wheel "$req_release/wheels" corepkg 3.0.0 '>=3.10,<3.15' "$entry_scripts" 'goliath-gateway-test-dep' >/dev/null
 printf '%s\n' 'goliath-gateway-test-dep' 'numpy' >"$req_release/requirements-pipeline.txt"
-bash "$SCRIPT" --root "$req_root" --arch amd64 --release "$req_release" >"$out" 2>"$err"
+run_install --root "$req_root" --arch amd64 --release "$req_release"
 grep -q 'requirements-pipeline.txt' "$out" || fail "relevant requirements-pipeline.txt lines should be installed"
 "$req_root/venv-amd64/bin/python" -m pip show goliath-gateway-test-dep >/dev/null \
   || fail "gateway dependency wheel should be installed via find-links"
@@ -273,7 +287,7 @@ mkdir -p "$work/prebuilt/venv-amd64/bin"
 cp "$root/venv-amd64/bin/methyl-gateway" "$work/prebuilt/venv-amd64/bin/methyl-gateway"
 cp "$root/venv-amd64/bin/methyl-reclaim-leases" "$work/prebuilt/venv-amd64/bin/methyl-reclaim-leases"
 chmod +x "$work/prebuilt/venv-amd64/bin/methyl-gateway" "$work/prebuilt/venv-amd64/bin/methyl-reclaim-leases"
-bash "$SCRIPT" --root "$work/prebuilt" --arch amd64 >"$out" 2>"$err"
+run_install --root "$work/prebuilt" --arch amd64
 grep -q 'already installed' "$out" || fail "existing entry points without a release should be kept"
 
 only_worker="$work/only-worker"

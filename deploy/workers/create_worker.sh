@@ -34,7 +34,7 @@ OPT_GPU_COUNT=1
 # Container-local disk for FASTQs, BAMs, Parabricks tmp, logs, venvs, and
 # docker layers. /work is the shared volume and is not this disk.
 # Minimum 150 leaves the 60 GB free-space floor (METHYL_LOCAL_TMP_MIN_GB)
-# after the image, MethylExtractor, GoliathAlign, and the venv land on this
+# after the image, GoliathExtractor, GoliathAlign, and the venv land on this
 # disk. Boot checks that floor before those installs. Default remains 200.
 LOCAL_DISK_GB_DEFAULT=200
 LOCAL_DISK_GB_MIN=150

@@ -404,10 +404,13 @@ build_runtime_bundle() {
   cp -f "$REPO_ROOT/scripts/detect_platform.sh" "$RUNTIME_DIR/scripts/"
   cp -f "$REPO_ROOT/scripts/platform_matrix.env" "$RUNTIME_DIR/scripts/"
   for s in install_release.sh promote_release.sh write_worker_env.sh setup_gpu_node.sh \
-           verify_e2e_node.sh verify_setup.sh verify_host_tools.sh verify_parabricks.sh verify_methyl_extractor.sh \
+           verify_e2e_node.sh verify_setup.sh verify_host_tools.sh verify_parabricks.sh verify_goliath_extractor.sh \
            install_host_tools_gpu_vm.sh \
-           register_worker.sh build_release.sh package_methyl_extractor.sh bundle_methyl_extractor_libs.sh \
-           download_methyl_extractor_artifacts.sh assemble_release.sh bootstrap_goliath.sh \
+           register_worker.sh build_release.sh package_goliath_extractor.sh package_methyl_extractor.sh \
+           bundle_goliath_extractor_libs.sh bundle_methyl_extractor_libs.sh \
+           download_goliath_extractor_artifacts.sh download_methyl_extractor_artifacts.sh \
+           goliath_extractor_env_compat.sh goliath_extractor_local.sh methyl_extractor_local.sh \
+           assemble_release.sh bootstrap_goliath.sh \
            install_gateway_systemd.sh install_gateway_venv.sh install_worker_systemd.sh \
            install_reclaim_leases_timer.sh provision_gateway_node.sh \
            setup_gateway_nginx.sh \
@@ -415,7 +418,7 @@ build_runtime_bundle() {
            start_shared_worker.sh check_local_scratch.sh install_system_deps.sh system_tools.list goliath_align_local.sh check_goliath_align_host.sh download_goliath_align_artifacts.sh bundle_system_deps.sh \
            check_system_deps_bundle.sh \
            bundle_sdist_wheels.py check_offline_wheels.sh \
-           install_methyl_extractor_tarball.sh methyl_extractor_local.sh worker_venv_local.sh \
+           install_goliath_extractor_tarball.sh install_methyl_extractor_tarball.sh worker_venv_local.sh \
            verify_locked_wheels.py sanitize_lock.py fix_wheel_path_deps.py \
            deploy_workflow_definitions.sh deploy_mc_workflow_definitions.sh \
            deploy_process_pack_catalog.sh deploy_target.sh \

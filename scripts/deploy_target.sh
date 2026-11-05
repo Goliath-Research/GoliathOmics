@@ -773,7 +773,7 @@ install_remote_tree() {
       scripts/bootstrap_goliath.sh
       scripts/detect_platform.sh
       scripts/platform_matrix.env
-      scripts/install_methyl_extractor_tarball.sh
+      scripts/install_goliath_extractor_tarball.sh
       deploy/systemd
     )
   fi

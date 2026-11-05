@@ -1,7 +1,7 @@
 # methyl_infotheory
 
 Read-level information-theoretic methylation measures (entropy, epipolymorphism, PDR,
-cohort Jensen–Shannon distance) from MethylExtractor `*.patterns.h5` sidecars.
+cohort Jensen–Shannon distance) from GoliathExtractor `*.patterns.h5` sidecars.
 
 CLI: `methyl-infotheory --project /work/projects/.../project_*.json`
 

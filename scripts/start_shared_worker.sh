@@ -26,7 +26,7 @@
 # Do not run it under set -x.
 #
 # Local scratch (METHYL_LOCAL_TMP, default /tmp/methyl-pb) is checked before
-# anything else waits on /work, and before MethylExtractor, GoliathAlign, and
+# anything else waits on /work, and before GoliathExtractor, GoliathAlign, and
 # the venv are installed. Free space below METHYL_LOCAL_TMP_MIN_GB (default
 # 60) refuses to start. The create minimum disk is 150 GB so that floor still
 # holds after those installs. /work is the shared mount and is not scratch.
@@ -636,41 +636,43 @@ ensure_current() {
   release_promote_lock
 }
 
-# MethylExtractor is native code and the shared volume cannot run binaries
+# GoliathExtractor is native code and the shared volume cannot run binaries
 # extracted onto it (exec bits are ignored, extracted files do not read back).
 # Promotion happens once under the lock; this local install runs on every pod
 # boot. The verified tarball stays in the release dir on the volume; the
-# binary goes to METHYL_EXTRACTOR_HOME, default
-# ${GOLIATH_LOCAL_ROOT:-/opt/goliath}/methyl-extractor-<arch> (never under
+# binary goes to GOLIATH_EXTRACTOR_HOME, default
+# ${GOLIATH_LOCAL_ROOT:-/opt/goliath}/goliath-extractor-<arch> (never under
 # the work mount). Unchanged tarballs are skipped.
 install_local_extractor() {
   local manifest helper="" candidate tar_name sha release
   manifest="$(cur_dir)/manifest.json"
   if [[ ! -f "$manifest" ]]; then
-    log "no ${manifest}; skipping local MethylExtractor install"
+    log "no ${manifest}; skipping local GoliathExtractor install"
     return 0
   fi
-  for candidate in "$START_SCRIPT_DIR/methyl_extractor_local.sh" \
+  for candidate in "$START_SCRIPT_DIR/goliath_extractor_local.sh" \
+    "$START_SCRIPT_DIR/methyl_extractor_local.sh" \
+    "$(cur_dir)/runtime-bundle/scripts/goliath_extractor_local.sh" \
     "$(cur_dir)/runtime-bundle/scripts/methyl_extractor_local.sh"; do
     if [[ -f "$candidate" ]]; then
       helper="$candidate"
       break
     fi
   done
-  [[ -n "$helper" ]] || die "methyl_extractor_local.sh not found next to this script or in the release bundle"
-  # shellcheck source=methyl_extractor_local.sh
+  [[ -n "$helper" ]] || die "goliath_extractor_local.sh not found next to this script or in the release bundle"
+  # shellcheck source=goliath_extractor_local.sh
   source "$helper"
   release="$(cur_dir)"
   tar_name="$(manifest_extractor_tarball_name "$manifest" "$ARCH")"
   [[ -n "$tar_name" ]] || die "manifest.json missing goliath_extractor tarball for $ARCH"
   sha="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1], encoding="utf-8")); print(m.get("artifacts",{}).get(sys.argv[2],{}).get("sha256",""))' "$manifest" "$ARCH")"
   if [[ -z "$tar_name" ]]; then
-    log "release manifest has no MethylExtractor tarball for ${ARCH}; skipping local install"
+    log "release manifest has no GoliathExtractor tarball for ${ARCH}; skipping local install"
     return 0
   fi
-  install_methyl_extractor_local "$release/$tar_name" "$ARCH" "$sha" \
-    || die "local MethylExtractor install from ${release}/${tar_name} failed"
-  log "MethylExtractor on local disk: ${METHYL_EXTRACTOR_BIN}"
+  install_goliath_extractor_local "$release/$tar_name" "$ARCH" "$sha" \
+    || die "local GoliathExtractor install from ${release}/${tar_name} failed"
+  log "GoliathExtractor on local disk: ${GOLIATH_EXTRACTOR_BIN:-${METHYL_EXTRACTOR_BIN}}"
 }
 
 

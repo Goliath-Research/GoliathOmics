@@ -11,8 +11,8 @@ on:
         description: MethylPipeline GitHub Release version
         required: true
         type: string
-      methylExtractorVersion:
-        description: MethylExtractor GitHub Release version
+      goliathExtractorVersion:
+        description: GoliathExtractor GitHub Release version
         required: true
         type: string
       goliathAlignVersion:
@@ -43,12 +43,13 @@ jobs:
           tar -xzf "${{ runner.temp }}/mp-dl"/methyl-pipeline-release-*.tar.gz \
             -C "${{ runner.temp }}/mp-release"
 
-      - name: Install patchelf (MethylExtractor libhts bundling)
+      - name: Install patchelf (GoliathExtractor libhts bundling)
         run: sudo apt-get update && sudo apt-get install -y patchelf
 
       - name: Assemble GoliathOmics bundle
         env:
           GH_TOKEN: ${{ github.token }}
+          GOLIATH_EXTRACTOR_REQUIRE_PATCHELF: "1"
           METHYL_EXTRACTOR_REQUIRE_PATCHELF: "1"
           GITHUB_ORG: https://github.com/${{ github.repository_owner }}
         run: |
@@ -56,7 +57,7 @@ jobs:
           bash scripts/assemble_release.sh \
             --release-version "${{ inputs.releaseVersion }}" \
             --methyl-pipeline-version "${{ inputs.methylPipelineVersion }}" \
-            --methyl-extractor-version "${{ inputs.methylExtractorVersion }}" \
+            --goliath-extractor-version "${{ inputs.goliathExtractorVersion }}" \
             --goliath-align-version "${{ inputs.goliathAlignVersion }}" \
             --methyl-pipeline-dir "${{ runner.temp }}/mp-release" \
             --output "${{ runner.temp }}/goliathomics-release"
@@ -94,6 +95,6 @@ jobs:
           else
             gh release create "$TAG" \
               --title "GoliathOmics ${{ inputs.releaseVersion }}" \
-              --notes "Assembled MethylPipeline ${{ inputs.methylPipelineVersion }} + MethylExtractor ${{ inputs.methylExtractorVersion }} + GoliathAlign ${{ inputs.goliathAlignVersion }} (jammy host)." \
+              --notes "Assembled MethylPipeline ${{ inputs.methylPipelineVersion }} + GoliathExtractor ${{ inputs.goliathExtractorVersion }} + GoliathAlign ${{ inputs.goliathAlignVersion }} (jammy host)." \
               "$TARBALL"
           fi

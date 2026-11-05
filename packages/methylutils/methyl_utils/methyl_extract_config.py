@@ -54,7 +54,7 @@ class MethylExtractStepConfig(BaseModel):
         default=None,
         ge=1,
         description=(
-            "Total MethylExtractor worker budget (--threads). Split across in-flight "
+            "Total GoliathExtractor worker budget (--threads). Split across in-flight "
             "chromosomes. Operator-set per site/profile."
         ),
     )

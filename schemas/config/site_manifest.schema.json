@@ -61,7 +61,7 @@
         "ref_paths": { "type": "string", "description": "Path to GRCh38 ref-paths file for surjection" },
         "linear_ref_fasta": {
           "type": "string",
-          "description": "Linear GRCh38 FASTA matching ref_paths (used by collectmultiplemetrics and MethylExtractor)"
+          "description": "Linear GRCh38 FASTA matching ref_paths (used by collectmultiplemetrics and GoliathExtractor)"
         }
       },
       "additionalProperties": true

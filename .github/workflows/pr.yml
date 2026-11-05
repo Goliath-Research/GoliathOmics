@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-setuptools python3-wheel python3-venv python3-pip curl
+        run: sudo apt-get update && sudo apt-get install -y shellcheck python3-setuptools python3-wheel python3-venv python3-pip curl ca-certificates
 
       - name: Install uv (gateway venv tests)
         run: |
@@ -108,7 +108,7 @@ jobs:
             scripts/test_gateway_release_subset.sh \
             scripts/test_current_pointer.sh \
             scripts/test_enroll_wait.sh \
-            scripts/install_methyl_extractor_tarball.sh \
+            scripts/install_goliath_extractor_tarball.sh \
             scripts/provision_worker_node.sh \
             scripts/test_report_deploy.sh \
             scripts/test_deploy_target.sh \

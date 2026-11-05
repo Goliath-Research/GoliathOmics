@@ -11,9 +11,9 @@ GoliathExtractor is maintained in [GoliathExtractor](https://github.com/Goliath-
 make && make install
 ```
 
-Production workers use the binary under `GOLIATH_EXTRACTOR_HOME` (legacy alias `METHYL_EXTRACTOR_HOME`; default `/opt/goliath/goliath-extractor-<arch>/`, extracted on every boot by `scripts/methyl_extractor_local.sh`; the shared `/work` volume only holds the tarball because it cannot run binaries). `make install` also copies `goliath-extractor` to `/usr/local/bin/` for a machine image. That install is provisioning, not per-task JSON.
+Production workers use the binary under `GOLIATH_EXTRACTOR_HOME` (legacy alias `METHYL_EXTRACTOR_HOME`; default `/opt/goliath/goliath-extractor-<arch>/`, extracted on every boot by `scripts/goliath_extractor_local.sh`; the shared `/work` volume only holds the tarball because it cannot run binaries). `make install` also copies `goliath-extractor` to `/usr/local/bin/` for a machine image. That install is provisioning, not per-task JSON.
 
-Shared libraries: the binary needs `libhts.so.3` (htslib). Release tarballs carry it in `lib/` (with `libdeflate.so.0` and `libhtscodecs.so.2`), added at assemble time by `scripts/bundle_methyl_extractor_libs.sh` because older release layouts did not ship it; the binary's RUNPATH is `$ORIGIN/../lib`, so it needs no `LD_LIBRARY_PATH`. `methyl_extractor_local.sh` refuses a binary that does not run without one, and nothing (its `env.sh`, `worker.env`) puts `<home>/lib` on `LD_LIBRARY_PATH`: those Ubuntu 22.04 libraries (libcurl, libssl, libhts 1.13, ...) would shadow the host's for every other program, which broke `/usr/bin/curl` (`undefined symbol: curl_global_trace`). If `env -u LD_LIBRARY_PATH ldd $GOLIATH_EXTRACTOR_BIN` shows `not found`, re-run `scripts/bundle_methyl_extractor_libs.sh --tarball <tarball> --require-patchelf` and refresh the manifest sha256.
+Shared libraries: the binary needs `libhts.so.3` (htslib). Release tarballs carry it in `lib/` (with `libdeflate.so.0` and `libhtscodecs.so.2`), added at assemble time by `scripts/bundle_goliath_extractor_libs.sh` because older release layouts did not ship it; the binary's RUNPATH is `$ORIGIN/../lib`, so it needs no `LD_LIBRARY_PATH`. `goliath_extractor_local.sh` refuses a binary that does not run without one, and nothing (its `env.sh`, `worker.env`) puts `<home>/lib` on `LD_LIBRARY_PATH`: those Ubuntu 22.04 libraries (libcurl, libssl, libhts 1.13, ...) would shadow the host's for every other program, which broke `/usr/bin/curl` (`undefined symbol: curl_global_trace`). If `env -u LD_LIBRARY_PATH ldd $GOLIATH_EXTRACTOR_BIN` shows `not found`, re-run `scripts/bundle_goliath_extractor_libs.sh --tarball <tarball> --require-patchelf` and refresh the manifest sha256.
 
 Release tarballs on shared storage:
 
@@ -26,7 +26,7 @@ Docs: [goliath-research.github.io/GoliathExtractor/](https://goliath-research.gi
 ## Smoke test
 
 ```bash
-./scripts/verify_methyl_extractor.sh
+./scripts/verify_goliath_extractor.sh
 ```
 
 Optional dev env: `GOLIATH_EXTRACTOR_BIN` (falls back to `METHYL_EXTRACTOR_BIN`) if the binary is not on default PATH.

@@ -90,7 +90,7 @@ The BAM is `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/{sample_id}.bam`. It is not w
 
 Download, trim, archive, and `sample.delete_fastqs` stay unpinned. Archive reads FASTQs from `/work`. `delete_fastqs` then removes those `/work` copies when `deleteFastqs` is set.
 
-MethylExtractor writes under `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`. methylGrapher extract does the same (`workDirMode` `local`). On success only `*.h5` and `*.json` are published into `sampleDir`. The local extract directory is removed on success and on failure.
+GoliathExtractor writes under `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`. methylGrapher extract does the same (`workDirMode` `local`). On success only `*.h5` and `*.json` are published into `sampleDir`. The local extract directory is removed on success and on failure.
 
 Boot runs `scripts/check_local_scratch.sh` before the worker starts. It refuses a scratch directory on the shared work mount and refuses to start when free space is below `METHYL_LOCAL_TMP_MIN_GB` (default 60). The worker profile `local_disk_gb` default is 200 (minimum 150). At boot the same script deletes `bam/` and `extract/` directories with nothing modified in `METHYL_LOCAL_STALE_HOURS` (default 72; 0 disables the sweep).
 

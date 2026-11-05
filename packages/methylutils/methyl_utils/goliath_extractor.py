@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
+
+_logger = logging.getLogger(__name__)
+
+_MIGRATION_DOC = "docs/operators/goliath-extractor-migration.md"
 
 EXTRACTOR_CLI = "goliath-extractor"
 LEGACY_EXTRACTOR_CLI = "MethylExtractor"
@@ -30,29 +35,44 @@ LEGACY_GITHUB_REPO = "Goliath-Research/MethylExtractor"
 DOCS_SITE = "https://goliath-research.github.io/GoliathExtractor/"
 
 
+def _warn_legacy_env(legacy: str, modern: str) -> None:
+    _logger.warning(
+        "%s is deprecated; set %s instead (see %s)",
+        legacy,
+        modern,
+        _MIGRATION_DOC,
+    )
+
+
 def is_extraction_manifest_schema(name: object) -> bool:
     return isinstance(name, str) and name in EXTRACTION_MANIFEST_SCHEMAS
 
 
 def resolve_extractor_bin_env() -> str:
-    for key in ("GOLIATH_EXTRACTOR_BIN", "METHYL_EXTRACTOR_BIN"):
-        value = os.environ.get(key, "").strip()
-        if value:
-            return value
+    value = os.environ.get("GOLIATH_EXTRACTOR_BIN", "").strip()
+    if value:
+        return value
+    legacy = os.environ.get("METHYL_EXTRACTOR_BIN", "").strip()
+    if legacy:
+        _warn_legacy_env("METHYL_EXTRACTOR_BIN", "GOLIATH_EXTRACTOR_BIN")
+        return legacy
     found = shutil.which(EXTRACTOR_CLI)
     if found:
         return found
-    legacy = shutil.which(LEGACY_EXTRACTOR_CLI)
-    if legacy:
-        return legacy
+    legacy_bin = shutil.which(LEGACY_EXTRACTOR_CLI)
+    if legacy_bin:
+        return legacy_bin
     return ""
 
 
 def resolve_extractor_home_env() -> str:
-    for key in ("GOLIATH_EXTRACTOR_HOME", "METHYL_EXTRACTOR_HOME"):
-        value = os.environ.get(key, "").strip()
-        if value:
-            return value.rstrip("/")
+    value = os.environ.get("GOLIATH_EXTRACTOR_HOME", "").strip()
+    if value:
+        return value.rstrip("/")
+    legacy = os.environ.get("METHYL_EXTRACTOR_HOME", "").strip()
+    if legacy:
+        _warn_legacy_env("METHYL_EXTRACTOR_HOME", "GOLIATH_EXTRACTOR_HOME")
+        return legacy.rstrip("/")
     return ""
 
 

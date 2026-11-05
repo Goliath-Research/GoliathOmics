@@ -147,7 +147,7 @@ as a two-tier strategy:
 | Designated `/work` samples | full samples/groups declared in the site manifest `testing` block or `METHYL_TEST_DATA_CONFIG` | self-hosted `production-work-agents` ([`../../.github/workflows/real-data.yml`](../../.github/workflows/real-data.yml)) |
 
 Reference samples must be **non-PHI** (public/consented sources). Each sample's
-provenance - source, consent basis, and producing MethylExtractor release - is
+provenance - source, consent basis, and producing GoliathExtractor release - is
 recorded in the registry and in the validation evidence index, so a real-data
 test result is traceable validation evidence.
 

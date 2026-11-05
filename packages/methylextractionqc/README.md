@@ -1,10 +1,10 @@
 # methylextractionqc
 
-Read MethylExtractor `{sample_id}.extraction_manifest.json` (and optional per-context sidecars), evaluate Pass/Fail guardrails, and write `{sample_id}.extraction_qc.json` in the sample directory.
+Read GoliathExtractor `{sample_id}.extraction_manifest.json` (and optional per-context sidecars), evaluate Pass/Fail guardrails, and write `{sample_id}.extraction_qc.json` in the sample directory.
 
-MethylExtractor exports metrics at extraction time; this package owns post-extraction QC decisions for MethylPipeline workers.
+GoliathExtractor exports metrics at extraction time; this package owns post-extraction QC decisions for MethylPipeline workers.
 
-See MethylExtractor `docs/extraction_qc_contract.md` for the upstream JSON contract.
+See GoliathExtractor `docs/extraction_qc_contract.md` for the upstream JSON contract.
 
 ## CLI
 

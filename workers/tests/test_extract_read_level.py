@@ -8,7 +8,7 @@ from methyl_worker.extract_runner import (
     MethylExtractConfig,
     _resolve_mhap,
     _resolve_read_level,
-    build_methyl_extractor_command,
+    build_goliath_extractor_command,
     expected_pattern_h5_files,
 )
 
@@ -63,7 +63,7 @@ def test_build_command_includes_read_level_flags(tmp_path):
         bam_path=tmp_path / "s1.bam",
         log_path=tmp_path / "s1.log",
     )
-    cmd = build_methyl_extractor_command(cfg, paths)
+    cmd = build_goliath_extractor_command(cfg, paths)
     assert "--read-level" in cmd
     assert "--tile-size=4" in cmd
 
@@ -102,7 +102,7 @@ def test_build_command_includes_mhap_when_supported(tmp_path, monkeypatch):
         bam_path=tmp_path / "s1.bam",
         log_path=tmp_path / "s1.log",
     )
-    cmd = er.build_methyl_extractor_command(cfg, paths)
+    cmd = er.build_goliath_extractor_command(cfg, paths)
     assert "--mhap" in cmd
 
 
@@ -142,7 +142,7 @@ def test_build_command_omits_read_level_when_unsupported(tmp_path):
         bam_path=tmp_path / "s1.bam",
         log_path=tmp_path / "s1.log",
     )
-    cmd = build_methyl_extractor_command(cfg, paths)
+    cmd = build_goliath_extractor_command(cfg, paths)
     assert "--read-level" not in cmd
     assert "--tile-size=4" not in cmd
 
@@ -162,7 +162,7 @@ def test_skip_when_patterns_missing_without_bam(tmp_path, monkeypatch):
     sample_dir = tmp_path / sample_id
     sample_dir.mkdir()
     (sample_dir / "1-CG.h5").write_text("x", encoding="utf-8")
-    # MethylExtractor writes a per-chromosome stats sidecar next to each HDF5;
+    # GoliathExtractor writes a per-chromosome stats sidecar next to each HDF5;
     # the canonical extraction manifest is built from those.
     (sample_dir / "1-CG.json").write_text(
         json.dumps(

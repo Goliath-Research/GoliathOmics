@@ -19,8 +19,8 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
-# shellcheck source=methyl_extractor_local.sh
-source "$SCRIPT_DIR/methyl_extractor_local.sh"
+# shellcheck source=goliath_extractor_local.sh
+source "$SCRIPT_DIR/goliath_extractor_local.sh"
 # shellcheck source=worker_venv_local.sh
 source "$SCRIPT_DIR/worker_venv_local.sh"
 
@@ -130,7 +130,7 @@ RELEASE_VERSION="${_lines[2]:-unknown}"
 # The worker venv is on local disk, never on the shared volume.
 VENV_DIR="$(worker_venv_local_dir "$ARCH")"
 # GoliathExtractor runs from local disk, never from the shared volume.
-ME_ROOT="$(methyl_extractor_local_home "$ARCH")"
+ME_ROOT="$(goliath_extractor_local_home "$ARCH")"
 ME_BIN="$(_mel_bin_in_home "$ME_ROOT" || true)"
 PLUGIN_DIR="$ME_ROOT/lib/hdf5_zstd_plugin"
 # MethylExtractor resolves its bundled libs through RUNPATH; <home>/lib must

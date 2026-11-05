@@ -42,7 +42,7 @@
         "analyte": "plant_tissue",
         "chromosomes": ["1"],
         "contexts": ["CG", "CHG", "CHH"],
-        "provenance": "Public/consented Arabidopsis WGBS; MethylExtractor <release>."
+        "provenance": "Public/consented Arabidopsis WGBS; GoliathExtractor <release>."
       }
     },
     "groups": {

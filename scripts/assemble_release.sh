@@ -1,5 +1,5 @@
 #!/bin/bash
-# Assemble a worker release bundle from independently versioned MethylPipeline + MethylExtractor artifacts.
+# Assemble a worker release bundle from independently versioned MethylPipeline + GoliathExtractor artifacts.
 
 set -euo pipefail
 
@@ -10,11 +10,11 @@ Usage: scripts/assemble_release.sh [options]
 Options:
   --release-version VER       Deploy bundle id (SemVer, e.g. 2026.6.1)
   --methyl-pipeline-version VER  MethylPipeline release version (SemVer)
-  --methyl-extractor-version VER MethylExtractor Universal Package version (SemVer)
+  --goliath-extractor-version VER GoliathExtractor Universal Package version (SemVer)
   --goliath-align-version VER Jammy GoliathAlign host runtime version (SemVer; GitHub Release)
   --methyl-pipeline-dir PATH  Local MethylPipeline release tree (wheels/, runtime-bundle/, lockfile)
   --output DIR                Output bundle directory (default: /work/goliath/releases/<release-version>)
-  --skip-methyl-extractor-download  Skip GitHub download (tarballs already in output)
+  --skip-goliath-extractor-download  Skip GitHub download (tarballs already in output)
   --skip-goliath-align-download     Skip GoliathAlign host runtime download
   --organization URL          GitHub org URL (default: https://github.com/Goliath-Research)
   --project NAME              GitHub org slug (default: Goliath-Research)
@@ -22,19 +22,21 @@ Options:
   -h, --help                  Show this help
 
 Requires methyl-pipeline-dir from MethylPipeline CI artifact (methyl-pipeline-release-<ver>).
-Downloads MethylExtractor tarballs from GitHub Releases unless skipped.
+Downloads GoliathExtractor tarballs from GitHub Releases unless skipped.
 
 Example:
   scripts/assemble_release.sh \
     --release-version 2026.6.1 \
     --methyl-pipeline-version 2026.6.1 \
-    --methyl-extractor-version 2026.5.2 \
+    --goliath-extractor-version 2026.5.2 \
     --methyl-pipeline-dir /tmp/mp-release \
     --output /work/goliath/releases/2026.6.1
 EOF
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=goliath_extractor_env_compat.sh
+source "$SCRIPT_DIR/goliath_extractor_env_compat.sh"
 # shellcheck source=detect_platform.sh
 source "$SCRIPT_DIR/detect_platform.sh"
 
@@ -54,11 +56,19 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --release-version) RELEASE_VERSION="${2:-}"; shift 2 ;;
     --methyl-pipeline-version) MP_VERSION="${2:-}"; shift 2 ;;
-    --methyl-extractor-version) ME_VERSION="${2:-}"; shift 2 ;;
+    --goliath-extractor-version) ME_VERSION="${2:-}"; shift 2 ;;
+    --methyl-extractor-version)
+      echo "[DEPRECATED] --methyl-extractor-version is deprecated; use --goliath-extractor-version (see docs/operators/goliath-extractor-migration.md)" >&2
+      ME_VERSION="${2:-}"; shift 2
+      ;;
     --goliath-align-version) GA_VERSION="${2:-}"; shift 2 ;;
     --methyl-pipeline-dir) MP_DIR="${2:-}"; shift 2 ;;
     --output) OUTPUT="${2:-}"; shift 2 ;;
-    --skip-methyl-extractor-download) SKIP_ME_DL=1; shift ;;
+    --skip-goliath-extractor-download) SKIP_ME_DL=1; shift ;;
+    --skip-methyl-extractor-download)
+      echo "[DEPRECATED] --skip-methyl-extractor-download is deprecated; use --skip-goliath-extractor-download (see docs/operators/goliath-extractor-migration.md)" >&2
+      SKIP_ME_DL=1; shift
+      ;;
     --skip-goliath-align-download) SKIP_GA_DL=1; shift ;;
     --organization) ORG="${2:-}"; shift 2 ;;
     --project) PROJECT="${2:-}"; shift 2 ;;
@@ -73,7 +83,7 @@ die() { echo "[ERROR] $*" >&2; exit 1; }
 
 [[ -n "$RELEASE_VERSION" ]] || die "--release-version is required"
 [[ -n "$MP_VERSION" ]] || die "--methyl-pipeline-version is required"
-[[ -n "$ME_VERSION" ]] || die "--methyl-extractor-version is required"
+[[ -n "$ME_VERSION" ]] || die "--goliath-extractor-version is required"
 [[ -n "$GA_VERSION" ]] || die "--goliath-align-version is required"
 [[ -d "$MP_DIR" ]] || die "--methyl-pipeline-dir is required and must exist"
 
@@ -83,7 +93,7 @@ ME_VERSION="$(normalize_release_version "$ME_VERSION")"
 GA_VERSION="$(normalize_release_version "$GA_VERSION")"
 require_release_version "$RELEASE_VERSION" "--release-version" || exit 1
 require_release_version "$MP_VERSION" "--methyl-pipeline-version" || exit 1
-require_release_version "$ME_VERSION" "--methyl-extractor-version" || exit 1
+require_release_version "$ME_VERSION" "--goliath-extractor-version" || exit 1
 require_release_version "$GA_VERSION" "--goliath-align-version" || exit 1
 
 OUTPUT="${OUTPUT:-/work/goliath/releases/$RELEASE_VERSION}"
@@ -91,7 +101,7 @@ mkdir -p "$OUTPUT"
 
 info "Assembling release bundle $RELEASE_VERSION"
 info "  methyl_pipeline: $MP_VERSION"
-info "  methyl_extractor: $ME_VERSION"
+info "  goliath_extractor: $ME_VERSION"
 info "  goliath_align: $GA_VERSION"
 info "  output: $OUTPUT"
 
@@ -104,7 +114,7 @@ rsync_safe=(rsync -rl --delete --no-perms --no-owner --no-group --no-times)
   "$MP_DIR/" "$OUTPUT/"
 
 if [[ "$SKIP_ME_DL" -eq 0 ]]; then
-  bash "$SCRIPT_DIR/download_methyl_extractor_artifacts.sh" \
+  bash "$SCRIPT_DIR/download_goliath_extractor_artifacts.sh" \
     --version "$ME_VERSION" \
     --release-dir "$OUTPUT" \
     --organization "$ORG" \
@@ -115,12 +125,12 @@ fi
 for arch in aarch64 amd64; do
   tb="$OUTPUT/goliath-extractor-linux-${arch}.tar.gz"
   [[ -f "$tb" ]] || die "Missing $tb"
-  # The MethylExtractor release tarball links libhts.so.3 but does not ship
+  # The GoliathExtractor release tarball links libhts.so.3 but does not ship
   # it, and the worker image lacks it. Bundle it (and libdeflate) into lib/
   # before checksums go into manifest.json. No-op when already bundled.
   bundle_args=(--tarball "$tb" --arch "$arch")
-  [[ "${METHYL_EXTRACTOR_REQUIRE_PATCHELF:-0}" == "1" ]] && bundle_args+=(--require-patchelf)
-  bash "$SCRIPT_DIR/bundle_methyl_extractor_libs.sh" "${bundle_args[@]}"
+  [[ "$(_goliath_extractor_require_patchelf)" == "1" ]] && bundle_args+=(--require-patchelf)
+  bash "$SCRIPT_DIR/bundle_goliath_extractor_libs.sh" "${bundle_args[@]}"
 done
 
 if [[ "$SKIP_GA_DL" -eq 0 ]]; then
