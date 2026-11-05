@@ -288,6 +288,289 @@
         }
       }
     },
+    "inv.stock.adjust": {
+      "base_namespace": null,
+      "capability": "inv.stock",
+      "description": "Signed quantity adjustment on a stock lot (cycle count variance, shrink, etc.).",
+      "display_name": "Adjust stock",
+      "entity_code": "stock_lot",
+      "exposure": "rbac",
+      "level": "core",
+      "namespace": "inv",
+      "required_permission": "inv.stock.adjust",
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "9f6658f8078eb444d03f3c0dbe538501800e3227ff1bb43e03e69e2be8a250a7",
+          "schema_id": "goliath.actions/inv/inv.stock.adjust/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "organization_id": {
+                "title": "Organization Id",
+                "type": "integer"
+              },
+              "qty_delta": {
+                "title": "Qty Delta",
+                "type": "string"
+              },
+              "reason_code": {
+                "title": "Reason Code",
+                "type": "string"
+              },
+              "stock_lot_id": {
+                "title": "Stock Lot Id",
+                "type": "integer"
+              },
+              "user_id": {
+                "title": "User Id",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "organization_id",
+              "user_id",
+              "stock_lot_id",
+              "qty_delta",
+              "reason_code"
+            ],
+            "title": "AdjustStockInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "a02274628bff6177b90fdf9a7676426341bf7b0a4483bedde607da494bff8f19",
+          "schema_id": "goliath.actions/inv/inv.stock.adjust/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "adjustment_id": {
+                "title": "Adjustment Id",
+                "type": "integer"
+              },
+              "qty_on_hand": {
+                "title": "Qty On Hand",
+                "type": "number"
+              },
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "adjustment_id",
+              "qty_on_hand"
+            ],
+            "title": "AdjustStockOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "inv.stock.issue": {
+      "base_namespace": null,
+      "capability": "inv.stock",
+      "description": "Domain-neutral issue that decrements a lot and records an opaque ref. Child apps extend with traveler/genealogy wiring.",
+      "display_name": "Issue stock (stub)",
+      "entity_code": "stock_lot",
+      "exposure": "rbac",
+      "level": "core",
+      "namespace": "inv",
+      "required_permission": "inv.stock.issue",
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "0d2391daa2586c9b50b5123b7af57dea7935c8e4febbf554df33d1e2fff1a864",
+          "schema_id": "goliath.actions/inv/inv.stock.issue/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "organization_id": {
+                "title": "Organization Id",
+                "type": "integer"
+              },
+              "qty": {
+                "title": "Qty",
+                "type": "string"
+              },
+              "ref_id": {
+                "title": "Ref Id",
+                "type": "string"
+              },
+              "ref_type": {
+                "title": "Ref Type",
+                "type": "string"
+              },
+              "stock_lot_id": {
+                "title": "Stock Lot Id",
+                "type": "integer"
+              },
+              "user_id": {
+                "title": "User Id",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "organization_id",
+              "user_id",
+              "stock_lot_id",
+              "qty",
+              "ref_type",
+              "ref_id"
+            ],
+            "title": "IssueStockStubInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "f9b65f9159bb36316912131399918147bd1679a389b720c1c13ce25c71a1f68d",
+          "schema_id": "goliath.actions/inv/inv.stock.issue/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "qty_on_hand": {
+                "title": "Qty On Hand",
+                "type": "number"
+              },
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              },
+              "stock_move_id": {
+                "title": "Stock Move Id",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "stock_move_id",
+              "qty_on_hand"
+            ],
+            "title": "IssueStockStubOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "inv.stock.receive": {
+      "base_namespace": null,
+      "capability": "inv.stock",
+      "description": "Receive a purchase order line into a bin lot. Updates moving average cost unless the item uses standard costing.",
+      "display_name": "Receive stock",
+      "entity_code": "stock_lot",
+      "exposure": "rbac",
+      "level": "core",
+      "namespace": "inv",
+      "required_permission": "inv.stock.receive",
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "0848fe480311b289386f50f8fc084c025abee9b0e50a46cbf276c2d94152b461",
+          "schema_id": "goliath.actions/inv/inv.stock.receive/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "bin_id": {
+                "title": "Bin Id",
+                "type": "integer"
+              },
+              "lot_number": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Lot Number"
+              },
+              "organization_id": {
+                "title": "Organization Id",
+                "type": "integer"
+              },
+              "po_line_id": {
+                "title": "Po Line Id",
+                "type": "integer"
+              },
+              "qty": {
+                "title": "Qty",
+                "type": "string"
+              },
+              "unit_price_override": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Unit Price Override"
+              },
+              "user_id": {
+                "title": "User Id",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "organization_id",
+              "user_id",
+              "po_line_id",
+              "bin_id",
+              "qty"
+            ],
+            "title": "ReceiveStockInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "5d5fe48295e83fc477017dca7171f020b81c365e885851eb57528470f49f7ecd",
+          "schema_id": "goliath.actions/inv/inv.stock.receive/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "avg_unit_cost": {
+                "title": "Avg Unit Cost",
+                "type": "number"
+              },
+              "receipt_id": {
+                "title": "Receipt Id",
+                "type": "integer"
+              },
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              },
+              "stock_lot_id": {
+                "title": "Stock Lot Id",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "receipt_id",
+              "stock_lot_id",
+              "avg_unit_cost"
+            ],
+            "title": "ReceiveStockOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
     "pipeline.cell_deconvolution": {
       "base_namespace": null,
       "capability": "methyl-cell-deconv",

@@ -163,3 +163,4 @@ workers/docker/methylgrapher/mojo-env/
 workers/docker/methylgrapher/*.sif
 workers/docker/methylgrapher/*.sif.partial
 .neon
+_goliathapp/
