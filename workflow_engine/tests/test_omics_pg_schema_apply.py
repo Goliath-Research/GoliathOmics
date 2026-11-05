@@ -15,6 +15,7 @@ APP_SQL = Path(os.environ.get("GOLIATH_APP_SQL_DIR", REPO_ROOT / "_goliathapp" /
 OMICS_SQL = REPO_ROOT / "workflow_engine" / "sql_pg"
 APP_APPLY = APP_SQL / "apply_schema.sh"
 OMICS_APPLY = OMICS_SQL / "apply_schema.sh"
+DOMAIN_APPLY = REPO_ROOT / "scripts" / "apply_domain_schema.sh"
 
 
 def _pg_env() -> dict[str, str]:
@@ -59,6 +60,12 @@ def pg_schema_applied() -> dict[str, str]:
         subprocess.run(["bash", str(APP_APPLY)], env=env, check=True, cwd=str(APP_SQL))
         subprocess.run(["bash", str(OMICS_APPLY)], env=env, check=True, cwd=str(OMICS_SQL))
     return env
+
+
+def test_apply_domain_schema_script_exists() -> None:
+    assert DOMAIN_APPLY.is_file()
+    text = DOMAIN_APPLY.read_text(encoding="utf-8")
+    assert "domain_schema_order.sh" in text
 
 
 def test_many_customers_per_organization(pg_schema_applied: dict[str, str]) -> None:

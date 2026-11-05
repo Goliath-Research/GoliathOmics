@@ -51,7 +51,7 @@ def write_bundle(sql_dir: Path, out: Path, commit: str, repository: str) -> int:
     source = {
         "repository": repository,
         "commit": commit,
-        "order_source": f"workflow_engine/sql_pg/{ORDER_FILE}",
+        "order_source": f"scripts/domain_schema_order.sh (legacy sql_pg/{ORDER_FILE})",
         "scripts": len(names),
     }
     (out / "source.json").write_text(json.dumps(source, indent=2) + "\n", encoding="utf-8")

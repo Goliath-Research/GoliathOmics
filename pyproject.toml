@@ -91,6 +91,7 @@ testpaths = [
     "workers/tests",
     "tools/tests",
     "scripts/tests",
+    "tests",
 ]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
@@ -126,6 +127,8 @@ project-includes = [
     "workers",
     "workflow_engine",
     "scripts",
+    "src/goliath_omics",
+    "tests",
 ]
 search-path = [
     "packages/methylalignmentqc",
@@ -157,6 +160,7 @@ search-path = [
     "workers",
     "workflow_engine",
     "workflow_engine/domain",
+    "src/goliath_omics",
 ]
 
 [tool.pyrefly.errors]

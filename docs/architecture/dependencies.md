@@ -31,6 +31,7 @@ GoliathAlign and GoliathExtractor also carry no reference to each other through 
 - Database content the platform does not own: `cfg.analyte`, action-catalog and data-type seeds, reference-asset seeds, and the study pipelines
 - Release assemble and deploy scripts, deploy profiles, and the worker image bootstrap
 - Portal clinical domain DDL, organization-scoped customers, typed omics `ActionSpec` catalog, and `seed_action_catalog.py` after apply
+- Child-app layout (R2+): canonical domain DDL under `database/schema/`, `scripts/apply_domain_schema.sh`, and the `goliath-omics` Python package under `src/goliath_omics/`
 
 How P1b organization tenancy, O1 action catalogs, and O2 worker sessions fit together: [Semantic layer integration](semantic-layer.md).
 

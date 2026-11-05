@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "goliath-omics"
+version = "0.1.0"
+description = "GoliathApp specialization for genomics workflows (domain schema shell, semantic registry, actions)."
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+license = "MIT"
+authors = [{ name = "Goliath Research" }]
+keywords = ["genomics", "methylation", "goliath", "omics"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+]
+dependencies = [
+  "pydantic>=2.6.0,<3.0.0",
+  "methyl-gateway @ git+https://github.com/Goliath-Research/GoliathApp.git@1a0fe269978e99131d7971bb74be5add4bf1ab1e#subdirectory=workflow_engine",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+goliath-omics-semantic-export = "goliath_omics.semantic.export:main"
+goliath-omics-seed-nav = "goliath_omics.seed.nav_tree:main"
+
+[project.entry-points."goliath.action_catalogs"]
+omics = "goliath_omics.actions.catalog:ACTION_CATALOG"
+
+[tool.setuptools]
+packages = [
+  "goliath_omics",
+  "goliath_omics.actions",
+  "goliath_omics.semantic",
+  "goliath_omics.seed",
+]
+
+[tool.setuptools.package-dir]
+"goliath_omics" = "../src/goliath_omics"
+"goliath_omics.actions" = "../src/goliath_omics/actions"
+"goliath_omics.semantic" = "../src/goliath_omics/semantic"
+"goliath_omics.seed" = "../src/goliath_omics/seed"

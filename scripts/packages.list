@@ -1,6 +1,6 @@
 # Canonical editable package install order for MethylPipeline host/worker nodes.
 # One package name per line; blank lines and # comments are ignored.
-# Directory names under packages/ (or repo-root for workflow_engine / workers).
+# Directory names under packages/ (or repo-root for workflow_engine / workers / domain).
 # Must include every path dependency of workers/pyproject.toml before workers —
 # pip does not honor [tool.uv.sources].
 # workflow_engine is the methyl-gateway distribution (console scripts
@@ -31,5 +31,6 @@ omicsfeatures
 rnaexpress
 proteomicsfeatures
 proteomicsqc
+domain
 workflow_engine
 workers

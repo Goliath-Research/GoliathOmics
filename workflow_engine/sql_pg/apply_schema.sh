@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Apply GoliathOmics PostgreSQL domain schema (ordered SCRIPTS list).
+# Apply GoliathOmics PostgreSQL domain schema (legacy entry; delegates to child-app apply).
 # Run after GoliathApp workflow_engine/sql_pg/apply_schema.sh on the same database.
+#
+# Canonical DDL lives in database/schema/ (scripts/apply_domain_schema.sh).
+# SCRIPTS= below is kept for scripts/bundle_omics_sql.py (legacy sql_pg filenames).
 #
 # Example:
 #   export PGHOST=localhost PGPORT=5432 PGDATABASE=goliath PGUSER=postgres PGPASSWORD='...'
@@ -10,18 +13,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-: "${PGHOST:?Set PGHOST (libpq host)}"
-export PGPORT="${PGPORT:-5432}"
-: "${PGDATABASE:?Set PGDATABASE (libpq database name)}"
-: "${PGUSER:?Set PGUSER (libpq user)}"
-export PGSSLMODE="${PGSSLMODE:-prefer}"
+# shellcheck source=../../scripts/domain_schema_order.sh
+source "$REPO_ROOT/scripts/domain_schema_order.sh"
 
-if [[ -z "${PGPASSWORD:-}" && -z "${PGPASSFILE:-}" ]]; then
-  echo "Set PGPASSWORD or PGPASSFILE for database authentication." >&2
-  exit 1
-fi
-
+# Listed explicitly so scripts/bundle_omics_sql.py can parse apply order (must match
+# DOMAIN_SCHEMA_LEGACY_NAMES in domain_schema_order.sh).
 SCRIPTS=(
   portal_clinical_schema.sql
   portal_sample_extras_schema.sql
@@ -32,16 +30,4 @@ SCRIPTS=(
   cfg_analyte_catalog.sql
 )
 
-echo "Omics schema target: host=$PGHOST db=$PGDATABASE user=$PGUSER sslmode=$PGSSLMODE"
-
-for name in "${SCRIPTS[@]}"; do
-  path="$SCRIPT_DIR/$name"
-  if [[ ! -f "$path" ]]; then
-    echo "Missing script: $path" >&2
-    exit 1
-  fi
-  echo "Applying $name ..."
-  psql -q -v ON_ERROR_STOP=1 -f "$path"
-done
-
-echo "GoliathOmics portal domain schema applied on $PGHOST/$PGDATABASE"
+exec bash "$REPO_ROOT/scripts/apply_domain_schema.sh"

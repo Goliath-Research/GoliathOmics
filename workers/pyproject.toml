@@ -19,6 +19,7 @@ dependencies = [
   "omics_features",
   "proteomics_features",
   "proteomics_qc",
+  "goliath-omics",
   "boto3>=1.34.0",
   "azure-identity>=1.15.0",
   "azure-storage-blob>=12.19.0",
@@ -42,9 +43,7 @@ rna_express = { path = "../packages/rnaexpress", editable = true }
 omics_features = { path = "../packages/omicsfeatures", editable = true }
 proteomics_features = { path = "../packages/proteomicsfeatures", editable = true }
 proteomics_qc = { path = "../packages/proteomicsqc", editable = true }
-
-[project.entry-points."goliath.action_catalogs"]
-omics = "methyl_worker.action_catalog:ACTION_CATALOG"
+goliath-omics = { path = "../domain", editable = true }
 
 [project.entry-points."goliath.execution_scope_hooks"]
 omics = "methyl_worker.execution_scope_hooks:sync_after_submit"

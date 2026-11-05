@@ -10,8 +10,8 @@ Platform background: [GoliathApp semantic layer](https://goliath-research.github
 |---------|--------|----------------|
 | Portal shell (`NavTree`, `Organizations`, RBAC scope columns, semantic registry DDL) | GoliathApp | Release `goliathapp-sql/sql_pg/` |
 | Organization tenancy (`portal."Organizations"`, `Customers.OrganizationID`) | GoliathApp shell + Omics clinical DDL | GoliathApp P1a; Omics `portal_clinical_schema.sql` |
-| Clinical / customer tables (`Customers`, `Diseases`, `Samples`, …) | GoliathOmics | `workflow_engine/sql_pg/portal_clinical_*.sql` |
-| Typed action catalog (`ActionSpec`, `wf.workflow_action`, JSON schemas) | GoliathApp machinery + Omics specs | `goliath_app.actions`; Omics entry point `goliath.action_catalogs` |
+| Clinical / customer tables (`Customers`, `Diseases`, `Samples`, …) | GoliathOmics | `database/schema/01_portal_clinical_*.sql` (legacy `workflow_engine/sql_pg/` symlinks) |
+| Typed action catalog (`ActionSpec`, `wf.workflow_action`, JSON schemas) | GoliathApp machinery + Omics specs | `goliath_app.actions`; Omics entry point `goliath.action_catalogs` / `omics` |
 | Worker dispatch metadata (CLI, capabilities, affinity) | GoliathOmics | `workers/methyl_worker/action_runtime.py` |
 | Gateway worker REST (enroll, session, claim, submit) | GoliathApp | `methyl-gateway` wheel |
 | DB roles `goliath_gateway`, `goliath_portal` | GoliathApp | `database_gateway_roles.sql` in the GoliathApp bundle |
@@ -50,7 +50,7 @@ Each release records a GoliathApp commit in `manifest.json` → `goliathapp_sql`
 
 Every `portal."Customers"` row carries a non-null **`OrganizationID`** foreign key to `portal."Organizations"`. Clinical list APIs and cross-schema joins scope data through that column (see `portal_clinical_api.sql`). Contract rows use **`OrganizationID`** instead of legacy `CustomerID` after cutover.
 
-**Greenfield installs** (new database): run GoliathApp `apply_schema.sh`, then Omics `workflow_engine/sql_pg/apply_schema.sh` (or release `apply_omics_schema.sh`). No cutover script is required.
+**Greenfield installs** (new database): run GoliathApp `apply_schema.sh`, then `scripts/apply_domain_schema.sh` (or legacy `workflow_engine/sql_pg/apply_schema.sh`, or release `apply_omics_schema.sh`). No cutover script is required.
 
 **Upgraded databases** (pre–P1a EpiPortal or early pilots): run the one-time migration **before** the first P1b release apply:
 
@@ -64,11 +64,11 @@ That script backfills `OrganizationID` on `Customers`, rewrites `Contract."Contr
 
 GoliathApp P1a owns the **portal shell**: navigation tree, organizations, session entry points, and semantic registry tables (`portal.semantic_*`). GoliathOmics P1b owns **clinical domain** DDL and APIs:
 
-- `portal_clinical_schema.sql` — customer, disease, sample, and related tables (with `Customers.OrganizationID`)
-- `portal_sample_extras_schema.sql`, `legacy_cross_schema_fks.sql`
-- `portal_clinical_api.sql`, `portal_clinical_api_parity.sql`, `portal_clinical_nav.sql`
+- `database/schema/01_portal_clinical_schema.sql` — customer, disease, sample, and related tables (with `Customers.OrganizationID`)
+- `database/schema/02_portal_sample_extras_schema.sql`, `03_legacy_cross_schema_fks.sql`
+- `database/schema/04_portal_clinical_api.sql`, `05_portal_clinical_api_parity.sql`, `06_portal_clinical_nav.sql`
 
-Apply order is fixed in `workflow_engine/sql_pg/apply_schema.sh` and reproduced in release bundles by `scripts/bundle_omics_sql.py`.
+Apply order is fixed in `scripts/domain_schema_order.sh` (`scripts/apply_domain_schema.sh`). Release bundles still list legacy `sql_pg/` names via symlinks; `scripts/bundle_omics_sql.py` reads `workflow_engine/sql_pg/apply_schema.sh`, which delegates to the same order.
 
 ## Typed ActionSpec catalog (O1)
 
@@ -76,10 +76,10 @@ Workflow actions are **data**: each action has a stable name, capability, JSON i
 
 ```toml
 [project.entry-points."goliath.action_catalogs"]
-omics = "methyl_worker.action_catalog:ACTION_CATALOG"
+omics = "goliath_omics.actions.catalog:ACTION_CATALOG"
 ```
 
-`workers/methyl_worker/action_catalog.py` builds the omics `ActionSpec` list; `action_runtime.py` holds **runtime dispatch** rows (CLI tools, affinity, idempotency) used by workers and by `wf.workflow_action` CLI metadata.
+The `goliath-omics` package (`domain/pyproject.toml`, sources in `src/goliath_omics/`) registers the entry point. R2 re-exports the built catalog from `workers/methyl_worker/action_catalog.py`; `action_runtime.py` holds **runtime dispatch** rows (CLI tools, affinity, idempotency) used by workers and by `wf.workflow_action` CLI metadata.
 
 After schema apply, **`workflow_engine/sql_pg/seed_action_catalog.py --use-db`** upserts:
 
