@@ -166,6 +166,8 @@ jobs:
 
   pr:
     runs-on: ubuntu-latest
+    env:
+      GOLIATH_GATEWAY_WORKFLOW_ENGINE: ${{ github.workspace }}/_goliathapp_gateway/workflow_engine
     services:
       postgres:
         image: postgres:17
