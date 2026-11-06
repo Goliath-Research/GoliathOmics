@@ -77,7 +77,7 @@ trap cleanup EXIT
 fetch_goliath_app() {
   local dest="$1"
   local url="${GOLIATH_APP_URL:-https://github.com/Goliath-Research/GoliathApp.git}"
-  local ref="${GOLIATH_APP_REF:-1a0fe269978e99131d7971bb74be5add4bf1ab1e}"
+  local ref="${GOLIATH_APP_REF:-19feb8b4ba10be92fb0de47a3417b04cec1a34bb}"
   info "fetching methyl-gateway sources from ${url} (${ref})"
   if [[ "$ref" =~ ^[0-9a-fA-F]{40}$ ]]; then
     git init -q "$dest"
@@ -128,15 +128,60 @@ if [[ -n "$SQL_OUT" ]]; then
     --repository "${GOLIATH_APP_URL:-https://github.com/Goliath-Research/GoliathApp.git}"
 fi
 
-# Reclaim and study CLIs live in this repo. GoliathApp declares the entry
-# points and ships rest/; ops/ and admin/ are overlaid so methyl-reclaim-leases
-# imports. Copy onto the stage only — the checkout and this repo stay untouched.
+# Reclaim CLI module lives in this repo (workflow_engine/ops). GoliathApp ships
+# rest/ and gateway console scripts; ops/ and admin/ are overlaid here. Reclaim
+# entry points are stamped into pyproject.toml below when missing (App stays
+# reclaim-module-agnostic after D10). Copy onto the stage only.
 for name in ops admin; do
   if [[ -d "$REPO_ROOT/workflow_engine/$name" ]]; then
     mkdir -p "$STAGE/$name"
     cp -R "$REPO_ROOT/workflow_engine/$name/." "$STAGE/$name/"
   fi
 done
+
+python3 - "$STAGE/pyproject.toml" "$STAGE" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path, root = Path(sys.argv[1]), Path(sys.argv[2])
+reclaim = root / "ops" / "reclaim_expired_leases.py"
+if not reclaim.is_file():
+    sys.exit(0)
+text = path.read_text(encoding="utf-8")
+additions = []
+for name in ("goliath-reclaim-leases", "methyl-reclaim-leases"):
+    if re.search(r"^%s\s*=" % re.escape(name), text, re.MULTILINE):
+        continue
+    additions.append('%s = "ops.reclaim_expired_leases:main"\n' % name)
+if not additions:
+    sys.exit(0)
+lines = text.splitlines(keepends=True)
+out = []
+in_scripts = False
+inserted = False
+for line in lines:
+    stripped = line.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        if in_scripts and not inserted:
+            out.extend(additions)
+            inserted = True
+        in_scripts = stripped == "[project.scripts]"
+        out.append(line)
+        continue
+    out.append(line)
+if in_scripts and not inserted:
+    out.extend(additions)
+    inserted = True
+if not inserted:
+    block = ["\n[project.scripts]\n", *additions]
+    build_idx = next(
+        (i for i, line in enumerate(lines) if line.strip() == "[build-system]"),
+        len(lines),
+    )
+    out = lines[:build_idx] + block + lines[build_idx:]
+path.write_text("".join(out), encoding="utf-8")
+PY
 
 python3 - "$STAGE/pyproject.toml" "$VERSION" "$STAGE" <<'PY'
 import re

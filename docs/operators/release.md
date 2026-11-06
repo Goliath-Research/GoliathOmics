@@ -2,7 +2,7 @@
 
 A GoliathOmics release is two GitHub Releases. The first is the MethylPipeline archive for one `v*` tag. The second is the assembled bundle `goliathomics-<releaseVersion>`, which adds GoliathExtractor and the GoliathAlign jammy host runtime. Deploy then promotes that bundle with a target profile or on the runner.
 
-Release **2026.10.27** is this process: tag, assemble, deploy. The component versions (MethylPipeline tag, GoliathExtractor release, GoliathAlign jammy release) are the inputs of the assemble workflow. This repository does not pin those three versions in git.
+Release **2026.11.05** is this process: tag, assemble, deploy. The component versions (MethylPipeline tag, GoliathExtractor release, GoliathAlign jammy release) are the inputs of the assemble workflow. This repository does not pin those three versions in git.
 
 ## 1. Tag the MethylPipeline archive
 
@@ -10,16 +10,16 @@ Push a tag `v<semver>` on this repository. The workflow **GoliathOmics release**
 
 The archive contains:
 
-- First-party wheels from `scripts/packages.list`, including the `methyl-gateway` wheel built from GoliathApp **`1a0fe269`** (Nov 2026 platform pin: Meta phases, `inv` DDL, tier-1 wake broker) by `scripts/build_gateway_wheel.sh`
+- First-party wheels from `scripts/packages.list`, including the `goliath-gateway` wheel built from GoliathApp **`19feb8b4`** (post–D10 decoupling pin) by `scripts/build_gateway_wheel.sh`. That script overlays Omics `workflow_engine/ops` (and `admin`) onto the App checkout and stamps `goliath-reclaim-leases` plus one-release legacy `methyl-reclaim-leases` into the staged `pyproject.toml` when App no longer declares them.
 - `goliathapp-sql/` (the GoliathApp `sql_pg` scripts, `manifest.sha256`, `source.json`)
 - `runtime-bundle/` (schemas, scripts, deploy files, domain fixtures)
 - Third-party wheels, the venv bootstrap lock, and `system-deps/` derived from `deploy/targets/*.json`
 
-The job checks that the gateway wheel exposes the `methyl-gateway` console script and that `goliathapp-sql/manifest.sha256` matches. It publishes GitHub Release `v<semver>` with asset `methyl-pipeline-release-<semver>.tar.gz`.
+The job checks that the gateway wheel exposes the `goliath-gateway` console script and that `goliathapp-sql/manifest.sha256` matches. It publishes GitHub Release `v<semver>` with asset `methyl-pipeline-release-<semver>.tar.gz`.
 
 ```bash
-git tag v2026.10.27
-git push origin v2026.10.27
+git tag v2026.11.05
+git push origin v2026.11.05
 ```
 
 Use a MethylPipeline version the archive should carry. The assembled product version in the next step can be the same semver. They are separate inputs.
@@ -30,7 +30,7 @@ Run **GoliathOmics release assemble** (`.github/workflows/release-assemble.yml`)
 
 | Input | Role |
 |-------|------|
-| `releaseVersion` | SemVer of the product bundle. For this release, `2026.10.27`. |
+| `releaseVersion` | SemVer of the product bundle. For this release, `2026.11.05`. |
 | `methylPipelineVersion` | Tag of step 1 without the leading `v` |
 | `goliathExtractorVersion` | GoliathExtractor GitHub Release version |
 | `goliathAlignVersion` | GoliathAlign jammy host-runtime GitHub Release version |
@@ -43,8 +43,8 @@ Local equivalent, after the MethylPipeline archive is unpacked into `mp-release/
 
 ```bash
 bash scripts/assemble_release.sh \
-  --release-version 2026.10.27 \
-  --methyl-pipeline-version 2026.10.27 \
+  --release-version 2026.11.05 \
+  --methyl-pipeline-version 2026.11.05 \
   --goliath-extractor-version <goliath-extractor-release> \
   --goliath-align-version <goliath-align-jammy-release> \
   --methyl-pipeline-dir mp-release \
@@ -89,7 +89,7 @@ When `target` is empty, the job rsyncs the bundle to `<goliathRoot>/releases/<re
 ```bash
 bash scripts/promote_release.sh \
   --root /work/goliath \
-  --release /work/goliath/releases/2026.10.27 \
+  --release /work/goliath/releases/2026.11.05 \
   --arch amd64 \
   --skip-docker-pull
 ```
@@ -134,7 +134,7 @@ After enroll, the unit runs `methyl-worker` poll against the same API base (`/wo
 After schema apply, load Omics catalog rows:
 
 ```bash
-export GOLIATH_RELEASE_SRC=/work/goliath/releases/2026.10.27
+export GOLIATH_RELEASE_SRC=/work/goliath/releases/2026.11.05
 ./scripts/deploy_process_pack_catalog.sh --backend postgres --sync
 ```
 
