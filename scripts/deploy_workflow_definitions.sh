@@ -60,9 +60,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-PYTHON_BIN="${PYTHON_BIN:-python3}"
-if [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
+# Prefer repo .venv only when the caller did not set PYTHON_BIN (e.g. smoke uses a disposable venv).
+if [[ -n "${PYTHON_BIN:-}" ]]; then
+  :
+elif [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
   PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
+else
+  PYTHON_BIN="python3"
 fi
 
 # Fixtures travel with this checkout or this release. Do not follow

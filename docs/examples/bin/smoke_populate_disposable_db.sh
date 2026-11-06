@@ -62,6 +62,13 @@ _run_smoke_pass() {
     -o "-k $PGSOCKET -p $PG_PORT -c listen_addresses=127.0.0.1 -c fsync=off" start >/dev/null \
     || { cat "$work/pg.log" >&2; echo "postgres start failed (pass $pass)" >&2; return 1; }
 
+  _smoke_stop_pg() {
+    [[ -n "${PGDATA:-}" && -n "${PG_BIN:-}" ]] || return 0
+    [[ -d "$PGDATA" ]] || return 0
+    "$PG_BIN/pg_ctl" -D "$PGDATA" -m fast stop >/dev/null 2>&1 || true
+  }
+  trap '_smoke_stop_pg' EXIT
+
   export PGHOST=127.0.0.1
   export PGPORT="$PG_PORT"
   export PGUSER=goliath_admin
@@ -158,7 +165,8 @@ _run_smoke_pass() {
   psql_q -f "$OMICS_REPO/docs/examples/sql/verify_schema_ledgers.sql" || return 1
   psql_q -f "$OMICS_REPO/docs/examples/sql/verify_population_invariants.sql" || return 1
 
-  "$PG_BIN/pg_ctl" -D "$PGDATA" -m fast stop >/dev/null 2>&1 || true
+  trap - EXIT
+  _smoke_stop_pg
   echo "OK smoke pass $pass"
 }
 
