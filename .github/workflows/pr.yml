@@ -215,8 +215,8 @@ jobs:
           python -m venv .venv
           . .venv/bin/activate
           python -m pip install -U pip pytest
-          bash scripts/install_packages.sh --with-deps
           python -m pip install -e "${GITHUB_WORKSPACE}/_goliathapp/workflow_engine"
+          bash scripts/install_packages.sh --with-deps
           python -m pip install -e domain
           python -m pip install -e workers
 
