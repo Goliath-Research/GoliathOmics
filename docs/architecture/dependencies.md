@@ -35,6 +35,8 @@ GoliathAlign and GoliathExtractor also carry no reference to each other through 
 
 How P1b organization tenancy, O1 action catalogs, and O2 worker sessions fit together: [Semantic layer integration](semantic-layer.md).
 
+How to apply **GoliathApp + Omics** SQL bundles, cfg seeds, workflow deploy, and study-start SQL (order and pins): [Database population (PostgreSQL)](database-population.md).
+
 The gateway process installed from a GoliathOmics release is the GoliathApp wheel. Its console script is `methyl-gateway`. `goliath-gateway` is the platform name for that service. This repository does not contain `workflow_engine/rest/`.
 
 ## Names
