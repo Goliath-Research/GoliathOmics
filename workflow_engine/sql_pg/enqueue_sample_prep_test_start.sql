@@ -5,6 +5,9 @@
   Does not create or start a workflow instance by itself: Python must drain the queue to bake
   context from materialized /work and call portal.sp_create_and_start_instance.
 
+  Implementation uses session settings (set_config) because psql :VAR substitution does not apply
+  inside dollar-quoted DO bodies.
+
   psql variables (override before \i):
     study_row_id          cfg.study.id (published)
     workflow_version_id   wf.workflow_version.id; 0 = active SamplePrepPipeline
@@ -20,45 +23,99 @@
     created_by            audit label on the queue row
 
   Example:
-    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+    psql -v ON_ERROR_STOP=1 \
       -v study_row_id=42 \
       -v workflow_version_id=0 \
       -v project_path='/work/projects/my-study/configs/project_my-study.json' \
       -v samples_json='[{"sampleId":"smoke-1","fastqPrefix":"smoke-1/"}]' \
       -v fastq_storage_json='{"type":"file","basePath":"/data/fastqs"}' \
       -f workflow_engine/sql_pg/enqueue_sample_prep_test_start.sql
+
+  Requires psql with conditional meta-commands (`\\if :{?var}`), e.g. PostgreSQL 11+.
 */
 
 \set ON_ERROR_STOP on
--- Defaults (override with psql -v name=value or edit before \i)
+-- Defaults only when not passed on the psql command line (`psql -v name=value`), because an
+-- unconditional `\set name ...` overwrites `-v` (psql applies `-v` first, then runs this file).
+\if :{?study_row_id}
+\else
 \set study_row_id 0
+\endif
+\if :{?workflow_version_id}
+\else
 \set workflow_version_id 0
+\endif
+\if :{?project_path}
+\else
 \set project_path ''
+\endif
+\if :{?samples_json}
+\else
 \set samples_json '[]'
+\endif
+\if :{?sample_id}
+\else
 \set sample_id 'smoke-1'
+\endif
+\if :{?sample_dir}
+\else
 \set sample_dir ''
+\endif
+\if :{?fastq_prefix}
+\else
 \set fastq_prefix ''
+\endif
+\if :{?fastq_storage_json}
+\else
 \set fastq_storage_json '{"type":"file","basePath":"/data/fastqs"}'
+\endif
+\if :{?sample_storage_json}
+\else
 \set sample_storage_json ''
+\endif
+\if :{?pipeline_profile}
+\else
 \set pipeline_profile ''
+\endif
+\if :{?pipeline_procedure}
+\else
 \set pipeline_procedure ''
+\endif
+\if :{?created_by}
+\else
 \set created_by 'psql-test-start'
+\endif
+
+BEGIN;
+
+SELECT set_config('app.enqueue_study_row_id', :'study_row_id', true);
+SELECT set_config('app.enqueue_workflow_version_id', :'workflow_version_id', true);
+SELECT set_config('app.enqueue_project_path', :'project_path', true);
+SELECT set_config('app.enqueue_samples_json', :'samples_json', true);
+SELECT set_config('app.enqueue_sample_id', :'sample_id', true);
+SELECT set_config('app.enqueue_sample_dir', :'sample_dir', true);
+SELECT set_config('app.enqueue_fastq_prefix', :'fastq_prefix', true);
+SELECT set_config('app.enqueue_fastq_storage_json', :'fastq_storage_json', true);
+SELECT set_config('app.enqueue_sample_storage_json', :'sample_storage_json', true);
+SELECT set_config('app.enqueue_pipeline_profile', :'pipeline_profile', true);
+SELECT set_config('app.enqueue_pipeline_procedure', :'pipeline_procedure', true);
+SELECT set_config('app.enqueue_created_by', :'created_by', true);
 
 DO $enqueue$
 DECLARE
-  v_study_row_id       bigint := :study_row_id;
-  v_workflow_version_id bigint := :workflow_version_id;
-  v_project_path       text := :'project_path';
-  v_samples_json       text := :'samples_json';
-  v_sample_id          text := :'sample_id';
-  v_sample_dir         text := nullif(trim(:'sample_dir'), '');
-  v_fastq_prefix       text := nullif(trim(:'fastq_prefix'), '');
-  v_fastq_storage      jsonb := :'fastq_storage_json'::jsonb;
+  v_study_row_id       bigint := nullif(current_setting('app.enqueue_study_row_id', true), '')::bigint;
+  v_workflow_version_id bigint := nullif(current_setting('app.enqueue_workflow_version_id', true), '')::bigint;
+  v_project_path       text := nullif(current_setting('app.enqueue_project_path', true), '');
+  v_samples_json       text := coalesce(nullif(current_setting('app.enqueue_samples_json', true), ''), '[]');
+  v_sample_id          text := nullif(current_setting('app.enqueue_sample_id', true), '');
+  v_sample_dir         text := nullif(trim(current_setting('app.enqueue_sample_dir', true)), '');
+  v_fastq_prefix       text := nullif(trim(current_setting('app.enqueue_fastq_prefix', true)), '');
+  v_fastq_storage      jsonb := current_setting('app.enqueue_fastq_storage_json', true)::jsonb;
   v_sample_storage     jsonb;
-  v_sample_storage_raw text := :'sample_storage_json';
-  v_pipeline_profile   text := nullif(trim(:'pipeline_profile'), '');
-  v_pipeline_procedure text := nullif(trim(:'pipeline_procedure'), '');
-  v_created_by         text := nullif(trim(:'created_by'), '');
+  v_sample_storage_raw text := current_setting('app.enqueue_sample_storage_json', true);
+  v_pipeline_profile   text := nullif(trim(current_setting('app.enqueue_pipeline_profile', true)), '');
+  v_pipeline_procedure text := nullif(trim(current_setting('app.enqueue_pipeline_procedure', true)), '');
+  v_created_by         text := nullif(trim(current_setting('app.enqueue_created_by', true)), '');
 
   v_preview            record;
   v_request            jsonb;
@@ -159,3 +216,5 @@ BEGIN
   RAISE NOTICE 'Drain with: methyl-study-start drain-requests (or python -m admin.study_start drain-requests)';
 END;
 $enqueue$;
+
+COMMIT;

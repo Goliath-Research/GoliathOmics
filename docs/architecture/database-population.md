@@ -31,8 +31,8 @@ The **default GoliathApp git pin** for building the gateway wheel and SQL bundle
 |-------|------------|----------|
 | **Platform + domain DDL** | `CREATE SCHEMA`, tables, types, `portal.sp_*` shells | GoliathApp bundle → Omics `database/schema/*.sql` (via bundle order) |
 | **One-time migrations** | Upgrade paths **not** in the default apply list | [`workflow_engine/sql_pg/migrations/`](../../workflow_engine/sql_pg/migrations/) (run only when preconditions match) |
-| **Reference config (cfg)** | Analytes, pipeline profiles, assay procedures | [`scripts/sync_cfg_profiles_and_action_catalog.py`](../../scripts/sync_cfg_profiles_and_action_catalog.py), [`scripts/deploy_process_pack_catalog.sh`](../../scripts/deploy_process_pack_catalog.sh) |
-| **Action catalog + workflows** | `wf.workflow_action`, graphs | [`workflow_engine/sql_pg/seed_action_catalog.py`](../../workflow_engine/sql_pg/seed_action_catalog.py), [`scripts/deploy_workflow_definitions.sh`](../../scripts/deploy_workflow_definitions.sh) |
+| **Reference config (cfg)** | Analytes, pipeline profiles, assay procedures | [`scripts/sync_cfg_profiles_and_action_catalog.py`](../../scripts/sync_cfg_profiles_and_action_catalog.py) (uses `cfg.cfg_repo_upsert` / `cfg.cfg_repo_publish`), [`scripts/deploy_process_pack_catalog.sh`](../../scripts/deploy_process_pack_catalog.sh) |
+| **Action catalog + workflows** | `wf.workflow_action`, compiled DomainPrograms → `wf.workflow_def` / `wf.workflow_version` | [`workflow_engine/sql_pg/seed_action_catalog.py`](../../workflow_engine/sql_pg/seed_action_catalog.py), [`scripts/deploy_workflow_definitions.sh`](../../scripts/deploy_workflow_definitions.sh) |
 | **Semantic / Meta / Nav (when used)** | Registry rows, Meta classes, nav tree | `goliath-omics-seed-*` CLIs ([semantic layer](semantic-layer.md)) |
 | **Tenant / org / admin** | Organizations, roles, gateway passwords | GoliathApp DDL + [`scripts/apply_gateway_db_roles.sh`](../../scripts/apply_gateway_db_roles.sh); portal provisioning is platform-specific |
 | **Demo / test-bed** | Synthetic wf rows, test token fixture | [`workflow_engine/sql_pg/deploy_test_bed.sh`](../../workflow_engine/sql_pg/deploy_test_bed.sh) (guardrails; not production) |
@@ -40,9 +40,30 @@ The **default GoliathApp git pin** for building the gateway wheel and SQL bundle
 
 ---
 
+## Mandatory vs optional population (runtime)
+
+These are the **minimum** rows and definitions needed so a **study can enqueue** a SamplePrep-shaped start (SQL inserts `cfg.study_start_request`) and the database holds **consistent FK targets** for cfg documents and workflow graphs. Optional layers are real product features but not required for that narrow path.
+
+| Category | Mandatory for minimal path | Optional / environment-specific |
+|----------|---------------------------|----------------------------------|
+| **Schema (App + Omics)** | `apply_goliathapp_schema.sh`, `apply_omics_schema.sh` | One-off `migrations/` scripts when upgrading legacy DBs |
+| **Gateway role passwords** | Required in real deployments that use `goliath_gateway` / `goliath_portal` | Skippable on disposable trust-local clusters with admin-only access |
+| **Cfg repository documents** | `sync_cfg_profiles_and_action_catalog.py` — analytes, pipeline profiles, assay procedures via `cfg.cfg_repo_*` | Extra profiles beyond git, or alternate sync via `deploy_process_pack_catalog.sh` |
+| **Action catalog (`wf.workflow_action`)** | `seed_action_catalog.py --use-db` after cfg APIs exist | Re-invocation is idempotent for unchanged specs |
+| **DomainPrograms (compiled graphs)** | `deploy_workflow_definitions.sh` — deploys SamplePrep, remediation, study lifecycle (and optional RNA/proteomics when fixtures ship) | Additional programs not in default fixture set |
+| **Minimal domain inputs** | At least one `cfg.study` (+ related rows) that `enqueue_sample_prep_test_start.sql` references; see [`docs/examples/sql/minimal_study_for_sample_prep_enqueue.sql`](../examples/sql/minimal_study_for_sample_prep_enqueue.sql) | Full clinical/org/RBAC/nav population |
+| **Semantic / Meta / Nav** | — | `goliath-omics-seed-*` per [semantic layer](semantic-layer.md) |
+| **Workers / pods** | — | Not part of DB population; drain executes study starts |
+
+**App-inherited vs Omics-specific:** DDL and `cfg.cfg_repo_*` / `portal.sp_*` procedures come from the **GoliathApp** bundle. Omics adds domain schema, git-authored cfg JSON (under `workflow_engine/domain/`), omics `ActionSpec` seeds, compiled program fixtures consumed by `deploy_workflow_definitions.sh`, and operator SQL for test enqueue.
+
+**Python prerequisite for `seed_action_catalog.py`:** the seed imports [`workers/methyl_worker/task_models`](../../workers/methyl_worker/task_models/__init__.py) (step-override models), which depend on editable installs of **`methylutils`, `methyl-domain`, `methyl-detector`, `methyl_mapper`, `methyl_enricher`, `methyl-disease-progression`, `methyl_classifier`** from `packages/` (same monorepo layout as workers). Importing `methylutils` pulls optional **`psutil`** (used by `methyl_utils.memory_manager`); ensure it is installed if you are not using Poetry’s optional groups. The disposable smoke script installs **`psutil`** explicitly. A full developer environment typically uses the workers `pyproject.toml` or an equivalent resolved set.
+
+---
+
 ## End-to-end order (target state)
 
-The production deploy path runs **schema apply** (ledgered, once per release), then **role passwords**, then **catalog sync**, then **workflow definition deploy**. The diagram matches [`docs/architecture/semantic-layer.md`](semantic-layer.md).
+Apply **schema** first (ledgered, once per release), then **gateway role passwords** when used, then **cfg sync** so `cfg.*` documents exist before workflow compilation references them, then **ActionSpec seed**, then **DomainProgram deploy**. The diagram matches [`docs/architecture/semantic-layer.md`](semantic-layer.md).
 
 ```mermaid
 flowchart TB
@@ -61,9 +82,9 @@ flowchart TB
   M -.->|"run before first P1b apply on legacy DB"| A
 
   B --> R["apply_gateway_db_roles.sh\n(env: role passwords)"]
-  R --> S["seed_action_catalog.py --use-db"]
+  R --> C["sync_cfg_profiles_and_action_catalog.py\n(--skip-seed or omit)"]
+  C --> S["seed_action_catalog.py --use-db"]
   S --> W["deploy_workflow_definitions.sh"]
-  W --> C["sync_cfg_profiles_and_action_catalog.py\n(and/or deploy_process_pack_catalog)"]
 
   subgraph opt_seed["Optional product seeds"]
     SEM["goliath-omics-seed-*\n(semantic / meta / nav)"]
@@ -123,24 +144,30 @@ Use the **`goliathapp-sql/`** and **`omics-sql/`** trees that ship inside an unp
    bash scripts/apply_gateway_db_roles.sh
    ```
 
-5. **Seed ActionSpec + runtime dispatch**, then **deploy workflow graphs**:
+5. **Cfg repository documents** (analytes, pipeline profiles, assay procedures) — uses `cfg.cfg_repo_upsert` / `cfg.cfg_repo_publish` / `cfg.cfg_repo_bind_assay_procedure`. Pass **`--skip-seed`** when you will run `seed_action_catalog.py` in a separate step (recommended):
+
+   ```bash
+   python scripts/sync_cfg_profiles_and_action_catalog.py --backend postgres --skip-seed
+   ```
+
+   Alternative or complement: [`scripts/deploy_process_pack_catalog.sh`](../../scripts/deploy_process_pack_catalog.sh) with `--backend postgres --sync`. See [Config registry](../usage/19-config-registry.md).
+
+6. **Seed ActionSpec rows** (`wf.workflow_action`):
 
    ```bash
    python workflow_engine/sql_pg/seed_action_catalog.py --use-db
+   ```
+
+7. **Deploy DomainPrograms** (compiled graphs to `wf.workflow_def` / `wf.workflow_version`). From a GoliathApp git checkout (not only the methyl-gateway wheel), export **`GOLIATH_APP_ROOT`** to that repo so `domain/compiler.py` can import `goliath_app` during lowering:
+
+   ```bash
+   export GOLIATH_APP_ROOT=/path/to/GoliathApp
    bash scripts/deploy_workflow_definitions.sh
    ```
 
-6. **Cfg / process-pack reference data** (analytes, profiles, procedures) — typical sequence:
+8. **Optional** semantic / Meta / Nav seeds (only if your environment uses those features; see [Semantic layer](semantic-layer.md)).
 
-   ```bash
-   bash scripts/deploy_process_pack_catalog.sh --backend postgres --sync
-   ```
-
-   For `--sync`-only or advanced cases, see [Config registry](../usage/19-config-registry.md) and [`scripts/sync_cfg_profiles_and_action_catalog.py`](../../scripts/sync_cfg_profiles_and_action_catalog.py).
-
-7. **Optional** semantic / Meta / Nav seeds (only if your environment uses those features; see [Semantic layer](semantic-layer.md)).
-
-**Verify ledgers** after step 3 (and optionally compare SHAs to `source.json` files):
+**Verify ledgers** after applying both schema bundles (steps 2–3) and optionally compare SHAs to `source.json` files:
 
    ```bash
    psql -v ON_ERROR_STOP=1 -f docs/examples/sql/verify_schema_ledgers.sql
@@ -165,7 +192,7 @@ Use this when you have **two clones**: GoliathApp at the **same SHA** you intend
 
    This applies `database/schema/` in [`scripts/domain_schema_order.sh`](../../scripts/domain_schema_order.sh) order (mirror of `workflow_engine/sql_pg/apply_schema.sh`).
 
-3. Continue from **Path A** steps 4–7 (roles, `seed_action_catalog.py`, `deploy_workflow_definitions.sh`, cfg sync, optional semantic seeds).
+3. Continue from **Path A** steps 4–8 (roles, cfg sync, `seed_action_catalog.py`, `deploy_workflow_definitions.sh`, optional semantic seeds).
 
 **Important:** This path is easy to get wrong if the GoliathApp clone is **not** the same revision as your release pin. Prefer Path A when validating something release-shaped.
 
@@ -237,4 +264,16 @@ Read each file’s header before running.
 
 Documentation builds are validated with `mkdocs build` (see [`mkdocs.yml`](../../mkdocs.yml)). The SQL snippets in this guide are **illustrative**; use your real release paths and secrets. For ledger queries, use [`docs/examples/sql/verify_schema_ledgers.sql`](../../docs/examples/sql/verify_schema_ledgers.sql).
 
-**Agent limitation note:** Cloud agent environments may not have PostgreSQL server binaries; full end-to-end apply was not executed in this run. Operators should validate on a **disposable** Postgres instance as described above.
+**Disposable Postgres smoke (two consecutive full passes):** [`docs/examples/bin/smoke_populate_disposable_db.sh`](../examples/bin/smoke_populate_disposable_db.sh) starts Postgres on **127.0.0.1** and an ephemeral TCP port (`rest.connection.build_postgres_conninfo` uses a URI; Unix socket paths in `PGHOST` break parsing), applies both schema bundles, runs cfg sync (`cfg.cfg_repo_*`) → `seed_action_catalog.py` → `deploy_workflow_definitions.sh` (set **`GOLIATH_APP_ROOT`** so `goliath_app` imports during compile; the script exports **`PYTHONPATH`** with App root + `workflow_engine` + Omics `workers`), inserts a minimal `cfg.study`, enqueues `cfg.study_start_request`, and runs [`verify_population_invariants.sql`](../examples/sql/verify_population_invariants.sql). Requires PostgreSQL client **and** server binaries (`initdb` / `pg_ctl` / `psql`), `jq`, and checkouts for **`GOLIATH_APP_SQL_DIR`** / **`GOLIATH_APP_ROOT`** (same pin as your release). It does **not** start the gateway or workers. Pip may warn about missing optional **`goliath-gateway`** transitive deps when installing `domain` with `--no-deps`; that does not affect this smoke path.
+
+Evidence (Nov 2026 run on PR branch):
+
+```text
+NOTICE:  Queued cfg.study_start_request id=1 status=queued workflow_version_id=1
+...
+OK smoke pass 1
+OK smoke pass 2
+OK: smoke_populate_disposable_db (two full passes; no gateway/workers)
+```
+
+Ledger rows matched bundle SHAs from that run (`wf.schema_release.goliathapp_sha` / `wf.omics_schema_release.omics_sha` printed by [`verify_schema_ledgers.sql`](../examples/sql/verify_schema_ledgers.sql)).

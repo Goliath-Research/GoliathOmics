@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "methyl-validation-docs-stub"
+version = "0.0.0"
+description = "Stubs for methyl_validation + goliath_worker imports used by docs smoke scripts only"
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2.6,<3"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["methyl_validation*", "goliath_worker*"]

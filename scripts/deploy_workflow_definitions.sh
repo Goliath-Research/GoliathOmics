@@ -21,6 +21,13 @@ EOF
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# When compiling from a GoliathApp checkout, `goliath_app` must be importable — `workflow_engine/domain/compiler.py`
+# imports `goliath_app.actions.registry` before lowering. Point PYTHONPATH at the App repo root (optional env).
+if [[ -n "${GOLIATH_APP_ROOT:-}" ]]; then
+  export PYTHONPATH="$GOLIATH_APP_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+fi
+
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
 

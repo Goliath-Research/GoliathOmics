@@ -16,6 +16,8 @@ Use [`workflow_engine/sql_pg/enqueue_sample_prep_test_start.sql`](../../workflow
 
 **Enqueue**
 
+The script uses psql conditional meta-commands (`\if :{?var}`) so **defaults do not overwrite** variables you pass with `psql -v` (an unconditional `\set` in the file would reset them). Requires PostgreSQL 11+ client `psql`.
+
 ```bash
 export PGHOST=... PGDATABASE=... PGUSER=... PGPASSWORD=...
 psql -v ON_ERROR_STOP=1 \

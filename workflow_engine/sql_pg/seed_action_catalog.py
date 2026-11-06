@@ -22,13 +22,17 @@ from goliath_app.actions.schema_export import export_action_schemas
 def _connect():
     import psycopg
 
-    return psycopg.connect(
+    kwargs = dict(
         host=os.environ["PGHOST"],
         port=os.environ.get("PGPORT", "5432"),
         dbname=os.environ["PGDATABASE"],
         user=os.environ["PGUSER"],
-        password=os.environ.get("PGPASSWORD"),
+        sslmode=os.environ.get("PGSSLMODE", "prefer"),
     )
+    password = os.environ.get("PGPASSWORD")
+    if password:
+        kwargs["password"] = password
+    return psycopg.connect(**kwargs)
 
 
 def _upsert_runtime_metadata(cur, entry) -> None:
