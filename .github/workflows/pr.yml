@@ -217,7 +217,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: 19feb8b4ba10be92fb0de47a3417b04cec1a34bb
+          ref: 8063fdaa1d7643f099472f747c104323073c957f
           path: _goliathapp_gateway
           sparse-checkout: |
             workflow_engine

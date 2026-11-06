@@ -77,7 +77,7 @@ trap cleanup EXIT
 fetch_goliath_app() {
   local dest="$1"
   local url="${GOLIATH_APP_URL:-https://github.com/Goliath-Research/GoliathApp.git}"
-  local ref="${GOLIATH_APP_REF:-19feb8b4ba10be92fb0de47a3417b04cec1a34bb}"
+  local ref="${GOLIATH_APP_REF:-8063fdaa1d7643f099472f747c104323073c957f}"
   info "fetching goliath-gateway sources from ${url} (${ref})"
   if [[ "$ref" =~ ^[0-9a-fA-F]{40}$ ]]; then
     git init -q "$dest"
