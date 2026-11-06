@@ -217,7 +217,9 @@ jobs:
           repository: Goliath-Research/GoliathApp
           ref: 19feb8b4ba10be92fb0de47a3417b04cec1a34bb
           path: _goliathapp_gateway
-          sparse-checkout: workflow_engine
+          sparse-checkout: |
+            workflow_engine
+            goliath_app
 
       - name: Install science packages and the methyl worker
         run: |
