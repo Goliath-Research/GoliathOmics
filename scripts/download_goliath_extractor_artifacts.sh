@@ -103,11 +103,20 @@ download_one() {
 
   info "Downloading ${pkg_new} from $REPO@$TAG"
   rm -f "$tarball" "$RELEASE_DIR/${pkg_legacy}.tar.gz"
-  if ! gh release download "$TAG" \
+  if gh release download "$TAG" \
     --repo "$REPO" \
     --pattern "${pkg_new}.tar.gz" \
     --dir "$RELEASE_DIR" \
     --clobber 2>/dev/null; then
+    :
+  elif gh release download "$TAG" \
+    --repo "$REPO" \
+    --pattern "${pkg_legacy}.tar.gz" \
+    --dir "$RELEASE_DIR" \
+    --clobber 2>/dev/null; then
+    info "Using legacy asset ${pkg_legacy}.tar.gz from $REPO"
+    mv "$RELEASE_DIR/${pkg_legacy}.tar.gz" "$tarball"
+  else
     info "Retrying legacy asset ${pkg_legacy}.tar.gz from ${OWNER}/MethylExtractor"
     gh release download "$TAG" \
       --repo "${OWNER}/MethylExtractor" \

@@ -85,6 +85,58 @@ PY
 
 bash "$CHECK" "$wheels" >/dev/null
 
+# Post–D10 GoliathApp pyproject: goliath-gateway scripts only; reclaim stamped at build.
+app_like="$work/app-like"
+mkdir -p "$app_like/rest"
+cat >"$app_like/rest/__init__.py" <<'EOF'
+EOF
+cat >"$app_like/rest/gateway.py" <<'EOF'
+def main():
+    return 0
+EOF
+cat >"$app_like/pyproject.toml" <<'EOF'
+[project]
+name = "goliath-gateway"
+version = "1.0.0"
+description = "fixture post-D10 gateway package"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+goliath-gateway = "rest.gateway:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rest*", "ops*", "admin*"]
+EOF
+wheels_app="$work/wheels-app"
+bash "$BUILD" --version 9.8.7 --wheels "$wheels_app" --source "$app_like" >/dev/null
+wheel_app="$(echo "$wheels_app"/goliath_gateway-9.8.7-*.whl)"
+[[ -f "$wheel_app" ]] || fail "expected goliath_gateway-9.8.7 wheel, found: $(ls -A "$wheels_app")"
+python3 - "$wheel_app" <<'PY'
+import sys
+import zipfile
+from pathlib import Path
+
+path = Path(sys.argv[1])
+with zipfile.ZipFile(path) as archive:
+    names = archive.namelist()
+    entry = ""
+    for name in names:
+        if name.endswith("/entry_points.txt") and ".dist-info/" in name:
+            entry = archive.read(name).decode()
+if "goliath-reclaim-leases = ops.reclaim_expired_leases:main" not in entry:
+    raise SystemExit("entry_points.txt missing goliath-reclaim-leases")
+if "methyl-reclaim-leases = ops.reclaim_expired_leases:main" not in entry:
+    raise SystemExit("entry_points.txt missing methyl-reclaim-leases legacy alias")
+if not any(name.startswith("ops/reclaim_expired_leases.py") for name in names):
+    raise SystemExit("reclaim module was not overlaid into the post-D10 wheel")
+PY
+
 # --sql-out bundles <source>/sql_pg from the same checkout, in apply_schema.sh order.
 mkdir -p "$src/sql_pg"
 printf 'SCRIPTS=(\n  b_first.sql\n  # comment\n  a_second.sql\n)\n' >"$src/sql_pg/apply_schema.sh"
