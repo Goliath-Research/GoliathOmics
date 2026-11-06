@@ -1,8 +1,8 @@
 #!/bin/bash
-# Build the core methyl-gateway wheel into a release wheels/ directory.
+# Build the core goliath-gateway wheel into a release wheels/ directory.
 #
-# methyl-gateway and methyl-reclaim-leases are console scripts of the
-# workflow engine distribution (project name methyl-gateway). That project
+# goliath-gateway and methyl-reclaim-leases are console scripts of the
+# workflow engine distribution (project name goliath-gateway). That project
 # lives in GoliathApp workflow_engine/pyproject.toml. This repo has the
 # reclaim and admin modules (workflow_engine/ops, workflow_engine/admin)
 # and no pyproject, so a packages.list build of the science plugins never
@@ -78,7 +78,7 @@ fetch_goliath_app() {
   local dest="$1"
   local url="${GOLIATH_APP_URL:-https://github.com/Goliath-Research/GoliathApp.git}"
   local ref="${GOLIATH_APP_REF:-19feb8b4ba10be92fb0de47a3417b04cec1a34bb}"
-  info "fetching methyl-gateway sources from ${url} (${ref})"
+  info "fetching goliath-gateway sources from ${url} (${ref})"
   if [[ "$ref" =~ ^[0-9a-fA-F]{40}$ ]]; then
     git init -q "$dest"
     git -C "$dest" remote add origin "$url"
@@ -99,7 +99,7 @@ if [[ -n "$SOURCE" ]]; then
   else
     SOURCE_SHA="local-source"
   fi
-  info "building methyl-gateway wheel from $SOURCE ($SOURCE_SHA)"
+  info "building goliath-gateway wheel from $SOURCE ($SOURCE_SHA)"
   SQL_SRC="$SOURCE/sql_pg"
   cp -R "$SOURCE/." "$STAGE/"
 elif [[ -f "$REPO_ROOT/workflow_engine/pyproject.toml" ]]; then
@@ -107,7 +107,7 @@ elif [[ -f "$REPO_ROOT/workflow_engine/pyproject.toml" ]]; then
   if git -C "$REPO_ROOT" rev-parse HEAD >/dev/null 2>&1; then
     SOURCE_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD)"
   fi
-  info "building methyl-gateway wheel from $REPO_ROOT/workflow_engine ($SOURCE_SHA)"
+  info "building goliath-gateway wheel from $REPO_ROOT/workflow_engine ($SOURCE_SHA)"
   SQL_SRC="$REPO_ROOT/workflow_engine/sql_pg"
   cp -R "$REPO_ROOT/workflow_engine/." "$STAGE/"
 else
@@ -220,7 +220,7 @@ if not replaced:
 path.write_text("".join(out), encoding="utf-8")
 PY
 
-info "building methyl-gateway wheel version $VERSION into $WHEELS"
+info "building goliath-gateway wheel version $VERSION into $WHEELS"
 "$PYTHON_BIN" -m pip wheel "$STAGE" -w "$WHEELS" --no-deps
 
 if [[ -n "$SHA_FILE" ]]; then

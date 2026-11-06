@@ -6,7 +6,7 @@ readme = "WORKER_PROTOCOL.md"
 requires-python = ">=3.10,<3.15"
 dependencies = [
   "pydantic>=2.6.0,<3.0.0",
-  "methyl-gateway @ git+https://github.com/Goliath-Research/GoliathApp.git@1a0fe269978e99131d7971bb74be5add4bf1ab1e#subdirectory=workflow_engine",
+  "goliath-gateway",
   "methyl_domain",
   "methyl_mapper",
   "methylcentroid",

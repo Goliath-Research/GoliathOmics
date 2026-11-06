@@ -2,7 +2,7 @@
 
 A GoliathOmics release is two GitHub Releases. The first is the MethylPipeline archive for one `v*` tag. The second is the assembled bundle `goliathomics-<releaseVersion>`, which adds GoliathExtractor and the GoliathAlign jammy host runtime. Deploy then promotes that bundle with a target profile or on the runner.
 
-Release **2026.11.05** is this process: tag, assemble, deploy. The component versions (MethylPipeline tag, GoliathExtractor release, GoliathAlign jammy release) are the inputs of the assemble workflow. This repository does not pin those three versions in git.
+Release **2026.11.5** is this process: tag, assemble, deploy. The component versions (MethylPipeline tag, GoliathExtractor release, GoliathAlign jammy release) are the inputs of the assemble workflow. This repository does not pin those three versions in git.
 
 ## 1. Tag the MethylPipeline archive
 
@@ -18,8 +18,8 @@ The archive contains:
 The job checks that the gateway wheel exposes the `goliath-gateway` console script and that `goliathapp-sql/manifest.sha256` matches. It publishes GitHub Release `v<semver>` with asset `methyl-pipeline-release-<semver>.tar.gz`.
 
 ```bash
-git tag v2026.11.05
-git push origin v2026.11.05
+git tag v2026.11.5
+git push origin v2026.11.5
 ```
 
 Use a MethylPipeline version the archive should carry. The assembled product version in the next step can be the same semver. They are separate inputs.
@@ -30,7 +30,7 @@ Run **GoliathOmics release assemble** (`.github/workflows/release-assemble.yml`)
 
 | Input | Role |
 |-------|------|
-| `releaseVersion` | SemVer of the product bundle. For this release, `2026.11.05`. |
+| `releaseVersion` | SemVer of the product bundle. For this release, `2026.11.5`. |
 | `methylPipelineVersion` | Tag of step 1 without the leading `v` |
 | `goliathExtractorVersion` | GoliathExtractor GitHub Release version |
 | `goliathAlignVersion` | GoliathAlign jammy host-runtime GitHub Release version |
@@ -43,8 +43,8 @@ Local equivalent, after the MethylPipeline archive is unpacked into `mp-release/
 
 ```bash
 bash scripts/assemble_release.sh \
-  --release-version 2026.11.05 \
-  --methyl-pipeline-version 2026.11.05 \
+  --release-version 2026.11.5 \
+  --methyl-pipeline-version 2026.11.5 \
   --goliath-extractor-version <goliath-extractor-release> \
   --goliath-align-version <goliath-align-jammy-release> \
   --methyl-pipeline-dir mp-release \
@@ -89,7 +89,7 @@ When `target` is empty, the job rsyncs the bundle to `<goliathRoot>/releases/<re
 ```bash
 bash scripts/promote_release.sh \
   --root /work/goliath \
-  --release /work/goliath/releases/2026.11.05 \
+  --release /work/goliath/releases/2026.11.5 \
   --arch amd64 \
   --skip-docker-pull
 ```
@@ -134,7 +134,7 @@ After enroll, the unit runs `methyl-worker` poll against the same API base (`/wo
 After schema apply, load Omics catalog rows:
 
 ```bash
-export GOLIATH_RELEASE_SRC=/work/goliath/releases/2026.11.05
+export GOLIATH_RELEASE_SRC=/work/goliath/releases/2026.11.5
 ./scripts/deploy_process_pack_catalog.sh --backend postgres --sync
 ```
 
