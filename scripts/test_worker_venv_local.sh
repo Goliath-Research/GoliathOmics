@@ -311,6 +311,54 @@ fi
 grep -q 'NO BUILT WHEEL for source reference: methyl-orphan' "$work/san2.err" || fail "missing wheel should be named"
 grep -q 'fix_wheel_path_deps.py' "$ROOT/scripts/build_release.sh" || fail "build must fix wheel path deps"
 
+# VCS / URL Requires-Dist: rewrite to goliath-gateway== when only that wheel exists (separate dir; avoid multiple methyl-classifier wheels in sanitize test dir)
+pdir_vc="$work/vcsdeps"
+mkdir -p "$pdir_vc"
+make_wheel "$pdir_vc" goliath_gateway 2026.11.5
+python3 - "$pdir_vc" <<'PY'
+import sys, zipfile, base64, hashlib
+from pathlib import Path
+d = Path(sys.argv[1]); di = "methyl_classifier-3.0.0.dist-info"
+meta = ("Metadata-Version: 2.1\nName: methyl-classifier\nVersion: 3.0.0\n"
+        "Requires-Dist: methyl-gateway @ git+https://github.com/example/app.git@abc123#subdirectory=workflow_engine\n"
+        "Requires-Dist: numpy (>=1.26)\n")
+h = lambda b: "sha256=" + base64.urlsafe_b64encode(hashlib.sha256(b).digest()).rstrip(b"=").decode()
+files = {"methyl_classifier/__init__.py": b"", f"{di}/METADATA": meta.encode(),
+         f"{di}/WHEEL": b"Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n"}
+rec = "".join(f"{p},{h(b)},{len(b)}\n" for p, b in files.items()) + f"{di}/RECORD,,\n"
+files[f"{di}/RECORD"] = rec.encode()
+with zipfile.ZipFile(d / "methyl_classifier-3.0.0-py3-none-any.whl", "w") as z:
+    for p, b in files.items():
+        z.writestr(p, b)
+PY
+python3 "$ROOT/scripts/fix_wheel_path_deps.py" "$pdir_vc" >"$work/fix2.log" || fail "fix_wheel_path_deps VCS case failed"
+meta_vcs="$(unzip -p "$pdir_vc/methyl_classifier-3.0.0-py3-none-any.whl" methyl_classifier-3.0.0.dist-info/METADATA)"
+grep -q '^Requires-Dist: goliath-gateway==2026.11.5$' <<<"$meta_vcs" || fail "VCS dep should become goliath-gateway==2026.11.5: $meta_vcs"
+grep -Eq 'git\+https://|@ git' <<<"$meta_vcs" && fail "wheel metadata still has git URL"
+
+# Legacy wheel basename only: goliath-gateway @ URL maps to methyl-gateway wheel version
+pdir_leg="$work/vcsdeps2"
+mkdir -p "$pdir_leg"
+make_wheel "$pdir_leg" methyl_gateway 1.0.0
+python3 - "$pdir_leg" <<'PY'
+import sys, zipfile, base64, hashlib
+from pathlib import Path
+d = Path(sys.argv[1]); di = "methyl_classifier-4.0.0.dist-info"
+meta = ("Metadata-Version: 2.1\nName: methyl-classifier\nVersion: 4.0.0\n"
+        "Requires-Dist: goliath-gateway @ https://github.com/example/app/archive/main.zip\n")
+h = lambda b: "sha256=" + base64.urlsafe_b64encode(hashlib.sha256(b).digest()).rstrip(b"=").decode()
+files = {"methyl_classifier/__init__.py": b"", f"{di}/METADATA": meta.encode(),
+         f"{di}/WHEEL": b"Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n"}
+rec = "".join(f"{p},{h(b)},{len(b)}\n" for p, b in files.items()) + f"{di}/RECORD,,\n"
+files[f"{di}/RECORD"] = rec.encode()
+with zipfile.ZipFile(d / "methyl_classifier-4.0.0-py3-none-any.whl", "w") as z:
+    for p, b in files.items():
+        z.writestr(p, b)
+PY
+python3 "$ROOT/scripts/fix_wheel_path_deps.py" "$pdir_leg" >"$work/fix3.log" || fail "fix_wheel_path_deps legacy methyl wheel case failed"
+meta_legacy="$(unzip -p "$pdir_leg/methyl_classifier-4.0.0-py3-none-any.whl" methyl_classifier-4.0.0.dist-info/METADATA)"
+grep -q '^Requires-Dist: goliath-gateway==1.0.0$' <<<"$meta_legacy" || fail "goliath-gateway URL should map to methyl-gateway wheel: $meta_legacy"
+
 # promote_release.sh no longer builds a venv under the root.
 grep -q -- '--skip-venv' "$ROOT/scripts/start_shared_worker.sh" || fail "pod boot promote must pass --skip-venv"
 if grep -n 'venv-\${ARCH}\|venv-amd64' "$ROOT/scripts/promote_release.sh" "$ROOT/scripts/write_worker_env.sh" \

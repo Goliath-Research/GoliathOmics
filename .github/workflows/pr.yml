@@ -166,6 +166,8 @@ jobs:
 
   pr:
     runs-on: ubuntu-latest
+    env:
+      GOLIATH_GATEWAY_WORKFLOW_ENGINE: ${{ github.workspace }}/_goliathapp_gateway/workflow_engine
     services:
       postgres:
         image: postgres:17
@@ -210,11 +212,23 @@ jobs:
           ref: 1a0fe269978e99131d7971bb74be5add4bf1ab1e
           path: _goliathapp
 
+      # goliath-gateway distribution name (D10); older pins still expose methyl-gateway only.
+      - name: Check out GoliathApp workflow_engine (goliath-gateway)
+        uses: actions/checkout@v6
+        with:
+          repository: Goliath-Research/GoliathApp
+          ref: 19feb8b4ba10be92fb0de47a3417b04cec1a34bb
+          path: _goliathapp_gateway
+          sparse-checkout: |
+            workflow_engine
+            goliath_app
+
       - name: Install science packages and the methyl worker
         run: |
           python -m venv .venv
           . .venv/bin/activate
           python -m pip install -U pip pytest
+          python -m pip install -e "${GITHUB_WORKSPACE}/_goliathapp_gateway/workflow_engine"
           bash scripts/install_packages.sh --with-deps
           python -m pip install -e domain
           python -m pip install -e workers

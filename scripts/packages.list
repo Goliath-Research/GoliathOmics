@@ -3,8 +3,8 @@
 # Directory names under packages/ (or repo-root for workflow_engine / workers / domain).
 # Must include every path dependency of workers/pyproject.toml before workers —
 # pip does not honor [tool.uv.sources].
-# workflow_engine is the methyl-gateway distribution (console scripts
-# methyl-gateway and methyl-reclaim-leases). build_release.sh builds that
+# workflow_engine is the goliath-gateway distribution (console scripts
+# goliath-gateway and methyl-reclaim-leases). build_release.sh builds that
 # wheel from GoliathApp plus this repo's ops/ and admin/ modules.
 methylutils
 methylcentroid
