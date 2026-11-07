@@ -21,6 +21,13 @@ EOF
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# When compiling from a GoliathApp checkout, `goliath_app` must be importable — `workflow_engine/domain/compiler.py`
+# imports `goliath_app.actions.registry` before lowering. Point PYTHONPATH at the App repo root (optional env).
+if [[ -n "${GOLIATH_APP_ROOT:-}" ]]; then
+  export PYTHONPATH="$GOLIATH_APP_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+fi
+
 # shellcheck source=rollouts_hook.sh
 source "$SCRIPT_DIR/rollouts_hook.sh"
 
@@ -53,9 +60,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-PYTHON_BIN="${PYTHON_BIN:-python3}"
-if [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
+# Prefer repo .venv only when the caller did not set PYTHON_BIN (e.g. smoke uses a disposable venv).
+if [[ -n "${PYTHON_BIN:-}" ]]; then
+  :
+elif [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
   PYTHON_BIN="$REPO_ROOT/.venv/bin/python"
+else
+  PYTHON_BIN="python3"
 fi
 
 # Fixtures travel with this checkout or this release. Do not follow

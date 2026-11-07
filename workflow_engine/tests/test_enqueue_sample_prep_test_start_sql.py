@@ -14,3 +14,5 @@ def test_enqueue_sample_prep_test_start_uses_platform_queue() -> None:
     assert "portal.sp_preview_study_start" in text
     assert "'sample_prep'" in text
     assert "cfg.study_start_request" in text
+    assert "\\if :{?study_row_id}" in text
+    assert "\\if :{?project_path}" in text

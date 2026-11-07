@@ -72,16 +72,13 @@ def _pg_connect():
     dbname = os.environ.get("PGDATABASE") or os.environ.get("POSTGRES_DB") or "postgres"
     port = os.environ.get("PGPORT") or os.environ.get("POSTGRES_PORT") or "5432"
     sslmode = os.environ.get("PGSSLMODE") or "require"
-    if not host or not user or not password:
-        raise SystemExit("Set PGHOST/PGUSER/PGPASSWORD (or POSTGRES_*) for --backend postgres")
-    return psycopg.connect(
-        host=host,
-        port=port,
-        dbname=dbname,
-        user=user,
-        password=password,
-        sslmode=sslmode,
-    )
+    if not host or not user:
+        raise SystemExit("Set PGHOST/PGUSER (or POSTGRES_HOST/POSTGRES_USER) for --backend postgres")
+    # Trust / peer / local dev clusters may use no password (omit kwarg so psycopg does not send one).
+    kwargs = dict(host=host, port=port, dbname=dbname, user=user, sslmode=sslmode or "prefer")
+    if password:
+        kwargs["password"] = password
+    return psycopg.connect(**kwargs)
 
 
 def _upsert_pg(conn, kind: str, name: str, version: str, status: str, document: Dict[str, Any]) -> int:

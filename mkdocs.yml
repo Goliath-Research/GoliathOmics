@@ -18,6 +18,7 @@ nav:
   - Architecture:
       - Dependency direction: architecture/dependencies.md
       - Semantic layer (P1b, O1, O2): architecture/semantic-layer.md
+      - Database population (PostgreSQL): architecture/database-population.md
       - Sample preparation tooling: architecture/sample-prep-tooling.md
   - Operators:
       - Start a SamplePrep instance: operators/start-sample-prep.md
