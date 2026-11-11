@@ -3,8 +3,6 @@
 -- and 11_omics_meta_semantic_writes.sql; this file adds omics/* portal class names only.
 -- Optional shared portal integration; skipped if its platform/* parent classes are absent.
 
-BEGIN;
-
 DO $omics_classes$
 DECLARE
   v_parent int;
@@ -45,5 +43,3 @@ BEGIN
   PERFORM "Meta".sp_backfill_all_class_hierarchies();
 END
 $omics_classes$;
-
-COMMIT;

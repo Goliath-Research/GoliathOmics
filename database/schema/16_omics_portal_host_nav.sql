@@ -2,10 +2,6 @@
 -- Requires GoliathApp seed_platform_nav_tree.sql (or equivalent) so /app exists.
 -- Skips quietly when /app is not present (gateways without platform nav).
 
-BEGIN;
-
-SELECT portal.sp_nav_ensure_meta_catalog();
-
 DO $omics_nav$
 DECLARE
   v_parent_app int;
@@ -25,6 +21,10 @@ BEGIN
   IF v_parent_app IS NULL THEN
     RAISE NOTICE 'platform /app nav root missing; skipping portal host omics nav (run GoliathApp seed_platform_nav_tree.sql)';
     RETURN;
+  END IF;
+
+  IF to_regprocedure('portal.sp_nav_ensure_meta_catalog()') IS NOT NULL THEN
+    PERFORM portal.sp_nav_ensure_meta_catalog();
   END IF;
 
   SELECT ni."Id" INTO v_info_id
@@ -132,5 +132,3 @@ BEGIN
   END IF;
 END
 $omics_nav$;
-
-COMMIT;
