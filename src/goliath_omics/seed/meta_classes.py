@@ -228,6 +228,14 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     },
 )
 
+LEGACY_TABLE_NAMES: dict[str, str] = {
+    "disease": "OmicsDisease",
+    "customer": "OmicsCustomer",
+    "patient": "OmicsPatient",
+    "sample": "OmicsSample",
+    "lab_batch": "OmicsLabBatch",
+}
+
 
 def _connect():
     import psycopg
@@ -262,6 +270,24 @@ def seed(conn) -> int:
                 ),
             )
             count += 1
+        for entity_code, table_name in LEGACY_TABLE_NAMES.items():
+            cur.execute(
+                """
+                UPDATE "Meta"."Classes" c
+                SET "TableName" = %s
+                FROM omics_clinical.meta_class_registry r
+                WHERE r.entity_code = %s
+                  AND c."ID" = r.class_id
+                  AND c."TableName" IS DISTINCT FROM %s
+                """,
+                (table_name, entity_code, table_name),
+            )
+        cur.execute(
+            """
+            SELECT "Meta".sp_class_regenerate_views(r.class_id)
+            FROM omics_clinical.meta_class_registry r
+            """
+        )
     conn.commit()
     return count
 

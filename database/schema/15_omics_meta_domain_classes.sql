@@ -23,22 +23,13 @@ DECLARE
 BEGIN
   FOREACH v_row SLICE 1 IN ARRAY v_pairs
   LOOP
-    v_parent_name := v_row[2];
-    SELECT c."ID" INTO v_parent FROM "Meta"."Classes" c WHERE c."Name" = v_parent_name LIMIT 1;
-    IF v_parent IS NULL THEN
-      RAISE NOTICE 'platform parent class % is missing; skipping optional Omics portal Meta classes', v_parent_name;
-      RETURN;
-    END IF;
-  END LOOP;
-
-  FOREACH v_row SLICE 1 IN ARRAY v_pairs
-  LOOP
     v_name := v_row[1];
     v_parent_name := v_row[2];
     v_table_name := v_row[3];
     SELECT c."ID" INTO v_parent FROM "Meta"."Classes" c WHERE c."Name" = v_parent_name LIMIT 1;
     IF v_parent IS NULL THEN
-      RAISE EXCEPTION 'parent class % is required before 15_omics_meta_domain_classes.sql', v_parent_name;
+      RAISE NOTICE 'platform parent class % is missing; skipping optional Meta class %', v_parent_name, v_name;
+      CONTINUE;
     END IF;
     INSERT INTO "Meta"."Classes" ("Name", "ParentID", "TableName")
     SELECT v_name, v_parent, v_table_name
