@@ -7,6 +7,13 @@ from pathlib import Path
 from typing import Any
 
 
+def _row_value(row: Any, column: str = "id", index: int = 0) -> Any:
+    """Read a column from tuple or dict_row (psycopg3) fetchone results."""
+    if isinstance(row, dict):
+        return row[column]
+    return row[index]
+
+
 def register_domain_program_after_deploy(
     db: Any,
     *,
@@ -29,7 +36,7 @@ def register_domain_program_after_deploy(
             row = cur.fetchone()
             if row is None:
                 raise RuntimeError(f"cfg_repo_upsert returned no row for domain_program:{name}@{version}")
-            program_id = int(row[0])
+            program_id = int(_row_value(row, "id", 0))
             if status == "published":
                 cur.execute(
                     "SELECT id FROM cfg.cfg_repo_publish(%s, %s, %s)",
