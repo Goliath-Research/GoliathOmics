@@ -52,4 +52,7 @@ def register_domain_program_after_deploy(
 
 
 def load_program_document(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(doc, dict):
+        raise ValueError(f"domain program document must be a JSON object: {path}")
+    return doc
