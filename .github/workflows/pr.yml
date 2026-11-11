@@ -50,14 +50,16 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           uv --version
 
-      # GoliathApp 1a0fe269 (Meta + inv + wake broker; R1 pin) matches release bundles.
-      # test_apply_goliathapp_schema.sh applies its sql_pg scripts twice to
-      # prove the apply is idempotent.
-      - name: Check out GoliathApp sql_pg
+      # The portal baseline seeds platform/* Meta classes required by Omics.
+      - name: Read GoliathApp portal baseline ref
+        id: portal_baseline
+        run: echo "ref=$(tr -d '[:space:]' < .goliath/goliathapp_portal_baseline.ref)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out GoliathApp portal baseline
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: 1a0fe269978e99131d7971bb74be5add4bf1ab1e
+          ref: ${{ steps.portal_baseline.outputs.ref }}
           path: _goliathapp
           sparse-checkout: workflow_engine/sql_pg
 
