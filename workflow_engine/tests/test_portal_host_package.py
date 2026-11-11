@@ -127,7 +127,7 @@ def test_omics_customers_nav_uses_meta_object_frame(portal_host_env: dict[str, s
         """
         SELECT ni."FrameKey", ni."Name"
         FROM portal."NavTree" n
-        INNER JOIN portal."NodeInfos" ni ON ni."Id" = n."NodeInfoId"
+        INNER JOIN portal."NodeInfos" ni ON ni."Id" = n."InfoID"
         WHERE n."NodePath" = '/app/omics/customers'
         LIMIT 1
         """,

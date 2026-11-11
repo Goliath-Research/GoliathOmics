@@ -108,9 +108,9 @@ BEGIN
       );
     ELSE
       UPDATE portal."NavTree" n
-      SET "NodeInfoId" = v_info_id
+      SET "InfoID" = v_info_id
       WHERE n."ID" = v_node
-        AND n."NodeInfoId" IS DISTINCT FROM v_info_id;
+        AND n."InfoID" IS DISTINCT FROM v_info_id;
     END IF;
   END LOOP;
 
