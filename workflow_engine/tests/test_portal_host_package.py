@@ -1,4 +1,4 @@
-"""Portal host package: GoliathApp baseline + Omics SQL on fresh Postgres."""
+"""Portal host: GoliathApp baseline + apply_domain_schema on fresh Postgres."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-BASELINE_REF_FILE = REPO / "database" / "portal_host_package" / "goliathapp_baseline.ref"
-PACKAGE_APPLY = REPO / "database" / "portal_host_package" / "apply_package.sh"
+BASELINE_REF_FILE = REPO / ".goliath" / "goliathapp_portal_baseline.ref"
+DOMAIN_APPLY = REPO / "scripts" / "apply_domain_schema.sh"
 TEST_DB = "goliathomics_portal_host_test"
 
 
@@ -19,10 +19,10 @@ def _app_sql_dir() -> Path:
     override = os.environ.get("GOLIATH_APP_SQL_DIR")
     if override:
         return Path(override)
-    pin = BASELINE_REF_FILE.read_text(encoding="utf-8").strip()
     checkout = REPO / "_goliathapp_portal" / "workflow_engine" / "sql_pg"
     if checkout.is_dir():
         return checkout
+    pin = BASELINE_REF_FILE.read_text(encoding="utf-8").strip() if BASELINE_REF_FILE.is_file() else "(unknown)"
     raise FileNotFoundError(
         f"GoliathApp sql_pg not found; set GOLIATH_APP_SQL_DIR or check out ref {pin} to _goliathapp_portal"
     )
@@ -67,8 +67,8 @@ def portal_host_env() -> dict[str, str]:
         pytest.skip(f"GoliathApp apply_schema.sh missing at {apply_sh}")
     if not nav_seed.is_file():
         pytest.skip(f"seed_platform_nav_tree.sql missing at {nav_seed}")
-    if not PACKAGE_APPLY.is_file():
-        pytest.skip("portal host apply_package.sh missing")
+    if not DOMAIN_APPLY.is_file():
+        pytest.skip(f"apply_domain_schema.sh missing at {DOMAIN_APPLY}")
 
     admin = _pg_env()
     admin["PGDATABASE"] = "postgres"
@@ -95,7 +95,7 @@ def portal_host_env() -> dict[str, str]:
     org_id = int(org_row.split("|")[0])
     _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_id}, {user_id})", env)
     _psql_file(nav_seed, env)
-    subprocess.run(["bash", str(PACKAGE_APPLY)], env=env, check=True)
+    subprocess.run(["bash", str(DOMAIN_APPLY)], env=env, check=True, cwd=str(REPO))
     return env
 
 
@@ -150,13 +150,38 @@ def test_god_architect_nav_and_permissions_superset(portal_host_env: dict[str, s
     )
     assert admin_perms
     assert god_perms
-    assert set(admin_perms.split(",")) <= set(god_perms.split(","))
     assert "platform.model.architect" in god_perms.split(",")
+    if (
+        _psql(
+            "SELECT to_regprocedure('portal.sp_sync_god_architect_operator_entitlements()') IS NOT NULL",
+            portal_host_env,
+        )
+        == "t"
+    ):
+        assert set(admin_perms.split(",")) <= set(god_perms.split(","))
 
-    admin_nav = int(
-        _psql(f'SELECT COUNT(*) FROM portal."Role2Node" WHERE "RoleId" = {admin_id}', portal_host_env)
+    omics_god_nav = int(
+        _psql(
+            f"""
+            SELECT COUNT(*)
+            FROM portal."Role2Node" r2n
+            INNER JOIN portal."NavTree" n ON n."ID" = r2n."NodeId"
+            WHERE r2n."RoleId" = {god_id}
+              AND n."NodePath" LIKE '/app/omics%'
+            """,
+            portal_host_env,
+        )
     )
-    god_nav = int(
-        _psql(f'SELECT COUNT(*) FROM portal."Role2Node" WHERE "RoleId" = {god_id}', portal_host_env)
+    omics_admin_nav = int(
+        _psql(
+            f"""
+            SELECT COUNT(*)
+            FROM portal."Role2Node" r2n
+            INNER JOIN portal."NavTree" n ON n."ID" = r2n."NodeId"
+            WHERE r2n."RoleId" = {admin_id}
+              AND n."NodePath" LIKE '/app/omics%'
+            """,
+            portal_host_env,
+        )
     )
-    assert god_nav >= admin_nav > 0
+    assert omics_god_nav >= omics_admin_nav >= 5

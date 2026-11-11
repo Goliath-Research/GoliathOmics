@@ -164,3 +164,4 @@ workers/docker/methylgrapher/*.sif
 workers/docker/methylgrapher/*.sif.partial
 .neon
 _goliathapp/
+_goliathapp_portal/

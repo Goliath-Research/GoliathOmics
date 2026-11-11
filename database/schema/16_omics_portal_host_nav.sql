@@ -1,5 +1,6 @@
--- Omics NavTree branch under inherited /app platform menu.
--- Prerequisites: seed_platform_nav_tree.sql on an organization scope.
+-- Operator portal NavTree for the shared platform host (/app/omics/* branch).
+-- Requires GoliathApp seed_platform_nav_tree.sql (or equivalent) so /app exists.
+-- Skips quietly when /app is not present (gateways without platform nav).
 
 BEGIN;
 
@@ -22,7 +23,8 @@ BEGIN
   LIMIT 1;
 
   IF v_parent_app IS NULL THEN
-    RAISE EXCEPTION 'platform /app nav root missing; run seed_platform_nav_tree.sql first';
+    RAISE NOTICE 'platform /app nav root missing; skipping portal host omics nav (run GoliathApp seed_platform_nav_tree.sql)';
+    RETURN;
   END IF;
 
   SELECT ni."Id" INTO v_info_id

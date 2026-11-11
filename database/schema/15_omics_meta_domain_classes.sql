@@ -1,12 +1,13 @@
--- GoliathOmics domain Meta classes (portal host package). Subclass platform/* parents only.
--- Prerequisites: GoliathApp workflow_engine/sql_pg/apply_schema.sh (includes platform_generic_meta_baseline.sql).
+-- GoliathOmics — Meta classes subclassing GoliathApp platform/* parents (shared platform host).
+-- Clinical Meta registration and semantic entities remain in 10_omics_meta_clinical_classes.sql
+-- and 11_omics_meta_semantic_writes.sql; this file adds omics/* portal class names only.
+-- Prerequisites: GoliathApp workflow_engine/sql_pg/apply_schema.sh (platform/* classes present).
 
 BEGIN;
 
 DO $omics_classes$
 DECLARE
   v_parent int;
-  v_class int;
   v_pairs text[][] := ARRAY[
     ARRAY['omics/Customer', 'platform/Party'],
     ARRAY['omics/Sample', 'platform/Material'],
@@ -24,7 +25,7 @@ BEGIN
     v_parent_name := v_row[2];
     SELECT c."ID" INTO v_parent FROM "Meta"."Classes" c WHERE c."Name" = v_parent_name LIMIT 1;
     IF v_parent IS NULL THEN
-      RAISE EXCEPTION 'parent class % is required before Omics package', v_parent_name;
+      RAISE EXCEPTION 'parent class % is required before 15_omics_meta_domain_classes.sql', v_parent_name;
     END IF;
     INSERT INTO "Meta"."Classes" ("Name", "ParentID")
     SELECT v_name, v_parent

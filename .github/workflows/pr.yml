@@ -76,7 +76,7 @@ jobs:
             scripts/apply_goliathapp_schema.sh \
             scripts/apply_gateway_db_roles.sh \
             scripts/apply_omics_schema.sh \
-            database/portal_host_package/apply_package.sh \
+            scripts/apply_domain_schema.sh \
             scripts/test_apply_goliathapp_schema.sh \
             scripts/deploy_workflow_definitions.sh \
             scripts/deploy_mc_workflow_definitions.sh \
@@ -200,7 +200,7 @@ jobs:
 
       - name: Read GoliathApp portal baseline ref
         id: portal_baseline
-        run: echo "ref=$(tr -d '[:space:]' < database/portal_host_package/goliathapp_baseline.ref)" >> "$GITHUB_OUTPUT"
+        run: echo "ref=$(tr -d '[:space:]' < .goliath/goliathapp_portal_baseline.ref)" >> "$GITHUB_OUTPUT"
 
       - name: Check out GoliathApp portal baseline (pinned)
         uses: actions/checkout@v6
