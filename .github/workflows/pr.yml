@@ -210,7 +210,9 @@ jobs:
           repository: Goliath-Research/GoliathApp
           ref: ${{ steps.portal_baseline.outputs.ref }}
           path: _goliathapp_portal
-          sparse-checkout: workflow_engine/sql_pg
+          sparse-checkout: |
+            workflow_engine/sql_pg
+            workflow_engine/contract
 
       - name: Type check with Pyrefly
         run: |
