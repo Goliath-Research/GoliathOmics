@@ -8,6 +8,8 @@ from goliath_omics.semantic.models import (
     CustomerCreatePayload,
     CustomerListParams,
     CustomerRow,
+    LabBatchListParams,
+    LabBatchRow,
     DiseaseListParams,
     DiseaseRow,
     DiseaseUpdatePayload,
@@ -22,6 +24,8 @@ from goliath_omics.semantic.models import (
     LabReagentReceivePayload,
     LabReagentRow,
     LabRow,
+    PatientListParams,
+    PatientRow,
     SampleCreatePayload,
     SampleListParams,
     SampleRow,
@@ -35,10 +39,10 @@ DISEASE_ENTITY = SemanticEntitySpec(
     schema_version="1",
     row_model=DiseaseRow,
     storage_relation='"Meta"."VOmicsDisease"',
-    meta_class_name="OmicsDisease",
+    meta_class_name="omics/Disease",
     attributes=(
         SemanticAttributeSpec("disease_id", "legacy_disease_id", "integer", "key", ()),
-        SemanticAttributeSpec("name", "name", "string", "label", ("ilike",)),
+        SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
         SemanticAttributeSpec(
             "parent_id",
             "parent_id",
@@ -46,6 +50,30 @@ DISEASE_ENTITY = SemanticEntitySpec(
             "filter",
             ("eq",),
         ),
+    ),
+)
+
+PATIENT_ENTITY = SemanticEntitySpec(
+    namespace="omics",
+    code="patient",
+    display_name="Patient",
+    description="Clinical patient linked to institution and samples.",
+    schema_version="1",
+    row_model=PatientRow,
+    storage_relation='"Meta"."VOmicsPatient"',
+    meta_class_name="omics/Patient",
+    attributes=(
+        SemanticAttributeSpec("patient_id", "legacy_patient_id", "integer", "key", ()),
+        SemanticAttributeSpec(
+            "institution_id",
+            "institution_id",
+            "integer",
+            "filter",
+            ("eq",),
+        ),
+        SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
+        SemanticAttributeSpec("sex", "sex", "string", "detail", ()),
+        SemanticAttributeSpec("year_born", "year_born", "integer", "filter", ("eq", "gte", "lte")),
     ),
 )
 
@@ -57,7 +85,7 @@ CUSTOMER_ENTITY = SemanticEntitySpec(
     schema_version="1",
     row_model=CustomerRow,
     storage_relation='"Meta"."VOmicsCustomer"',
-    meta_class_name="OmicsCustomer",
+    meta_class_name="omics/Customer",
     attributes=(
         SemanticAttributeSpec("customer_id", "legacy_customer_id", "integer", "key", ()),
         SemanticAttributeSpec(
@@ -67,7 +95,7 @@ CUSTOMER_ENTITY = SemanticEntitySpec(
             "filter",
             ("eq",),
         ),
-        SemanticAttributeSpec("name", "name", "string", "label", ("ilike",)),
+        SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
     ),
 )
 
@@ -88,13 +116,13 @@ GROUP_ENTITY = SemanticEntitySpec(
             "filter",
             ("eq",),
         ),
-        SemanticAttributeSpec("name", "name", "string", "label", ("ilike",)),
-        SemanticAttributeSpec("description", "description", "string", "attribute", ()),
+        SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
+        SemanticAttributeSpec("description", "description", "string", "detail", ()),
         SemanticAttributeSpec(
             "sample_count",
             "sample_count",
             "integer",
-            "measure",
+            "detail",
             ("gte", "lte"),
         ),
     ),
@@ -108,7 +136,7 @@ SAMPLE_ENTITY = SemanticEntitySpec(
     schema_version="1",
     row_model=SampleRow,
     storage_relation='"Meta"."VOmicsSample"',
-    meta_class_name="OmicsSample",
+    meta_class_name="omics/Sample",
     attributes=(
         SemanticAttributeSpec("sample_id", "legacy_sample_id", "integer", "key", ()),
         SemanticAttributeSpec("patient_id", "patient_id", "integer", "filter", ("eq",)),
@@ -126,9 +154,25 @@ SAMPLE_ENTITY = SemanticEntitySpec(
             "filter",
             ("eq",),
         ),
-        SemanticAttributeSpec("sample_name", "sample_name", "string", "label", ("ilike",)),
-        SemanticAttributeSpec("age", "age", "number", "attribute", ()),
-        SemanticAttributeSpec("bmi", "bmi", "number", "attribute", ()),
+        SemanticAttributeSpec("sample_name", "sample_name", "string", "list", ("ilike",)),
+        SemanticAttributeSpec("age", "age", "number", "detail", ()),
+        SemanticAttributeSpec("bmi", "bmi", "number", "detail", ()),
+    ),
+)
+
+LAB_BATCH_ENTITY = SemanticEntitySpec(
+    namespace="omics",
+    code="lab_batch",
+    display_name="Lab batch",
+    description="Processing lab batch (legacy portal.Batches mirror).",
+    schema_version="1",
+    row_model=LabBatchRow,
+    storage_relation='"Meta"."VOmicsLabBatch"',
+    meta_class_name="omics/LabBatch",
+    attributes=(
+        SemanticAttributeSpec("lab_batch_id", "legacy_batch_id", "integer", "key", ()),
+        SemanticAttributeSpec("lab_id", "lab_id", "integer", "filter", ("eq",)),
+        SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
     ),
 )
 
@@ -142,7 +186,7 @@ LAB_ENTITY = SemanticEntitySpec(
     storage_relation="omics_clinical.v_lab",
     attributes=(
         SemanticAttributeSpec("lab_id", "lab_id", "integer", "key", ()),
-        SemanticAttributeSpec("name", "name", "string", "label", ("ilike",)),
+        SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
     ),
 )
 
@@ -169,15 +213,15 @@ LAB_REAGENT_ENTITY = SemanticEntitySpec(
             "item_number",
             "item_number",
             "string",
-            "label",
+            "list",
             ("ilike",),
         ),
-        SemanticAttributeSpec("lot_number", "lot_number", "string", "attribute", ()),
+        SemanticAttributeSpec("lot_number", "lot_number", "string", "detail", ()),
         SemanticAttributeSpec(
             "qty_on_hand",
             "qty_on_hand",
             "number",
-            "measure",
+            "detail",
             ("gte", "lte"),
         ),
     ),
@@ -186,8 +230,10 @@ LAB_REAGENT_ENTITY = SemanticEntitySpec(
 SEMANTIC_CATALOG: tuple[SemanticEntitySpec, ...] = (
     DISEASE_ENTITY,
     CUSTOMER_ENTITY,
-    GROUP_ENTITY,
+    PATIENT_ENTITY,
     SAMPLE_ENTITY,
+    LAB_BATCH_ENTITY,
+    GROUP_ENTITY,
     LAB_ENTITY,
     LAB_REAGENT_ENTITY,
 )

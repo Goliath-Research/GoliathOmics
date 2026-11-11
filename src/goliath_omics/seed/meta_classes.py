@@ -13,7 +13,7 @@ from typing import Any
 META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     {
         "entity_code": "disease",
-        "class_name": "OmicsDisease",
+        "class_name": "omics/Disease",
         "display_name": "Disease",
         "description": "Clinical disease or trait (Meta-backed; legacy portal.Diseases mirror).",
         "fields": [
@@ -42,7 +42,7 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     },
     {
         "entity_code": "customer",
-        "class_name": "OmicsCustomer",
+        "class_name": "omics/Customer",
         "display_name": "Customer",
         "description": "Organization-scoped customer (Meta-backed; legacy portal.Customers mirror).",
         "fields": [
@@ -71,7 +71,7 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     },
     {
         "entity_code": "patient",
-        "class_name": "OmicsPatient",
+        "class_name": "omics/Patient",
         "display_name": "Patient",
         "description": "Clinical patient (Meta-backed; legacy portal.Patients mirror).",
         "fields": [
@@ -135,7 +135,7 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     },
     {
         "entity_code": "sample",
-        "class_name": "OmicsSample",
+        "class_name": "omics/Sample",
         "display_name": "Portal sample",
         "description": "Clinical sample (Meta-backed; legacy portal.Samples mirror).",
         "fields": [
@@ -199,7 +199,7 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     },
     {
         "entity_code": "lab_batch",
-        "class_name": "OmicsLabBatch",
+        "class_name": "omics/LabBatch",
         "display_name": "Lab batch",
         "description": "Processing lab batch (Meta-backed; legacy portal.Batches mirror).",
         "fields": [
@@ -227,6 +227,14 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
         ],
     },
 )
+
+LEGACY_TABLE_NAMES: dict[str, str] = {
+    "disease": "OmicsDisease",
+    "customer": "OmicsCustomer",
+    "patient": "OmicsPatient",
+    "sample": "OmicsSample",
+    "lab_batch": "OmicsLabBatch",
+}
 
 
 def _connect():
@@ -262,6 +270,24 @@ def seed(conn) -> int:
                 ),
             )
             count += 1
+        for entity_code, table_name in LEGACY_TABLE_NAMES.items():
+            cur.execute(
+                """
+                UPDATE "Meta"."Classes" c
+                SET "TableName" = %s
+                FROM omics_clinical.meta_class_registry r
+                WHERE r.entity_code = %s
+                  AND c."ID" = r.class_id
+                  AND c."TableName" IS DISTINCT FROM %s
+                """,
+                (table_name, entity_code, table_name),
+            )
+        cur.execute(
+            """
+            SELECT "Meta".sp_class_regenerate_views(r.class_id)
+            FROM omics_clinical.meta_class_registry r
+            """
+        )
     conn.commit()
     return count
 

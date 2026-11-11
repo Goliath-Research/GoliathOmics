@@ -30,6 +30,7 @@ goliath-omics-semantic-export = "goliath_omics.semantic.export:main"
 goliath-omics-seed-semantic = "goliath_omics.seed.semantic_catalog:main"
 goliath-omics-seed-meta-classes = "goliath_omics.seed.meta_classes:main"
 goliath-omics-seed-nav = "goliath_omics.seed.nav_tree:main"
+goliath-omics-seed-meta-action-methods = "goliath_omics.seed.meta_action_methods:main"
 
 [project.entry-points."goliath.action_catalogs"]
 omics = "goliath_omics.actions.catalog:ACTION_CATALOG"

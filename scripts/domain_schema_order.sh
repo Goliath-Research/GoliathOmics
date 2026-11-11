@@ -22,6 +22,7 @@ DOMAIN_SCHEMA_SCRIPTS=(
   14_omics_inv_semantic.sql
   15_omics_meta_domain_classes.sql
   16_omics_portal_host_nav.sql
+  17_omics_meta_clinical_class_reconcile.sql
 )
 
 # Legacy sql_pg names (same order); used by release bundles and apply_schema.sh SCRIPTS=.
@@ -42,6 +43,7 @@ DOMAIN_SCHEMA_LEGACY_NAMES=(
   omics_inv_semantic.sql
   omics_meta_domain_classes.sql
   omics_portal_host_nav.sql
+  omics_meta_clinical_class_reconcile.sql
 )
 
 if ((${#DOMAIN_SCHEMA_SCRIPTS[@]} != ${#DOMAIN_SCHEMA_LEGACY_NAMES[@]})); then

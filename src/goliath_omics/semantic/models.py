@@ -35,6 +35,36 @@ class CustomerListParams(BaseModel):
     organization_id: Optional[int] = None
 
 
+class PatientRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    patient_id: int
+    name: str
+    institution_id: Optional[int] = None
+    sex: Optional[str] = None
+    year_born: Optional[int] = None
+
+
+class PatientListParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    institution_id: Optional[int] = None
+
+
+class LabBatchRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    lab_batch_id: int
+    name: Optional[str] = None
+    lab_id: Optional[int] = None
+
+
+class LabBatchListParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    lab_id: Optional[int] = None
+
+
 class GroupRow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

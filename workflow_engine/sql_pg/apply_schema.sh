@@ -37,6 +37,7 @@ SCRIPTS=(
   omics_inv_semantic.sql
   omics_meta_domain_classes.sql
   omics_portal_host_nav.sql
+  omics_meta_clinical_class_reconcile.sql
 )
 
 exec bash "$REPO_ROOT/scripts/apply_domain_schema.sh"
