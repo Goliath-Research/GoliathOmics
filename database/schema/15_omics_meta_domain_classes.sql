@@ -1,7 +1,7 @@
 -- GoliathOmics — Meta classes subclassing GoliathApp platform/* parents (shared platform host).
 -- Clinical Meta registration and semantic entities remain in 10_omics_meta_clinical_classes.sql
 -- and 11_omics_meta_semantic_writes.sql; this file adds omics/* portal class names only.
--- Prerequisites: GoliathApp workflow_engine/sql_pg/apply_schema.sh (platform/* classes present).
+-- Optional shared portal integration; skipped if its platform/* parent classes are absent.
 
 BEGIN;
 
@@ -19,6 +19,16 @@ DECLARE
   v_name text;
   v_parent_name text;
 BEGIN
+  FOREACH v_row SLICE 1 IN ARRAY v_pairs
+  LOOP
+    v_parent_name := v_row[2];
+    SELECT c."ID" INTO v_parent FROM "Meta"."Classes" c WHERE c."Name" = v_parent_name LIMIT 1;
+    IF v_parent IS NULL THEN
+      RAISE NOTICE 'platform parent class % is missing; skipping optional Omics portal Meta classes', v_parent_name;
+      RETURN;
+    END IF;
+  END LOOP;
+
   FOREACH v_row SLICE 1 IN ARRAY v_pairs
   LOOP
     v_name := v_row[1];
