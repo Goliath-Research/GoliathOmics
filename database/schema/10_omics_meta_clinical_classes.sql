@@ -234,6 +234,8 @@ BEGIN
   SET semantic_entity_id = v_entity_id
   WHERE entity_code = p_entity_code;
 
+  PERFORM "Meta".sp_class_regenerate_views(v_class_id);
+
   RETURN v_class_id;
 END;
 $$;
