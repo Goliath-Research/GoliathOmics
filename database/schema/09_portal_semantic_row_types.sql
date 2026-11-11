@@ -38,14 +38,14 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_type t
     JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'omics_group_row'
+    WHERE n.nspname = 'portal' AND t.typname = 'omics_patient_row'
   ) THEN
-    CREATE TYPE portal.omics_group_row AS (
-  group_id integer,
+    CREATE TYPE portal.omics_patient_row AS (
+  patient_id integer,
   name text,
-  description text,
-  customer_id integer,
-  sample_count bigint
+  institution_id integer,
+  sex text,
+  year_born integer
     );
   END IF;
 END $$;
@@ -65,6 +65,38 @@ BEGIN
   sample_name text,
   age numeric,
   bmi double precision
+    );
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'portal' AND t.typname = 'omics_lab_batch_row'
+  ) THEN
+    CREATE TYPE portal.omics_lab_batch_row AS (
+  lab_batch_id integer,
+  name text,
+  lab_id integer
+    );
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'portal' AND t.typname = 'omics_group_row'
+  ) THEN
+    CREATE TYPE portal.omics_group_row AS (
+  group_id integer,
+  name text,
+  description text,
+  customer_id integer,
+  sample_count bigint
     );
   END IF;
 END $$;

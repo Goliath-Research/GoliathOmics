@@ -100,17 +100,18 @@ fi
 
 rollouts_begin workflow-definitions "mc workflow definitions ($(hostname -s 2>/dev/null || hostname))"
 
-"$PYTHON_BIN" - "$REPO_ROOT" "$DELETE_INSTANCES" "$VERSIONS_OUT" "${COMPILED[@]}" <<'PY'
+"$PYTHON_BIN" - "$REPO_ROOT" "$DOMAIN_ROOT" "$DELETE_INSTANCES" "$VERSIONS_OUT" "${COMPILED[@]}" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 repo = Path(sys.argv[1])
-delete_instances = sys.argv[2] == "1"
-versions_out = Path(sys.argv[3])
-compiled_paths = [Path(p) for p in sys.argv[4:]]
+domain_root = Path(sys.argv[2])
+delete_instances = sys.argv[3] == "1"
+versions_out = Path(sys.argv[4])
+compiled_paths = [Path(p) for p in sys.argv[5:]]
 source_by_stem = {
-    Path(rel).stem.replace(".program", ""): repo / "workflow_engine/domain" / rel
+    Path(rel).stem.replace(".program", ""): domain_root / rel
     for rel in [
         "fixtures/mc_stability.program.json",
         "fixtures/mc_stability_residual.program.json",
