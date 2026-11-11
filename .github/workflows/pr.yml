@@ -76,6 +76,7 @@ jobs:
             scripts/apply_goliathapp_schema.sh \
             scripts/apply_gateway_db_roles.sh \
             scripts/apply_omics_schema.sh \
+            database/portal_host_package/apply_package.sh \
             scripts/test_apply_goliathapp_schema.sh \
             scripts/deploy_workflow_definitions.sh \
             scripts/deploy_mc_workflow_definitions.sh \
@@ -197,6 +198,18 @@ jobs:
           path: _goliathapp
           sparse-checkout: workflow_engine/sql_pg
 
+      - name: Read GoliathApp portal baseline ref
+        id: portal_baseline
+        run: echo "ref=$(tr -d '[:space:]' < database/portal_host_package/goliathapp_baseline.ref)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out GoliathApp portal baseline (pinned)
+        uses: actions/checkout@v6
+        with:
+          repository: Goliath-Research/GoliathApp
+          ref: ${{ steps.portal_baseline.outputs.ref }}
+          path: _goliathapp_portal
+          sparse-checkout: workflow_engine/sql_pg
+
       - name: Type check with Pyrefly
         run: |
           python -m pip install -U "pyrefly==1.3.2"
@@ -260,4 +273,6 @@ jobs:
         run: |
           . .venv/bin/activate
           python -m pip install -U pytest
+          GOLIATH_APP_SQL_DIR="${GITHUB_WORKSPACE}/_goliathapp_portal/workflow_engine/sql_pg" \
+            python -m pytest workflow_engine/tests/test_portal_host_package.py -q
           python -m pytest workflow_engine/tests/test_omics_sql_fk_direction.py workflow_engine/tests/test_omics_pg_schema_apply.py tests/test_omics_semantic.py tests/test_omics_meta_classes.py tests/test_omics_meta_writes.py tests/test_omics_meta_backfill.py tests/test_omics_lab_inv_bridge.py tests/test_omics_lab_inv_semantic.py tests/test_goliath_omics_shell.py -q
