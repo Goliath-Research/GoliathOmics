@@ -8,7 +8,7 @@ DECLARE
   rec record;
   v_canonical_id integer;
   v_legacy_id integer;
-  v_parent_id integer;
+  v_legacy_table text;
 BEGIN
   FOR rec IN
     SELECT *
@@ -38,6 +38,16 @@ BEGIN
     LIMIT 1;
 
     IF v_legacy_id IS NOT NULL THEN
+      v_legacy_table := rec.legacy_name || 'Legacy';
+      UPDATE "Meta"."Classes" l
+      SET "TableName" = v_legacy_table
+      WHERE l."ID" = v_legacy_id
+        AND COALESCE(l."TableName", l."Name") IS NOT DISTINCT FROM (
+          SELECT COALESCE(c."TableName", c."Name")
+          FROM "Meta"."Classes" c
+          WHERE c."ID" = v_canonical_id
+        );
+
       UPDATE "Meta"."Classes" l
       SET "ParentID" = v_canonical_id
       WHERE l."ID" = v_legacy_id
