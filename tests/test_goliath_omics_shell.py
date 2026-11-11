@@ -25,7 +25,7 @@ def test_domain_schema_order_lists_existing_files() -> None:
     text = ORDER_SH.read_text(encoding="utf-8")
     canonical = _parse_bash_array("DOMAIN_SCHEMA_SCRIPTS", text)
     legacy = _parse_bash_array("DOMAIN_SCHEMA_LEGACY_NAMES", text)
-    assert len(canonical) == len(legacy) == 14
+    assert len(canonical) == len(legacy) == 16
     for name in canonical:
         path = SCHEMA_DIR / name
         assert path.is_file(), name

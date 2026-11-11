@@ -192,6 +192,8 @@ Use this when you have **two clones**: GoliathApp at the **same SHA** you intend
 
    This applies `database/schema/` in [`scripts/domain_schema_order.sh`](../../scripts/domain_schema_order.sh) order (mirror of `workflow_engine/sql_pg/apply_schema.sh`).
 
+   **Shared platform host (optional):** after GoliathApp DDL and at least one organization scope, run GoliathApp `seed_platform_nav_tree.sql`, then apply Omics domain DDL (files **15**–**16** register `omics/*` Meta subclasses of `platform/*` and the `/app/omics` NavTree). CI pins the App baseline at [`.goliath/goliathapp_portal_baseline.ref`](../../.goliath/goliathapp_portal_baseline.ref) (`017731d5…` or later `main`).
+
 3. Continue from **Path A** steps 4–8 (roles, cfg sync, `seed_action_catalog.py`, `deploy_workflow_definitions.sh`, optional semantic seeds).
 
 **Important:** This path is easy to get wrong if the GoliathApp clone is **not** the same revision as your release pin. Prefer Path A when validating something release-shaped.
@@ -206,6 +208,7 @@ Use this when you have **two clones**: GoliathApp at the **same SHA** you intend
 | Clinical tables (`portal."Customers"`, samples, …), omics clinical APIs | GoliathOmics | `database/schema/01_*` … |
 | Semantic list types / clinical MVP | GoliathOmics | `08_omics_semantic_mvp.sql`, `09_portal_semantic_row_types.sql` |
 | Meta-backed clinical, ActionSpec rows for omics handlers | GoliathOmics | See [Semantic layer](semantic-layer.md) |
+| Portal host Meta subclasses (`omics/Sample` → `platform/Material`, …) and `/app/omics` nav | GoliathOmics | `database/schema/15_omics_meta_domain_classes.sql`, `16_omics_portal_host_nav.sql` (after App nav seed) |
 | Study start queue (`cfg.study_start_request`, `portal.sp_request_study_start`) | GoliathApp | DDL in App bundle; **Omics documents** the SQL enqueue helper for tests |
 
 Omics **extends** the platform (clinical schema, catalogs, programs); it does **not** re-document full GoliathApp bootstrap or tenant onboarding — follow GoliathApp’s published adoption material for that.
