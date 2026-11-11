@@ -87,15 +87,15 @@ CI drift check: `goliath-omics-semantic-export --check schemas/semantic/catalog.
 
 ## Meta-backed clinical cutover (R4)
 
-During incremental cutover, **legacy portal tables remain authoritative storage**; each row may carry optional `"MetaObjectID"` linking to `"Meta"."Objs"`. Meta classes (`OmicsCustomer`, `OmicsDisease`, `OmicsPatient`, `OmicsSample`, `OmicsLabBatch`) are registered with `Meta.sp_semantic_sync_class_entity` via `goliath-omics-seed-meta-classes` after domain DDL apply.
+During incremental cutover, **legacy portal tables remain authoritative storage**; each row may carry optional `"MetaObjectID"` linking to `"Meta"."Objs"`. Canonical Meta classes are **`omics/*`** (`omics/Customer`, `omics/Disease`, …) under GoliathApp `platform/*` parents (`15_omics_meta_domain_classes.sql`); legacy `VOmics*` views keep stable `TableName` aliases. Fields and semantic registry links are applied via `goliath-omics-seed-meta-classes` and `17_omics_meta_clinical_class_reconcile.sql`.
 
 | Entity | Meta class | Legacy table | Semantic write requests (PR2) | Cutover flags (`omics_clinical.meta_cutover_flag`) |
 |--------|------------|--------------|--------------------------------|-----------------------------------------------------|
-| Customer | `OmicsCustomer` | `portal."Customers"` | `omics.customer.create` | `dual_write_legacy_meta`, `read_from_meta` |
-| Disease | `OmicsDisease` | `portal."Diseases"` | `omics.disease.create`, `omics.disease.update` | same |
-| Patient | `OmicsPatient` | `portal."Patients"` | (mirror/backfill; portal writes TBD) | same |
-| Sample | `OmicsSample` | `portal."Samples"` | `omics.sample.create`, `omics.group.add_sample` | same |
-| Lab batch | `OmicsLabBatch` | `portal."Batches"` | (mirror/backfill) | same |
+| Customer | `omics/Customer` | `portal."Customers"` | `omics.customer.create` | `dual_write_legacy_meta`, `read_from_meta` |
+| Disease | `omics/Disease` | `portal."Diseases"` | `omics.disease.create`, `omics.disease.update` | same |
+| Patient | `omics/Patient` | `portal."Patients"` | (mirror/backfill; portal writes TBD) | same |
+| Sample | `omics/Sample` | `portal."Samples"` | `omics.sample.create`, `omics.group.add_sample` | same |
+| Lab batch | `omics/LabBatch` | `portal."Batches"` | (mirror/backfill) | same |
 
 **Apply (release):** `10_omics_meta_clinical_classes.sql`, `11_omics_meta_semantic_writes.sql`, `12_omics_meta_backfill_api.sql` via `scripts/apply_domain_schema.sh`.
 
@@ -104,6 +104,26 @@ During incremental cutover, **legacy portal tables remain authoritative storage*
 ```bash
 goliath-omics-seed-meta-classes
 goliath-omics-seed-semantic
+# After GoliathApp seed_action_catalog.py --use-db (requires Meta.sp_meta_upsert_action_method):
+goliath-omics-seed-meta-action-methods
+```
+
+**GoliathOmics_v2 full portal host path (fresh DB, idempotent):**
+
+```bash
+# GoliathApp checkout: workflow_engine/sql_pg/
+bash workflow_engine/sql_pg/apply_schema.sh
+psql -v ON_ERROR_STOP=1 -f workflow_engine/sql_pg/seed_platform_nav_tree.sql
+# Omics repo root:
+bash scripts/apply_domain_schema.sh
+pip install -e domain
+goliath-omics-seed-meta-classes
+goliath-omics-seed-semantic
+python workflow_engine/sql_pg/seed_action_catalog.py --use-db
+goliath-omics-seed-meta-action-methods
+bash scripts/sync_cfg_profiles_and_action_catalog.py   # when cfg JSON ships with release
+bash scripts/deploy_workflow_definitions.sh
+bash scripts/deploy_mc_workflow_definitions.sh         # also upserts cfg.domain_program rows
 ```
 
 **Production backfill (one entity at a time, after Neon backup):**

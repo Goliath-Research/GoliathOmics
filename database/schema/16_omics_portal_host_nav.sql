@@ -60,15 +60,19 @@ BEGIN
     sort_path text NOT NULL,
     seq smallint NOT NULL,
     parent_path text NOT NULL,
-    info_name text NOT NULL
+    info_name text NOT NULL,
+    frame_key text NOT NULL
   ) ON COMMIT DROP;
 
-  INSERT INTO _omics_nav (caption, node_path, sort_path, seq, parent_path, info_name)
+  INSERT INTO _omics_nav (caption, node_path, sort_path, seq, parent_path, info_name, frame_key)
   VALUES
-    ('Customers', '/app/omics/customers', '0010.0085.0010', 10, '/app/omics', 'platform.nav.omics.customers'),
-    ('Samples', '/app/omics/samples', '0010.0085.0020', 20, '/app/omics', 'platform.nav.omics.samples'),
-    ('Studies', '/app/omics/studies', '0010.0085.0030', 30, '/app/omics', 'platform.nav.omics.studies'),
-    ('Sequencing runs', '/app/omics/runs', '0010.0085.0040', 40, '/app/omics', 'platform.nav.omics.runs');
+    ('Customers', '/app/omics/customers', '0010.0085.0010', 10, '/app/omics', 'platform.nav.meta_object:omics/Customer', 'meta_object'),
+    ('Patients', '/app/omics/patients', '0010.0085.0015', 15, '/app/omics', 'platform.nav.meta_object:omics/Patient', 'meta_object'),
+    ('Diseases', '/app/omics/diseases', '0010.0085.0018', 18, '/app/omics', 'platform.nav.meta_object:omics/Disease', 'meta_object'),
+    ('Samples', '/app/omics/samples', '0010.0085.0020', 20, '/app/omics', 'platform.nav.meta_object:omics/Sample', 'meta_object'),
+    ('Lab batches', '/app/omics/lab-batches', '0010.0085.0025', 25, '/app/omics', 'platform.nav.meta_object:omics/LabBatch', 'meta_object'),
+    ('Studies', '/app/omics/studies', '0010.0085.0030', 30, '/app/omics', 'platform.nav.meta_object:omics/Study', 'meta_object'),
+    ('Sequencing runs', '/app/omics/runs', '0010.0085.0040', 40, '/app/omics', 'platform.nav.meta_object:omics/SequencingRun', 'meta_object');
 
   FOR nav_row IN SELECT * FROM _omics_nav ORDER BY sort_path
   LOOP
@@ -78,8 +82,13 @@ BEGIN
     LIMIT 1;
     IF v_info_id IS NULL THEN
       INSERT INTO portal."NodeInfos" ("Name", "Singleton", "FrameKey")
-      VALUES (nav_row.info_name, true, 'artifact')
+      VALUES (nav_row.info_name, true, nav_row.frame_key)
       RETURNING "Id" INTO v_info_id;
+    ELSE
+      UPDATE portal."NodeInfos" ni
+      SET "FrameKey" = nav_row.frame_key
+      WHERE ni."Id" = v_info_id
+        AND ni."FrameKey" IS DISTINCT FROM nav_row.frame_key;
     END IF;
 
     SELECT n."ID" INTO v_node

@@ -17,6 +17,29 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 COMMITTED_CATALOG = REPO_ROOT / "schemas/semantic/catalog.json"
 
 
+ALLOWED_ATTRIBUTE_ROLES = frozenset({"list", "detail", "filter", "key"})
+
+
+def test_semantic_attribute_roles_are_portal_allowed() -> None:
+    for entity in SEMANTIC_CATALOG:
+        for attr in entity.attributes:
+            assert attr.role in ALLOWED_ATTRIBUTE_ROLES, (
+                f"{entity.code}.{attr.code} uses disallowed role {attr.role!r}"
+            )
+
+
+def test_core_clinical_entities_bind_omics_meta_classes() -> None:
+    for code, class_name in (
+        ("disease", "omics/Disease"),
+        ("customer", "omics/Customer"),
+        ("patient", "omics/Patient"),
+        ("sample", "omics/Sample"),
+        ("lab_batch", "omics/LabBatch"),
+    ):
+        entity = next(e for e in SEMANTIC_CATALOG if e.code == code)
+        assert entity.meta_class_name == class_name
+
+
 def test_entity_codes_unique() -> None:
     codes = [e.code for e in SEMANTIC_CATALOG]
     assert len(codes) == len(set(codes))

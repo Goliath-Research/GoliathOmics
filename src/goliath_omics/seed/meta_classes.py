@@ -13,7 +13,7 @@ from typing import Any
 META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     {
         "entity_code": "disease",
-        "class_name": "OmicsDisease",
+        "class_name": "omics/Disease",
         "display_name": "Disease",
         "description": "Clinical disease or trait (Meta-backed; legacy portal.Diseases mirror).",
         "fields": [
@@ -42,7 +42,7 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     },
     {
         "entity_code": "customer",
-        "class_name": "OmicsCustomer",
+        "class_name": "omics/Customer",
         "display_name": "Customer",
         "description": "Organization-scoped customer (Meta-backed; legacy portal.Customers mirror).",
         "fields": [
@@ -71,7 +71,7 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     },
     {
         "entity_code": "patient",
-        "class_name": "OmicsPatient",
+        "class_name": "omics/Patient",
         "display_name": "Patient",
         "description": "Clinical patient (Meta-backed; legacy portal.Patients mirror).",
         "fields": [
@@ -135,7 +135,7 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     },
     {
         "entity_code": "sample",
-        "class_name": "OmicsSample",
+        "class_name": "omics/Sample",
         "display_name": "Portal sample",
         "description": "Clinical sample (Meta-backed; legacy portal.Samples mirror).",
         "fields": [
@@ -199,7 +199,7 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     },
     {
         "entity_code": "lab_batch",
-        "class_name": "OmicsLabBatch",
+        "class_name": "omics/LabBatch",
         "display_name": "Lab batch",
         "description": "Processing lab batch (Meta-backed; legacy portal.Batches mirror).",
         "fields": [

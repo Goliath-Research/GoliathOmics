@@ -122,6 +122,20 @@ def test_omics_nav_registered(portal_host_env: dict[str, str]) -> None:
     assert count >= 5
 
 
+def test_omics_customers_nav_uses_meta_object_frame(portal_host_env: dict[str, str]) -> None:
+    row = _psql(
+        """
+        SELECT ni."FrameKey", ni."Name"
+        FROM portal."NavTree" n
+        INNER JOIN portal."NodeInfos" ni ON ni."Id" = n."NodeInfoId"
+        WHERE n."NodePath" = '/app/omics/customers'
+        LIMIT 1
+        """,
+        portal_host_env,
+    )
+    assert row == "meta_object|platform.nav.meta_object:omics/Customer"
+
+
 def test_god_architect_nav_and_permissions_superset(portal_host_env: dict[str, str]) -> None:
     god_id = int(_psql("SELECT portal.fn_god_architect_role_id()", portal_host_env))
     admin_id = int(

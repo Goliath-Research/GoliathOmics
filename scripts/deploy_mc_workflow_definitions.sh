@@ -109,8 +109,31 @@ repo = Path(sys.argv[1])
 delete_instances = sys.argv[2] == "1"
 versions_out = Path(sys.argv[3])
 compiled_paths = [Path(p) for p in sys.argv[4:]]
+source_by_stem = {
+    Path(rel).stem.replace(".program", ""): repo / "workflow_engine/domain" / rel
+    for rel in [
+        "fixtures/mc_stability.program.json",
+        "fixtures/mc_stability_residual.program.json",
+        "fixtures/mc_stability_staged.program.json",
+        "fixtures/mc_stability_smoke.program.json",
+        "fixtures/mc_stability_ppi.program.json",
+        "fixtures/mc_gene_enricher_stability.program.json",
+        "fixtures/study_validation_lifecycle.program.json",
+        "fixtures/study_validation_lifecycle_residual.program.json",
+        "fixtures/full_lifecycle.program.json",
+        "fixtures/validation_freeze.program.json",
+        "fixtures/validation_model.program.json",
+        "fixtures/data_driven.program.json",
+        "fixtures/interpretation.program.json",
+        "fixtures/legacy_dual.program.json",
+        "fixtures/samd_research.program.json",
+        "fixtures/samd_holdout_enrichment.program.json",
+        "fixtures/samd_pivotal.program.json",
+    ]
+}
 
 sys.path.insert(0, str(repo / "workflow_engine"))
+from ops.domain_program_registry import load_program_document, register_domain_program_after_deploy
 from ops.workflow_deploy import deploy_workflow_definition
 from rest.connection import resolve_connection_config
 from rest.db import open_gateway_db
@@ -130,6 +153,17 @@ try:
         )
         name = spec.get("name") or path.stem
         results[name] = result
+        stem = path.name.replace("_compiled.json", "")
+        src = source_by_stem.get(stem)
+        if src and src.is_file():
+            program_doc = load_program_document(src)
+            register_domain_program_after_deploy(
+                db,
+                program_document=program_doc,
+                workflow_def_id=result.get("workflow_def_id"),
+                workflow_version_id=result.get("workflow_version_id"),
+            )
+            print(f"registered cfg.domain_program {program_doc.get('name')} from {src.name}")
         print(f"deployed {name}: workflow_version_id={result.get('workflow_version_id')}")
 finally:
     db.close()

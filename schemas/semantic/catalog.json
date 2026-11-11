@@ -25,16 +25,16 @@
             "ilike"
           ],
           "json_type": "string",
-          "role": "label"
+          "role": "list"
         }
       ],
       "catalog_type_name": null,
       "code": "customer",
-      "content_hash": "cab66c4ac2aec5ec2a964e2eb8dee040e139c625f5db502cf9fe6d53bde2f908",
+      "content_hash": "65b4ea8e12b371954cbbd9a6248c68732845a107295b0f321285f5d43973119a",
       "description": "Organization-scoped omics customer.",
       "display_name": "Customer",
       "meta_class_id": null,
-      "meta_class_name": "OmicsCustomer",
+      "meta_class_name": "omics/Customer",
       "namespace": "omics",
       "row_schema": {
         "additionalProperties": false,
@@ -61,7 +61,7 @@
         "type": "object"
       },
       "row_type": "portal.omics_customer_row",
-      "schema_id": "goliath:meta/class/OmicsCustomer",
+      "schema_id": "goliath:meta/class/omics/Customer",
       "schema_version": "1",
       "storage_relation": "\"Meta\".\"VOmicsCustomer\""
     },
@@ -81,7 +81,7 @@
             "ilike"
           ],
           "json_type": "string",
-          "role": "label"
+          "role": "list"
         },
         {
           "code": "parent_id",
@@ -95,11 +95,11 @@
       ],
       "catalog_type_name": null,
       "code": "disease",
-      "content_hash": "7092d029c441f2f09e065e9eccf1a3f8f2cb5b75fe901d6683ddea57c97eb26d",
+      "content_hash": "be5a0d4a4d17b7601897b36245211a5d54b13b87373fcf4cf3be4768c1aa0c98",
       "description": "Clinical disease or trait catalog entry.",
       "display_name": "Disease",
       "meta_class_id": null,
-      "meta_class_name": "OmicsDisease",
+      "meta_class_name": "omics/Disease",
       "namespace": "omics",
       "row_schema": {
         "additionalProperties": false,
@@ -133,7 +133,7 @@
         "type": "object"
       },
       "row_type": "portal.omics_disease_row",
-      "schema_id": "goliath:meta/class/OmicsDisease",
+      "schema_id": "goliath:meta/class/omics/Disease",
       "schema_version": "1",
       "storage_relation": "\"Meta\".\"VOmicsDisease\""
     },
@@ -162,14 +162,14 @@
             "ilike"
           ],
           "json_type": "string",
-          "role": "label"
+          "role": "list"
         },
         {
           "code": "description",
           "column_name": "description",
           "filterable_ops": [],
           "json_type": "string",
-          "role": "attribute"
+          "role": "detail"
         },
         {
           "code": "sample_count",
@@ -179,12 +179,12 @@
             "lte"
           ],
           "json_type": "integer",
-          "role": "measure"
+          "role": "detail"
         }
       ],
       "catalog_type_name": null,
       "code": "group",
-      "content_hash": "f78fed87e0f688b6ed4ef99f88065aaf7703be1b300ac58940430be6a7d7f58c",
+      "content_hash": "3bc78075e4272ba0b39102762cf6e5a26ae1429d37d93ee6903e93909b8575dd",
       "description": "Customer-owned sample group for studies and enrollment.",
       "display_name": "Sample group",
       "meta_class_id": null,
@@ -259,12 +259,12 @@
             "ilike"
           ],
           "json_type": "string",
-          "role": "label"
+          "role": "list"
         }
       ],
       "catalog_type_name": null,
       "code": "lab",
-      "content_hash": "8798e8ae127f17b9b3afe94a05cdde766fe681cac52358f465481c9ac3ac2e74",
+      "content_hash": "ec31d53ba0a962a9b94db79c7fbeee987d70c55573491795ebb949603cddac4f",
       "description": "Processing lab reference.",
       "display_name": "Lab",
       "meta_class_id": null,
@@ -293,6 +293,85 @@
       "schema_id": "goliath.semantic/omics/lab/1",
       "schema_version": "1",
       "storage_relation": "omics_clinical.v_lab"
+    },
+    "omics.lab_batch": {
+      "attributes": [
+        {
+          "code": "lab_batch_id",
+          "column_name": "legacy_batch_id",
+          "filterable_ops": [],
+          "json_type": "integer",
+          "role": "key"
+        },
+        {
+          "code": "lab_id",
+          "column_name": "lab_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        },
+        {
+          "code": "name",
+          "column_name": "name",
+          "filterable_ops": [
+            "ilike"
+          ],
+          "json_type": "string",
+          "role": "list"
+        }
+      ],
+      "catalog_type_name": null,
+      "code": "lab_batch",
+      "content_hash": "e7af145ea5c9bab42b31991eaced3e501821f24db05c7d212a5c90cd8f8b7667",
+      "description": "Processing lab batch (legacy portal.Batches mirror).",
+      "display_name": "Lab batch",
+      "meta_class_id": null,
+      "meta_class_name": "omics/LabBatch",
+      "namespace": "omics",
+      "row_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "lab_batch_id": {
+            "title": "Lab Batch Id",
+            "type": "integer"
+          },
+          "lab_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lab Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          }
+        },
+        "required": [
+          "lab_batch_id"
+        ],
+        "title": "LabBatchRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_lab_batch_row",
+      "schema_id": "goliath:meta/class/omics/LabBatch",
+      "schema_version": "1",
+      "storage_relation": "\"Meta\".\"VOmicsLabBatch\""
     },
     "omics.lab_reagent": {
       "attributes": [
@@ -337,14 +416,14 @@
             "ilike"
           ],
           "json_type": "string",
-          "role": "label"
+          "role": "list"
         },
         {
           "code": "lot_number",
           "column_name": "lot_number",
           "filterable_ops": [],
           "json_type": "string",
-          "role": "attribute"
+          "role": "detail"
         },
         {
           "code": "qty_on_hand",
@@ -354,12 +433,12 @@
             "lte"
           ],
           "json_type": "number",
-          "role": "measure"
+          "role": "detail"
         }
       ],
       "catalog_type_name": null,
       "code": "lab_reagent",
-      "content_hash": "935993154f830d2435d7c056c68c4f61ed52733804e231cbc2dc44a8da2e1867",
+      "content_hash": "7ca2f807869cb587404d05fac1ea8fce389e4f6658a979c6585cb718859fae65",
       "description": "On-hand reagent stock lot linked to a lab via omics_lab_inv.",
       "display_name": "Lab reagent lot",
       "meta_class_id": null,
@@ -464,6 +543,120 @@
       "schema_version": "1",
       "storage_relation": "omics_lab_inv.v_lab_reagent"
     },
+    "omics.patient": {
+      "attributes": [
+        {
+          "code": "patient_id",
+          "column_name": "legacy_patient_id",
+          "filterable_ops": [],
+          "json_type": "integer",
+          "role": "key"
+        },
+        {
+          "code": "institution_id",
+          "column_name": "institution_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        },
+        {
+          "code": "name",
+          "column_name": "name",
+          "filterable_ops": [
+            "ilike"
+          ],
+          "json_type": "string",
+          "role": "list"
+        },
+        {
+          "code": "sex",
+          "column_name": "sex",
+          "filterable_ops": [],
+          "json_type": "string",
+          "role": "detail"
+        },
+        {
+          "code": "year_born",
+          "column_name": "year_born",
+          "filterable_ops": [
+            "eq",
+            "gte",
+            "lte"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        }
+      ],
+      "catalog_type_name": null,
+      "code": "patient",
+      "content_hash": "58c697711a4253c29300c180876a5d6c5fc61d9aadb4fdaab98a1b1bb68ba570",
+      "description": "Clinical patient linked to institution and samples.",
+      "display_name": "Patient",
+      "meta_class_id": null,
+      "meta_class_name": "omics/Patient",
+      "namespace": "omics",
+      "row_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "institution_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Institution Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "patient_id": {
+            "title": "Patient Id",
+            "type": "integer"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sex"
+          },
+          "year_born": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year Born"
+          }
+        },
+        "required": [
+          "patient_id",
+          "name"
+        ],
+        "title": "PatientRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_patient_row",
+      "schema_id": "goliath:meta/class/omics/Patient",
+      "schema_version": "1",
+      "storage_relation": "\"Meta\".\"VOmicsPatient\""
+    },
     "omics.sample": {
       "attributes": [
         {
@@ -507,30 +700,30 @@
             "ilike"
           ],
           "json_type": "string",
-          "role": "label"
+          "role": "list"
         },
         {
           "code": "age",
           "column_name": "age",
           "filterable_ops": [],
           "json_type": "number",
-          "role": "attribute"
+          "role": "detail"
         },
         {
           "code": "bmi",
           "column_name": "bmi",
           "filterable_ops": [],
           "json_type": "number",
-          "role": "attribute"
+          "role": "detail"
         }
       ],
       "catalog_type_name": null,
       "code": "sample",
-      "content_hash": "7283ef40695292e73c5459b51b740313c30b3afc226acb7a2efda0bf758b70b4",
+      "content_hash": "d2d3ff564feb9204094b7603224339899e51de2879833c8797392af0acbf34c3",
       "description": "Clinical portal sample linked to a patient and customer.",
       "display_name": "Portal sample",
       "meta_class_id": null,
-      "meta_class_name": "OmicsSample",
+      "meta_class_name": "omics/Sample",
       "namespace": "omics",
       "row_schema": {
         "additionalProperties": false,
@@ -612,7 +805,7 @@
         "type": "object"
       },
       "row_type": "portal.omics_sample_row",
-      "schema_id": "goliath:meta/class/OmicsSample",
+      "schema_id": "goliath:meta/class/omics/Sample",
       "schema_version": "1",
       "storage_relation": "\"Meta\".\"VOmicsSample\""
     }
