@@ -156,8 +156,7 @@ Set plain values in the template. Reference RunPod secrets as `{{ RUNPOD_SECRET_
 
 | Variable | Value |
 | --- | --- |
-| `WORKER_API_BASE` | `https://45.76.21.8/v1` (the profile `public_base_url`; the worker appends `/workers/...`) |
-| `GOLIATH_GATEWAY_CA_PEM` | `{{ RUNPOD_SECRET_GOLIATH_GATEWAY_CA_PEM }}` — PEM of the gateway `ca.pem`. Required while the gateway TLS mode is `self-signed`. |
+| `WORKER_API_BASE` | `https://gateway.goliathresearch.com/v1` (the profile `public_base_url`; the worker appends `/workers/...`) |
 | `GOLIATH_ENV` | `goliath-test` |
 | `GOLIATH_GITHUB_REPO` | `Goliath-Research/GoliathOmics` |
 | `CLUSTER_KEY` | `goliath` |
@@ -185,21 +184,11 @@ Set plain values in the template. Reference RunPod secrets as `{{ RUNPOD_SECRET_
 
 ## Gateway certificate
 
-goliath-test has no DNS name. The gateway deploy issues a self-signed certificate for `45.76.21.8` and keeps it at `/etc/ssl/methyl-gateway/ca.pem`. `methyl-worker` and `requests` will not trust that certificate until the pod has the PEM.
+goliath-test publishes the gateway at `https://gateway.goliathresearch.com/v1`. Caddy on the platform host holds a public certificate for that name, so workers trust it through the system CA store. Leave `GOLIATH_GATEWAY_CA_PEM` unset in the template.
 
-After the first gateway deploy that installs nginx:
+`GOLIATH_GATEWAY_CA_PEM` is only for a gateway whose `gateway.tls.mode` is `self-signed`. In that case, read `/etc/ssl/methyl-gateway/ca.pem` on the gateway after the first deploy that installs nginx, store it as the RunPod secret `GOLIATH_GATEWAY_CA_PEM` (including the `BEGIN CERTIFICATE` and `END CERTIFICATE` lines), and set the template variable to `{{ RUNPOD_SECRET_GOLIATH_GATEWAY_CA_PEM }}`. On boot the start script writes the PEM to `/work/goliath/env/gateway-ca.pem` and does not print it. When a system CA bundle is present it also writes `/work/goliath/env/requests-ca-bundle.pem` (the system bundle plus the gateway certificate) and exports `REQUESTS_CA_BUNDLE` and `SSL_CERT_FILE` to that file. `GOLIATH_GATEWAY_CA_FILE` points at the gateway certificate alone. A pod that was already joined still rewrites `worker.env` on boot. To rotate a self-signed certificate, delete `/etc/ssl/methyl-gateway` on the gateway, deploy again, and replace the RunPod secret.
 
-```bash
-ssh -i <deploy-key> linuxuser@45.76.21.8 sudo cat /etc/ssl/methyl-gateway/ca.pem
-```
-
-Create a RunPod secret named `GOLIATH_GATEWAY_CA_PEM` whose value is that PEM, including the `BEGIN CERTIFICATE` and `END CERTIFICATE` lines. In the template, set `GOLIATH_GATEWAY_CA_PEM` to `{{ RUNPOD_SECRET_GOLIATH_GATEWAY_CA_PEM }}`.
-
-On boot the start script writes the PEM to `/work/goliath/env/gateway-ca.pem` (world-readable; `chmod 644` is best-effort) and does not print it. When a system CA bundle is present it also writes `/work/goliath/env/requests-ca-bundle.pem` (the system bundle plus the gateway certificate) and exports `REQUESTS_CA_BUNDLE` and `SSL_CERT_FILE` to that file. `GOLIATH_GATEWAY_CA_FILE` points at the gateway certificate alone. `methyl-worker` adds `GOLIATH_GATEWAY_CA_FILE` to the default trust store for gateway HTTPS. `requests` uses `REQUESTS_CA_BUNDLE`, which still contains the system CAs, so other HTTPS calls keep working. The certificate is public. Storage keys and the worker token are not written beside it.
-
-Restart the pod after the secret is set. A pod that was already joined still rewrites `worker.env` on boot. If you rotate the gateway certificate, delete `/etc/ssl/methyl-gateway` on the gateway, deploy again, and replace the RunPod secret with the new `ca.pem`.
-
-Leave `GOLIATH_GATEWAY_CA_PEM` unset when `gateway.tls.mode` is `letsencrypt`. Those certificates are in the public trust store.
+Leave `GOLIATH_GATEWAY_CA_PEM` unset when `gateway.tls.mode` is `letsencrypt` or `external` with a public certificate.
 
 Optional: `GOLIATH_RELEASE_URL` is a direct tarball URL. `GOLIATH_RELEASE_TAG` selects a tag instead of the newest `goliathomics-*` release, for the template download of `goliath-worker-bootstrap.sh`, for the bootstrap download of `goliath-worker-start.sh`, and for the release bundle. Prefer leaving both unset. `GH_TOKEN` reads the newest non-draft, non-prerelease `goliathomics-*` tag and, when `/work/goliath/current` is absent, the `goliathomics-release-*.tar.gz` asset on that GitHub release.
 

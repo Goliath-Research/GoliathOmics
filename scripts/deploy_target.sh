@@ -14,7 +14,9 @@
 # The gateway component also installs nginx and TLS
 # (scripts/setup_gateway_nginx.sh). The default certificate is self-signed
 # for the public IP and is created once on the host. gateway.tls.mode
-# letsencrypt is optional and needs a domain.
+# letsencrypt is optional and needs a domain. gateway.tls.mode external
+# skips nginx: a reverse proxy the operator manages on the host (Caddy on
+# the platform host) terminates TLS and forwards /v1/ to bind_host:port.
 #
 # SSH and scp read host keys from ~/.ssh/known_hosts. The release-deploy
 # workflow writes the GOLIATH_GATEWAY_KNOWN_HOSTS secret there before it
@@ -183,7 +185,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   info "secret names (values are not read):"
   secret_names | sed 's/^/  /'
   info "gateway hosts: $(jq_get '[.gateway.hosts[]?.ssh] | join(", ")')"
-  info "gateway public_base_url=$(jq_get '.gateway.public_base_url // ""') tls=$(jq_get '.gateway.tls.mode // "self-signed"')"
+  info "gateway public_base_url=$(jq_get '.gateway.public_base_url // ""') tls=$(jq_get '.gateway.tls.mode // "self-signed"') db_login=$(jq_get '.gateway.db_login // "gateway_role"')"
   info "workers: $(jq_get '[.workers[]? | if .self_provision == true then "\(.name) self_provision \(.provider // "unknown") \(.arch) \(.template // "")" else "\(.name) \(.ssh // "") \(.arch) \(.capability // "")" end] | join("; ")')"
   info "database host: $(jq_get '.database.host') schema_host=$(jq_get '.database.schema_host // ""') kind=$(jq_get '.database.kind') channel_binding=$(jq_get '.database.channel_binding // ""')"
   info "schema: goliathapp=$(jq_get '.schema.goliathapp // "per-release"') apply=$(jq_get '.schema.apply // "unset"') force=${FORCE_SCHEMA}"
@@ -421,9 +423,23 @@ load_gateway_role_passwords() {
   fi
 }
 
+# gateway.db_login "owner" makes the gateway log in as database.user (the
+# owner) even when a goliath_gateway password is available. Default
+# "gateway_role" keeps the least-privilege role whenever its password is set.
+gateway_db_login() {
+  local mode
+  mode="$(jq_get '.gateway.db_login // "gateway_role"')"
+  case "$mode" in
+    owner|gateway_role) printf '%s' "$mode" ;;
+    *) die "gateway.db_login must be owner or gateway_role" ;;
+  esac
+}
+
 gateway_db_user_for_runtime() {
   load_gateway_role_passwords
-  if [[ -n "$GOLIATH_GATEWAY_DB_PASSWORD" ]]; then
+  if [[ "$(gateway_db_login)" == "owner" ]]; then
+    printf '%s' "$db_user"
+  elif [[ -n "$GOLIATH_GATEWAY_DB_PASSWORD" ]]; then
     printf '%s' "$GOLIATH_GATEWAY_DB_USER"
   else
     printf '%s' "$db_user"
@@ -432,7 +448,9 @@ gateway_db_user_for_runtime() {
 
 gateway_db_password_for_runtime() {
   load_gateway_role_passwords
-  if [[ -n "$GOLIATH_GATEWAY_DB_PASSWORD" ]]; then
+  if [[ "$(gateway_db_login)" == "owner" ]]; then
+    printf '%s' "$DB_PASSWORD"
+  elif [[ -n "$GOLIATH_GATEWAY_DB_PASSWORD" ]]; then
     printf '%s' "$GOLIATH_GATEWAY_DB_PASSWORD"
   else
     printf '%s' "$DB_PASSWORD"
@@ -798,6 +816,7 @@ run_gateway() {
   load_gateway_role_passwords
   local gw_db_user gw_db_password
   gw_db_user="$(gateway_db_user_for_runtime)"
+  info "gateway db_login=$(gateway_db_login) user=${gw_db_user}"
   gw_db_password="$(gateway_db_password_for_runtime)"
   # The release artifact is already on the runner (GOLIATH_RELEASE_SRC).
   # Runtime promote does not stage it onto this gateway: goliath-test workers
@@ -829,8 +848,8 @@ run_gateway() {
     tls_mode="self-signed"
   fi
   case "$tls_mode" in
-    self-signed|letsencrypt) ;;
-    *) die "gateway.tls.mode must be self-signed or letsencrypt" ;;
+    self-signed|letsencrypt|external) ;;
+    *) die "gateway.tls.mode must be self-signed, letsencrypt, or external" ;;
   esac
   tls_domain="$(jq_get '.gateway.tls.domain // empty')"
   tls_email="$(jq_get '.gateway.tls.email // empty')"
@@ -927,15 +946,19 @@ run_gateway() {
     assert_remote_literal "gateway port" "$port"
     info "gateway tls mode=${tls_mode} public_host=${public_host}"
     gw_env_cmd+=" && rm -f /tmp/goliath-gateway.env && sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_gateway_systemd.sh --root '$root' --release '$release_remote'"
-    gw_env_cmd+=" && sudo bash /tmp/goliath-deploy/scripts/setup_gateway_nginx.sh --public-host '$public_host' --tls '$tls_mode' --bind '$bind' --port '$port'"
-    if [[ -n "$tls_san" ]]; then
-      assert_remote_literal "gateway tls san" "$tls_san"
-      gw_env_cmd+=" --san-ip '$tls_san'"
-    fi
-    if [[ "$tls_mode" == "letsencrypt" ]]; then
-      assert_remote_literal "gateway tls domain" "$tls_domain"
-      assert_remote_literal "gateway tls email" "$tls_email"
-      gw_env_cmd+=" --domain '$tls_domain' --email '$tls_email'"
+    if [[ "$tls_mode" == "external" ]]; then
+      info "gateway tls mode=external: nginx is not installed; the host reverse proxy publishes ${gateway_url:-/v1}"
+    else
+      gw_env_cmd+=" && sudo bash /tmp/goliath-deploy/scripts/setup_gateway_nginx.sh --public-host '$public_host' --tls '$tls_mode' --bind '$bind' --port '$port'"
+      if [[ -n "$tls_san" ]]; then
+        assert_remote_literal "gateway tls san" "$tls_san"
+        gw_env_cmd+=" --san-ip '$tls_san'"
+      fi
+      if [[ "$tls_mode" == "letsencrypt" ]]; then
+        assert_remote_literal "gateway tls domain" "$tls_domain"
+        assert_remote_literal "gateway tls email" "$tls_email"
+        gw_env_cmd+=" --domain '$tls_domain' --email '$tls_email'"
+      fi
     fi
     if ssh_cmd "$dest" "$gw_env_cmd"; then
       report_component succeeded goliath-gateway "gateway ${dest}"

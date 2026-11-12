@@ -278,8 +278,8 @@ jq -e '
 ' "$real" >/dev/null || fail "goliath-test secret fields must be secret:NAME references"
 jq -e '.workers[0].self_provision == true and .workers[0].ssh == null' "$real" >/dev/null \
   || fail "goliath-test worker must be self-provision and have no ssh host"
-jq -e '.database.dbname == "GoliathOmics"' "$real" >/dev/null \
-  || fail "goliath-test database must be GoliathOmics"
+jq -e '.database.dbname == "GoliathOmics_v2"' "$real" >/dev/null \
+  || fail "goliath-test database must be GoliathOmics_v2"
 jq -e '
   .shared_storage.bucket == "goliath-omics"
   and .shared_storage.endpoint == "https://s3.us-east-005.backblazeb2.com"
@@ -297,8 +297,10 @@ env -u NEON_TEST_PASSWORD -u B2_ACCESS_KEY_ID -u B2_SECRET_ACCESS_KEY \
   bash "$ROOT/scripts/deploy_target.sh" --target goliath-test --dry-run >"$out" 2>"$err"
 grep -q 'secret:GOLIATH_DEPLOY_SSH_KEY' "$out" || fail "dry-run should list the ssh key secret name"
 grep -q 'secret:NEON_TEST_PASSWORD' "$out" || fail "dry-run should list the neon secret"
-grep -q '45.76.21.8' "$out" || fail "dry-run should show the gateway address"
-grep -q 'tls=self-signed' "$out" || fail "dry-run should show self-signed TLS"
+grep -q 'linuxuser@45.63.16.235' "$out" || fail "dry-run should show the gateway host"
+grep -q 'public_base_url=https://gateway.goliathresearch.com/v1' "$out" || fail "dry-run should show the gateway URL"
+grep -q 'tls=external' "$out" || fail "dry-run should show external TLS (Caddy on the platform host)"
+grep -q 'db_login=owner' "$out" || fail "dry-run should show the owner gateway login"
 grep -q 'ep-wandering-pine-a5l8s690-pooler.us-east-2.aws.neon.tech' "$out" || fail "dry-run should show the pooled host"
 grep -q 'schema_host=ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech' "$out" || fail "dry-run should show schema_host"
 grep -q 'channel_binding=require' "$out" || fail "dry-run should show channel_binding"
@@ -586,8 +588,13 @@ env NEON_TEST_PASSWORD='neon-secret-value' \
   GOLIATH_DEPLOY_SSH_KEY="$fake_key" \
   GOLIATH_RELEASE_SRC="$release_src" PATH="$ssh_dir:$PATH" \
   bash "$ROOT/scripts/deploy_target.sh" --target goliath-test --component gateway >"$out" 2>"$err"
-grep -q "setup_gateway_nginx.sh --public-host '45.76.21.8' --tls 'self-signed' --bind '127.0.0.1' --port '8080' --san-ip '45.76.21.8'" "$ssh_log" \
-  || fail "goliath-test gateway deploy should install nginx for the public IP"
+if grep -q 'setup_gateway_nginx.sh' "$ssh_log"; then
+  fail "goliath-test gateway uses tls.mode external (Caddy); deploy must not install nginx"
+fi
+grep -q "install_gateway_systemd.sh --root '/opt/goliath-gateway'" "$ssh_log" \
+  || fail "goliath-test gateway deploy should still install the gateway service"
+grep -q 'gateway db_login=owner user=neondb_owner' "$out" \
+  || fail "goliath-test gateway should log in as the owner even when a gateway role password is set"
 if grep -qE 'neon-secret-value|gateway-role-secret|portal-role-secret' "$out" "$err" "$ssh_log"; then
   fail "goliath-test gateway deploy printed a database password"
 fi
