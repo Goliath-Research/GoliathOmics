@@ -20,7 +20,7 @@ has no key yet (reuses /etc/ssl/methyl-gateway when present). Later runs keep th
 Options:
   --public-host HOST    Name clients use (IP or DNS). Required unless --public-url is set.
   --public-url URL      https://host/v1 form. The host is used as --public-host.
-  --tls MODE            self-signed (default) or letsencrypt
+  --tls MODE            self-signed (default), letsencrypt, or external
   --san-ip IP           SAN IP for the self-signed certificate. Defaults to
                         --public-host when that host is an IPv4 address.
   --domain NAME         DNS name. Required when --tls letsencrypt.
@@ -105,8 +105,8 @@ fi
 [[ -n "$PUBLIC_HOST" ]] || die "--public-host or --public-url is required"
 assert_token "public host" "$PUBLIC_HOST"
 case "$TLS_MODE" in
-  self-signed|letsencrypt) ;;
-  *) die "--tls must be self-signed or letsencrypt" ;;
+  self-signed|letsencrypt|external) ;;
+  *) die "--tls must be self-signed, letsencrypt, or external" ;;
 esac
 [[ "$PORT" =~ ^[0-9]+$ ]] || die "--port must be an integer"
 [[ "$PROBE_ATTEMPTS" =~ ^[0-9]+$ ]] || die "--probe-attempts must be an integer"
@@ -174,10 +174,16 @@ ensure_cmd() {
   command -v "$cmd" >/dev/null 2>&1 || die "${cmd} is not available after installing ${pkg}"
 }
 
-ensure_cmd nginx nginx
-ensure_cmd openssl openssl
-if [[ "$SKIP_PROBE" -eq 0 ]]; then
-  ensure_cmd curl curl
+if [[ "$TLS_MODE" == "external" ]]; then
+  if [[ "$SKIP_PROBE" -eq 0 ]]; then
+    ensure_cmd curl curl
+  fi
+else
+  ensure_cmd nginx nginx
+  ensure_cmd openssl openssl
+  if [[ "$SKIP_PROBE" -eq 0 ]]; then
+    ensure_cmd curl curl
+  fi
 fi
 
 ufw_is_active() {
@@ -391,6 +397,23 @@ curl_code() {
   printf '%s' "${code:-000}"
 }
 
+probe_backend() {
+  local attempt code
+  [[ "$SKIP_PROBE" -eq 0 ]] || return 0
+  code="000"
+  for ((attempt = 1; attempt <= PROBE_ATTEMPTS; attempt++)); do
+    code="$(curl_code "http://${BIND}:${PORT}/v1/")"
+    if proxy_ok "$code"; then
+      info "gateway responded to curl http://${BIND}:${PORT}/v1/ (HTTP ${code})"
+      return 0
+    fi
+    if [[ "$attempt" -lt "$PROBE_ATTEMPTS" ]]; then
+      sleep 1
+    fi
+  done
+  die "gateway did not respond at http://${BIND}:${PORT}/v1/ (last HTTP ${code:-000}). goliath-gateway should be listening on ${BIND}:${PORT}. HTTP 000 means nothing accepted the request. HTTP 502/504 means the gateway process did not answer."
+}
+
 probe_proxy() {
   local attempt code
   [[ "$SKIP_PROBE" -eq 0 ]] || return 0
@@ -432,6 +455,12 @@ publish_cert_hint() {
     info "Let's Encrypt certificate for ${DOMAIN} is in the public trust store. Workers do not need GOLIATH_GATEWAY_CA_PEM."
   fi
 }
+
+if [[ "$TLS_MODE" == "external" ]]; then
+  probe_backend
+  info "external TLS: operator-managed reverse proxy should publish https://${PUBLIC_HOST}/v1 (upstream ${BIND}:${PORT})"
+  exit 0
+fi
 
 open_firewall
 if [[ "$TLS_MODE" == "letsencrypt" ]]; then

@@ -946,10 +946,10 @@ run_gateway() {
     assert_remote_literal "gateway port" "$port"
     info "gateway tls mode=${tls_mode} public_host=${public_host}"
     gw_env_cmd+=" && rm -f /tmp/goliath-gateway.env && sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_gateway_systemd.sh --root '$root' --release '$release_remote'"
+    gw_env_cmd+=" && sudo bash /tmp/goliath-deploy/scripts/setup_gateway_nginx.sh --public-host '$public_host' --tls '$tls_mode' --bind '$bind' --port '$port'"
     if [[ "$tls_mode" == "external" ]]; then
       info "gateway tls mode=external: nginx is not installed; the host reverse proxy publishes ${gateway_url:-/v1}"
     else
-      gw_env_cmd+=" && sudo bash /tmp/goliath-deploy/scripts/setup_gateway_nginx.sh --public-host '$public_host' --tls '$tls_mode' --bind '$bind' --port '$port'"
       if [[ -n "$tls_san" ]]; then
         assert_remote_literal "gateway tls san" "$tls_san"
         gw_env_cmd+=" --san-ip '$tls_san'"

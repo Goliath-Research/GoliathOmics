@@ -588,8 +588,10 @@ env NEON_TEST_PASSWORD='neon-secret-value' \
   GOLIATH_DEPLOY_SSH_KEY="$fake_key" \
   GOLIATH_RELEASE_SRC="$release_src" PATH="$ssh_dir:$PATH" \
   bash "$ROOT/scripts/deploy_target.sh" --target goliath-test --component gateway >"$out" 2>"$err"
-if grep -q 'setup_gateway_nginx.sh' "$ssh_log"; then
-  fail "goliath-test gateway uses tls.mode external (Caddy); deploy must not install nginx"
+grep -q "setup_gateway_nginx.sh --public-host 'gateway.goliathresearch.com' --tls 'external' --bind '127.0.0.1' --port '8080'" "$ssh_log" \
+  || fail "goliath-test gateway deploy should probe the loopback API without installing nginx"
+if grep -qE "setup_gateway_nginx\.sh.*--tls '(self-signed|letsencrypt)'" "$ssh_log"; then
+  fail "goliath-test gateway uses tls.mode external (Caddy); deploy must not install nginx TLS"
 fi
 grep -q "install_gateway_systemd.sh --root '/opt/goliath-gateway'" "$ssh_log" \
   || fail "goliath-test gateway deploy should still install the gateway service"
