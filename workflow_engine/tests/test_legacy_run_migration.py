@@ -25,7 +25,9 @@ from ops.legacy_run_migration import (
     match_versions,
     next_free_minor,
     order_node_executions,
+    project_archive_id,
     remap_scope_node_execution_id,
+    study_document,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -179,6 +181,41 @@ def test_source_must_be_read_only() -> None:
     assert_read_only(_Cur("on"))
     with pytest.raises(MigrationError):
         assert_read_only(_Cur("off"))
+
+
+def test_project_archive_id() -> None:
+    assert project_archive_id("/work/projects/sampleprep-e2e-clara/output") == "sampleprep-e2e-clara"
+    assert project_archive_id("/work/projects/x") == "x"
+    assert project_archive_id("/work/other/x/output") is None
+    assert project_archive_id("/work/projects/") is None
+    assert project_archive_id(None) is None
+
+
+def test_study_document_uses_only_recorded_facts() -> None:
+    runs = [
+        {
+            "context_json": {"project": {"project_name": "S", "chromosomes": ["1", "21"], "contexts": ["CG"],
+                                         "output_base": "/work/projects/s/output"}},
+            "started_at_utc": "2026-10-20T23:11:00+00:00",
+            "completed_at_utc": "2026-10-20T23:40:00+00:00",
+            "data_json": {"source_instance_id": 15, "sample_ids": ["a"]},
+        },
+        {
+            "context_json": {"project": {"project_name": "S", "chromosomes": ["1", "21"], "contexts": ["CG"],
+                                         "output_base": "/work/projects/s/output"}},
+            "started_at_utc": "2026-10-21T19:06:04+00:00",
+            "completed_at_utc": "2026-10-21T19:10:20+00:00",
+            "data_json": {"source_instance_id": 14, "sample_ids": ["a", "b"]},
+        },
+    ]
+    doc = study_document("S", "desc", runs, source_label="legacy")
+    assert doc["name"] == "S" and doc["description"] == "desc"
+    assert doc["project"] == {"chromosomes": ["1", "21"], "contexts": ["CG"], "output_base": "/work/projects/s/output"}
+    assert doc["sample_ids"] == ["a", "b"]
+    assert doc["runs"] == {"count": 2, "first_started_at_utc": "2026-10-20T23:11:00+00:00",
+                           "last_completed_at_utc": "2026-10-21T19:10:20+00:00"}
+    assert doc["source"]["source_instance_ids"] == [14, 15]
+    assert "description" not in study_document("S", None, runs, source_label="legacy")
 
 
 # --------------------------------------------------------------------------
@@ -386,3 +423,104 @@ def test_dry_run_apply_rerun(two_dbs: Dict[str, Dict[str, str]]) -> None:
     assert len(again["skipped_already_migrated"]) == 2
     assert _counts(tgt) == "2/6/4/2/2"
     assert _counts(src) == src_before
+
+
+# --------------------------------------------------------------------------
+# PostgreSQL: study link on a target with the GoliathApp portal baseline and
+# the Omics domain schema (omics/Study Meta class, ScopedMetaObjects).
+# --------------------------------------------------------------------------
+
+PORTAL_SQL = Path(
+    os.environ.get("GOLIATH_APP_PORTAL_SQL_DIR", REPO_ROOT / "_goliathapp_portal" / "workflow_engine" / "sql_pg")
+)
+DOMAIN_APPLY = REPO_ROOT / "scripts" / "apply_domain_schema.sh"
+STUDY = "SamplePrep_e2e_clara_linear_canary"
+
+
+@pytest.fixture(scope="module")
+def study_dbs() -> Iterator[Dict[str, Dict[str, str]]]:
+    if not which("psql"):
+        pytest.skip("psql not installed")
+    if not (PORTAL_SQL / "apply_schema.sh").is_file():
+        pytest.skip(f"GoliathApp portal baseline apply_schema.sh not found at {PORTAL_SQL}")
+    pytest.importorskip("psycopg")
+    admin = _pg_env()
+    try:
+        _psql("SELECT 1", admin)
+    except RuntimeError:
+        pytest.skip("PostgreSQL not reachable")
+    suffix = uuid.uuid4().hex[:8]
+    out: Dict[str, Dict[str, str]] = {}
+    for role in ("src", "tgt"):
+        name = f"legacy_study_{role}_{suffix}"
+        _psql(f'CREATE DATABASE "{name}"', admin)
+        env = _pg_env(name)
+        subprocess.run(["bash", str(PORTAL_SQL / "apply_schema.sh")], env=env, check=True, cwd=str(PORTAL_SQL),
+                       capture_output=True)
+        out[role] = env
+    subprocess.run(["bash", str(DOMAIN_APPLY)], env=out["tgt"], check=True, capture_output=True)
+    out["ids"] = {"ids": ",".join(str(i) for i in _seed_source(out["src"]))}
+    _create_graph(out["tgt"], GRAPH_V2)
+    yield out
+    for role in ("src", "tgt"):
+        subprocess.run(["psql", "-X", "-c", f'DROP DATABASE IF EXISTS "{out[role]["PGDATABASE"]}" WITH (FORCE)'],
+                       env=admin, capture_output=True, check=False)
+
+
+def _study_state(env: Dict[str, str]) -> str:
+    return _psql(
+        "SELECT (SELECT count(*) FROM cfg.study) || '/' || (SELECT count(*) FROM cfg.study_instance_link) "
+        "|| '/' || (SELECT count(*) FROM omics_clinical.study_meta_link) "
+        "|| '/' || (SELECT count(*) FROM \"Meta\".\"Objs\" o JOIN \"Meta\".\"Classes\" c ON c.\"ID\" = o.\"ClassID\" "
+        "WHERE c.\"Name\" = 'omics/Study')",
+        env,
+    )
+
+
+def test_link_runs_to_study(study_dbs: Dict[str, Dict[str, str]]) -> None:
+    tgt = study_dbs["tgt"]
+    # Throwaway test database: a scope for the Meta object to live in.
+    scope = _psql("SELECT scope_id FROM portal.sp_organization_create('Study link test organization')", tgt)
+    args = ("--link-study", STUDY, "--study-description", "WGBS test", "--study-scope-id", scope)
+
+    dry = _run(study_dbs, *args)
+    assert dry["study"]["links_added"] == 2
+    assert _study_state(tgt) == "0/0/0/0"
+
+    first = _run(study_dbs, "--apply", *args)
+    study = first["study"]
+    assert study["study_created"] is True
+    assert study["links_added"] == 2 and study["links_existing"] == 0
+    assert _study_state(tgt) == "1/2/1/1"
+    sid = study["study_row_id"]
+    assert _psql(
+        f"SELECT count(*) FROM cfg.study_instance_link WHERE study_row_id = {sid} "
+        f"AND workflow_instance_id IN ({','.join(str(i) for i in study['instance_ids'])})",
+        tgt,
+    ) == "2"
+    assert _psql(f"SELECT document_json->>'description' FROM cfg.study WHERE id = {sid}", tgt) == "WGBS test"
+    obj = study["meta_obj_id"]
+    doc = json.loads(_psql(f'SELECT "Meta".fn_merged_obj_document({obj})::text', tgt))
+    assert doc["name"] == STUDY and doc["Label"] == STUDY
+    assert doc["cfg_study_row_id"] == sid and doc["run_count"] == 2
+    assert doc["first_run_started_at_utc"] == "2026-10-21T14:00:00Z"
+    assert _psql(f'SELECT "ScopeID" FROM portal."ScopedMetaObjects" WHERE "ObjID" = {obj}', tgt) == scope
+
+    again = _run(study_dbs, "--apply", *args)
+    assert again["study"]["study_created"] is False
+    assert again["study"]["links_added"] == 0 and again["study"]["links_existing"] == 2
+    assert again["study"]["study_row_id"] == sid and again["study"]["meta_obj_id"] == obj
+    assert sum(again["inserted"].values()) == 0
+    assert _study_state(tgt) == "1/2/1/1"
+
+
+def test_link_unknown_study_fails(study_dbs: Dict[str, Dict[str, str]]) -> None:
+    env = os.environ.copy()
+    env["LEGACY_SOURCE_DSN"] = _dsn(study_dbs["src"])
+    env["MIGRATION_TARGET_DSN"] = _dsn(study_dbs["tgt"])
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--instance-ids", study_dbs["ids"]["ids"], "--link-study", "NoSuchStudy"],
+        env=env, capture_output=True, text=True, check=False,
+    )
+    assert proc.returncode == 1
+    assert "NoSuchStudy" in proc.stderr

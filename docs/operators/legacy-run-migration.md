@@ -58,5 +58,25 @@ There is no engine API that records a finished run: `wf.sp_start_instance` and t
 ## After migrating
 
 * The copied instances keep their original October 2026 start times. The portal run list (`portal.sp_session_list_recent_instances`, called with a 168-hour window by the platform host) only shows runs from the last seven days, so these runs do not appear there until that window is widened.
-* `study_name` in run lists comes from `cfg.study_instance_link`; the legacy runs had no study link, so it stays empty.
+* `study_name` in run lists comes from `cfg.study_instance_link`; the legacy runs had no study link, so it stays empty until you link them (next section).
+
+## Link the copied runs to a study
+
+The legacy runs recorded their study name only in the instance context (`project.project_name`, copied into the provenance as `study_label`). `--link-study NAME` turns that into a real study:
+
+```bash
+python scripts/migrate_legacy_sampleprep_runs.py --link-study SamplePrep_e2e_clara_linear_canary \
+  --study-description "..." --study-scope-id 1            # dry run
+python scripts/migrate_legacy_sampleprep_runs.py --link-study SamplePrep_e2e_clara_linear_canary \
+  --study-description "..." --study-scope-id 1 --apply    # commit (rerun: no changes)
+```
+
+* The copy step runs first as usual (a no-op once the runs are copied).
+* `portal.sp_upsert_study` creates or refreshes `cfg.study` NAME version `1` (status `published`). The document holds only what the runs recorded: chromosomes, contexts, output base, sample ids, run count, first start and last completion times, and the source instance ids. `study_id` is the `/work/projects/<id>` folder of the output base when all runs agree.
+* `portal.sp_link_study_instance` links every copied run whose `study_label` is NAME. A run already linked to a different study stops the command.
+* `omics_clinical.sp_meta_mirror_study` (database/schema/18_omics_study_meta_link.sql) creates or updates one `omics/Study` Meta object for the study and scopes it in `portal."ScopedMetaObjects"`, so the workbench lists it. Apply that file first:
+
+```bash
+DOMAIN_SCHEMA_ONLY="18_omics_study_meta_link.sql" ./scripts/apply_domain_schema.sh
+```
 * A later `deploy_workflow_definitions.sh` with `delete_instances=true` would delete the copied runs with the definition; the default keep-instances deploy keeps them.
