@@ -279,4 +279,4 @@ jobs:
           python -m pip install -U pytest
           GOLIATH_APP_SQL_DIR="${GITHUB_WORKSPACE}/_goliathapp_portal/workflow_engine/sql_pg" \
             python -m pytest workflow_engine/tests/test_portal_host_package.py -q
-          python -m pytest workflow_engine/tests/test_omics_sql_fk_direction.py workflow_engine/tests/test_omics_pg_schema_apply.py tests/test_omics_semantic.py tests/test_omics_meta_classes.py tests/test_omics_meta_writes.py tests/test_omics_meta_backfill.py tests/test_omics_lab_inv_bridge.py tests/test_omics_lab_inv_semantic.py tests/test_goliath_omics_shell.py -q
+          python -m pytest workflow_engine/tests/test_omics_sql_fk_direction.py workflow_engine/tests/test_omics_pg_schema_apply.py workflow_engine/tests/test_legacy_run_migration.py tests/test_omics_semantic.py tests/test_omics_meta_classes.py tests/test_omics_meta_writes.py tests/test_omics_meta_backfill.py tests/test_omics_lab_inv_bridge.py tests/test_omics_lab_inv_semantic.py tests/test_goliath_omics_shell.py -q
