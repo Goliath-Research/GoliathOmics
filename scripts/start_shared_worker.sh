@@ -931,10 +931,9 @@ install_gateway_ca() {
     export GOLIATH_GATEWAY_CA_FILE="$dest"
   elif [[ -n "${GOLIATH_GATEWAY_CA_FILE:-}" && -f "$GOLIATH_GATEWAY_CA_FILE" ]]; then
     dest="$GOLIATH_GATEWAY_CA_FILE"
-  elif [[ -f "$ROOT/env/gateway-ca.pem" ]]; then
-    dest="$ROOT/env/gateway-ca.pem"
-    export GOLIATH_GATEWAY_CA_FILE="$dest"
   else
+    rm -f "$ROOT/env/gateway-ca.pem" "$ROOT/env/requests-ca-bundle.pem"
+    unset GOLIATH_GATEWAY_CA_FILE REQUESTS_CA_BUNDLE SSL_CERT_FILE 2>/dev/null || true
     return 0
   fi
   export GOLIATH_GATEWAY_CA_FILE="$dest"

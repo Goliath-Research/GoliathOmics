@@ -37,7 +37,7 @@ scripts/deploy_target.sh --target goliath-test --component all
 | Component | What it does |
 | --- | --- |
 | `schema` | First applies the release's GoliathApp PostgreSQL scripts once per release (see [GoliathApp schema](#goliathapp-schema-once-per-release)). Then applies `workflow_engine/sql_pg/deploy_test_bed.sh` when `schema.apply` is `test-bed`. `schema.apply` `none` skips the test-bed SQL. The connection uses `database.schema_host` when set (Neon direct host) and `database.host` otherwise. `channel_binding` is exported as `PGCHANNELBINDING`. The test-bed token fixture is applied only when the target name, `rollouts_environment`, database name, or host looks like a test bed. Set `GOLIATH_ALLOW_TEST_BED_TOKEN=1` to apply it to any other database. |
-| `gateway` | Writes `<install_root>/env/gateway.env` (database password and `POSTGRES_CHANNEL_BINDING` when set; default root `/opt/goliath-gateway`) and runs `install_gateway_systemd.sh --root`. The gateway keeps the pooled `database.host`. That script installs `goliath-gateway.service` (legacy `methyl-gateway.service` symlink) and the reclaim timer. It does not take `--env-file` or `--user`. The same SSH session then runs `setup_gateway_nginx.sh`, which installs nginx if needed, installs `deploy/nginx/goliath-gateway.conf` as a proxy to `bind_host:port` (default `127.0.0.1:8080`), and reloads nginx. TLS defaults to a self-signed certificate. SSH uses the host `identity_file`. A `secret:NAME` value is the private key, written to a mode 600 file and passed with `-i`. The client sets `PasswordAuthentication=no`. |
+| `gateway` | Writes `<install_root>/env/gateway.env` (database password and `POSTGRES_CHANNEL_BINDING` when set; default root `/opt/goliath-gateway`) and runs `install_gateway_systemd.sh --root`. The gateway uses the pooled `database.host`, or `schema_host` when `dual_activation` is true (LISTEN/NOTIFY). That script installs `goliath-gateway.service` (legacy `methyl-gateway.service` symlink) and the reclaim timer. It does not take `--env-file` or `--user`. The same SSH session then runs `setup_gateway_nginx.sh`. With `gateway.tls.mode` `external` that script only curls `http://<bind_host>:<port>/v1/` and fails the deploy when the gateway does not answer. Otherwise it installs nginx if needed, installs `deploy/nginx/goliath-gateway.conf` as a proxy to `bind_host:port` (default `127.0.0.1:8080`), and reloads nginx. TLS defaults to a self-signed certificate. SSH uses the host `identity_file`. A `secret:NAME` value is the private key, written to a mode 600 file and passed with `-i`. The client sets `PasswordAuthentication=no`. |
 | `runtime` | Applies the release's GoliathApp schema first when it is not recorded yet (a no-op after `schema` in `all`). Runs `promote_release.sh --root --release --arch` plus `--pull-parabricks` or `--skip-docker-pull` on SSH hosts. Self-provision workers skip this SSH promote and boot from `/work/goliath/current` or a GitHub release bundle. |
 | `workers` | SSH workers: writes `/work/goliath/env/worker.env` (the path `goliath-worker.service` loads) and `<install_root>/env/worker.env`, then runs `install_worker_systemd.sh --root --arch` and `--capability` when the profile sets one. `self_provision: true` workers: no SSH. The driver prints the pool (provider, template, image, GPU, volume) and exits successfully. |
 
@@ -61,9 +61,9 @@ When `target` is set, the workflow start and finish steps report `goliathomics-r
 
 | Piece | Value |
 | --- | --- |
-| Database | Neon Postgres. Pooled host `ep-wandering-pine-a5l8s690-pooler.us-east-2.aws.neon.tech` for the gateway. Direct host `ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech` (`schema_host`) for schema apply. Database `GoliathOmics` (in SQL, double-quote the identifier: `"GoliathOmics"`), user `neondb_owner`, `sslmode` and `channel_binding` `require`. Password `secret:NEON_TEST_PASSWORD`. Schema apply sets login passwords for `goliath_gateway` (`secret:GOLIATH_GATEWAY_DB_PASSWORD`) and `goliath_portal` (`secret:GOLIATH_PORTAL_DB_PASSWORD`). When the gateway password is set, the gateway env uses that role instead of `neondb_owner`. |
-| Schema | `schema.goliathapp` is `per-release`: the first deploy of each release applies the GoliathApp `sql_pg` scripts in the release to `GoliathOmics` over `schema_host`. `schema.apply` is `test-bed`: the test-bed SQL in this repo runs after it. |
-| Gateway | Public host `45.76.21.8`, SSH user `linuxuser`, key `secret:GOLIATH_DEPLOY_SSH_KEY`, host keys in the environment secret `GOLIATH_GATEWAY_KNOWN_HOSTS`, install root `/opt/goliath-gateway`. Worker API base `https://45.76.21.8/v1`. TLS mode `self-signed`, SAN IP `45.76.21.8`. Nginx proxies public 443 to `127.0.0.1:8080`. |
+| Database | Neon Postgres. Pooled host `ep-wandering-pine-a5l8s690-pooler.us-east-2.aws.neon.tech`. Direct host `ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech` (`schema_host`) for schema apply and for the gateway, because `dual_activation` turns on `WF_WAKE_POSTGRES` (LISTEN/NOTIFY, which the Neon pooler rejects). Database `GoliathOmics_v2` (in SQL, double-quote the identifier: `"GoliathOmics_v2"`), user `neondb_owner`, `sslmode` and `channel_binding` `require`. Password `secret:NEON_TEST_PASSWORD`. The old `GoliathOmics` database is kept as a read-only reference and is no longer a deploy target. Schema apply sets login passwords for `goliath_gateway` (`secret:GOLIATH_GATEWAY_DB_PASSWORD`) and `goliath_portal` (`secret:GOLIATH_PORTAL_DB_PASSWORD`) when those secrets are set. `gateway.db_login` is `owner`, so the gateway logs in as `neondb_owner` (it needs DDL, not only queries and stored procedures) even when the gateway role password exists. |
+| Schema | `schema.goliathapp` is `per-release`: the first deploy of each release applies the GoliathApp `sql_pg` scripts in the release to `GoliathOmics_v2` over `schema_host`. `schema.apply` is `test-bed`: the test-bed SQL in this repo runs after it. |
+| Gateway | The platform host `45.63.16.235` (it also serves `app.goliathresearch.com` and `omics.goliathresearch.com`). SSH user `linuxuser`, key `secret:GOLIATH_DEPLOY_SSH_KEY`, host keys in the environment secret `GOLIATH_GATEWAY_KNOWN_HOSTS`, install root `/opt/goliath-gateway`, gateway on `127.0.0.1:8080`. Worker API base `https://gateway.goliathresearch.com/v1`. TLS mode `external`: Caddy on the host serves `gateway.goliathresearch.com` with a public certificate, proxies `/v1/*` to `127.0.0.1:8080`, and sets `X-Real-IP`. The gateway trusts forwarded client IPs only from loopback (`GATEWAY_TRUSTED_PROXY_CIDRS` default `127.0.0.1/32,::1/128`). Deploy does not install nginx. The earlier gateway at `45.76.21.8` is no longer referenced. |
 | Shared storage | Backblaze B2 bucket `goliath-omics`, endpoint `https://s3.us-east-005.backblazeb2.com`, region `us-east-005`. Keys `secret:B2_ACCESS_KEY_ID` and `secret:B2_SECRET_ACCESS_KEY`. The schema has no bucket-id field. |
 | Long-term storage | myQNAPCloud, serving both hot and cold (`roles`: `hot`, `cold`). Bucket and share `goliath-omics`, endpoint `https://s3.us-east-1.myqnapcloud.io`, host `s3.us-east-1.myqnapcloud.io`. Keys `secret:LONGTERM_ACCESS_KEY_ID` and `secret:LONGTERM_SECRET_ACCESS_KEY`. |
 | Workers | No SSH hosts. One self-provisioning RunPod pool, `goliath-worker-1`. |
@@ -99,6 +99,24 @@ A worker object with `self_provision: true` is a pool that boots itself. `deploy
 
 `gateway.tls` is optional. Omitted, or `"mode": "self-signed"`, issues a certificate once under `/etc/ssl/methyl-gateway/` (`fullchain.pem`, `privkey.pem`, and `ca.pem`). The subjectAltName is `gateway.tls.san_ip` when set, otherwise the host of `public_base_url` when that host is an IPv4 address, otherwise that DNS name. A later deploy reuses the key. To rotate it, delete `/etc/ssl/methyl-gateway` on the gateway and deploy again.
 
+`gateway.tls.mode` `external` installs no nginx, certificate, or firewall rule; `setup_gateway_nginx.sh --tls external` only probes the loopback gateway. Use it when a reverse proxy the operator manages already owns ports 80 and 443 on the host, as Caddy does on the platform host. That proxy must forward `/v1/` to `bind_host:port` and pass the client address in `X-Real-IP` (or as the last `X-Forwarded-For` entry). The gateway only honors those headers from `GATEWAY_TRUSTED_PROXY_CIDRS`, which defaults to loopback. `gateway.tls.domain` may name the public host for reference. The Caddy site for goliath-test:
+
+```text
+gateway.goliathresearch.com {
+	encode gzip
+	handle /v1/* {
+		reverse_proxy 127.0.0.1:8080 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	handle {
+		respond "not found" 404
+	}
+}
+```
+
+`gateway.db_login` chooses the database login written to `gateway.env`. `gateway_role` (default) uses `database.gateway_role` when its password is set and the owner otherwise. `owner` always uses `database.user`.
+
 `gateway.tls.mode` `letsencrypt` is the optional path when a DNS name exists. Set `gateway.tls.domain` and `gateway.tls.email`, and point `public_base_url` at `https://<domain>/v1`. The domain must resolve to the gateway. An IP-only gateway does not need this mode.
 
 The Vultr cloud firewall, if this instance is assigned to one, is not `ufw`. That group has to allow inbound TCP 443. Allow TCP 80 as well when you want the HTTP redirect or Let's Encrypt HTTP-01. The loopback deploy check does not pass through that firewall.
@@ -107,7 +125,7 @@ RunPod workers trust a self-signed gateway certificate by pinning `ca.pem`. See 
 
 ## Public gateway SSH
 
-`45.76.21.8` is a public address. SSH to the gateway is key-only.
+`45.63.16.235` is a public address. SSH to the gateway is key-only.
 
 On the gateway, `sshd_config` must contain:
 
@@ -119,4 +137,4 @@ KbdInteractiveAuthentication no
 
 Reload `sshd` after that change. The deploy client also passes `-o PasswordAuthentication=no -o PreferredAuthentications=publickey -o IdentitiesOnly=yes` and `-i` the key from `secret:GOLIATH_DEPLOY_SSH_KEY`. Do not commit the key. Put it in the `goliath-test` GitHub environment (the release-deploy job's environment) or in `/etc/goliath/goliath-test.env` on the runner.
 
-Host key checking stays on. `ssh_cmd` in `scripts/deploy_target.sh` sets `UserKnownHostsFile` to `~/.ssh/known_hosts`. `scp_to` copies files through that same SSH session, so it uses the same file. Capture the lines on a trusted network with `ssh-keyscan 45.76.21.8` (add `-H` to store a hashed host) and save that output as the `goliath-test` environment secret `GOLIATH_GATEWAY_KNOWN_HOSTS`. The value is one or more lines, the same text `ssh-keyscan` prints. Do not commit the lines. The release-deploy job writes the secret to `~/.ssh/known_hosts` before it SSHes and stops if the secret is empty. It does not run `ssh-keyscan` and does not set `StrictHostKeyChecking=no`.
+Host key checking stays on. `ssh_cmd` in `scripts/deploy_target.sh` sets `UserKnownHostsFile` to `~/.ssh/known_hosts`. `scp_to` copies files through that same SSH session, so it uses the same file. Capture the lines on a trusted network with `ssh-keyscan 45.63.16.235` (add `-H` to store a hashed host) and save that output as the `goliath-test` environment secret `GOLIATH_GATEWAY_KNOWN_HOSTS`. The value is one or more lines, the same text `ssh-keyscan` prints. Do not commit the lines. The release-deploy job writes the secret to `~/.ssh/known_hosts` before it SSHes and stops if the secret is empty. It does not run `ssh-keyscan` and does not set `StrictHostKeyChecking=no`.

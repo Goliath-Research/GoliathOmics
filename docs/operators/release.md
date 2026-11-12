@@ -10,7 +10,7 @@ Push a tag `v<semver>` on this repository. The workflow **GoliathOmics release**
 
 The archive contains:
 
-- First-party wheels from `scripts/packages.list`, including the `goliath-gateway` wheel built from GoliathApp **`8063fdaa`** (includes `portal.sp_list_scopes` drop/recreate fix; default `GOLIATH_APP_REF` in `scripts/build_gateway_wheel.sh`) by `scripts/build_gateway_wheel.sh`. That script overlays Omics `workflow_engine/ops` (and `admin`) onto the App checkout and stamps `goliath-reclaim-leases` plus one-release legacy `methyl-reclaim-leases` into the staged `pyproject.toml` when App no longer declares them.
+- First-party wheels from `scripts/packages.list`, including the `goliath-gateway` wheel built from GoliathApp **`b2bdd9fb`** (default `GOLIATH_APP_REF` in `scripts/build_gateway_wheel.sh`) by `scripts/build_gateway_wheel.sh`. The stage keeps GoliathApp's layout so the sibling packages `workflow_engine/pyproject.toml` maps with `../` (`goliath_worker`, `goliath_app`) land in the wheel; the gateway imports `goliath_worker.platform_env`. That script overlays Omics `workflow_engine/ops` (and `admin`) onto the App checkout and stamps `goliath-reclaim-leases` plus one-release legacy `methyl-reclaim-leases` into the staged `pyproject.toml` when App no longer declares them.
 - `goliathapp-sql/` (the GoliathApp `sql_pg` scripts, `manifest.sha256`, `source.json`)
 - `runtime-bundle/` (schemas, scripts, deploy files, domain fixtures)
 - Third-party wheels, the venv bootstrap lock, and `system-deps/` derived from `deploy/targets/*.json`

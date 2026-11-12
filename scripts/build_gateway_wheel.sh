@@ -64,10 +64,16 @@ VERSION="$(normalize_release_version "$VERSION")"
 require_release_version "$VERSION" "--version" || exit 1
 mkdir -p "$WHEELS"
 
-STAGE="$(mktemp -d)"
+# The stage keeps GoliathApp's layout: <root>/workflow_engine holds pyproject.toml
+# and its [tool.setuptools.package-dir] entries point at siblings such as
+# ../goliath_worker (rest/connection.py imports goliath_worker.platform_env).
+# Copying workflow_engine alone built a wheel that fails at import.
+STAGE_ROOT="$(mktemp -d)"
+STAGE="$STAGE_ROOT/workflow_engine"
+mkdir -p "$STAGE"
 CLONE=""
 cleanup() {
-  rm -rf "$STAGE"
+  rm -rf "$STAGE_ROOT"
   if [[ -n "$CLONE" ]]; then
     rm -rf "$CLONE"
   fi
@@ -77,7 +83,7 @@ trap cleanup EXIT
 fetch_goliath_app() {
   local dest="$1"
   local url="${GOLIATH_APP_URL:-https://github.com/Goliath-Research/GoliathApp.git}"
-  local ref="${GOLIATH_APP_REF:-8063fdaa1d7643f099472f747c104323073c957f}"
+  local ref="${GOLIATH_APP_REF:-b2bdd9fbc3a6e40c74ee1bcdf042c0afc21489f0}"
   info "fetching goliath-gateway sources from ${url} (${ref})"
   if [[ "$ref" =~ ^[0-9a-fA-F]{40}$ ]]; then
     git init -q "$dest"
@@ -90,8 +96,35 @@ fetch_goliath_app() {
   [[ -f "$dest/workflow_engine/pyproject.toml" ]] || die "GoliathApp checkout has no workflow_engine/pyproject.toml"
 }
 
+# Copy the sibling packages that pyproject.toml maps with "../<dir>" from the
+# parent of the workflow_engine tree into the stage root.
+stage_sibling_packages() {
+  local parent="$1" dir
+  while IFS= read -r dir; do
+    [[ -n "$dir" ]] || continue
+    if [[ ! -d "$parent/$dir" ]]; then
+      die "pyproject.toml maps ../$dir but $parent/$dir is missing"
+    fi
+    info "staging sibling package $dir"
+    mkdir -p "$STAGE_ROOT/$dir"
+    cp -R "$parent/$dir/." "$STAGE_ROOT/$dir/"
+  done < <(python3 - "$STAGE/pyproject.toml" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+section = re.search(r"^\[tool\.setuptools\.package-dir\]\s*$(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if section:
+    for m in re.finditer(r'=\s*["\']\.\./([A-Za-z0-9_.-]+)["\']', section.group(1)):
+        print(m.group(1))
+PY
+)
+}
+
 SOURCE_SHA=""
 SQL_SRC=""
+SOURCE_PARENT=""
 if [[ -n "$SOURCE" ]]; then
   [[ -f "$SOURCE/pyproject.toml" ]] || die "--source has no pyproject.toml: $SOURCE"
   if git -C "$SOURCE" rev-parse HEAD >/dev/null 2>&1; then
@@ -102,6 +135,7 @@ if [[ -n "$SOURCE" ]]; then
   info "building goliath-gateway wheel from $SOURCE ($SOURCE_SHA)"
   SQL_SRC="$SOURCE/sql_pg"
   cp -R "$SOURCE/." "$STAGE/"
+  SOURCE_PARENT="$(cd "$SOURCE/.." && pwd)"
 elif [[ -f "$REPO_ROOT/workflow_engine/pyproject.toml" ]]; then
   SOURCE_SHA="local-source"
   if git -C "$REPO_ROOT" rev-parse HEAD >/dev/null 2>&1; then
@@ -110,6 +144,7 @@ elif [[ -f "$REPO_ROOT/workflow_engine/pyproject.toml" ]]; then
   info "building goliath-gateway wheel from $REPO_ROOT/workflow_engine ($SOURCE_SHA)"
   SQL_SRC="$REPO_ROOT/workflow_engine/sql_pg"
   cp -R "$REPO_ROOT/workflow_engine/." "$STAGE/"
+  SOURCE_PARENT="$REPO_ROOT"
 else
   CLONE="$(mktemp -d)"
   fetch_goliath_app "$CLONE"
@@ -117,7 +152,9 @@ else
   info "gateway source revision $SOURCE_SHA"
   SQL_SRC="$CLONE/workflow_engine/sql_pg"
   cp -R "$CLONE/workflow_engine/." "$STAGE/"
+  SOURCE_PARENT="$CLONE"
 fi
+stage_sibling_packages "$SOURCE_PARENT"
 
 if [[ -n "$SQL_OUT" ]]; then
   [[ -f "$SQL_SRC/apply_schema.sh" ]] || die "no GoliathApp sql_pg/apply_schema.sh under $SQL_SRC; cannot bundle the PostgreSQL scripts"

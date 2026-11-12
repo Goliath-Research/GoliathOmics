@@ -7,18 +7,19 @@
     "user": "linuxuser",
     "bind_host": "127.0.0.1",
     "port": 8080,
-    "public_base_url": "https://45.76.21.8/v1",
+    "public_base_url": "https://gateway.goliathresearch.com/v1",
     "tls": {
-      "mode": "self-signed",
-      "san_ip": "45.76.21.8"
+      "mode": "external",
+      "domain": "gateway.goliathresearch.com"
     },
     "hosts": [
       {
-        "name": "goliath-gateway",
-        "ssh": "linuxuser@45.76.21.8",
+        "name": "goliath-platform-host",
+        "ssh": "linuxuser@45.63.16.235",
         "identity_file": "secret:GOLIATH_DEPLOY_SSH_KEY"
       }
-    ]
+    ],
+    "db_login": "owner"
   },
   "workers": [
     {
@@ -50,7 +51,7 @@
     "host": "ep-wandering-pine-a5l8s690-pooler.us-east-2.aws.neon.tech",
     "schema_host": "ep-wandering-pine-a5l8s690.us-east-2.aws.neon.tech",
     "port": 5432,
-    "dbname": "GoliathOmics",
+    "dbname": "GoliathOmics_v2",
     "user": "neondb_owner",
     "password": "secret:NEON_TEST_PASSWORD",
     "sslmode": "require",

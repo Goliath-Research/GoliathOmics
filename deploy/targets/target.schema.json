@@ -44,13 +44,14 @@
         "tls": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Public TLS in front of the loopback gateway. Omitted mode means self-signed. letsencrypt is optional and needs a domain.",
+          "description": "Public TLS in front of the loopback gateway. Omitted mode means self-signed. letsencrypt is optional and needs a domain. external means a reverse proxy the operator manages on the host (for example Caddy) terminates TLS; deploy installs no nginx.",
           "properties": {
             "mode": {
               "type": "string",
               "enum": [
                 "self-signed",
-                "letsencrypt"
+                "letsencrypt",
+                "external"
               ]
             },
             "san_ip": {
@@ -59,7 +60,7 @@
             },
             "domain": {
               "type": "string",
-              "description": "DNS name for letsencrypt. Not required for an IP-only self-signed gateway."
+              "description": "DNS name for letsencrypt, or the public name served by the external proxy. Not required for an IP-only self-signed gateway."
             },
             "email": {
               "type": "string",
@@ -72,6 +73,14 @@
           "items": {
             "$ref": "#/definitions/sshHost"
           }
+        },
+        "db_login": {
+          "type": "string",
+          "enum": [
+            "gateway_role",
+            "owner"
+          ],
+          "description": "Database login the gateway uses. gateway_role (default) uses database.gateway_role when its password is set, else database.user. owner always uses database.user and database.password."
         }
       }
     },
