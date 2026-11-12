@@ -895,3 +895,182 @@ def verify_copied(cur: Any, source: SourceRuns, inst_map: Mapping[int, int]) -> 
         got = int(cur.fetchone()["c"])
         if got != expected:
             raise MigrationError(f"{name}: copied {got} rows, expected {expected}")
+
+
+# --------------------------------------------------------------------------
+# Study link (cfg.study + cfg.study_instance_link + omics/Study Meta object)
+# --------------------------------------------------------------------------
+
+STUDY_LOCK_KEY = "goliath_omics.legacy_run_study_link"
+PROJECTS_ROOT = "/work/projects/"
+
+
+def _iso(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return str(value.isoformat())
+    return str(value)
+
+
+def _ordered_union(lists: Iterable[Iterable[Any]]) -> List[Any]:
+    out: List[Any] = []
+    for items in lists:
+        for item in items:
+            if item not in out:
+                out.append(item)
+    return out
+
+
+def _project(context_json: Any) -> Dict[str, Any]:
+    ctx = context_json if isinstance(context_json, dict) else {}
+    project = ctx.get("project")
+    return project if isinstance(project, dict) else {}
+
+
+def project_archive_id(output_base: Any) -> Optional[str]:
+    """``/work/projects/<id>/...`` -> ``<id>`` (the study archive folder), else None."""
+    if not isinstance(output_base, str) or not output_base.startswith(PROJECTS_ROOT):
+        return None
+    rest = output_base[len(PROJECTS_ROOT):].strip("/")
+    head = rest.split("/", 1)[0]
+    return head or None
+
+
+def study_document(
+    study_name: str,
+    description: Optional[str],
+    runs: Sequence[Mapping[str, Any]],
+    *,
+    source_label: str,
+) -> Dict[str, Any]:
+    """cfg.study document built only from what the copied runs recorded.
+
+    ``runs`` rows carry ``context_json``, ``started_at_utc``, ``completed_at_utc``
+    and the provenance ``data_json`` written by :func:`copy_runs`.
+    """
+    projects = [_project(r.get("context_json")) for r in runs]
+    output_bases = _ordered_union([[p["output_base"]] for p in projects if p.get("output_base")])
+    started = [r["started_at_utc"] for r in runs if r.get("started_at_utc") is not None]
+    completed = [r["completed_at_utc"] for r in runs if r.get("completed_at_utc") is not None]
+    doc: Dict[str, Any] = {
+        "name": study_name,
+        "description": description,
+        "project": {
+            "chromosomes": _ordered_union(p.get("chromosomes") or [] for p in projects),
+            "contexts": _ordered_union(p.get("contexts") or [] for p in projects),
+            "output_base": output_bases[0] if len(output_bases) == 1 else output_bases,
+        },
+        "sample_ids": _ordered_union((r["data_json"].get("sample_ids") or []) for r in runs),
+        "runs": {
+            "count": len(runs),
+            "first_started_at_utc": _iso(min(started)) if started else None,
+            "last_completed_at_utc": _iso(max(completed)) if completed else None,
+        },
+        "source": {
+            "label": source_label,
+            "tool": TOOL_NAME,
+            "source_instance_ids": sorted(int(r["data_json"]["source_instance_id"]) for r in runs),
+        },
+    }
+    if description is None:
+        doc.pop("description")
+    return doc
+
+
+def link_runs_to_study(
+    cur: Any,
+    *,
+    study_name: str,
+    source_label: str,
+    description: Optional[str] = None,
+    scope_id: int = 1,
+    status: str = "published",
+    version: str = "1",
+) -> Dict[str, Any]:
+    """Create or refresh the study for copied runs and link them to it.
+
+    Runs are the instances copied under ``source_label`` whose recorded study
+    label equals ``study_name``. Uses the GoliathApp study APIs
+    (``portal.sp_upsert_study``, ``portal.sp_link_study_instance``) and
+    ``omics_clinical.sp_meta_mirror_study`` for the workbench object. Safe to
+    rerun. A run already linked to a different study stops the link.
+    """
+    if not study_name or not study_name.strip():
+        raise MigrationError("study name is required")
+    cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (STUDY_LOCK_KEY,))
+    runs = _rows(
+        cur,
+        """
+        SELECT i.id, i.context_json, i.started_at_utc, i.completed_at_utc, e.data_json
+        FROM wf.instance_extension e
+        JOIN wf.workflow_instance i ON i.id = e.workflow_instance_id
+        WHERE e.extension_key = %s
+          AND e.data_json->>'source_label' = %s
+          AND e.data_json->>'study_label' = %s
+        ORDER BY i.id
+        """,
+        (PROVENANCE_KEY, source_label, study_name),
+    )
+    if not runs:
+        raise MigrationError(
+            f"no copied runs with source label {source_label!r} record study {study_name!r}"
+        )
+    run_ids = [int(r["id"]) for r in runs]
+
+    doc = study_document(study_name, description, runs, source_label=source_label)
+    archive_ids = _ordered_union(
+        [[a] for a in (project_archive_id(_project(r.get("context_json")).get("output_base")) for r in runs) if a]
+    )
+    study_id = archive_ids[0] if len(archive_ids) == 1 else None
+
+    existing = _rows(
+        cur,
+        "SELECT id, content_hash FROM cfg.study WHERE name = %s AND version = %s",
+        (study_name, version),
+    )
+    cur.execute(
+        "SELECT id FROM portal.sp_upsert_study(%s, %s, %s, %s::jsonb, %s)",
+        (study_name, version, status, json.dumps(doc, sort_keys=True), study_id),
+    )
+    study_row_id = int(cur.fetchone()["id"])
+
+    linked = {
+        int(r["workflow_instance_id"]): int(r["study_row_id"])
+        for r in _rows(
+            cur,
+            "SELECT workflow_instance_id, study_row_id FROM cfg.study_instance_link "
+            "WHERE workflow_instance_id = ANY(%s)",
+            (run_ids,),
+        )
+    }
+    other = {i: s for i, s in linked.items() if s != study_row_id}
+    if other:
+        raise MigrationError(f"runs already linked to another study: {other}")
+    new_links = 0
+    for iid in run_ids:
+        if iid in linked:
+            continue
+        cur.execute(
+            "SELECT id FROM portal.sp_link_study_instance(%s, %s)",
+            (study_row_id, iid),
+        )
+        new_links += 1
+
+    cur.execute(
+        "SELECT omics_clinical.sp_meta_mirror_study(%s, %s) AS obj_id",
+        (study_row_id, scope_id),
+    )
+    meta_obj_id = int(cur.fetchone()["obj_id"])
+
+    return {
+        "study_name": study_name,
+        "study_row_id": study_row_id,
+        "study_created": not existing,
+        "study_archive_id": study_id,
+        "meta_obj_id": meta_obj_id,
+        "scope_id": scope_id,
+        "instance_ids": run_ids,
+        "links_added": new_links,
+        "links_existing": len(run_ids) - new_links,
+    }

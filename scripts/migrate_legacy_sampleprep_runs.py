@@ -12,6 +12,11 @@ command line):
   MIGRATION_TARGET_DSN target database (for example GoliathOmics_v2)
 
 Use --source-dsn-env / --target-dsn-env to read other variable names.
+
+--link-study NAME also creates (or refreshes) the cfg.study row NAME, links the
+copied runs that recorded that study name to it, and mirrors it as an
+omics/Study Meta object in --study-scope-id so the workbench lists it. Needs
+database/schema/18_omics_study_meta_link.sql on the target.
 See docs/operators/legacy-run-migration.md.
 """
 
@@ -30,6 +35,7 @@ from ops.legacy_run_migration import (  # noqa: E402
     MigrationError,
     copy_runs,
     database_identity,
+    link_runs_to_study,
     load_source_runs,
 )
 
@@ -58,6 +64,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="stable label stored in provenance; reruns with the same label are no-ops")
     ap.add_argument("--source-dsn-env", default="LEGACY_SOURCE_DSN")
     ap.add_argument("--target-dsn-env", default="MIGRATION_TARGET_DSN")
+    ap.add_argument("--link-study", metavar="NAME",
+                    help="link the copied runs that recorded this study name to a cfg.study row of the same name")
+    ap.add_argument("--study-description", help="description stored on the study (with --link-study)")
+    ap.add_argument("--study-scope-id", type=int, default=1,
+                    help="RBAC scope for the omics/Study Meta object (default 1)")
     ap.add_argument("--apply", action="store_true", help="commit (default: dry run, rolled back)")
     args = ap.parse_args(argv)
 
@@ -87,6 +98,14 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
             try:
                 summary = copy_runs(cur, source, source_label=args.source_label, source_database=source_db)
+                if args.link_study:
+                    summary["study"] = link_runs_to_study(
+                        cur,
+                        study_name=args.link_study,
+                        source_label=args.source_label,
+                        description=args.study_description,
+                        scope_id=args.study_scope_id,
+                    )
             except MigrationError:
                 tgt.rollback()
                 raise

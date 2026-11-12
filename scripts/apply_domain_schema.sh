@@ -7,6 +7,9 @@
 #   export PGHOST=localhost PGPORT=5432 PGDATABASE=goliath PGUSER=postgres
 #   export PGPASSWORD='...'
 #   ./scripts/apply_domain_schema.sh
+#
+# To apply a subset (each file is idempotent), list canonical names, space separated:
+#   DOMAIN_SCHEMA_ONLY="18_omics_study_meta_link.sql" ./scripts/apply_domain_schema.sh
 
 set -euo pipefail
 
@@ -31,6 +34,31 @@ fi
 if ! command -v psql >/dev/null 2>&1; then
   echo "psql is not on PATH; install postgresql-client." >&2
   exit 1
+fi
+
+if [[ -n "${DOMAIN_SCHEMA_ONLY:-}" ]]; then
+  selected=()
+  for wanted in $DOMAIN_SCHEMA_ONLY; do
+    found=0
+    for name in "${DOMAIN_SCHEMA_SCRIPTS[@]}"; do
+      if [[ "$name" == "$wanted" ]]; then
+        found=1
+      fi
+    done
+    if ((found == 0)); then
+      echo "DOMAIN_SCHEMA_ONLY: $wanted is not in scripts/domain_schema_order.sh" >&2
+      exit 1
+    fi
+  done
+  # Keep canonical order even when the caller lists files out of order.
+  for name in "${DOMAIN_SCHEMA_SCRIPTS[@]}"; do
+    for wanted in $DOMAIN_SCHEMA_ONLY; do
+      if [[ "$name" == "$wanted" ]]; then
+        selected+=("$name")
+      fi
+    done
+  done
+  DOMAIN_SCHEMA_SCRIPTS=("${selected[@]}")
 fi
 
 for name in "${DOMAIN_SCHEMA_SCRIPTS[@]}"; do
