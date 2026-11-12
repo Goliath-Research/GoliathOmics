@@ -24,6 +24,7 @@ nav:
       - Start a SamplePrep instance: operators/start-sample-prep.md
       - Release, deploy, and enrollment: operators/release.md
       - Process packs: operators/process-packs.md
+      - Copy legacy SamplePrep runs: operators/legacy-run-migration.md
   - Usage:
       - Index: usage/index.md
       - Prerequisites: usage/01-prerequisites-and-environment.md
