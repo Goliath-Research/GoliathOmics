@@ -2,7 +2,7 @@
   Omics clinical portal procedures (read paths for diseases, groups, samples).
   Depends on GoliathApp rbac_schema.sql and portal_clinical_schema.sql.
 
-  Legacy unscoped list procs remain for Delphi compatibility. Prefer semantic
+  Legacy unscoped list procs remain for backward compatibility. Prefer semantic
   requests under namespace omics (omics_clinical.fn_semantic_* via Exograph).
 */
 

@@ -8,7 +8,7 @@ Platform background: [GoliathApp semantic layer](https://goliath-research.github
 
 | Concern | Owner | Where it lives |
 |---------|--------|----------------|
-| Portal shell (`NavTree`, `Organizations`, RBAC scope columns, semantic registry DDL) | GoliathApp | Release `goliathapp-sql/sql_pg/` |
+| Portal UI and shell (`NavTree`, `Organizations`, RBAC scope columns, semantic registry DDL) | GoliathApp | GoliathApp repository and release `goliathapp-sql/sql_pg/` |
 | Organization tenancy (`portal."Organizations"`, `Customers.OrganizationID`) | GoliathApp shell + Omics clinical DDL | GoliathApp P1a; Omics `portal_clinical_schema.sql` |
 | Clinical / customer tables (`Customers`, `Diseases`, `Samples`, …) | GoliathOmics | `database/schema/01_portal_clinical_*.sql` (legacy `workflow_engine/sql_pg/` symlinks) |
 | Typed action catalog (`ActionSpec`, `wf.workflow_action`, JSON schemas) | GoliathApp machinery + Omics specs | `goliath_app.actions`; Omics entry point `goliath.action_catalogs` / `omics` |
@@ -81,7 +81,7 @@ goliath-omics-seed-semantic   # portal.sp_semantic_register_* from SEMANTIC_CATA
 goliath-omics-seed-nav        # NavTree nodes + frame keys for list frames
 ```
 
-List functions require **`p_user_id`** and scope through GoliathApp RBAC helpers (`portal.fn_semantic_user_organization_ids`). Legacy `portal.sp_list_*` procs remain for Delphi compatibility; new portal frames should call semantic requests via the gateway/Exograph path.
+List functions require **`p_user_id`** and scope through GoliathApp RBAC helpers (`portal.fn_semantic_user_organization_ids`). Legacy `portal.sp_list_*` procs remain for backward compatibility; portal frames call semantic requests via the gateway/Exograph path.
 
 CI drift check: `goliath-omics-semantic-export --check schemas/semantic/catalog.json --row-types database/schema/09_portal_semantic_row_types.sql`.
 

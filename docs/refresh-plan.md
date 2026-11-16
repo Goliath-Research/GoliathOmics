@@ -207,7 +207,7 @@ Each phase is a **separate PR series** on `cursor/…-1552` branches. Later phas
 
 - `migrations/2026xxxx_omics_semantic_mvp.sql` if renaming procs or adding columns for semantic codes (prefer additive).
 
-**Risks:** Portal UI still Delphi — frame keys must match what portal team expects; coordinate frame key names before merge.
+**Risks:** Portal UI lives in GoliathApp — frame keys must match what the GoliathApp portal expects; coordinate frame key names before merge.
 
 ---
 

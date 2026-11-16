@@ -17,7 +17,7 @@ flowchart BT
 
 | Upstream | What this product takes from it | What that product contains about GoliathOmics |
 |----------|----------------------------------|-----------------------------------------------|
-| [GoliathApp](https://github.com/Goliath-Research/GoliathApp) | Gateway (`methyl-gateway`), engine DDL, RBAC, portal shell, semantic registry, claim and submit protocol, `domain.compiler` used to lower a DomainProgram | No genomics seeds, handlers, or product types |
+| [GoliathApp](https://github.com/Goliath-Research/GoliathApp) | Gateway (`methyl-gateway`), engine DDL, RBAC, Portal UI and portal shell, semantic registry, claim and submit protocol, `domain.compiler` used to lower a DomainProgram | No genomics seeds, handlers, or product types |
 | [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) | Pinned image and binaries for linear Mojo alignment and for methylGrapher Align / MethylCall / MergeCpG | No reference to GoliathApp or GoliathOmics |
 | [GoliathExtractor](https://github.com/Goliath-Research/GoliathExtractor) | Pinned binary that writes per-chromosome HDF5 from a linear BAM | No reference to GoliathApp or GoliathOmics |
 

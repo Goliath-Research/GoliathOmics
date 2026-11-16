@@ -71,7 +71,7 @@ GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/Goliat
 - Python gateway. The wheel's console script is `methyl-gateway`, built from GoliathApp. This repository does not contain `workflow_engine/rest/`. `goliath-gateway` is the platform name for that service.
 - Engine DDL for Meta, RBAC, the portal shell, `wf`, and `cfg`
 - Shared claim/submit worker protocol and the optional `/work` layout
-- Portal UI. It is still written in Delphi and is migrating to Node.js and React. It is not part of GoliathOmics.
+- Portal UI and portal shell, which live in GoliathApp.
 
 Inherited platform names use the `goliath` prefix (`goliath-gateway`, `goliath-cfg`, `GOLIATH_WORK_ROOT`, database `goliath`). `methyl-*` remains the genomics CLI alias for one release cycle. GoliathWorkflow is not a run path.
 

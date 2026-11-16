@@ -43,7 +43,7 @@ GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/Goliat
 
 | Concern | Owner |
 |---------|--------|
-| Gateway wheel, engine DDL, `goliath-cfg`, shared claim protocol | GoliathApp. The installed console script is `methyl-gateway`. This repo does not contain `workflow_engine/rest/`. |
+| Gateway wheel, Portal UI and portal shell, engine DDL, `goliath-cfg`, shared claim protocol | GoliathApp. The installed console script is `methyl-gateway`. This repo does not contain `workflow_engine/rest/`. |
 | Science packages, DomainPrograms, profiles, analytes, `methyl_worker` handlers, science seeds | GoliathOmics |
 | Alignment image and binaries | GoliathAlign (`GOLIATH_ALIGN_*`; `MOJO_ALIGN_*` is a one-cycle alias) |
 | Linear BAM to HDF5 | GoliathExtractor |
