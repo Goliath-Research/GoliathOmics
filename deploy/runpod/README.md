@@ -63,9 +63,25 @@ A fresh volume does not need a manual copy of the start script. If the template 
 1. In the RunPod console, open **Templates** and find the template whose image is `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404`. That template is `runpod-torch-v280`.
 2. **Clone** it. Name the clone `goliath-worker`.
 3. Set the container image to `ghcr.io/goliath-research/goliath-worker:4.7.0-1` (Clara Parabricks host `pbrun`; see `deploy/workers/image/`). Alternatively keep the template image and pass `deploy/workers/create_worker.sh --provider runpod --image ghcr.io/goliath-research/goliath-worker:4.7.0-1` so the create body sets `imageName`. Private GHCR (required — Parabricks EULA) needs a Runpod container registry credential: set `RUNPOD_REGISTRY_AUTH_ID` or `create_worker.sh --registry-auth <id>` (v2 create body field `registry`). Legacy: `runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404` cannot run nested Clara Docker.
-4. Set the container disk to 200 GB. That matches the worker profile `local_disk_gb`. `create_worker.sh` also sends `disk` on the create body, so a template left at 30 GB does not win. This repository does not update the live template.
+4. Set the container disk to 200 GB. That matches the worker profile `local_disk_gb`. `create_worker.sh` also sends `disk` on the create body, so a template left at 30 GB does not win. The live template is still 30 GB; `upsert_worker_template.py` keeps that disk size and leaves pod disk to `create_worker.sh`.
 5. Do not add a volume to the template. Templates can only hold a host-local `persistent` mount, and a template persistent mount cannot be combined with the global volume (`create_worker_pod.sh` refuses such a template). The global volume is attached per pod, at creation, by the script below.
 6. Do not deploy pods from this template in the console. Use [Create a worker pod](#create-a-worker-pod).
+
+## Update the template from this repo
+
+[`upsert_worker_template.py`](upsert_worker_template.py) creates or updates the `goliath-worker` template through the Runpod REST API v2 (`https://api.runpod.io`, paths under `/v2/templates`). It paginates `GET /v2/templates`, PATCHes an existing non-serverless template of that name, or POSTs one if none exists.
+
+The planned body uses v2 field names (`image`, `disk`, `cmd`, `public`, `registry`). It does not set a template volume: v2 templates can only hold a host-local `persistent` mount, which cannot be combined with the global volume attached at pod creation. `WORKER_API_BASE` defaults to `https://gateway.goliathresearch.com/v1`. `GOLIATH_GATEWAY_CA_PEM` is not set. The API key comes from `RUNPOD_API_KEY` and is never printed.
+
+```bash
+# Print the planned body and compare it with the live template. No POST or PATCH.
+RUNPOD_API_KEY=... python3 deploy/runpod/upsert_worker_template.py --dry-run
+
+# Apply the body (updates the live template).
+RUNPOD_API_KEY=... python3 deploy/runpod/upsert_worker_template.py
+```
+
+`scripts/test_upsert_worker_template.sh` mocks the v2 endpoints (no network) and runs in the PR workflow.
 
 ## Create a worker pod
 
