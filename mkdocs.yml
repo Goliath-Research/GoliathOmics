@@ -1,7 +1,7 @@
 # MkDocs Material site. Pull request CI builds it and does not deploy.
 # Pushes to main publish https://goliath-research.github.io/GoliathOmics/
 site_name: GoliathOmics
-site_description: Genomics application on GoliathApp
+site_description: Configurable genomics and multi-omics workflows for sample preparation, automated quality control, and biomarker validation
 site_url: https://goliath-research.github.io/GoliathOmics/
 docs_dir: docs
 site_dir: site

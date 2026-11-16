@@ -1,7 +1,7 @@
 [project]
 name = "methylpipeline"
 version = "1.0.0"
-description = "Unified Genomics Pipeline for Methylation Analysis"
+description = "Configurable genomics and multi-omics workflows for sample preparation, automated quality control, and biomarker study validation"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
 license = "MIT"

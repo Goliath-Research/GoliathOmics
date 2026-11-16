@@ -2,61 +2,41 @@
   "schemaVersion": 1,
   "id": "goliathomics",
   "name": "GoliathOmics",
-  "tagline": "Genomics workflows on GoliathApp: sample alignment, QC, and process packs.",
-  "description": "GoliathOmics specializes the GoliathApp platform for genomics. Organization-scoped customers and clinical portal APIs live in this product's PostgreSQL domain scripts under database/schema/; the portal shell and semantic registry core ship with GoliathApp. A SamplePrep instance aligns each sample, runs alignment QC and extraction QC, and leaves methylation matrices for later study steps. Process packs choose analyte, library technique, and cohort on methylation, RNA-seq, or proteomics. Typed ActionSpec catalogs and worker handlers register through the goliath-omics package; release deploy seeds the merged catalog after schema apply. Meta-backed clinical cutover and full semantic NavTree are planned in R3–R4.",
+  "tagline": "Configurable genomics and multi-omics workflows: from raw sequencing reads to quality-controlled matrices and validated biomarker studies.",
+  "description": "GoliathOmics coordinates configurable genomics workflows, bringing sample preparation, two-stage quality control, biomarker discovery, and execution management into one application. Teams can start with a focused SamplePrep workflow—processing paired FASTQ reads through alignment, automated QC guardrails, optional cfDNA fragmentomics, and methylation extraction into analysis-ready HDF5 matrices—without adopting the broader application platform all at once. When studies expand, process packs and staged validation pipelines support methylation, RNA-seq, and proteomics cohorts from exploratory research through regulated clinical (SaMD) lifecycles on GoliathApp.",
   "category": "application",
   "features": [
     {
-      "title": "SamplePrep alignment workflow",
-      "description": "SamplePrepPipeline takes paired FASTQs through download, one align path, alignment QC, optional cfDNA fragmentomics, methylation extraction, extraction QC, archive, and cleanup."
+      "title": "SamplePrep workflow (FASTQ to analysis-ready HDF5)",
+      "description": "Processes paired FASTQ files through download, configurable alignment, alignment QC with automated trim-and-realign remediation, optional cfDNA fragmentomics, methylation extraction, extraction QC, archiving, and cleanup—delivering clean chromosome methylation matrices and QC reports for downstream analysis."
     },
     {
-      "title": "Four align paths",
-      "description": "Linear Clara Parabricks and GoliathAlign share sample.parabricks_fq2bam and switch on actionConfig.parabricks.engine. Stock pangenome uses sample.parabricks_giraffe. WGBS pangenome uses sample.methylgrapher_wgbs_align."
+      "title": "Two-stage QC guardrails with per-sample overlays",
+      "description": "Runs apply an established study QC configuration baked at instance start, with explicit per-sample guardrail overrides where a sample requires them—catching poor alignments or low-coverage extractions before they waste compute or corrupt cohort results."
     },
     {
-      "title": "BAM stays on one worker",
-      "description": "Align through sample.delete_bam is pinned with require_previous_worker. The BAM and staged FASTQs live on that worker's local scratch (METHYL_LOCAL_TMP), and delete_bam removes them there."
+      "title": "Four alignment paths matched to study and hardware needs",
+      "description": "Supports linear GPU (Clara Parabricks), linear GPU/CPU (GoliathAlign), stock pangenome (Giraffe), and bisulfite-aware WGBS pangenome (methylGrapher) under one consistent workflow and QC contract."
     },
     {
-      "title": "QC windows with per-sample overlays",
-      "description": "Alignment QC and extraction QC both honor the resolvedConfig window baked at instance start. A sample may overlay alignment core_guardrails or extraction guardrails on top of that window."
+      "title": "Worker-local BAM processing and automatic cleanup",
+      "description": "Keeps large intermediate alignment files (BAMs and staged FASTQs) on the assigned worker's local scratch storage (METHYL_LOCAL_TMP) from alignment through extraction and deletion, avoiding shared-storage bottlenecks and publishing only compact final matrices and QC JSONs."
     },
     {
-      "title": "Workflow JSON compiled into database nodes",
-      "description": "DomainProgram JSON is compiled to a workflow definition and stored as database nodes. Starting an instance runs finalize_instance_context before the instance is created."
+      "title": "Process packs for analytes, library protocols, and cohorts",
+      "description": "Pre-configured packs tailor parameters, reference assets, and QC thresholds to the sample matrix (buffy coat, cfDNA, tissue, plant tissue), library protocol (linear WGBS, pangenome WGBS, epi-GBS, targeted EM-seq), and disease or trait study across methylation, RNA-seq, and proteomics."
     },
     {
-      "title": "Process packs",
-      "description": "Analyte, assay-procedure, and application packs cover analytes, library techniques, and disease or trait studies for methylation, RNA-seq, and proteomics."
+      "title": "Database-compiled workflows for reproducible, auditable runs",
+      "description": "Compiles DomainProgram workflow definitions into PostgreSQL nodes and freezes resolved configuration context at instance start, giving bioinformatics and regulatory teams an inspectable record of every sample run."
     },
     {
-      "title": "Organization tenancy (P1b)",
-      "description": "Clinical Customers carry OrganizationID into portal.Organizations. Legacy databases run the one-time 20261023_semantic_p1b_organization_cutover migration before the first P1b release apply."
+      "title": "Platform operations: release profiles and worker enrollment",
+      "description": "Packages validated workflow bundles and manages authenticated worker gateway sessions (POST /v1/workers/session) and typed ActionSpec catalogs so IT teams can deploy repeatable releases and scale distributed GPU/CPU workers."
     },
     {
-      "title": "Typed ActionSpec catalog (O1)",
-      "description": "Omics actions register as goliath.action_catalogs entry points. seed_action_catalog.py upserts merged ActionSpec rows and runtime dispatch metadata after GoliathApp and Omics schema apply."
-    },
-    {
-      "title": "Worker gateway sessions (O2)",
-      "description": "After enroll, workers open POST /v1/workers/session bearer sessions with the enrollment identity token, refresh before TTL, and call tasks with Authorization Bearer plus X-Goliath-Worker-Token."
-    },
-    {
-      "title": "Child-app packaging (R2)",
-      "description": "Domain DDL lives under database/schema/ with scripts/apply_domain_schema.sh. The goliath-omics package registers ActionSpec entry points and semantic export stubs; NavTree and clinical semantic MVP follow in R3."
-    },
-    {
-      "title": "Meta-backed clinical cutover (R4)",
-      "description": "OmicsCustomer, OmicsDisease, OmicsPatient, OmicsSample, and OmicsLabBatch Meta classes sync to the semantic registry; legacy portal tables keep MetaObjectID mirrors with dual-write flags and per-entity backfill scripts."
-    },
-    {
-      "title": "Lab inventory via shared inv (R5)",
-      "description": "omics_lab_inv bridge wraps inv.sp_stock_receive and batch consumption; semantic requests omics.lab_reagent.list/receive/consume and NavTree Lab inventory for org-scoped reagent lots."
-    },
-    {
-      "title": "Release profiles and worker enrollment",
-      "description": "A version tag builds the MethylPipeline archive, assemble publishes the GoliathOmics bundle, and deploy applies a target profile or promotes on the runner. Optional goliath_gateway and goliath_portal database role passwords are set after schema apply."
+      "title": "Platform tenancy and clinical data integration (R2–R5)",
+      "description": "Provides organization-scoped customer tenancy (portal.Organizations), Meta-backed clinical domain synchronization (OmicsCustomer, OmicsDisease, OmicsPatient, OmicsSample, OmicsLabBatch), and shared lab reagent inventory tracking for full platform deployments."
     }
   ],
   "links": {
