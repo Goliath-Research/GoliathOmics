@@ -6,8 +6,8 @@ authors = ["MethylPipeline Team"]
 maintainers = ["MethylPipeline Team"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/Goliath-Research/GoliathWorkflow"
-documentation = "https://github.com/Goliath-Research/GoliathWorkflow/tree/main/packages/methylutils"
+repository = "https://github.com/Goliath-Research/GoliathOmics"
+documentation = "https://github.com/Goliath-Research/GoliathOmics/tree/main/packages/methylutils"
 keywords = ["methylation", "genomics", "bioinformatics", "ecdf", "gpu", "cuda"]
 packages = [{include = "methyl_utils"}]
 include = [

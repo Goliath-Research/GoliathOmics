@@ -100,7 +100,7 @@ Comparable funded projects (old POSE, useful models): Rosetta scoping, PlantCV c
 
 **Seven-page story (Track 1 limit)**
 
-1. Product already public: GoliathWorkflow + mojo-align + MethylExtractor; PostgreSQL; packs.  
+1. Product already public: GoliathApp + mojo-align + MethylExtractor; PostgreSQL; packs.  
 2. National need: academic cancer informatics locked into proprietary clouds; grant dollars diverted to seats; reference bias in diverse populations; auditability for SaMD.  
 3. Ecosystem discovery: who uses linear vs pangenome WGBS; community hospitals vs NCI centers.  
 4. Governance options: company-stewarded open core vs university OSPO vs future foundation.  

@@ -5,8 +5,8 @@ description = "Project-aware methylation sample clustering for MethylPipeline"
 authors = ["MethylPipeline Team"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/Goliath-Research/GoliathWorkflow"
-documentation = "https://github.com/Goliath-Research/GoliathWorkflow/tree/main/packages/methylcluster"
+repository = "https://github.com/Goliath-Research/GoliathOmics"
+documentation = "https://github.com/Goliath-Research/GoliathOmics/tree/main/packages/methylcluster"
 keywords = ["bioinformatics", "methylation", "clustering", "centroid", "hdbscan", "gpu"]
 packages = [{include = "methyl_cluster"}]
 classifiers = [

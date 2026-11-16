@@ -1,7 +1,7 @@
 # Executive Opportunity Brief: Florida Community-Access Partnership
 
 **Presenting organization:** Goliath Research Inc. (Winter Haven, FL)  
-**Product platform:** **GoliathOmics** (powered by *GoliathWorkflow*, *mojo-align*, and *MethylExtractor*)  
+**Product platform:** **GoliathOmics** (powered by *GoliathApp*, *mojo-align*, and *MethylExtractor*)  
 **Architecture pillar:** 100% free & open-source toolchain (PostgreSQL and auditable open languages)  
 **Initiative:** Statewide community-access software partnership & joint Florida/federal grant strategy  
 **Intended partners:** UF Health Cancer Center (HiPerGator), Sylvester Comprehensive Cancer Center (Pegasus), AdventHealth (Winter Haven → Orlando TRI) as clinical/equity arm  
@@ -30,7 +30,7 @@ Modern oncology diagnostics increasingly require combining multiple genomic moda
 * **PostgreSQL as the Single, Unified Database:** All database operations (configuration, task scheduling, leases, audit logs) run on open-source **PostgreSQL**. There are no recurring database license fees. The same engine deploys on bare-metal institutional HPC clusters, private servers, or any cloud (AWS, GCP, Azure).
 * **Open Language Stack:** The platform is written in modern, auditable, open-source languages: **Python**, **Mojo**, native **C / HTSlib**, and **TypeScript**.
 * **Packs Architecture for "Anything Genomics":** Couples generalized genomics services with modular **Process Packs** (DNA Methylation, RNA-Seq, Proteomics, Variant Calling) on a unified modeling plane.
-* **Backend Database & Orchestration Engine (`GoliathWorkflow`):** The distributed execution engine managing DomainProgram compilation, task queues, lease recovery, Content-Addressed Action Store (CAAS) caching, and SaMD claim gates over PostgreSQL.
+* **Backend Database & Orchestration Engine (`GoliathApp`):** The distributed execution engine managing DomainProgram compilation, task queues, lease recovery, Content-Addressed Action Store (CAAS) caching, and SaMD claim gates over PostgreSQL.
 * **Open-source alignment and extraction (published method class, MIT):**
   * **`mojo-align`**: Native-Mojo multi-GPU alignment engine (linear path follows **bwa-meth**; pangenome path follows methylGrapher / vg giraffe) delivering pangenome graph alignment (eliminating reference bias across diverse Florida populations) on NVIDIA CUDA and AMD ROCm.
   * **`MethylExtractor`**: MIT fork of **MethylDackel** — high-throughput C cytosine extractor with coordinate-based paired-end mate clipping to eliminate double-counting artifacts, writing high-density chunked Zstd HDF5 storage.
@@ -54,7 +54,7 @@ flowchart TB
         Packs --> FEAT_SEAM
     end
 
-    subgraph Backend_Engine["<b>GoliathWorkflow</b> Engine · Open-Source PostgreSQL"]
+    subgraph Backend_Engine["<b>GoliathApp</b> Engine · Open-Source PostgreSQL"]
         direction LR
         DB[("<b>PostgreSQL Single DB</b><br/><code>cfg</code> & <code>wf</code> Schemas<br/><i>(Free · Open-Source · Portable)</i>")]
         GW_ENG["Distributed Gateway & Scheduler<br/>DomainProgram Compiler"]
@@ -79,7 +79,7 @@ flowchart TB
 ## 2. Core Architectural Pillars: Free Toolchain & Zero Vendor Lock-In
 
 ### 1. PostgreSQL: Zero License Fees, Maximum Data Sovereignty
-* **Single Database Architecture:** GoliathWorkflow consolidates all system schemas (`cfg` configuration registry, `wf` workflow orchestration, worker leases, node executions, and audit records) exclusively onto **PostgreSQL**.
+* **Single Database Architecture:** GoliathApp consolidates all system schemas (`cfg` configuration registry, `wf` workflow orchestration, worker leases, node executions, and audit records) exclusively onto **PostgreSQL**.
 * **No proprietary database licenses:** Partners are not billed for commercial database seats; PostgreSQL is free to run at any scale the institution already operates.
 * **True Deployment Agnosticism (BYOC):** PostgreSQL runs identically on UF HiPerGator or Sylvester Pegasus partitions, a community-hospital Linux GPU, or any cloud (AWS, GCP, Azure, OCI). Sensitive clinical sequencing data remains inside the **host institution’s** boundary—we do not require a new commercial AI tenancy.
 
@@ -148,7 +148,7 @@ flowchart LR
 | Product / Component | Architectural Layer | Primary Technology | Key Differentiators | Clinical & Operational Impact |
 | :--- | :--- | :--- | :--- | :--- |
 | **`GoliathOmics`** | **Clinical & Scientific Platform Layer** | TypeScript, Python, OpenAPI, Pydantic | • Modular Packs Architecture (Methylation, RNA-Seq, Proteomics)<br/>• Unified multiomics `samples × features` modeling seam<br/>• General-purpose genomics services with automated clinical reporting | • Eliminates modality sprawl; unifies multiomics under one roof<br/>• Deploys new cancer indications via config overlays in hours |
-| **`GoliathWorkflow`** | **Backend Database & Engine** | **Single PostgreSQL Database** (`cfg` & `wf`), REST Gateway | • **100% free / open-source toolchain**<br/>• Four-layer configuration hierarchy (Site → Profile → Study → Program)<br/>• Monte Carlo stability selection & biological FeatureCuts<br/>• Content-Addressed Action Store (CAAS) for zero-redundancy compute<br/>• Built-in FDA SaMD evidence ladder with code-enforced claim gates | • Zero database license fees; runs on any cloud or local HPC<br/>• Enforces strict reproducibility and zero data leakage<br/>• Slashes compute costs via CAAS caching across large cohorts<br/>• Auto-assembles FDA 510(k)/De Novo submission scaffolds |
+| **`GoliathApp`** | **Backend Database & Engine** | **Single PostgreSQL Database** (`cfg` & `wf`), REST Gateway | • **100% free / open-source toolchain**<br/>• Four-layer configuration hierarchy (Site → Profile → Study → Program)<br/>• Monte Carlo stability selection & biological FeatureCuts<br/>• Content-Addressed Action Store (CAAS) for zero-redundancy compute<br/>• Built-in FDA SaMD evidence ladder with code-enforced claim gates | • Zero database license fees; runs on any cloud or local HPC<br/>• Enforces strict reproducibility and zero data leakage<br/>• Slashes compute costs via CAAS caching across large cohorts<br/>• Auto-assembles FDA 510(k)/De Novo submission scaffolds |
 | **`mojo-align`** | **Open-source GPU alignment** | Modular **Mojo**, CUDA/ROCm DeviceContext, SIMD (**MIT**; bwa-meth / methylGrapher lineage) | • Dual-graph pangenome WGBS (`MojoGiraffe` C2T ∥ G2A)<br/>• Linear WGBS `fq2bam-meth` matching/beating Clara Parabricks<br/>• Zero-dialect portability across NVIDIA CUDA & AMD ROCm | • Eliminates reference bias across diverse Florida demographics<br/>• Slashes alignment wall-clock time and cloud GPU costs by >60% |
 | **`MethylExtractor`** | **Open-source extraction & QC** | Native **C / HTSlib**, OpenMP, HDF5, Zstd (**MIT** MethylDackel fork) | • Coordinate-based overlapping read pair clipping<br/>• Compact 12-byte on-disk record with Zstd chunking<br/>• Native extraction manifests & context QC sidecars | • Completely removes artificial double-counting in paired-end WGBS<br/>• Slashes storage footprint by >70% compared to bedGraph/TSV |
 
@@ -168,8 +168,8 @@ Traditional bisulfite aligners (e.g., Bismark, BWA-meth) are CPU-bound, taking 1
 * **Optimized 12-Byte Binary Record & Zstd HDF5:** Instead of bloated, multi-gigabyte text bedGraph files, `MethylExtractor` structures output into chunked HDF5 containers utilizing a 12-byte binary record per site (`genomic_pos: uint32`, `mC: uint16`, `uC: uint16`, `tnc: uint8`). Integrated Zstd compression provides rapid streaming I/O for cohort-wide discovery.
 * **Rigorous Quality Gate Integration:** Natively enforces MAPQ ≥ 30, Phred quality ≥ 20, coverage capping (`-C`) to counteract PCR bias, and emits comprehensive sample-level JSON manifests consumed directly by automated pipeline quality guardrails (`methylextractionqc`).
 
-### Deep Dive 3: `GoliathWorkflow` — SaMD-Ready Distributed Workflow & Database Engine
-`GoliathWorkflow` serves as the robust backend database and execution plane for GoliathOmics, built from inception around software as a medical device (SaMD) principles:
+### Deep Dive 3: `GoliathApp` — SaMD-Ready Distributed Workflow & Database Engine
+`GoliathApp` serves as the robust backend database and execution plane for GoliathOmics, built from inception around software as a medical device (SaMD) principles:
 
 * **Single PostgreSQL Database Engine:** One open-source database for configuration and orchestration, with rock-solid ACID transactions, advisory locking, and clean schema migrations.
 * **DomainProgram Intermediate Representation (IR):** Workflows are declared as structured JSON graphs supporting typed actions, loops (`foreach`), branching (`if/then/else`), multi-way dispatch (`switch`), and concurrent branch execution.
@@ -214,7 +214,7 @@ A prime translational target for **Central Florida community sites and academic 
 
 ## 6. Built-in SaMD & Regulatory Rigor: Solving the "FDA Chasm"
 
-Academic software almost universally fails regulatory review because the development history lacks verifiable traceability. GoliathOmics and its GoliathWorkflow backend satisfy FDA 21 CFR Part 820, ISO 13485, and Good Machine Learning Practice (GMLP) requirements.
+Academic software almost universally fails regulatory review because the development history lacks verifiable traceability. GoliathOmics and its GoliathApp backend satisfy FDA 21 CFR Part 820, ISO 13485, and Good Machine Learning Practice (GMLP) requirements.
 
 ```mermaid
 flowchart TD
@@ -324,4 +324,4 @@ Winter Haven, Florida
 *Leadership & Technology Team*  
 Email: partnerships@goliathresearch.com  
 Web: [goliathresearch.com](https://goliathresearch.com)  
-Platform: **GoliathOmics** (Powered by `GoliathWorkflow` [PostgreSQL], `MethylExtractor`, and `mojo-align`)  
+Platform: **GoliathOmics** (Powered by `GoliathApp` [PostgreSQL], `MethylExtractor`, and `mojo-align`)  

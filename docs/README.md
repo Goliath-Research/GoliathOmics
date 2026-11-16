@@ -39,7 +39,7 @@ The MkDocs Material site is published from `main` at <https://goliath-research.g
 
 ## Platform architecture and ownership
 
-GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/GoliathApp) and calls [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) and [GoliathExtractor](https://github.com/Goliath-Research/GoliathExtractor) as standalone utilities. GoliathApp does not reference this product, and the two utilities do not reference GoliathApp or GoliathOmics. See [Dependency direction](architecture/dependencies.md). GoliathWorkflow is not a run path.
+GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/GoliathApp) and calls [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) and [GoliathExtractor](https://github.com/Goliath-Research/GoliathExtractor) as standalone utilities. GoliathApp does not reference this product, and the two utilities do not reference GoliathApp or GoliathOmics. See [Dependency direction](architecture/dependencies.md).
 
 | Concern | Owner |
 |---------|--------|

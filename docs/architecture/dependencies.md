@@ -44,5 +44,3 @@ The gateway process installed from a GoliathOmics release is the GoliathApp whee
 `methyl-*` remains the genomics CLI alias for one release cycle (`methyl-workflow-run`, `methyl-cfg`, `methyl-study-start`). Platform commands use the `goliath` prefix and are documented with GoliathApp.
 
 `GOLIATH_ALIGN_ROOT` points at a GoliathAlign checkout. `MOJO_ALIGN_ROOT` and a sibling directory named `mojo-align` remain one-cycle aliases. Older chapters that say MethylPipeline mean this product. Older chapters that say mojo-align mean GoliathAlign.
-
-GoliathWorkflow is not a run path.

@@ -2,7 +2,7 @@
 ## Florida Community-Access Partnership Brief
 
 **Presenting organization:** Goliath Research Inc. (Winter Haven, FL)  
-**Platform:** GoliathOmics (GoliathWorkflow · mojo-align · MethylExtractor)  
+**Platform:** GoliathOmics (GoliathApp · mojo-align · MethylExtractor)  
 **Parent brief date:** September 15, 2026  
 **Addendum date:** September 16, 2026  
 **Status:** Companion to the statewide community-access / joint-grant strategy — not a substitute for the UF or Sylvester HPC lead
@@ -70,7 +70,7 @@ Stackable later into UF BMI, UM Data Science, UCF MSDA, or Florida Poly MS Data 
 
 | Module | Credits | Taught against |
 | :--- | ---: | :--- |
-| A. Open workflow engines & configuration hierarchy | 3 | `GoliathWorkflow` on PostgreSQL (`cfg` / `wf`), DomainProgram IR, CAAS |
+| A. Open workflow engines & configuration hierarchy | 3 | `GoliathApp` on PostgreSQL (`cfg` / `wf`), DomainProgram IR, CAAS |
 | B. GPU alignment & pangenome bias | 3 | `mojo-align` (linear bwa-meth path + dual-graph C2T ∥ G2A); HiPerGator or Pegasus workers |
 | C. Methylation artifacts & haplotype methods | 3 | `MethylExtractor` mate-clip; MHB/MHL vs mean-methylation FeatureCuts |
 | D. SaMD, partitions, and claim gates | 3 | `samd_research` → `samd_holdout_enrichment`; patient-disjoint keys; Wilson LCBs |
@@ -203,6 +203,6 @@ Success is not “a master’s approved.” Success is **students and community 
 **Contact (unchanged)**  
 Goliath Research Inc. · Winter Haven, Florida  
 partnerships@goliathresearch.com · goliathresearch.com  
-Platform: GoliathOmics (GoliathWorkflow [PostgreSQL], MethylExtractor, mojo-align)
+Platform: GoliathOmics (GoliathApp [PostgreSQL], MethylExtractor, mojo-align)
 
 *This addendum does not designate Moffitt Innovation as education or IT lead. Optional MHL concordance with a Florida PI remains science-only.*

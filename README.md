@@ -73,7 +73,7 @@ GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/Goliat
 - Shared claim/submit worker protocol and the optional `/work` layout
 - Portal UI and portal shell, which live in GoliathApp.
 
-Inherited platform names use the `goliath` prefix (`goliath-gateway`, `goliath-cfg`, `GOLIATH_WORK_ROOT`, database `goliath`). `methyl-*` remains the genomics CLI alias for one release cycle. GoliathWorkflow is not a run path.
+Inherited platform names use the `goliath` prefix (`goliath-gateway`, `goliath-cfg`, `GOLIATH_WORK_ROOT`, database `goliath`). `methyl-*` remains the genomics CLI alias for one release cycle.
 
 ### Tools
 

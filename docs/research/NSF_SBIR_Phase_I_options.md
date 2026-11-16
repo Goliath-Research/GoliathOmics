@@ -34,7 +34,7 @@ Downstream (not Phase I, but why Phase I exists): Phase II up to **$1.25M / ~24 
 | When to use | Tech and IP live inside the company | You want UF / Florida Poly / Sylvester as a formal co-developer (GPU benchmark, methods concordance) |
 | IP | Company-owned; institution agreement recommended if there is a subaward | Executed IP allocation required before award |
 
-For your map: **SBIR** if `mojo-align` / GoliathWorkflow is Goliath IP and UF only provides HPC letters. **STTR** if a UF or Florida Poly faculty co-PI will write kernels, evaluation harnesses, or the certificate reference implementation. Do not use STTR just to “look academic.”
+For your map: **SBIR** if `mojo-align` / GoliathApp is Goliath IP and UF only provides HPC letters. **STTR** if a UF or Florida Poly faculty co-PI will write kernels, evaluation harnesses, or the certificate reference implementation. Do not use STTR just to “look academic.”
 
 ---
 

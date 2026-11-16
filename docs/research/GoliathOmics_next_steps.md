@@ -16,7 +16,7 @@ A workable split:
 
 | Layer | License / access | Who pays |
 |---|---|---|
-| Core engine (`GoliathWorkflow`, `mojo-align`, `MethylExtractor`, packs) | OSI (MIT already matches your C/Mojo forks) | Grants + your own payroll |
+| Core engine (`GoliathApp`, `mojo-align`, `MethylExtractor`, packs) | OSI (MIT already matches your C/Mojo forks) | Grants + your own payroll |
 | Research / teaching / community-hospital use | Free, no seats | $0 software line in FCIF/NIH budgets |
 | Commercial clinical production, CRO, SaaS tenancy, closed SaaS | Separate commercial license or paid support | Industry |
 | What you sell instead of seats | Deployment on *their* HPC, SaMD evidence packaging, training, locked procedure packs, validation studies | Grants + services |
