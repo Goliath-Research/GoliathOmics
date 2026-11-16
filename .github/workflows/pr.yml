@@ -131,7 +131,6 @@ jobs:
             deploy/workers/providers/runpod.sh \
             scripts/test_create_worker.sh \
             scripts/test_create_worker_pod.sh \
-            deploy/runpod/upsert_worker_template.py \
             scripts/test_upsert_worker_template.sh \
             workflow_engine/sql_pg/deploy_test_bed.sh
 

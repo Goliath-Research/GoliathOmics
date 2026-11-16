@@ -182,8 +182,8 @@ start_mock() {
   rm -f "$TMP/last_body.json"
   MOCK_ROOT="$TMP" MOCK_MODE="$mode" python3 "$TMP/server.py" >"$PORT_FILE" &
   SERVER_PID=$!
-  local i port
-  for i in $(seq 1 50); do
+  local port
+  for _ in $(seq 1 50); do
     port="$(tr -d '[:space:]' <"$PORT_FILE" 2>/dev/null || true)"
     if [[ "$port" =~ ^[0-9]+$ ]]; then
       echo "$port"
