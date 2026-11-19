@@ -220,7 +220,7 @@
     "dual_activation": {
       "type": "boolean",
       "default": false,
-      "description": "When true, deploy enables tier-1 Postgres wake on the gateway (WF_WAKE_POSTGRES) and workers (WORKER_WAKE_POSTGRES). See docs/dual-activation-omics-spike.md."
+      "description": "When true, deploy enables tier-1 wake: Postgres NOTIFY on the gateway only (WF_WAKE_POSTGRES) and gateway long-poll on workers (WORKER_WAKE_HTTP). Workers get no database settings. See docs/dual-activation-omics-spike.md."
     }
   },
   "definitions": {

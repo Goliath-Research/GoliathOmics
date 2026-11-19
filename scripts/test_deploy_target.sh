@@ -194,6 +194,17 @@ EOF
     grep -q "^${merged_keys}=" "$envfile" || fail "workers merge dropped ${merged_keys}"
   done
 
+  # Retired worker keys (Postgres wake / database settings) are stripped on merge.
+  printf '%s\n' 'WORKER_WAKE_POSTGRES=1' 'GOLIATH_WORKER_NEEDS_DATABASE=1' 'POSTGRES_HOST=db.example' \
+    'export POSTGRES_DB=old' >>"$envfile"
+  install_merged_env ubuntu@worker "$envfile" "$overlay" "$remote/tmp/goliath-worker.env" \
+    "WORKER_WAKE_POSTGRES GOLIATH_WORKER_NEEDS_DATABASE POSTGRES_HOST POSTGRES_DB" \
+    || fail "install_merged_env with retired keys failed"
+  if grep -qE '^(export )?(WORKER_WAKE_POSTGRES|GOLIATH_WORKER_NEEDS_DATABASE|POSTGRES_HOST|POSTGRES_DB)=' "$envfile"; then
+    fail "retired worker keys survived the merge"
+  fi
+  grep -q '^TMPDIR=' "$envfile" || fail "stripping retired keys dropped unrelated settings"
+
   arch="amd64"
   me_bin="$remote/local/goliath-extractor-${arch}/bin/goliath-extractor"
   mkdir -p "$(dirname "$me_bin")" "$remote/current"
@@ -661,6 +672,17 @@ jq -e '.dual_activation == true' "$real" >/dev/null \
 bash "$ROOT/scripts/deploy_target.sh" --target goliath-test --dry-run >"$out" 2>"$err" \
   || fail "dry-run for dual activation profile"
 grep -q 'dual_activation: true' "$out" || fail "goliath-test dry-run should show dual_activation enabled"
+# Workers get gateway long-poll wakes and no database settings.
+grep -q 'WORKER_WAKE_HTTP 1' "$ROOT/scripts/deploy_target.sh" \
+  || fail "dual activation should write WORKER_WAKE_HTTP=1 on workers"
+if grep -qE 'WORKER_WAKE_POSTGRES 1|GOLIATH_WORKER_NEEDS_DATABASE 1' "$ROOT/scripts/deploy_target.sh"; then
+  fail "workers must not get WORKER_WAKE_POSTGRES or database access from deploy_target.sh"
+fi
+if grep -qE 'POSTGRES_DB=.*GoliathOmics|GOLIATH_WORKER_NEEDS_DATABASE=1' "$ROOT/deploy/runpod/goliath-worker-start.sh"; then
+  fail "RunPod adapter must not default a worker database"
+fi
+grep -q 'WORKER_WAKE_HTTP="${WORKER_WAKE_HTTP:-1}"' "$ROOT/deploy/runpod/goliath-worker-start.sh" \
+  || fail "RunPod adapter should default WORKER_WAKE_HTTP=1 with dual activation"
 
 awk '
   /name: Install gateway SSH known hosts/ { seen_hosts = 1 }

@@ -172,6 +172,10 @@ gateway_public_host() {
 export GOLIATH_ENV
 GOLIATH_ENV="$(jq_get '.rollouts_environment')"
 DUAL_ACTIVATION="$(jq -r '.dual_activation // false' "$PROFILE")"
+# Worker settings this deploy no longer writes: workers get wakes from the
+# gateway (WORKER_WAKE_HTTP) and never hold database settings. They are
+# removed from an existing worker.env on every worker deploy.
+WORKER_RETIRED_ENV_KEYS="WORKER_WAKE_POSTGRES WORKER_WAKE_PG_DSN GOLIATH_WORKER_NEEDS_DATABASE POSTGRES_HOST POSTGRES_PORT POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD POSTGRES_SSLMODE POSTGRES_CHANNEL_BINDING"
 [[ -n "$GOLIATH_ENV" && "$GOLIATH_ENV" != "null" ]] || die "rollouts_environment is required"
 info "target=${TARGET} component=${COMPONENT} rollouts_environment=${GOLIATH_ENV}"
 
@@ -189,7 +193,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   info "workers: $(jq_get '[.workers[]? | if .self_provision == true then "\(.name) self_provision \(.provider // "unknown") \(.arch) \(.template // "")" else "\(.name) \(.ssh // "") \(.arch) \(.capability // "")" end] | join("; ")')"
   info "database host: $(jq_get '.database.host') schema_host=$(jq_get '.database.schema_host // ""') kind=$(jq_get '.database.kind') channel_binding=$(jq_get '.database.channel_binding // ""')"
   info "schema: goliathapp=$(jq_get '.schema.goliathapp // "per-release"') apply=$(jq_get '.schema.apply // "unset"') force=${FORCE_SCHEMA}"
-  info "dual_activation: $(jq -r '.dual_activation // false' "$PROFILE") (gateway WF_WAKE_POSTGRES / worker WORKER_WAKE_POSTGRES when true)"
+  info "dual_activation: $(jq -r '.dual_activation // false' "$PROFILE") (gateway WF_WAKE_POSTGRES / worker WORKER_WAKE_HTTP when true)"
   info "shared storage: $(jq_get '.shared_storage.provider // "none"') $(jq_get '.shared_storage.endpoint // ""') bucket=$(jq_get '.shared_storage.bucket // ""')"
   info "long-term storage: $(jq_get '.long_term_storage.provider // "none"') endpoint=$(jq_get '.long_term_storage.endpoint // ""') roles=$(jq_get '[.long_term_storage.roles[]?] | join(",")')"
   if jq -e '[.. | objects | .identity_file? // empty | select(. != "")] | length > 0' "$PROFILE" >/dev/null; then
@@ -277,10 +281,14 @@ scp_to() {
 }
 
 # Upsert KEY=value lines from overlay onto base. Other keys in base are kept.
+# merge_env_overlay BASE OVERLAY OUT [STRIP_KEYS]
+# STRIP_KEYS (space separated) are removed from BASE before the overlay is
+# applied, so settings the deploy no longer writes do not survive on the host.
 merge_env_overlay() {
   local base="$1"
   local overlay="$2"
   local out="$3"
+  local strip_keys="${4:-}"
   local line key next
   umask 077
   if [[ -f "$base" ]]; then
@@ -289,6 +297,13 @@ merge_env_overlay() {
     : >"$out" || return 1
   fi
   chmod 600 "$out" || return 1
+  for key in $strip_keys; do
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    next="$(mktemp)"
+    grep -vE "^[[:space:]]*(export[[:space:]]+)?${key}=" "$out" >"$next" || true
+    mv "$next" "$out" || return 1
+    chmod 600 "$out" || return 1
+  done
   while IFS= read -r line || [[ -n "$line" ]]; do
     case "$line" in
       ''|\#*) continue ;;
@@ -340,6 +355,7 @@ install_merged_env() {
   local remote_path="$2"
   local overlay="$3"
   local remote_tmp="$4"
+  local strip_keys="${5:-}"
   local existing="$stage_dir/existing.env"
   local merged="$stage_dir/merged.env"
   local status=0
@@ -352,7 +368,7 @@ install_merged_env() {
   elif [[ "$status" -ne 0 ]]; then
     return "$status"
   else
-    merge_env_overlay "$existing" "$overlay" "$merged" || return 1
+    merge_env_overlay "$existing" "$overlay" "$merged" "$strip_keys" || return 1
   fi
   if ! scp_to "$dest" "$merged" "$remote_tmp"; then
     ssh_cmd "$dest" "rm -f '$remote_tmp'" || true
@@ -993,23 +1009,12 @@ worker_env_file() {
     GOLIATH_LONGTERM_SECRET_ACCESS_KEY "$long_secret"
   )
   if [[ "$DUAL_ACTIVATION" == "true" ]]; then
-    load_db_password
-    local worker_pg_host="$db_host"
-    if [[ "$db_schema_host" != "$db_host" ]]; then
-      worker_pg_host="$db_schema_host"
-    fi
+    # Workers get wakes from the gateway (POST /v1/workers/wakes/wait) and hold
+    # no database settings; only the gateway connects to Postgres.
     pairs+=(
       GOLIATH_DUAL_ACTIVATION 1
-      GOLIATH_WORKER_NEEDS_DATABASE 1
-      POSTGRES_HOST "$worker_pg_host"
-      POSTGRES_DB "$db_name"
-      POSTGRES_USER "$db_user"
-      POSTGRES_SSLMODE "$db_ssl"
-      WORKER_WAKE_POSTGRES 1
+      WORKER_WAKE_HTTP 1
     )
-    if [[ -n "$db_channel" ]]; then
-      pairs+=(POSTGRES_CHANNEL_BINDING "$db_channel")
-    fi
   fi
   write_kv_file "$dest_file" "${pairs[@]}"
 }
@@ -1089,8 +1094,8 @@ run_workers() {
     local shared_env="/work/goliath/env/worker.env"
     local root_env="$root/env/worker.env"
     local worker_ok=0
-    if install_merged_env "$dest" "$root_env" "$envfile" /tmp/goliath-worker.env \
-      && { [[ "$root_env" == "$shared_env" ]] || install_merged_env "$dest" "$shared_env" "$envfile" /tmp/goliath-worker.env; } \
+    if install_merged_env "$dest" "$root_env" "$envfile" /tmp/goliath-worker.env "$WORKER_RETIRED_ENV_KEYS" \
+      && { [[ "$root_env" == "$shared_env" ]] || install_merged_env "$dest" "$shared_env" "$envfile" /tmp/goliath-worker.env "$WORKER_RETIRED_ENV_KEYS"; } \
       && ssh_cmd "$dest" "sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_worker_systemd.sh --root '$root' --arch '$arch' $cap_flag"; then
       worker_ok=1
     fi
