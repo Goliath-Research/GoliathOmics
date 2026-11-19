@@ -590,11 +590,32 @@
           ],
           "json_type": "integer",
           "role": "filter"
+        },
+        {
+          "code": "race",
+          "column_name": "race",
+          "filterable_ops": [],
+          "json_type": "string",
+          "role": "detail"
+        },
+        {
+          "code": "ethnicity",
+          "column_name": "ethnicity",
+          "filterable_ops": [],
+          "json_type": "string",
+          "role": "detail"
+        },
+        {
+          "code": "external_id",
+          "column_name": "external_id",
+          "filterable_ops": [],
+          "json_type": "string",
+          "role": "detail"
         }
       ],
       "catalog_type_name": null,
       "code": "patient",
-      "content_hash": "58c697711a4253c29300c180876a5d6c5fc61d9aadb4fdaab98a1b1bb68ba570",
+      "content_hash": "7604f70ca4cc90830db6984fcc6f4e663ffbf4945a98c08a4e999bc8e10a056b",
       "description": "Clinical patient linked to institution and samples.",
       "display_name": "Patient",
       "meta_class_id": null,
@@ -718,11 +739,18 @@
           "filterable_ops": [],
           "json_type": "number",
           "role": "detail"
+        },
+        {
+          "code": "stage",
+          "column_name": "stage",
+          "filterable_ops": [],
+          "json_type": "string",
+          "role": "detail"
         }
       ],
       "catalog_type_name": null,
       "code": "sample",
-      "content_hash": "d2d3ff564feb9204094b7603224339899e51de2879833c8797392af0acbf34c3",
+      "content_hash": "30f9d467672ade21bae10412aa217ba2905f8ecc007dd6baa8594825a811ee1d",
       "description": "Clinical portal sample linked to a patient and customer.",
       "display_name": "Portal sample",
       "meta_class_id": null,

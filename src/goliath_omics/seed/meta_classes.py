@@ -228,6 +228,54 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
     },
 )
 
+# Reference fields typed as relations (same as database/schema/19_omics_meta_legacy_class_fold.sql):
+# (class, field) -> (relation type name, x-goliath-relation target). The type keeps the
+# field's JSON type, so the generated VOmics* views do not change.
+RELATION_FIELDS: dict[tuple[str, str], tuple[str, dict[str, str]]] = {
+    ("omics/Sample", "patient_id"): (
+        "omics/ref/patient",
+        {"entity": "omics.patient", "class": "omics/Patient", "key": "patient_id"},
+    ),
+    ("omics/Sample", "customer_id"): (
+        "omics/ref/customer",
+        {"entity": "omics.customer", "class": "omics/Customer", "key": "customer_id"},
+    ),
+    ("omics/Sample", "disease_id"): (
+        "omics/ref/disease",
+        {"entity": "omics.disease", "class": "omics/Disease", "key": "disease_id"},
+    ),
+    ("omics/Disease", "parent_id"): (
+        "omics/ref/disease",
+        {"entity": "omics.disease", "class": "omics/Disease", "key": "disease_id"},
+    ),
+    ("omics/LabBatch", "lab_id"): (
+        "omics/ref/lab",
+        {"entity": "omics.lab", "class": "omics/Lab", "key": "lab_id"},
+    ),
+    ("omics/Customer", "organization_id"): (
+        "omics/ref/organization",
+        {"entity": "core.organization", "key": "organization_id"},
+    ),
+    ("omics/Patient", "institution_id"): (
+        "omics/ref/institution",
+        {"relation": 'portal."Institutions"', "key": "ID"},
+    ),
+}
+
+
+def _apply_relation_types() -> None:
+    for spec in META_CLASS_SPECS:
+        for field in spec["fields"]:
+            rel = RELATION_FIELDS.get((spec["class_name"], field["name"]))
+            if rel is None:
+                continue
+            type_name, target = rel
+            field["type_name"] = type_name
+            field["type_schema"] = {"type": field["type_schema"]["type"], "x-goliath-relation": target}
+
+
+_apply_relation_types()
+
 LEGACY_TABLE_NAMES: dict[str, str] = {
     "disease": "OmicsDisease",
     "customer": "OmicsCustomer",
