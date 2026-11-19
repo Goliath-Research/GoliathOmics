@@ -69,7 +69,7 @@ def bundle_schema(path: Path) -> dict[str, Any]:
             return [resolve(v, base) for v in node]
         return node
 
-    body = resolve({k: v for k, v in root.items() if k != "$defs"}, path.parent)
+    body: dict[str, Any] = resolve({k: v for k, v in root.items() if k != "$defs"}, path.parent)
     defs = {name: resolve(sub, path.parent) for name, sub in defs.items()}
     if defs:
         body["$defs"] = defs
