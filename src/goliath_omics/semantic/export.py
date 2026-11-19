@@ -131,6 +131,7 @@ def export_catalog_document() -> dict[str, Any]:
                 "schema_version": entity.schema_version,
                 "meta_class_id": entity.meta_class_id,
                 "meta_class_name": entity.meta_class_name,
+                **({"owner_class_name": entity.owner_class_name} if entity.owner_class_name else {}),
                 "row_schema": row_schema,
                 "attributes": [a.__dict__ for a in entity.attributes],
             }
@@ -146,6 +147,7 @@ def export_catalog_document() -> dict[str, Any]:
             "storage_relation": entity.storage_relation,
             "meta_class_id": entity.meta_class_id,
             "meta_class_name": entity.meta_class_name,
+            **({"owner_class_name": entity.owner_class_name} if entity.owner_class_name else {}),
             "catalog_type_name": None,
             "row_type": f"portal.{_row_type_name(entity)}",
             "row_schema": row_schema,

@@ -42,8 +42,19 @@ class _Conn:
         self.commits += 1
 
 
+def _semantic_answer(gaps: int = 0):
+    def answer(sql: str, params: tuple) -> Any:
+        if "fn_semantic_entity_class_read_gaps" in sql:
+            return (gaps,)
+        if 'FROM "Meta"."Classes"' in sql:
+            return (100 + len(params[0]),)
+        return (1,)
+
+    return answer
+
+
 def test_semantic_seed_sets_omics_namespace_owner() -> None:
-    conn = _Conn(lambda sql, params: (1,))
+    conn = _Conn(_semantic_answer())
     semantic_catalog.seed(conn)
     first_sql, first_params = conn.calls[0]
     assert "INSERT INTO portal.semantic_namespace" in first_sql
@@ -112,3 +123,31 @@ def test_remove_platform_duplicates_deletes_only_the_reviewed_count() -> None:
     deletes = [p for s, p in conn.calls if s.startswith("DELETE")]
     assert deletes == [(64,), (2,)]
     assert conn.commits == 1
+
+
+def test_entities_stored_outside_meta_map_to_their_owning_class() -> None:
+    from goliath_omics.semantic.catalog import SEMANTIC_CATALOG
+
+    owners = {e.code: e.owner_class_name for e in SEMANTIC_CATALOG if e.owner_class_name}
+    assert owners == {"group": "omics/Group", "lab": "omics/Lab", "lab_reagent": "platform/Lot"}
+    conn = _Conn(_semantic_answer())
+    semantic_catalog.seed(conn)
+    looked_up = [p[0] for s, p in conn.calls if 'FROM "Meta"."Classes"' in s]
+    assert {"omics/Group", "omics/Lab", "platform/Lot"} <= set(looked_up)
+    registered = {p[1]: p[8] for s, p in conn.calls if "sp_semantic_register_entity" in s}
+    assert registered["lab_reagent"] == 100 + len("platform/Lot")
+
+
+def test_semantic_seed_grants_class_read_and_fails_on_access_gaps() -> None:
+    import pytest
+
+    conn = _Conn(_semantic_answer())
+    semantic_catalog.seed(conn)
+    grants = [p for s, p in conn.calls if "sp_grant_semantic_entity_class_read" in s and "SELECT *" in s]
+    assert grants == [("omics",)]
+    assert conn.commits == 1
+
+    failing = _Conn(_semantic_answer(gaps=2))
+    with pytest.raises(RuntimeError, match="would lose access"):
+        semantic_catalog.seed(failing)
+    assert failing.commits == 0

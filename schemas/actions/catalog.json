@@ -30238,6 +30238,168 @@
         }
       }
     },
+    "workflow.device_adapter.command": {
+      "base_namespace": null,
+      "capability": "device.adapter",
+      "description": "Workflow-to-adapter command with typed ack_kind (never treat protocol_accepted as physical). Default deny unless GOLIATH_ADAPTER_COMMAND_SAFETY points to a policy hook.",
+      "display_name": "Device adapter command (generic safety)",
+      "entity_code": "workflow",
+      "exposure": "hidden",
+      "level": "engine",
+      "namespace": "engine",
+      "required_permission": null,
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "24cdc8d05a8156f1cee94aed554bb2e87985ae80eb643050c23e510740f55c87",
+          "schema_id": "goliath.actions/engine/workflow.device_adapter.command/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "arguments": {
+                "additionalProperties": true,
+                "title": "Arguments",
+                "type": "object"
+              },
+              "command_key": {
+                "description": "Stable command name (child apps interpret)",
+                "title": "Command Key",
+                "type": "string"
+              },
+              "correlation_key": {
+                "default": "",
+                "description": "Optional workflow correlation",
+                "title": "Correlation Key",
+                "type": "string"
+              },
+              "idempotency_key": {
+                "description": "Workflow-scoped idempotency token",
+                "title": "Idempotency Key",
+                "type": "string"
+              },
+              "target": {
+                "additionalProperties": true,
+                "description": "Adapter-specific target hint (e.g. mqtt_topic, ha_service); never trusted for org scope",
+                "title": "Target",
+                "type": "object"
+              },
+              "timeout_seconds": {
+                "default": 30.0,
+                "maximum": 3600.0,
+                "minimum": 0.0,
+                "title": "Timeout Seconds",
+                "type": "number"
+              }
+            },
+            "required": [
+              "command_key",
+              "idempotency_key"
+            ],
+            "title": "DeviceAdapterCommandInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "2ddca08df35b101dcee6c67560a519701003823a3c40d3e2d5c48302b7046fbf",
+          "schema_id": "goliath.actions/engine/workflow.device_adapter.command/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "ack_kind": {
+                "description": "protocol_accepted: broker/HA accepted only; never conflate with physical_confirmed",
+                "enum": [
+                  "protocol_accepted",
+                  "physical_pending",
+                  "physical_confirmed",
+                  "rejected"
+                ],
+                "title": "Ack Kind",
+                "type": "string"
+              },
+              "detail": {
+                "default": "",
+                "title": "Detail",
+                "type": "string"
+              },
+              "simulated": {
+                "default": true,
+                "title": "Simulated",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ack_kind"
+            ],
+            "title": "DeviceAdapterCommandOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "workflow.device_adapter.observe": {
+      "base_namespace": null,
+      "capability": "device.adapter",
+      "description": "Scheduled or follow-on protocol read after telemetry (simulation by default).",
+      "display_name": "Device adapter observe (claimed read)",
+      "entity_code": "workflow",
+      "exposure": "hidden",
+      "level": "engine",
+      "namespace": "engine",
+      "required_permission": null,
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "d6420adf80eb69eabe10bbab10a3a3cee4e09c8263cce9683b99b3b1afc57792",
+          "schema_id": "goliath.actions/engine/workflow.device_adapter.observe/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "description": "In-workflow observe step: adapter process fills output after protocol read (claimed task).",
+            "properties": {
+              "context": {
+                "additionalProperties": true,
+                "title": "Context",
+                "type": "object"
+              },
+              "observe_key": {
+                "default": "",
+                "title": "Observe Key",
+                "type": "string"
+              }
+            },
+            "title": "DeviceAdapterObserveInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "d7158d3f2df1e0b0f929fa0f1033b7618538a2e9757e16d9edafb043c882ae66",
+          "schema_id": "goliath.actions/engine/workflow.device_adapter.observe/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "readings": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Readings",
+                "type": "array"
+              },
+              "simulated": {
+                "default": true,
+                "title": "Simulated",
+                "type": "boolean"
+              }
+            },
+            "title": "DeviceAdapterObserveOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
     "workflow.fs_stat": {
       "base_namespace": null,
       "capability": "workflow.compute",

@@ -184,12 +184,13 @@
       ],
       "catalog_type_name": null,
       "code": "group",
-      "content_hash": "3bc78075e4272ba0b39102762cf6e5a26ae1429d37d93ee6903e93909b8575dd",
+      "content_hash": "764124ce9b5ec809727c97f1a5adaff08b51d85c18d8074d99d175dc48912265",
       "description": "Customer-owned sample group for studies and enrollment.",
       "display_name": "Sample group",
       "meta_class_id": null,
       "meta_class_name": null,
       "namespace": "omics",
+      "owner_class_name": "omics/Group",
       "row_schema": {
         "additionalProperties": false,
         "properties": {
@@ -264,12 +265,13 @@
       ],
       "catalog_type_name": null,
       "code": "lab",
-      "content_hash": "ec31d53ba0a962a9b94db79c7fbeee987d70c55573491795ebb949603cddac4f",
+      "content_hash": "c2937142d8ca7271f9acb3ac8d591870c72ef1d91048285314b631f5284b2970",
       "description": "Processing lab reference.",
       "display_name": "Lab",
       "meta_class_id": null,
       "meta_class_name": null,
       "namespace": "omics",
+      "owner_class_name": "omics/Lab",
       "row_schema": {
         "additionalProperties": false,
         "properties": {
@@ -438,12 +440,13 @@
       ],
       "catalog_type_name": null,
       "code": "lab_reagent",
-      "content_hash": "7ca2f807869cb587404d05fac1ea8fce389e4f6658a979c6585cb718859fae65",
+      "content_hash": "0fc921c9a837e669089ba4c9086136c2e74b6bbb6ec77de0c681f57baff84edc",
       "description": "On-hand reagent stock lot linked to a lab via omics_lab_inv.",
       "display_name": "Lab reagent lot",
       "meta_class_id": null,
       "meta_class_name": null,
       "namespace": "omics",
+      "owner_class_name": "platform/Lot",
       "row_schema": {
         "additionalProperties": false,
         "properties": {

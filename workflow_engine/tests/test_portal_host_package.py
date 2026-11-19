@@ -112,6 +112,25 @@ def test_omics_sample_subclasses_platform_material(portal_host_env: dict[str, st
     assert parent == "platform/Material"
 
 
+@pytest.mark.parametrize(
+    ("child", "expected_parent"),
+    [("omics/Group", "platform/Entity"), ("omics/Lab", "platform/Site")],
+)
+def test_group_and_lab_classes_subclass_platform_parents(
+    portal_host_env: dict[str, str], child: str, expected_parent: str
+) -> None:
+    parent = _psql(
+        f"""
+        SELECT parent."Name"
+        FROM "Meta"."Classes" c
+        INNER JOIN "Meta"."Classes" parent ON parent."ID" = c."ParentID"
+        WHERE c."Name" = '{child}'
+        """,
+        portal_host_env,
+    )
+    assert parent == expected_parent
+
+
 def test_omics_nav_registered(portal_host_env: dict[str, str]) -> None:
     count = int(
         _psql(

@@ -108,6 +108,7 @@ GROUP_ENTITY = SemanticEntitySpec(
     schema_version="1",
     row_model=GroupRow,
     storage_relation="omics_clinical.v_group",
+    owner_class_name="omics/Group",
     attributes=(
         SemanticAttributeSpec("group_id", "group_id", "integer", "key", ()),
         SemanticAttributeSpec(
@@ -202,6 +203,7 @@ LAB_ENTITY = SemanticEntitySpec(
     schema_version="1",
     row_model=LabRow,
     storage_relation="omics_clinical.v_lab",
+    owner_class_name="omics/Lab",
     attributes=(
         SemanticAttributeSpec("lab_id", "lab_id", "integer", "key", ()),
         SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
@@ -216,6 +218,7 @@ LAB_REAGENT_ENTITY = SemanticEntitySpec(
     schema_version="1",
     row_model=LabReagentRow,
     storage_relation="omics_lab_inv.v_lab_reagent",
+    owner_class_name="platform/Lot",
     attributes=(
         SemanticAttributeSpec("stock_lot_id", "stock_lot_id", "integer", "key", ()),
         SemanticAttributeSpec(
