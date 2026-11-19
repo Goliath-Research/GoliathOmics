@@ -3,6 +3,7 @@
   "name": "event_wait_ack",
   "description": "Fixture: start on sensor.sample_ready, park until operator.ack, then const_bool.",
   "projectPath": "/work/projects/example/configs/project.json",
+  "scopeDefaults": ["centroid1Dir"],
   "on": [
     {
       "event": "sensor.sample_ready",

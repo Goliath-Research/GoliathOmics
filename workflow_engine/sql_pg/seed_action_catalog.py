@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import sys
+from dataclasses import asdict
 from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKERS = REPO_ROOT / "workers"
@@ -66,9 +67,32 @@ def _upsert_runtime_metadata(cur, entry) -> None:
     )
 
 
+def compile_profile_args(spec) -> tuple:
+    """How the platform DomainProgram compiler lowers this action (wf.action_compile_profile)."""
+    effects = getattr(spec, "domain_effects", None)
+    effects_doc = asdict(effects) if effects is not None else None
+    return (
+        spec.action_name,
+        getattr(spec, "tool", None) or spec.action_name,
+        getattr(spec, "action_config_key", None),
+        list(getattr(spec, "context_vars", None) or ()),
+        json.dumps(effects_doc) if effects_doc is not None else None,
+    )
+
+
+def _has_compile_profiles(cur) -> bool:
+    cur.execute(
+        "SELECT to_regprocedure("
+        "'wf.wf_repo_upsert_action_compile_profile(text,text,text,text[],jsonb)') IS NOT NULL"
+    )
+    row = cur.fetchone()
+    return bool(row and row[0])
+
+
 def seed_semantic(conn) -> int:
     count = 0
     with conn.cursor() as cur:
+        has_profiles = _has_compile_profiles(cur)
         for spec in load_action_catalog():
             cur.execute(
                 """
@@ -105,6 +129,11 @@ def seed_semantic(conn) -> int:
                         row.schema_version,
                         row.content_hash,
                     ),
+                )
+            if has_profiles:
+                cur.execute(
+                    "SELECT wf.wf_repo_upsert_action_compile_profile(%s, %s, %s, %s, %s::jsonb)",
+                    compile_profile_args(spec),
                 )
             count += 1
     return count

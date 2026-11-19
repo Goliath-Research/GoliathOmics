@@ -2,6 +2,7 @@
   "programVersion": 2,
   "name": "Cell_Deconv",
   "description": "Buffy-coat leukocyte composition: Houseman/FlowSorted pipeline.cell_deconvolution → cell_fractions.csv (six Ω). Pair with tabular model_mc via profile covariates_path (Ω + clinical).",
+  "scopeDefaults": ["centroid1Dir"],
   "body": [
     {
       "do": "pipeline.cell_deconvolution",

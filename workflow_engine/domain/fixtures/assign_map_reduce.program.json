@@ -3,6 +3,7 @@
   "name": "AssignMapReduce",
   "description": "Sequential map (fs_stat) then reduce into a typed summary string (generic fixture).",
   "projectPath": "/work/projects/example/configs/project.json",
+  "scopeDefaults": ["centroid1Dir"],
   "variables": {
     "artifactPaths": ["/work/cache/a.json", "/work/cache/b.json"],
     "pathExists": {

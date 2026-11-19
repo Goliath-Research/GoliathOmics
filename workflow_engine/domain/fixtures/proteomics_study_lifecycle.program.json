@@ -3,6 +3,7 @@
   "name": "ProteomicsStudyLifecycle",
   "description": "Proteomics study modeling: per-comparison differential-abundance protein panel selection + tabular classification (pipeline.protein_de_select). Reuses the shared samples-x-features seam, scheduler, and CAAS. outputDir is bound per instance via ${var.proteinDeOutputDir}.",
   "projectPath": "${var.projectPath}",
+  "scopeDefaults": ["centroid1Dir"],
   "variables": {
     "proteinDeOutputDir": {
       "schemaRef": "schemas/vars/path.schema.json",

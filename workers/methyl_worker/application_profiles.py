@@ -701,3 +701,73 @@ def verify_wgbs_align_bake(
                 )
             )
     return findings
+
+
+# --- goliath.application_profiles hooks used by the GoliathApp platform -----------------------
+# The platform's neutral workflow_engine/domain/pipeline_profiles.py and workflow_context.py
+# delegate to these. They forward to this repo's own pipeline_profiles module.
+
+
+def _omics_pipeline_profiles():
+    mod = _pipeline_profiles_module()
+    if hasattr(mod, "_delegate"):
+        # The platform's neutral module shadows ours: forwarding would loop back to this hook.
+        raise ImportError("GoliathOmics domain.pipeline_profiles is not importable (platform module found)")
+    return mod
+
+
+def seed_pipeline_scope_flags(
+    context: Dict[str, Any],
+    *,
+    action_config: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Omics scope flags for IF nodes (modality, research modes, presets)."""
+    return cast(
+        Dict[str, Any],
+        _omics_pipeline_profiles().seed_pipeline_scope_flags(context, action_config=action_config),
+    )
+
+
+def apply_pipeline_profile(
+    context: Dict[str, Any],
+    profile: Mapping[str, Any],
+    *,
+    action_config: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Merge an Omics pipeline profile (flags + actionConfig) into the instance context."""
+    return cast(
+        Dict[str, Any],
+        _omics_pipeline_profiles().apply_pipeline_profile(context, profile, action_config=action_config),
+    )
+
+
+def context_modality(context: Mapping[str, Any]) -> Optional[str]:
+    """Normalized Omics modality for the context (wgbs, rna, proteomics, ...)."""
+    return cast(Optional[str], _omics_pipeline_profiles().context_modality(context))
+
+
+def enrich_project_context(context: Dict[str, Any], project_path: Path) -> Dict[str, Any]:
+    """Project-derived keys for a minimal ``{projectPath}`` context.
+
+    Adds comparisons (with centroid/detection paths), chromosomes, contexts, the shared
+    ``centroid1Dir`` (first comparison's control centroid), cohort groups, regulatory config and
+    the study analyte. Keys already present are kept.
+    """
+    out = dict(context)
+    project = _yl_utils_root().load_project(str(project_path))
+    if not out.get("comparisons"):
+        out["comparisons"] = enrich_comparisons_from_project(project_path)
+    if not out.get("chromosomes"):
+        out["chromosomes"] = list(project.chromosomes or [])
+    if not out.get("contexts"):
+        out["contexts"] = list(getattr(project, "contexts", None) or ["CG"])
+    if not out.get("centroid1Dir") and out.get("comparisons"):
+        first = out["comparisons"][0]
+        control = first.get("control_group") or first.get("group1Label")
+        if control:
+            out["centroid1Dir"] = project.get_centroid_dir("control", str(control))
+    if not out.get("groups"):
+        out["groups"] = [{"label": label} for label in project.cohort_group_labels()]
+    if not out.get("regulatory"):
+        out["regulatory"] = project.get_regulatory_config()
+    return apply_study_analyte(out, project)

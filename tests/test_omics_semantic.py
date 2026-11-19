@@ -35,6 +35,7 @@ def test_core_clinical_entities_bind_omics_meta_classes() -> None:
         ("patient", "omics/Patient"),
         ("sample", "omics/Sample"),
         ("lab_batch", "omics/LabBatch"),
+        ("study", "omics/Study"),
     ):
         entity = next(e for e in SEMANTIC_CATALOG if e.code == code)
         assert entity.meta_class_name == class_name

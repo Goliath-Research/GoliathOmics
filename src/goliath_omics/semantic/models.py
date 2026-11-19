@@ -59,6 +59,15 @@ class LabBatchRow(BaseModel):
     lab_id: Optional[int] = None
 
 
+class StudyRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    study_id: int
+    name: Optional[str] = None
+    status: Optional[str] = None
+    study_version: Optional[str] = None
+
+
 class LabBatchListParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

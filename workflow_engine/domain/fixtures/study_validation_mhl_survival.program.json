@@ -2,6 +2,7 @@
   "programVersion": 2,
   "name": "StudyValidationMhlSurvival",
   "description": "EM-Seq MHL + Cox survival lifecycle. SamplePrep is the EM-Seq program; this body is MHB/MHL then model-MC (cox backend). No genome-wide centroid DMP hunt.",
+  "scopeDefaults": ["centroid1Dir"],
   "body": [
     {
       "do": "pipeline.mhb_mhl",

@@ -12,6 +12,10 @@ from goliath_omics.semantic.catalog import SEMANTIC_CATALOG, SEMANTIC_REQUESTS
 from goliath_omics.semantic.export import request_row_type
 
 
+OMICS_NAMESPACE = "omics"
+OMICS_OWNER_APP = "goliath_omics"
+
+
 def _connect():
     import psycopg
 
@@ -50,6 +54,15 @@ def seed(conn) -> int:
     count = 0
     entity_ids: dict[str, int] = {}
     with conn.cursor() as cur:
+        # GoliathOmics owns the omics namespace (display name kept if already set).
+        cur.execute(
+            """
+            INSERT INTO portal.semantic_namespace (code, display_name, owner_app)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (code) DO UPDATE SET owner_app = EXCLUDED.owner_app
+            """,
+            (OMICS_NAMESPACE, OMICS_NAMESPACE, OMICS_OWNER_APP),
+        )
         for entity in SEMANTIC_CATALOG:
             meta_class_id = _resolve_meta_class_id(cur, entity)
             row_schema = entity.row_model.model_json_schema(mode="serialization")

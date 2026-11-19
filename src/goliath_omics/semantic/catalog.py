@@ -27,6 +27,7 @@ from goliath_omics.semantic.models import (
     PatientListParams,
     PatientRow,
     SampleCreatePayload,
+    StudyRow,
     SampleListParams,
     SampleRow,
 )
@@ -176,6 +177,23 @@ LAB_BATCH_ENTITY = SemanticEntitySpec(
     ),
 )
 
+STUDY_ENTITY = SemanticEntitySpec(
+    namespace="omics",
+    code="study",
+    display_name="Study",
+    description="Study (cfg.study mirrored as an omics/Study Meta object); owns the pipeline and validation actions.",
+    schema_version="1",
+    row_model=StudyRow,
+    storage_relation='"Meta"."VOmicsStudy"',
+    meta_class_name="omics/Study",
+    attributes=(
+        SemanticAttributeSpec("study_id", "ID", "integer", "key", ()),
+        SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
+        SemanticAttributeSpec("status", "status", "string", "filter", ("eq",)),
+        SemanticAttributeSpec("study_version", "study_version", "string", "detail", ()),
+    ),
+)
+
 LAB_ENTITY = SemanticEntitySpec(
     namespace="omics",
     code="lab",
@@ -233,6 +251,7 @@ SEMANTIC_CATALOG: tuple[SemanticEntitySpec, ...] = (
     PATIENT_ENTITY,
     SAMPLE_ENTITY,
     LAB_BATCH_ENTITY,
+    STUDY_ENTITY,
     GROUP_ENTITY,
     LAB_ENTITY,
     LAB_REAGENT_ENTITY,

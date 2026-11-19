@@ -3,6 +3,7 @@
   "name": "SamplePrepProteomicsPipeline",
   "description": "Per-sample proteomics preprocessing. Ingest selected by ${usePanel}: panel-matrix (Olink/SomaScan/open, CPU) vs DIA-NN GPU search (download -> diann -> optional Prosit rescore -> register_abundance). Then proteomics QC gate and archive. Parallel to SamplePrep(Rna) but produces protein abundances.",
   "projectPath": "${var.projectPath}",
+  "scopeDefaults": ["centroid1Dir"],
   "variables": {
     "usePanel": {
       "schemaRef": "schemas/vars/bool.schema.json",

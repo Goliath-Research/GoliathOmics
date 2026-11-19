@@ -808,6 +808,104 @@
       "schema_id": "goliath:meta/class/omics/Sample",
       "schema_version": "1",
       "storage_relation": "\"Meta\".\"VOmicsSample\""
+    },
+    "omics.study": {
+      "attributes": [
+        {
+          "code": "study_id",
+          "column_name": "ID",
+          "filterable_ops": [],
+          "json_type": "integer",
+          "role": "key"
+        },
+        {
+          "code": "name",
+          "column_name": "name",
+          "filterable_ops": [
+            "ilike"
+          ],
+          "json_type": "string",
+          "role": "list"
+        },
+        {
+          "code": "status",
+          "column_name": "status",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "string",
+          "role": "filter"
+        },
+        {
+          "code": "study_version",
+          "column_name": "study_version",
+          "filterable_ops": [],
+          "json_type": "string",
+          "role": "detail"
+        }
+      ],
+      "catalog_type_name": null,
+      "code": "study",
+      "content_hash": "1dedc68fd798f3bb598ebab5421be39a9dd2c742fc9b477e132caf0852a1c017",
+      "description": "Study (cfg.study mirrored as an omics/Study Meta object); owns the pipeline and validation actions.",
+      "display_name": "Study",
+      "meta_class_id": null,
+      "meta_class_name": "omics/Study",
+      "namespace": "omics",
+      "row_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "study_id": {
+            "title": "Study Id",
+            "type": "integer"
+          },
+          "study_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Study Version"
+          }
+        },
+        "required": [
+          "study_id"
+        ],
+        "title": "StudyRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_study_row",
+      "schema_id": "goliath:meta/class/omics/Study",
+      "schema_version": "1",
+      "storage_relation": "\"Meta\".\"VOmicsStudy\""
     }
   },
   "requests": {

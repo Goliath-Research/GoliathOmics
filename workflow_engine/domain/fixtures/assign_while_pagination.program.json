@@ -3,6 +3,7 @@
   "name": "AssignWhilePagination",
   "description": "Generic pagination sketch: typed assign + WHILE (not a production methylation program).",
   "projectPath": "/work/projects/example/configs/project.json",
+  "scopeDefaults": ["centroid1Dir"],
   "variables": {
     "hasMore": {
       "schemaRef": "schemas/vars/bool.schema.json",

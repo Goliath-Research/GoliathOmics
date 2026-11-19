@@ -3,6 +3,7 @@
   "name": "SamplePrepEmseqTargetedPipeline",
   "description": "EM-Seq / hybrid-capture targeted methylation SamplePrep (inch-wide, mile-deep). Uses linear Parabricks WGBS alignment (libraryProtocol=emseq_targeted); methyl_extract reads actionConfig.methyl_extract.target_panel_bed and restricts the BAM via samtools -L before extraction. Depth floors come from elevated min_cov. Not epi-GBS and not genome-wide WGBS.",
   "projectPath": "${var.projectPath}",
+  "scopeDefaults": ["centroid1Dir"],
   "variables": {
     "qcPass": {
       "schemaRef": "schemas/vars/bool.schema.json",
