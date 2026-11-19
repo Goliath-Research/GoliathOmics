@@ -241,6 +241,7 @@ jobs:
           sparse-checkout: |
             workflow_engine
             goliath_app
+            goliath_worker
 
       - name: Install science packages and the methyl worker
         run: |
