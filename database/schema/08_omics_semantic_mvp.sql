@@ -244,6 +244,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS omics_clinical.fn_semantic_sample_list(integer, jsonb, integer);
+
 CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_sample_list(
   p_user_id integer,
   p_params jsonb,

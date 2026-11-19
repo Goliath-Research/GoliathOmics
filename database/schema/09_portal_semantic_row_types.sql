@@ -152,7 +152,7 @@ DO $$
 DECLARE
   v_typname constant text := 'omics_sample_row';
   v_desired text[] := ARRAY['sample_id', 'patient_id', 'customer_id', 'disease_id', 'sample_name', 'age', 'bmi', 'stage'];
-  v_desired_types text[] := ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'double precision', 'double precision', 'text'];
+  v_desired_types text[] := ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'numeric', 'double precision', 'text'];
   v_existing text[];
   v_i int;
 BEGIN
@@ -391,7 +391,7 @@ DO $$
 DECLARE
   v_typname constant text := 'omics_lab_reagent_row';
   v_desired text[] := ARRAY['stock_lot_id', 'organization_id', 'lab_id', 'item_id', 'item_number', 'lot_number', 'qty_on_hand', 'unit_cost', 'location_code', 'bin_code'];
-  v_desired_types text[] := ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'text', 'double precision', 'double precision', 'text', 'text'];
+  v_desired_types text[] := ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'text', 'numeric', 'numeric', 'text', 'text'];
   v_existing text[];
   v_i int;
 BEGIN

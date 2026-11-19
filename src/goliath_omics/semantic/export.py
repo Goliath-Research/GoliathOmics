@@ -55,8 +55,16 @@ def _align_omics_row_type_sql(sql: str) -> str:
             "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'double precision', 'double precision']",
             "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'numeric', 'double precision', 'text']",
         )
+        .replace(
+            "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'double precision', 'double precision', 'text']",
+            "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'numeric', 'double precision', 'text']",
+        )
         .replace("qty_on_hand double precision", "qty_on_hand numeric")
         .replace("unit_cost double precision", "unit_cost numeric")
+        .replace(
+            "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'text', 'double precision', 'double precision', 'text', 'text']",
+            "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'text', 'numeric', 'numeric', 'text', 'text']",
+        )
     )
 
 
