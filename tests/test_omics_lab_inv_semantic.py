@@ -10,7 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_omics_lab_inv_bridge import (
+# Sibling import: the gateway tree on sys.path (conftest.py) has its own regular
+# ``tests`` package, which hides this repo's ``tests`` namespace.
+from test_omics_lab_inv_bridge import (
     _create_org,
     _create_user,
     _pg_env,

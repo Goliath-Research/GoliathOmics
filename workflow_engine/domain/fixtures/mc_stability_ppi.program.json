@@ -283,5 +283,6 @@
       "node_key": "readiness"
     }
   ],
-  "projectPath": "workflow_engine/domain/checks/buffy_healthy_vs_pca/configs/project_Buffy_healthy_vs_PCa.json"
+  "projectPath": "workflow_engine/domain/checks/buffy_healthy_vs_pca/configs/project_Buffy_healthy_vs_PCa.json",
+  "scopeDefaults": ["centroid1Dir"]
 }

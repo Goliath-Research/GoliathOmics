@@ -281,5 +281,6 @@
       "node_key": "post_model_validation"
     }
   ],
-  "projectPath": "workflow_engine/domain/checks/plant_abiotic_stress/configs/project_Control_vs_Drought_smoke.json"
+  "projectPath": "workflow_engine/domain/checks/plant_abiotic_stress/configs/project_Control_vs_Drought_smoke.json",
+  "scopeDefaults": ["centroid1Dir"]
 }

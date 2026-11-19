@@ -27,6 +27,7 @@ from goliath_omics.semantic.models import (
     PatientListParams,
     PatientRow,
     SampleCreatePayload,
+    StudyRow,
     SampleListParams,
     SampleRow,
 )
@@ -107,6 +108,7 @@ GROUP_ENTITY = SemanticEntitySpec(
     schema_version="1",
     row_model=GroupRow,
     storage_relation="omics_clinical.v_group",
+    owner_class_name="omics/Group",
     attributes=(
         SemanticAttributeSpec("group_id", "group_id", "integer", "key", ()),
         SemanticAttributeSpec(
@@ -176,6 +178,23 @@ LAB_BATCH_ENTITY = SemanticEntitySpec(
     ),
 )
 
+STUDY_ENTITY = SemanticEntitySpec(
+    namespace="omics",
+    code="study",
+    display_name="Study",
+    description="Study (cfg.study mirrored as an omics/Study Meta object); owns the pipeline and validation actions.",
+    schema_version="1",
+    row_model=StudyRow,
+    storage_relation='"Meta"."VOmicsStudy"',
+    meta_class_name="omics/Study",
+    attributes=(
+        SemanticAttributeSpec("study_id", "ID", "integer", "key", ()),
+        SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
+        SemanticAttributeSpec("status", "status", "string", "filter", ("eq",)),
+        SemanticAttributeSpec("study_version", "study_version", "string", "detail", ()),
+    ),
+)
+
 LAB_ENTITY = SemanticEntitySpec(
     namespace="omics",
     code="lab",
@@ -184,6 +203,7 @@ LAB_ENTITY = SemanticEntitySpec(
     schema_version="1",
     row_model=LabRow,
     storage_relation="omics_clinical.v_lab",
+    owner_class_name="omics/Lab",
     attributes=(
         SemanticAttributeSpec("lab_id", "lab_id", "integer", "key", ()),
         SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
@@ -198,6 +218,7 @@ LAB_REAGENT_ENTITY = SemanticEntitySpec(
     schema_version="1",
     row_model=LabReagentRow,
     storage_relation="omics_lab_inv.v_lab_reagent",
+    owner_class_name="platform/Lot",
     attributes=(
         SemanticAttributeSpec("stock_lot_id", "stock_lot_id", "integer", "key", ()),
         SemanticAttributeSpec(
@@ -233,6 +254,7 @@ SEMANTIC_CATALOG: tuple[SemanticEntitySpec, ...] = (
     PATIENT_ENTITY,
     SAMPLE_ENTITY,
     LAB_BATCH_ENTITY,
+    STUDY_ENTITY,
     GROUP_ENTITY,
     LAB_ENTITY,
     LAB_REAGENT_ENTITY,

@@ -12,6 +12,10 @@ from goliath_omics.semantic.catalog import SEMANTIC_CATALOG, SEMANTIC_REQUESTS
 from goliath_omics.semantic.export import request_row_type
 
 
+OMICS_NAMESPACE = "omics"
+OMICS_OWNER_APP = "goliath_omics"
+
+
 def _connect():
     import psycopg
 
@@ -34,13 +38,15 @@ def _entity_by_code(code: str):
 def _resolve_meta_class_id(cur, entity):
     if entity.meta_class_id is not None:
         return entity.meta_class_id
-    if not entity.meta_class_name:
+    # Meta storage class, else the owning class of an entity stored outside Meta.
+    name = entity.meta_class_name or entity.owner_class_name
+    if not name:
         return None
     cur.execute(
         """
         SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = %s
         """,
-        (entity.meta_class_name,),
+        (name,),
     )
     row = cur.fetchone()
     return int(row[0]) if row is not None else None
@@ -50,6 +56,15 @@ def seed(conn) -> int:
     count = 0
     entity_ids: dict[str, int] = {}
     with conn.cursor() as cur:
+        # GoliathOmics owns the omics namespace (display name kept if already set).
+        cur.execute(
+            """
+            INSERT INTO portal.semantic_namespace (code, display_name, owner_app)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (code) DO UPDATE SET owner_app = EXCLUDED.owner_app
+            """,
+            (OMICS_NAMESPACE, OMICS_NAMESPACE, OMICS_OWNER_APP),
+        )
         for entity in SEMANTIC_CATALOG:
             meta_class_id = _resolve_meta_class_id(cur, entity)
             row_schema = entity.row_model.model_json_schema(mode="serialization")
@@ -60,6 +75,7 @@ def seed(conn) -> int:
                     "schema_version": entity.schema_version,
                     "meta_class_id": entity.meta_class_id,
                     "meta_class_name": entity.meta_class_name,
+                    **({"owner_class_name": entity.owner_class_name} if entity.owner_class_name else {}),
                     "row_schema": row_schema,
                     "attributes": [a.__dict__ for a in entity.attributes],
                 }
@@ -151,8 +167,26 @@ def seed(conn) -> int:
                 ),
             )
             count += 1
+        grant_entity_class_read(cur)
     conn.commit()
     return count
+
+
+def grant_entity_class_read(cur) -> None:
+    """Keep access for roles that run omics requests now that entities map to Meta classes.
+
+    Uses GoliathApp's grant (same transaction as the mapping) and fails the seed if any
+    user/scope/request combination would still lose access.
+    """
+    cur.execute("SELECT to_regprocedure('\"Meta\".sp_grant_semantic_entity_class_read(text)') IS NOT NULL")
+    row = cur.fetchone()
+    if not (row and row[0]):
+        return
+    cur.execute('SELECT * FROM "Meta".sp_grant_semantic_entity_class_read(%s)', (OMICS_NAMESPACE,))
+    cur.execute("SELECT count(*) FROM portal.fn_semantic_entity_class_read_gaps(%s)", (OMICS_NAMESPACE,))
+    gaps = cur.fetchone()
+    if gaps and int(gaps[0]) > 0:
+        raise RuntimeError(f"{OMICS_NAMESPACE}: {gaps[0]} user/scope/request combinations would lose access")
 
 
 def main() -> int:

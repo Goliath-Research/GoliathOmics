@@ -3,6 +3,7 @@
   "name": "SamplePrepRemediationPipeline",
   "description": "Batch remediation: re-download FASTQs, R2 front-trim, realign, and final QC before extract. Typed gate variables document the QC bus (catalog bindings populate them).",
   "projectPath": "${var.projectPath}",
+  "scopeDefaults": ["centroid1Dir"],
   "variables": {
     "qcPass": {
       "schemaRef": "schemas/vars/bool.schema.json",

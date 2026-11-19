@@ -97,6 +97,8 @@ During incremental cutover, **legacy portal tables remain authoritative storage*
 | Sample | `omics/Sample` | `portal."Samples"` | `omics.sample.create`, `omics.group.add_sample` | same |
 | Lab batch | `omics/LabBatch` | `portal."Batches"` | (mirror/backfill) | same |
 
+**Entities stored outside Meta** still map to one owning Meta class through `owner_class_name` (GoliathApp `SemanticEntitySpec`): `omics.group` → `omics/Group` (under `platform/Entity`), `omics.lab` → `omics/Lab` (under `platform/Site`), `omics.lab_reagent` → `platform/Lot`. Their rows stay in `omics_clinical` / `omics_lab_inv` views. `goliath-omics-seed-semantic` sets `meta_class_id` from that class and, in the same transaction, calls GoliathApp `"Meta".sp_grant_semantic_entity_class_read('omics')` so every role that runs these requests today keeps class read; the seed fails if `portal.fn_semantic_entity_class_read_gaps('omics')` is not empty.
+
 **Apply (release):** `10_omics_meta_clinical_classes.sql`, `11_omics_meta_semantic_writes.sql`, `12_omics_meta_backfill_api.sql` via `scripts/apply_domain_schema.sh`.
 
 **Seed (once per environment after apply):**
@@ -107,6 +109,12 @@ goliath-omics-seed-semantic
 # After GoliathApp seed_action_catalog.py --use-db (requires Meta.sp_meta_upsert_action_method):
 goliath-omics-seed-meta-action-methods
 ```
+
+**Action ownership.** Every action is a method on exactly one owning class. `goliath-omics-seed-meta-action-methods` binds omics actions to `omics/*` classes, mapped through the entity: `sample` maps to `omics/Sample`, and the `pipeline`, `validation` and `context` actions map to `omics/Study`, which is the class of the `omics.study` semantic entity. It skips any action that a `platform/*` class already owns. It then calls GoliathApp's `"Meta".sp_derive_action_methods('omics')`. That step derives each method's typed parameters from the action's input schema and binds the action to its semantic entity. The seed prints any action that still needs attention.
+
+`--remove-platform-duplicates N` deletes the `omics/*` copies of platform-owned action methods, after a Neon backup. It deletes nothing unless it finds exactly `N` of them. On GoliathOmics_v2 it removed 12 copies on 2026-11-19: 8 `workflow.*`, `validation.plan_iterations` and 3 `inv.stock.*`.
+
+**Pipeline profile documents.** `goliath-omics-seed-config-document-types` registers `omics/PipelineProfile`, a self-contained bundle of `schemas/config/profile.schema.json`, as the document type of cfg kind `pipeline_profile`. This makes profiles editable in GoliathApp's generic config editor.
 
 **GoliathOmics_v2 full portal host path (fresh DB, idempotent):**
 
@@ -121,6 +129,7 @@ goliath-omics-seed-meta-classes
 goliath-omics-seed-semantic
 python workflow_engine/sql_pg/seed_action_catalog.py --use-db
 goliath-omics-seed-meta-action-methods
+goliath-omics-seed-config-document-types
 bash scripts/sync_cfg_profiles_and_action_catalog.py   # when cfg JSON ships with release
 bash scripts/deploy_workflow_definitions.sh
 bash scripts/deploy_mc_workflow_definitions.sh         # also upserts cfg.domain_program rows

@@ -3,6 +3,7 @@
   "name": "TwoGroupComparison",
   "description": "Control vs disease: centroids and detector per comparison, context, and chromosome.",
   "projectPath": "/work/projects/prostate-cancer/configs/project_Healthy_vs_PCa.json",
+  "scopeDefaults": ["centroid1Dir"],
   "body": [
     {
       "for": {

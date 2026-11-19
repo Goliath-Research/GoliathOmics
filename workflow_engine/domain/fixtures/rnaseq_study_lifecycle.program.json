@@ -3,6 +3,7 @@
   "name": "RnaSeqStudyLifecycle",
   "description": "RNA-Seq study modeling: per-comparison differential-expression gene panel selection + tabular classification (pipeline.rna_de_select). RNA analogue of the methylation centroid/detector study path; reuses the same scheduler and CAAS. outputDir is bound per instance via ${var.rnaDeOutputDir}.",
   "projectPath": "${var.projectPath}",
+  "scopeDefaults": ["centroid1Dir"],
   "variables": {
     "rnaDeOutputDir": {
       "schemaRef": "schemas/vars/path.schema.json",
