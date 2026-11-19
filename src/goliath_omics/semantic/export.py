@@ -9,7 +9,13 @@ import sys
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
-from goliath_app.semantic.export import _pg_type_for_field, _schema_id, content_hash_for, export_row_types_sql
+from goliath_app.semantic.export import (
+    _pg_type_for_field,
+    _row_type_sync_block,
+    _schema_id,
+    content_hash_for,
+    export_row_types_sql,
+)
 from goliath_app.semantic.spec import SemanticEntitySpec, SemanticRequestSpec
 
 from goliath_omics.semantic.catalog import SEMANTIC_CATALOG, SEMANTIC_REQUESTS
@@ -47,7 +53,7 @@ def _align_omics_row_type_sql(sql: str) -> str:
         .replace("age double precision", "age numeric")
         .replace(
             "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'double precision', 'double precision']",
-            "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'numeric', 'double precision']",
+            "ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'numeric', 'double precision', 'text']",
         )
         .replace("qty_on_hand double precision", "qty_on_hand numeric")
         .replace("unit_cost double precision", "unit_cost numeric")
@@ -67,26 +73,10 @@ def _pg_type_for_schema_field(field_schema: dict[str, Any]) -> str:
 
 def _row_type_sql_block(type_name: str, model_schema: dict[str, Any]) -> list[str]:
     props = model_schema.get("properties", {})
-    field_parts: list[str] = []
-    for name, field_schema in props.items():
-        pg_t = _pg_type_for_schema_field(field_schema)
-        field_parts.append(f"  {name} {pg_t}")
-    fields_sql = ",\n".join(field_parts)
-    return [
-        "DO $$",
-        "BEGIN",
-        "  IF NOT EXISTS (",
-        "    SELECT 1 FROM pg_type t",
-        "    JOIN pg_namespace n ON n.oid = t.typnamespace",
-        f"    WHERE n.nspname = 'portal' AND t.typname = '{type_name}'",
-        "  ) THEN",
-        f"    CREATE TYPE portal.{type_name} AS (",
-        f"{fields_sql}",
-        "    );",
-        "  END IF;",
-        "END $$;",
-        "",
+    fields = [
+        (name, _pg_type_for_schema_field(field_schema)) for name, field_schema in props.items()
     ]
+    return _row_type_sync_block(type_name, fields)
 
 
 def export_omics_row_types_sql() -> str:

@@ -4,12 +4,43 @@
 */
 
 DO $$
+DECLARE
+  v_typname constant text := 'omics_disease_row';
+  v_desired text[] := ARRAY['disease_id', 'name', 'parent_id'];
+  v_desired_types text[] := ARRAY['integer', 'text', 'integer'];
+  v_existing text[];
+  v_i int;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'omics_disease_row'
-  ) THEN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.omics_disease_row AS (
+  disease_id integer,
+  name text,
+  parent_id integer
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.omics_disease_row CASCADE;
     CREATE TYPE portal.omics_disease_row AS (
   disease_id integer,
   name text,
@@ -17,14 +48,44 @@ BEGIN
     );
   END IF;
 END $$;
-
 DO $$
+DECLARE
+  v_typname constant text := 'omics_customer_row';
+  v_desired text[] := ARRAY['customer_id', 'name', 'organization_id'];
+  v_desired_types text[] := ARRAY['integer', 'text', 'integer'];
+  v_existing text[];
+  v_i int;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'omics_customer_row'
-  ) THEN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.omics_customer_row AS (
+  customer_id integer,
+  name text,
+  organization_id integer
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.omics_customer_row CASCADE;
     CREATE TYPE portal.omics_customer_row AS (
   customer_id integer,
   name text,
@@ -32,14 +93,49 @@ BEGIN
     );
   END IF;
 END $$;
-
 DO $$
+DECLARE
+  v_typname constant text := 'omics_patient_row';
+  v_desired text[] := ARRAY['patient_id', 'name', 'institution_id', 'sex', 'year_born', 'race', 'ethnicity', 'external_id'];
+  v_desired_types text[] := ARRAY['integer', 'text', 'integer', 'text', 'integer', 'text', 'text', 'text'];
+  v_existing text[];
+  v_i int;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'omics_patient_row'
-  ) THEN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.omics_patient_row AS (
+  patient_id integer,
+  name text,
+  institution_id integer,
+  sex text,
+  year_born integer,
+  race text,
+  ethnicity text,
+  external_id text
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.omics_patient_row CASCADE;
     CREATE TYPE portal.omics_patient_row AS (
   patient_id integer,
   name text,
@@ -52,14 +148,49 @@ BEGIN
     );
   END IF;
 END $$;
-
 DO $$
+DECLARE
+  v_typname constant text := 'omics_sample_row';
+  v_desired text[] := ARRAY['sample_id', 'patient_id', 'customer_id', 'disease_id', 'sample_name', 'age', 'bmi', 'stage'];
+  v_desired_types text[] := ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'double precision', 'double precision', 'text'];
+  v_existing text[];
+  v_i int;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'omics_sample_row'
-  ) THEN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.omics_sample_row AS (
+  sample_id integer,
+  patient_id integer,
+  customer_id integer,
+  disease_id integer,
+  sample_name text,
+  age numeric,
+  bmi double precision,
+  stage text
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.omics_sample_row CASCADE;
     CREATE TYPE portal.omics_sample_row AS (
   sample_id integer,
   patient_id integer,
@@ -72,14 +203,44 @@ BEGIN
     );
   END IF;
 END $$;
-
 DO $$
+DECLARE
+  v_typname constant text := 'omics_lab_batch_row';
+  v_desired text[] := ARRAY['lab_batch_id', 'name', 'lab_id'];
+  v_desired_types text[] := ARRAY['integer', 'text', 'integer'];
+  v_existing text[];
+  v_i int;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'omics_lab_batch_row'
-  ) THEN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.omics_lab_batch_row AS (
+  lab_batch_id integer,
+  name text,
+  lab_id integer
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.omics_lab_batch_row CASCADE;
     CREATE TYPE portal.omics_lab_batch_row AS (
   lab_batch_id integer,
   name text,
@@ -87,14 +248,45 @@ BEGIN
     );
   END IF;
 END $$;
-
 DO $$
+DECLARE
+  v_typname constant text := 'omics_study_row';
+  v_desired text[] := ARRAY['study_id', 'name', 'status', 'study_version'];
+  v_desired_types text[] := ARRAY['integer', 'text', 'text', 'text'];
+  v_existing text[];
+  v_i int;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'omics_study_row'
-  ) THEN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.omics_study_row AS (
+  study_id integer,
+  name text,
+  status text,
+  study_version text
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.omics_study_row CASCADE;
     CREATE TYPE portal.omics_study_row AS (
   study_id integer,
   name text,
@@ -103,14 +295,46 @@ BEGIN
     );
   END IF;
 END $$;
-
 DO $$
+DECLARE
+  v_typname constant text := 'omics_group_row';
+  v_desired text[] := ARRAY['group_id', 'name', 'description', 'customer_id', 'sample_count'];
+  v_desired_types text[] := ARRAY['integer', 'text', 'text', 'integer', 'bigint'];
+  v_existing text[];
+  v_i int;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'omics_group_row'
-  ) THEN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.omics_group_row AS (
+  group_id integer,
+  name text,
+  description text,
+  customer_id integer,
+  sample_count bigint
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.omics_group_row CASCADE;
     CREATE TYPE portal.omics_group_row AS (
   group_id integer,
   name text,
@@ -120,28 +344,94 @@ BEGIN
     );
   END IF;
 END $$;
-
 DO $$
+DECLARE
+  v_typname constant text := 'omics_lab_row';
+  v_desired text[] := ARRAY['lab_id', 'name'];
+  v_desired_types text[] := ARRAY['integer', 'text'];
+  v_existing text[];
+  v_i int;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'omics_lab_row'
-  ) THEN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.omics_lab_row AS (
+  lab_id integer,
+  name text
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.omics_lab_row CASCADE;
     CREATE TYPE portal.omics_lab_row AS (
   lab_id integer,
   name text
     );
   END IF;
 END $$;
-
 DO $$
+DECLARE
+  v_typname constant text := 'omics_lab_reagent_row';
+  v_desired text[] := ARRAY['stock_lot_id', 'organization_id', 'lab_id', 'item_id', 'item_number', 'lot_number', 'qty_on_hand', 'unit_cost', 'location_code', 'bin_code'];
+  v_desired_types text[] := ARRAY['integer', 'integer', 'integer', 'integer', 'text', 'text', 'double precision', 'double precision', 'text', 'text'];
+  v_existing text[];
+  v_i int;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'omics_lab_reagent_row'
-  ) THEN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.omics_lab_reagent_row AS (
+  stock_lot_id integer,
+  organization_id integer,
+  lab_id integer,
+  item_id integer,
+  item_number text,
+  lot_number text,
+  qty_on_hand numeric,
+  unit_cost numeric,
+  location_code text,
+  bin_code text
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.omics_lab_reagent_row CASCADE;
     CREATE TYPE portal.omics_lab_reagent_row AS (
   stock_lot_id integer,
   organization_id integer,
@@ -156,4 +446,3 @@ BEGIN
     );
   END IF;
 END $$;
-
