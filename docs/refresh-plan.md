@@ -75,7 +75,7 @@ David’s rules for child apps: model domain through the **semantic layer** and 
 | DomainPrograms compiled to `wf` graph | **Done** — 41 fixtures under `workflow_engine/domain/fixtures/` |
 | Gateway claim / submit | **Done** — GoliathApp engine; workers via `methyl-worker` |
 | Study start queue | **Done** — `workflow_engine/ops/study_start_queue.py`, `cfg.study_start_request` (platform) |
-| Dual activation tier 1 | **Documented, not enabled** — [dual-activation-omics-spike.md](dual-activation-omics-spike.md) (PR #68); `WF_WAKE_POSTGRES` / `WORKER_WAKE_POSTGRES` commented in `deploy/env/*.example` only |
+| Dual activation tier 1 | **Documented, not enabled** — [dual-activation-omics-spike.md](dual-activation-omics-spike.md) (PR #68); `WF_WAKE_POSTGRES` / `WORKER_WAKE_HTTP` commented in `deploy/env/*.example` only |
 | Domain-specific wake queues (Crop `crop_wf`, Factory `fac_mfg_wf_wake`) | **Intentionally omitted** — spike says use platform broker only |
 
 **Gap:** Release pin and deploy profiles do not yet turn on wake flags; CI still checks out GoliathApp **`c7ae4d8`**, not `main` with PR #24 broker.
@@ -135,7 +135,7 @@ Each phase is a **separate PR series** on `cursor/…-1552` branches. Later phas
 - Bump `GOLIATH_APP_REF` / `methyl-gateway` git pin to a tagged GoliathApp release SHA (or rolling `main` SHA recorded in release manifest).
 - Update `.github/workflows/pr.yml` GoliathApp checkout to the same SHA.
 - Run full schema integration tests (`test_apply_goliathapp_schema.sh`, deploy script tests).
-- Enable **documented** dual activation on `goliath-test` profile only: `WF_WAKE_POSTGRES=1`, `WORKER_WAKE_POSTGRES=1` in profile secrets or env templates; cross-link [dual-activation-omics-spike.md](dual-activation-omics-spike.md).
+- Enable **documented** dual activation on `goliath-test` profile only: `WF_WAKE_POSTGRES=1` (gateway), `WORKER_WAKE_HTTP=1` (workers) in profile secrets or env templates; cross-link [dual-activation-omics-spike.md](dual-activation-omics-spike.md).
 - Refresh [semantic-layer.md](architecture/semantic-layer.md) “platform bundle contents” paragraph (Meta + inv now in apply order).
 
 **Primary files:**

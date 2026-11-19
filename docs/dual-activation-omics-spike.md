@@ -1,5 +1,7 @@
 # Dual activation spike (Omics): pub/sub wake + claim
 
+> **Current setup (Nov 2026):** workers no longer use Postgres `LISTEN`. GoliathApp removed `WORKER_WAKE_POSTGRES` / `WORKER_WAKE_PG_DSN`; workers set **`WORKER_WAKE_HTTP=1`** and long-poll the gateway (`POST /v1/workers/wakes/wait`). `WF_WAKE_POSTGRES=1` stays on the gateway only. Workers hold no database settings. The rest of this page is the original spike; read its `WORKER_WAKE_POSTGRES` references as `WORKER_WAKE_HTTP`.
+
 **Issue:** [GoliathOmics #67](https://github.com/Goliath-Research/GoliathOmics/issues/67)  
 **Platform:** [GoliathApp #22](https://github.com/Goliath-Research/GoliathApp/issues/22), design in [`docs/dual-activation.md`](https://github.com/Goliath-Research/GoliathApp/blob/main/docs/dual-activation.md) ([PR #23](https://github.com/Goliath-Research/GoliathApp/pull/23)); Postgres LISTEN/NOTIFY broker in [GoliathApp PR #24](https://github.com/Goliath-Research/GoliathApp/pull/24) (`WF_WAKE_POSTGRES=1` / `WORKER_WAKE_POSTGRES=1`, poll remains safety net).
 
@@ -93,7 +95,7 @@ No new Omics-specific NOTIFY tables are required for tier-1 if the broker publis
 
 **Scenario:** Buffy WGBS pangenome SamplePrep (`buffy_wgbs_pangenome_gene_fc`) with 24 samples, fleet of 4 GPU workers (pinned `methylgrapher.wgbs_gpu_align`) plus 2 omnibus workers for download/QC.
 
-1. Deploy gateway with `WF_WAKE_POSTGRES=1` and workers with `WORKER_WAKE_POSTGRES=1` (GoliathApp PR #24); leave `WORKER_POLL_SECONDS=5` as safety net.
+1. Deploy gateway with `WF_WAKE_POSTGRES=1` and workers with `WORKER_WAKE_HTTP=1` (gateway long-poll); leave `WORKER_POLL_SECONDS=5` as safety net.
 2. Queue starts via portal → `drain-requests` (unchanged).
 3. **Measure:** p50/p95 time from `node_execution.status = READY` to claim lease (DB audit or gateway metrics), for `sample.download_fastq`, post-align `sample.methyl_qc`, and first `pipeline.centroid` after validation start.
 4. **Success criterion (spike):** p95 idle→claim drops from O(poll) (~5 s) to **sub-second** on idle workers without increasing claim conflicts or lease churn.

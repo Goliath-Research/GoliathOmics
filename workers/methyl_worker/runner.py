@@ -119,7 +119,36 @@ class WorkerRunner:
     def run_forever(self) -> None:
         while True:
             if not self.run_once():
-                time.sleep(self.poll_seconds)
+                self.idle_wait()
+
+    def idle_wait(self) -> None:
+        """Wait before the next claim.
+
+        With ``WORKER_WAKE_HTTP=1`` the worker long-polls the gateway
+        (``POST /v1/workers/wakes/wait``) and claims as soon as a wake arrives.
+        Otherwise, or when the long-poll fails or returns early with no wake, it
+        sleeps for the poll interval (the claim loop is the safety net).
+        """
+        if not wake_http_enabled():
+            time.sleep(self.poll_seconds)
+            return
+        timeout = _wake_wait_seconds(self.heartbeat_seconds)
+        started = time.monotonic()
+        try:
+            woke = self._with_session_retry(
+                lambda: self.client.wait_for_wake(
+                    self.worker_id, self.identity_token, timeout_seconds=timeout
+                )
+            )
+        except Exception as exc:
+            logger.warning("Gateway wake wait failed; polling instead: %s", exc)
+            time.sleep(self.poll_seconds)
+            return
+        if woke:
+            return
+        remaining = self.poll_seconds - (time.monotonic() - started)
+        if remaining > 0:
+            time.sleep(remaining)
 
     def _apply_control(
         self,
@@ -249,3 +278,19 @@ class WorkerRunner:
 
 def _output_payload(output: BaseModel) -> dict:
     return output.model_dump(mode="json")
+
+
+def wake_http_enabled() -> bool:
+    """True when ``WORKER_WAKE_HTTP`` asks for gateway long-poll wakes."""
+    return os.environ.get("WORKER_WAKE_HTTP", "").strip().lower() in ("1", "true", "yes")
+
+
+def _wake_wait_seconds(heartbeat_seconds: float) -> float:
+    """Long-poll length: ``WORKER_WAKE_POLL_SECONDS`` (default 30), capped so the
+    session refresh check still runs at least once per heartbeat interval."""
+    try:
+        wanted = float(os.environ.get("WORKER_WAKE_POLL_SECONDS", "30"))
+    except ValueError:
+        wanted = 30.0
+    cap = max(float(heartbeat_seconds), 1.0)
+    return max(1.0, min(wanted, cap))

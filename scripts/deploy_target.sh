@@ -189,7 +189,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   info "workers: $(jq_get '[.workers[]? | if .self_provision == true then "\(.name) self_provision \(.provider // "unknown") \(.arch) \(.template // "")" else "\(.name) \(.ssh // "") \(.arch) \(.capability // "")" end] | join("; ")')"
   info "database host: $(jq_get '.database.host') schema_host=$(jq_get '.database.schema_host // ""') kind=$(jq_get '.database.kind') channel_binding=$(jq_get '.database.channel_binding // ""')"
   info "schema: goliathapp=$(jq_get '.schema.goliathapp // "per-release"') apply=$(jq_get '.schema.apply // "unset"') force=${FORCE_SCHEMA}"
-  info "dual_activation: $(jq -r '.dual_activation // false' "$PROFILE") (gateway WF_WAKE_POSTGRES / worker WORKER_WAKE_POSTGRES when true)"
+  info "dual_activation: $(jq -r '.dual_activation // false' "$PROFILE") (gateway WF_WAKE_POSTGRES / worker WORKER_WAKE_HTTP when true)"
   info "shared storage: $(jq_get '.shared_storage.provider // "none"') $(jq_get '.shared_storage.endpoint // ""') bucket=$(jq_get '.shared_storage.bucket // ""')"
   info "long-term storage: $(jq_get '.long_term_storage.provider // "none"') endpoint=$(jq_get '.long_term_storage.endpoint // ""') roles=$(jq_get '[.long_term_storage.roles[]?] | join(",")')"
   if jq -e '[.. | objects | .identity_file? // empty | select(. != "")] | length > 0' "$PROFILE" >/dev/null; then
@@ -993,23 +993,12 @@ worker_env_file() {
     GOLIATH_LONGTERM_SECRET_ACCESS_KEY "$long_secret"
   )
   if [[ "$DUAL_ACTIVATION" == "true" ]]; then
-    load_db_password
-    local worker_pg_host="$db_host"
-    if [[ "$db_schema_host" != "$db_host" ]]; then
-      worker_pg_host="$db_schema_host"
-    fi
+    # Workers get wakes from the gateway (POST /v1/workers/wakes/wait) and hold
+    # no database settings; only the gateway connects to Postgres.
     pairs+=(
       GOLIATH_DUAL_ACTIVATION 1
-      GOLIATH_WORKER_NEEDS_DATABASE 1
-      POSTGRES_HOST "$worker_pg_host"
-      POSTGRES_DB "$db_name"
-      POSTGRES_USER "$db_user"
-      POSTGRES_SSLMODE "$db_ssl"
-      WORKER_WAKE_POSTGRES 1
+      WORKER_WAKE_HTTP 1
     )
-    if [[ -n "$db_channel" ]]; then
-      pairs+=(POSTGRES_CHANNEL_BINDING "$db_channel")
-    fi
   fi
   write_kv_file "$dest_file" "${pairs[@]}"
 }

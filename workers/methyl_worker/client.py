@@ -378,6 +378,27 @@ class WorkflowRestClient:
             next_ready_count=int(body.get("next_ready_count") or 0),
         )
 
+    def wait_for_wake(
+        self,
+        worker_id: Optional[int] = None,
+        identity_token: Optional[str] = None,
+        *,
+        timeout_seconds: float,
+    ) -> bool:
+        """POST /workers/wakes/wait: gateway long-poll for a wake hint.
+
+        Same session auth as claim. Returns True when the gateway delivered a wake,
+        False on idle timeout. A wake is only a hint; the caller still claims.
+        """
+        wid = worker_id if worker_id is not None else self._require_worker_id()
+        self._ensure_worker_session(identity_token)
+        payload: Dict[str, Any] = {"worker_id": wid, "timeout_seconds": float(timeout_seconds)}
+        program_id = os.environ.get("WORKER_WAKE_PROGRAM_ID", "").strip()
+        if program_id:
+            payload["program_id"] = program_id
+        body = self._post_json("/workers/wakes/wait", payload)
+        return isinstance(body.get("wake"), dict)
+
     def heartbeat(
         self,
         node_execution_id: int,

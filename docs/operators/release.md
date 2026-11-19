@@ -76,7 +76,7 @@ Schema apply runs `scripts/apply_goliathapp_schema.sh` against the release's `go
 
 Gateway install copies a subset wheel to the host and runs `install_gateway_systemd.sh` and `setup_gateway_nginx.sh`. The unit name is `goliath-gateway.service` (legacy `methyl-gateway.service` symlink). nginx proxies public `/v1/` to `127.0.0.1:8080`.
 
-The **goliath-test** profile sets `"dual_activation": true`, which writes `WF_WAKE_POSTGRES=1` on the gateway and `WORKER_WAKE_POSTGRES=1` on SSH workers (RunPod pools inherit `GOLIATH_DUAL_ACTIVATION=1` from `deploy/runpod/goliath-worker-start.sh`). Poll remains the safety net. See [Dual activation spike](../dual-activation-omics-spike.md).
+The **goliath-test** profile sets `"dual_activation": true`, which writes `WF_WAKE_POSTGRES=1` on the gateway (the gateway alone uses Postgres NOTIFY) and `WORKER_WAKE_HTTP=1` on SSH workers, which long-poll the gateway at `POST /v1/workers/wakes/wait` and hold no database settings. RunPod pools inherit `GOLIATH_DUAL_ACTIVATION=1` and `WORKER_WAKE_HTTP=1` from `deploy/runpod/goliath-worker-start.sh`. Poll remains the safety net. See [Dual activation spike](../dual-activation-omics-spike.md).
 
 Workers with `self_provision: true` are not installed over SSH. The driver prints the pool and returns success. The pool boots itself and enrolls, below. SSH workers receive `worker.env` and `install_worker_systemd.sh`.
 

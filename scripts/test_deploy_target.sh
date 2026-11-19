@@ -661,6 +661,17 @@ jq -e '.dual_activation == true' "$real" >/dev/null \
 bash "$ROOT/scripts/deploy_target.sh" --target goliath-test --dry-run >"$out" 2>"$err" \
   || fail "dry-run for dual activation profile"
 grep -q 'dual_activation: true' "$out" || fail "goliath-test dry-run should show dual_activation enabled"
+# Workers get gateway long-poll wakes and no database settings.
+grep -q 'WORKER_WAKE_HTTP 1' "$ROOT/scripts/deploy_target.sh" \
+  || fail "dual activation should write WORKER_WAKE_HTTP=1 on workers"
+if grep -qE 'WORKER_WAKE_POSTGRES 1|GOLIATH_WORKER_NEEDS_DATABASE 1' "$ROOT/scripts/deploy_target.sh"; then
+  fail "workers must not get WORKER_WAKE_POSTGRES or database access from deploy_target.sh"
+fi
+if grep -qE 'POSTGRES_DB=.*GoliathOmics|GOLIATH_WORKER_NEEDS_DATABASE=1' "$ROOT/deploy/runpod/goliath-worker-start.sh"; then
+  fail "RunPod adapter must not default a worker database"
+fi
+grep -q 'WORKER_WAKE_HTTP="${WORKER_WAKE_HTTP:-1}"' "$ROOT/deploy/runpod/goliath-worker-start.sh" \
+  || fail "RunPod adapter should default WORKER_WAKE_HTTP=1 with dual activation"
 
 awk '
   /name: Install gateway SSH known hosts/ { seen_hosts = 1 }

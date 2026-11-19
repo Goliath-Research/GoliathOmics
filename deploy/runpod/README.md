@@ -192,7 +192,7 @@ Set plain values in the template. Reference RunPod secrets as `{{ RUNPOD_SECRET_
 
 `B2_*` is the new-data store and `LONGTERM_*` is the long-term store. Both speak S3. The pod keeps those names. Bucket and endpoint land in the per-node `worker.env`. Access keys land only in local `secrets.env` mode `0600`. The start script does not copy either store into `AWS_*` or `GOLIATH_LONGTERM_*`. A tool that needs `AWS_ACCESS_KEY_ID` for one call takes it from the store that call uses, inside that process.
 
-`NEON_TEST_PASSWORD` is not required on the worker. Set `GOLIATH_WORKER_NEEDS_DATABASE=1` and `NEON_TEST_PASSWORD={{ RUNPOD_SECRET_NEON_TEST_PASSWORD }}` only if this pod must open the database itself. The gateway holds the database password.
+Workers do not use the database. The gateway holds the database password, and wakes reach the worker through the gateway: with `GOLIATH_DUAL_ACTIVATION=1` (the default) the adapter sets `WORKER_WAKE_HTTP=1`, so the worker long-polls `POST /v1/workers/wakes/wait`. The adapter sets no database host, name or user, and a database password in the template no longer turns on database access. `GOLIATH_WORKER_NEEDS_DATABASE=1` remains an explicit operator opt-in; it then needs `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER` and `NEON_TEST_PASSWORD` set in the template.
 
 `GOLIATH_WORKER_CAPABILITY` is optional. Leave it unset so `methyl-worker enroll` probes the GPU host (that probe uses `nvidia-smi`). Set it only to pin a catalog capability such as `parabricks.fq2bam`. The Rollouts message always includes the GPU name `nvidia-smi` printed, plus `RUNPOD_POD_ID`, the hostname, and `arch`.
 
