@@ -29,7 +29,8 @@ def test_exports_every_platform_hook() -> None:
 
 
 def test_scope_flags_and_modality_forward_to_omics_rules() -> None:
-    from domain import pipeline_profiles as omics
+    omics = hooks._omics_pipeline_profiles()
+    assert not hasattr(omics, "_delegate")  # never the platform's forwarding module
 
     context = {"primaryAnalyte": "cfdna", "regulatory": {"primary_modality": "bisulfite"}}
     assert hooks.seed_pipeline_scope_flags(context, action_config={}) == omics.seed_pipeline_scope_flags(
@@ -40,6 +41,8 @@ def test_scope_flags_and_modality_forward_to_omics_rules() -> None:
 
 def test_refuses_to_forward_to_the_platform_module(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(hooks, "_pipeline_profiles_module", lambda: SimpleNamespace(_delegate=object()))
+    monkeypatch.setattr(hooks, "_omics_pipeline_profiles_candidates", lambda: [])
+    monkeypatch.setattr(hooks, "_OMICS_PIPELINE_PROFILES", None)
     with pytest.raises(ImportError):
         hooks.context_modality({})
 
@@ -64,3 +67,15 @@ def test_enrich_project_context_sets_centroid1_dir(monkeypatch: pytest.MonkeyPat
     assert out["contexts"] == ["CHG"]
     assert out["groups"] == [{"label": "ctrl"}, {"label": "dis"}]
     assert out["primaryAnalyte"] == "cfdna"
+
+
+def test_platform_module_shadowing_ours_loads_this_repos_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    platform = SimpleNamespace(_delegate=lambda *a, **k: None, __file__=str(tmp_path / "pipeline_profiles.py"))
+    monkeypatch.setattr(hooks, "_pipeline_profiles_module", lambda: platform)
+    monkeypatch.setattr(hooks, "_OMICS_PIPELINE_PROFILES", None)
+    omics = hooks._omics_pipeline_profiles()
+    assert omics is not platform and not hasattr(omics, "_delegate")
+    assert Path(omics.__file__).parts[-3:] == ("workflow_engine", "domain", "pipeline_profiles.py")
+    assert hooks.context_modality({"regulatory": {"primary_modality": "bisulfite"}}) == omics.context_modality(
+        {"regulatory": {"primary_modality": "bisulfite"}}
+    )

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, cast
 
@@ -423,7 +425,7 @@ def apply_pipeline_procedure(
     proc_ac = procedure.get("actionConfig") or procedure.get("step_config_overrides") or {}
     if isinstance(proc_ac, dict) and proc_ac:
         existing = dict(out.get("actionConfig") or {})
-        out["actionConfig"] = _pipeline_profiles_module()._deep_merge(dict(proc_ac), existing)
+        out["actionConfig"] = _omics_pipeline_profiles()._deep_merge(dict(proc_ac), existing)
 
     # Mirror libraryProtocol into actionConfig when procedure pins it and instance
     # did not already set sample_prep.library_protocol.
@@ -492,7 +494,7 @@ def load_samd_research_with_mode(
     """
     resolve_profile_path = _profile_paths_module().resolve_profile_path
 
-    pp = _pipeline_profiles_module()
+    pp = _omics_pipeline_profiles()
     base = _load_profile_file(resolve_profile_path("samd_research"))
     merged = cast(Dict[str, Any], pp._deep_merge(base, load_mode_overlay(mode_id)))
     merged["pipelineProfile"] = pipeline_profile
@@ -584,7 +586,7 @@ def _pipeline_profiles_module():
 
 
 def _load_profile_file(path: Path) -> Dict[str, Any]:
-    return cast(Dict[str, Any], _pipeline_profiles_module().load_profile_file(path))
+    return cast(Dict[str, Any], _omics_pipeline_profiles().load_profile_file(path))
 
 
 def _action_config_resolver():
@@ -708,12 +710,46 @@ def verify_wgbs_align_bake(
 # delegate to these. They forward to this repo's own pipeline_profiles module.
 
 
+_OMICS_PIPELINE_PROFILES: Any = None
+
+
+def _omics_pipeline_profiles_candidates() -> List[Path]:
+    """Where this repo's ``domain/pipeline_profiles.py`` can live (repo checkout, then sys.path)."""
+    found = [Path(__file__).resolve().parents[2] / "workflow_engine" / "domain" / "pipeline_profiles.py"]
+    for entry in sys.path:
+        if entry:
+            found.append(Path(entry) / "domain" / "pipeline_profiles.py")
+    return found
+
+
 def _omics_pipeline_profiles():
+    """GoliathOmics' pipeline profile rules.
+
+    ``domain.pipeline_profiles`` can resolve to the platform's neutral module (GoliathApp also
+    ships a ``domain`` package, and an editable install takes precedence over ``sys.path``).
+    That module forwards to these hooks, so in that case this repo's file is loaded by path.
+    """
+    global _OMICS_PIPELINE_PROFILES
+    if _OMICS_PIPELINE_PROFILES is not None:
+        return _OMICS_PIPELINE_PROFILES
     mod = _pipeline_profiles_module()
-    if hasattr(mod, "_delegate"):
-        # The platform's neutral module shadows ours: forwarding would loop back to this hook.
-        raise ImportError("GoliathOmics domain.pipeline_profiles is not importable (platform module found)")
-    return mod
+    if not hasattr(mod, "_delegate"):
+        _OMICS_PIPELINE_PROFILES = mod
+        return mod
+    platform_file = Path(getattr(mod, "__file__", "") or "").resolve()
+    for path in _omics_pipeline_profiles_candidates():
+        if not path.is_file() or path.resolve() == platform_file:
+            continue
+        spec = importlib.util.spec_from_file_location("goliath_omics_pipeline_profiles", path)
+        if spec is None or spec.loader is None:
+            continue
+        loaded = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(loaded)
+        if hasattr(loaded, "_delegate"):
+            continue
+        _OMICS_PIPELINE_PROFILES = loaded
+        return loaded
+    raise ImportError("GoliathOmics domain/pipeline_profiles.py not found (only the platform module is importable)")
 
 
 def seed_pipeline_scope_flags(
