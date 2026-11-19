@@ -1,0 +1,1 @@
+../../database/schema/19_omics_meta_legacy_class_fold.sql

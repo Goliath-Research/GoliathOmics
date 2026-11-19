@@ -99,6 +99,20 @@ During incremental cutover, **legacy portal tables remain authoritative storage*
 
 **Entities stored outside Meta** still map to one owning Meta class through `owner_class_name` (GoliathApp `SemanticEntitySpec`): `omics.group` → `omics/Group` (under `platform/Entity`), `omics.lab` → `omics/Lab` (under `platform/Site`), `omics.lab_reagent` → `platform/Lot`. Their rows stay in `omics_clinical` / `omics_lab_inv` views. `goliath-omics-seed-semantic` sets `meta_class_id` from that class and, in the same transaction, calls GoliathApp `"Meta".sp_grant_semantic_entity_class_read('omics')` so every role that runs these requests today keeps class read; the seed fails if `portal.fn_semantic_entity_class_read_gaps('omics')` is not empty.
 
+**Clinical entities: one class per concept.** `omics.disease`, `customer`, `patient`, `sample` and `lab_batch` are stored in Meta on `omics/Disease`, `omics/Customer`, `omics/Patient`, `omics/Sample` and `omics/LabBatch`, which own all 25 clinical fields. `database/schema/19_omics_meta_legacy_class_fold.sql` folds the old `OmicsDisease`, `OmicsCustomer`, `OmicsPatient`, `OmicsSample` and `OmicsLabBatch` subclasses into them: it aborts unless each one is empty and unreferenced, then drops its `VOmics*Legacy` view, its own `meta/class/Omics*` types and the class. Each semantic attribute reads the field of the same name on the entity's class; `legacy_*_id` fields stay optional import keys (the `*_id` key attributes). Reference fields are typed as relations: their type (`omics/ref/<target>`) derives from the previous integer type and carries `x-goliath-relation` with the target entity, class and key:
+
+| Field | Relation |
+|---|---|
+| `omics/Sample.patient_id` | `omics.patient` (`omics/Patient`) |
+| `omics/Sample.customer_id` | `omics.customer` (`omics/Customer`) |
+| `omics/Sample.disease_id` | `omics.disease` (`omics/Disease`) |
+| `omics/Disease.parent_id` | `omics.disease` (`omics/Disease`) |
+| `omics/LabBatch.lab_id` | `omics.lab` (`omics/Lab`) |
+| `omics/Customer.organization_id` | `core.organization` |
+| `omics/Patient.institution_id` | `portal."Institutions"` (no semantic entity yet) |
+
+`scripts/verify_omics_semantic_fields.sh` lists every omics attribute with its owning class and field (`omics_clinical.fn_semantic_attribute_fields()`) and fails if a Meta-stored entity reads a column that is not a field of its class, if one of the 25 fields leaves its class, or if a reference field is not a relation.
+
 **Apply (release):** `10_omics_meta_clinical_classes.sql`, `11_omics_meta_semantic_writes.sql`, `12_omics_meta_backfill_api.sql` via `scripts/apply_domain_schema.sh`.
 
 **Seed (once per environment after apply):**

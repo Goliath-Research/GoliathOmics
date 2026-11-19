@@ -75,6 +75,9 @@ PATIENT_ENTITY = SemanticEntitySpec(
         SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
         SemanticAttributeSpec("sex", "sex", "string", "detail", ()),
         SemanticAttributeSpec("year_born", "year_born", "integer", "filter", ("eq", "gte", "lte")),
+        SemanticAttributeSpec("race", "race", "string", "detail", ()),
+        SemanticAttributeSpec("ethnicity", "ethnicity", "string", "detail", ()),
+        SemanticAttributeSpec("external_id", "external_id", "string", "detail", ()),
     ),
 )
 
@@ -159,6 +162,7 @@ SAMPLE_ENTITY = SemanticEntitySpec(
         SemanticAttributeSpec("sample_name", "sample_name", "string", "list", ("ilike",)),
         SemanticAttributeSpec("age", "age", "number", "detail", ()),
         SemanticAttributeSpec("bmi", "bmi", "number", "detail", ()),
+        SemanticAttributeSpec("stage", "stage", "string", "detail", ()),
     ),
 )
 

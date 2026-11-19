@@ -71,7 +71,8 @@ SELECT
   s."DiseaseID" AS disease_id,
   s."SampleName"::text AS sample_name,
   s."Age"::numeric AS age,
-  s."BMI" AS bmi
+  s."BMI" AS bmi,
+  s."Stage"::text AS stage
 FROM portal."Samples" s;
 
 CREATE OR REPLACE VIEW omics_clinical.v_lab AS
@@ -243,6 +244,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS omics_clinical.fn_semantic_sample_list(integer, jsonb, integer);
+
 CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_sample_list(
   p_user_id integer,
   p_params jsonb,
@@ -255,7 +258,8 @@ RETURNS TABLE (
   disease_id integer,
   sample_name text,
   age numeric,
-  bmi double precision
+  bmi double precision,
+  stage text
 )
 LANGUAGE plpgsql
 STABLE
@@ -287,7 +291,8 @@ BEGIN
     v.disease_id,
     v.sample_name,
     v.age,
-    v.bmi
+    v.bmi,
+    v.stage
   FROM omics_clinical.v_sample v
   WHERE omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
   AND (v_customer_id IS NULL OR v.customer_id = v_customer_id)

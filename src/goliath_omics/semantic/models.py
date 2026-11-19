@@ -43,6 +43,9 @@ class PatientRow(BaseModel):
     institution_id: Optional[int] = None
     sex: Optional[str] = None
     year_born: Optional[int] = None
+    race: Optional[str] = None
+    ethnicity: Optional[str] = None
+    external_id: Optional[str] = None
 
 
 class PatientListParams(BaseModel):
@@ -107,6 +110,7 @@ class SampleRow(BaseModel):
     sample_name: Optional[str] = None
     age: Optional[float] = None
     bmi: Optional[float] = None
+    stage: Optional[str] = None
 
 
 class SampleListParams(BaseModel):

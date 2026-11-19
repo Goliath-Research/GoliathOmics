@@ -351,7 +351,15 @@ BEGIN
   IF omics_clinical.fn_meta_dual_write_enabled('sample') THEN
     PERFORM omics_clinical.sp_meta_mirror_sample(v_id);
   END IF;
-  SELECT v.sample_id, v.patient_id, v.customer_id, v.disease_id, v.sample_name, v.age, v.bmi
+  SELECT
+    v.sample_id,
+    v.patient_id,
+    v.customer_id,
+    v.disease_id,
+    v.sample_name,
+    v.age,
+    v.bmi,
+    v.stage
   INTO v_row
   FROM omics_clinical.v_sample v
   WHERE v.sample_id = v_id;
@@ -508,6 +516,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS omics_clinical.fn_semantic_sample_list(integer, jsonb, integer);
+
 CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_sample_list(
   p_user_id integer,
   p_params jsonb,
@@ -520,7 +530,8 @@ RETURNS TABLE (
   disease_id integer,
   sample_name text,
   age numeric,
-  bmi double precision
+  bmi double precision,
+  stage text
 )
 LANGUAGE plpgsql
 STABLE
@@ -553,7 +564,8 @@ BEGIN
       COALESCE(m.disease_id::integer, s."DiseaseID") AS disease_id,
       COALESCE(m.sample_name::text, s."SampleName"::text) AS sample_name,
       COALESCE(m.age::numeric, s."Age"::numeric) AS age,
-      COALESCE(m.bmi::double precision, s."BMI") AS bmi
+      COALESCE(m.bmi::double precision, s."BMI") AS bmi,
+      COALESCE(m.stage::text, s."Stage"::text) AS stage
     FROM portal."Samples" s
     LEFT JOIN "Meta"."VOmicsSample" m ON m."ID" = s."MetaObjectID"
     WHERE omics_clinical.fn_user_can_access_customer(
@@ -588,7 +600,8 @@ BEGIN
       v.disease_id,
       v.sample_name,
       v.age,
-      v.bmi
+      v.bmi,
+      v.stage
     FROM omics_clinical.v_sample v
     WHERE omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
       AND (v_customer_id IS NULL OR v.customer_id = v_customer_id)
