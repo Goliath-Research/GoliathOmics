@@ -194,6 +194,17 @@ EOF
     grep -q "^${merged_keys}=" "$envfile" || fail "workers merge dropped ${merged_keys}"
   done
 
+  # Retired worker keys (Postgres wake / database settings) are stripped on merge.
+  printf '%s\n' 'WORKER_WAKE_POSTGRES=1' 'GOLIATH_WORKER_NEEDS_DATABASE=1' 'POSTGRES_HOST=db.example' \
+    'export POSTGRES_DB=old' >>"$envfile"
+  install_merged_env ubuntu@worker "$envfile" "$overlay" "$remote/tmp/goliath-worker.env" \
+    "WORKER_WAKE_POSTGRES GOLIATH_WORKER_NEEDS_DATABASE POSTGRES_HOST POSTGRES_DB" \
+    || fail "install_merged_env with retired keys failed"
+  if grep -qE '^(export )?(WORKER_WAKE_POSTGRES|GOLIATH_WORKER_NEEDS_DATABASE|POSTGRES_HOST|POSTGRES_DB)=' "$envfile"; then
+    fail "retired worker keys survived the merge"
+  fi
+  grep -q '^TMPDIR=' "$envfile" || fail "stripping retired keys dropped unrelated settings"
+
   arch="amd64"
   me_bin="$remote/local/goliath-extractor-${arch}/bin/goliath-extractor"
   mkdir -p "$(dirname "$me_bin")" "$remote/current"

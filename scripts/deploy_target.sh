@@ -172,6 +172,10 @@ gateway_public_host() {
 export GOLIATH_ENV
 GOLIATH_ENV="$(jq_get '.rollouts_environment')"
 DUAL_ACTIVATION="$(jq -r '.dual_activation // false' "$PROFILE")"
+# Worker settings this deploy no longer writes: workers get wakes from the
+# gateway (WORKER_WAKE_HTTP) and never hold database settings. They are
+# removed from an existing worker.env on every worker deploy.
+WORKER_RETIRED_ENV_KEYS="WORKER_WAKE_POSTGRES WORKER_WAKE_PG_DSN GOLIATH_WORKER_NEEDS_DATABASE POSTGRES_HOST POSTGRES_PORT POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD POSTGRES_SSLMODE POSTGRES_CHANNEL_BINDING"
 [[ -n "$GOLIATH_ENV" && "$GOLIATH_ENV" != "null" ]] || die "rollouts_environment is required"
 info "target=${TARGET} component=${COMPONENT} rollouts_environment=${GOLIATH_ENV}"
 
@@ -277,10 +281,14 @@ scp_to() {
 }
 
 # Upsert KEY=value lines from overlay onto base. Other keys in base are kept.
+# merge_env_overlay BASE OVERLAY OUT [STRIP_KEYS]
+# STRIP_KEYS (space separated) are removed from BASE before the overlay is
+# applied, so settings the deploy no longer writes do not survive on the host.
 merge_env_overlay() {
   local base="$1"
   local overlay="$2"
   local out="$3"
+  local strip_keys="${4:-}"
   local line key next
   umask 077
   if [[ -f "$base" ]]; then
@@ -289,6 +297,13 @@ merge_env_overlay() {
     : >"$out" || return 1
   fi
   chmod 600 "$out" || return 1
+  for key in $strip_keys; do
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    next="$(mktemp)"
+    grep -vE "^[[:space:]]*(export[[:space:]]+)?${key}=" "$out" >"$next" || true
+    mv "$next" "$out" || return 1
+    chmod 600 "$out" || return 1
+  done
   while IFS= read -r line || [[ -n "$line" ]]; do
     case "$line" in
       ''|\#*) continue ;;
@@ -340,6 +355,7 @@ install_merged_env() {
   local remote_path="$2"
   local overlay="$3"
   local remote_tmp="$4"
+  local strip_keys="${5:-}"
   local existing="$stage_dir/existing.env"
   local merged="$stage_dir/merged.env"
   local status=0
@@ -352,7 +368,7 @@ install_merged_env() {
   elif [[ "$status" -ne 0 ]]; then
     return "$status"
   else
-    merge_env_overlay "$existing" "$overlay" "$merged" || return 1
+    merge_env_overlay "$existing" "$overlay" "$merged" "$strip_keys" || return 1
   fi
   if ! scp_to "$dest" "$merged" "$remote_tmp"; then
     ssh_cmd "$dest" "rm -f '$remote_tmp'" || true
@@ -1078,8 +1094,8 @@ run_workers() {
     local shared_env="/work/goliath/env/worker.env"
     local root_env="$root/env/worker.env"
     local worker_ok=0
-    if install_merged_env "$dest" "$root_env" "$envfile" /tmp/goliath-worker.env \
-      && { [[ "$root_env" == "$shared_env" ]] || install_merged_env "$dest" "$shared_env" "$envfile" /tmp/goliath-worker.env; } \
+    if install_merged_env "$dest" "$root_env" "$envfile" /tmp/goliath-worker.env "$WORKER_RETIRED_ENV_KEYS" \
+      && { [[ "$root_env" == "$shared_env" ]] || install_merged_env "$dest" "$shared_env" "$envfile" /tmp/goliath-worker.env "$WORKER_RETIRED_ENV_KEYS"; } \
       && ssh_cmd "$dest" "sudo env GOLIATH_ENV='$GOLIATH_ENV' GOLIATH_ROLLOUTS_EXTERNAL=1 bash /tmp/goliath-deploy/scripts/install_worker_systemd.sh --root '$root' --arch '$arch' $cap_flag"; then
       worker_ok=1
     fi
