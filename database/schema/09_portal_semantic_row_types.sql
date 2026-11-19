@@ -45,7 +45,10 @@ BEGIN
   name text,
   institution_id integer,
   sex text,
-  year_born integer
+  year_born integer,
+  race text,
+  ethnicity text,
+  external_id text
     );
   END IF;
 END $$;
@@ -64,7 +67,8 @@ BEGIN
   disease_id integer,
   sample_name text,
   age numeric,
-  bmi double precision
+  bmi double precision,
+  stage text
     );
   END IF;
 END $$;

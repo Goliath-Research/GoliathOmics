@@ -615,7 +615,7 @@
       ],
       "catalog_type_name": null,
       "code": "patient",
-      "content_hash": "7604f70ca4cc90830db6984fcc6f4e663ffbf4945a98c08a4e999bc8e10a056b",
+      "content_hash": "0628f8634a1dacf59918d446517e223910c62a5be5b2ddf8c782795569055ad3",
       "description": "Clinical patient linked to institution and samples.",
       "display_name": "Patient",
       "meta_class_id": null,
@@ -624,6 +624,30 @@
       "row_schema": {
         "additionalProperties": false,
         "properties": {
+          "ethnicity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ethnicity"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "External Id"
+          },
           "institution_id": {
             "anyOf": [
               {
@@ -643,6 +667,18 @@
           "patient_id": {
             "title": "Patient Id",
             "type": "integer"
+          },
+          "race": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Race"
           },
           "sex": {
             "anyOf": [
@@ -750,7 +786,7 @@
       ],
       "catalog_type_name": null,
       "code": "sample",
-      "content_hash": "30f9d467672ade21bae10412aa217ba2905f8ecc007dd6baa8594825a811ee1d",
+      "content_hash": "31cfabd1422b1cda6968dabe03c605b48c68367e0648741ac26cf95160e7e3cc",
       "description": "Clinical portal sample linked to a patient and customer.",
       "display_name": "Portal sample",
       "meta_class_id": null,
@@ -826,6 +862,18 @@
             ],
             "default": null,
             "title": "Sample Name"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stage"
           }
         },
         "required": [
@@ -2036,7 +2084,7 @@
     },
     "omics.sample.create": {
       "base_namespace": null,
-      "content_hash": "bfb247963828e4b2f03f4872f4652dbd6445cfeaac9d23b11eb1df8aa1f5e847",
+      "content_hash": "e3d3998d240f4843d33f10f184c213c0ba2affe2738404138348ac574d15c752",
       "entity_code": "sample",
       "filter_template": null,
       "max_rows": 1,
@@ -2192,6 +2240,18 @@
             ],
             "default": null,
             "title": "Sample Name"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stage"
           }
         },
         "required": [
@@ -2209,7 +2269,7 @@
     },
     "omics.sample.list": {
       "base_namespace": null,
-      "content_hash": "4b4ff481046d46d1a9d3078b5ea7f2d16b87098e4d016399c8acacd82d6fb595",
+      "content_hash": "e3671a1dc3167efcb0933fbe13f043540b25f1710a9707fc5ee3e10513847738",
       "entity_code": "sample",
       "filter_template": null,
       "max_rows": 500,
@@ -2329,6 +2389,18 @@
             ],
             "default": null,
             "title": "Sample Name"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stage"
           }
         },
         "required": [
