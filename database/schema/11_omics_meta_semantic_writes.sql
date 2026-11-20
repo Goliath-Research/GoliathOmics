@@ -352,6 +352,137 @@ BEGIN
 END;
 $$;
 
+
+CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_patient_create(
+  p_user_id integer,
+  p_payload jsonb
+)
+RETURNS portal.omics_patient_row
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = omics_clinical, portal, pg_temp
+AS $$
+DECLARE
+  v_id integer;
+  v_row portal.omics_patient_row;
+  v_name text;
+BEGIN
+  IF p_user_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'user required');
+  END IF;
+  v_name := NULLIF(btrim(p_payload->>'name'), '');
+  IF v_name IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'name required');
+  END IF;
+  INSERT INTO portal."Patients" (
+    "InstitutionID", "Name", "Sex", "YearBorn", "Race", "Ethnicity", "ExternalID"
+  )
+  VALUES (
+    NULLIF(p_payload->>'institution_id', '')::integer,
+    v_name,
+    NULLIF(btrim(p_payload->>'sex'), ''),
+    NULLIF(p_payload->>'year_born', '')::integer,
+    NULLIF(btrim(p_payload->>'race'), ''),
+    NULLIF(btrim(p_payload->>'ethnicity'), ''),
+    NULLIF(btrim(p_payload->>'external_id'), '')
+  )
+  RETURNING "ID" INTO v_id;
+  IF omics_clinical.fn_meta_dual_write_enabled('patient') THEN
+    PERFORM omics_clinical.sp_meta_mirror_patient(v_id);
+  END IF;
+  SELECT
+    v.patient_id, v.name, v.institution_id, v.sex, v.year_born, v.race, v.ethnicity, v.external_id
+  INTO v_row
+  FROM omics_clinical.v_patient v
+  WHERE v.patient_id = v_id;
+  RETURN v_row;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_patient_update(
+  p_user_id integer,
+  p_payload jsonb
+)
+RETURNS portal.omics_patient_row
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = omics_clinical, portal, pg_temp
+AS $$
+DECLARE
+  v_id integer;
+  v_row portal.omics_patient_row;
+BEGIN
+  IF p_user_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'user required');
+  END IF;
+  v_id := NULLIF(p_payload->>'patient_id', '')::integer;
+  IF v_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'patient_id required');
+  END IF;
+  UPDATE portal."Patients" p
+  SET
+    "InstitutionID" = COALESCE(NULLIF(p_payload->>'institution_id', '')::integer, p."InstitutionID"),
+    "Name" = COALESCE(NULLIF(btrim(p_payload->>'name'), ''), p."Name"),
+    "Sex" = COALESCE(NULLIF(btrim(p_payload->>'sex'), ''), p."Sex"),
+    "YearBorn" = COALESCE(NULLIF(p_payload->>'year_born', '')::integer, p."YearBorn"),
+    "Race" = COALESCE(NULLIF(btrim(p_payload->>'race'), ''), p."Race"),
+    "Ethnicity" = COALESCE(NULLIF(btrim(p_payload->>'ethnicity'), ''), p."Ethnicity"),
+    "ExternalID" = COALESCE(NULLIF(btrim(p_payload->>'external_id'), ''), p."ExternalID")
+  WHERE p."ID" = v_id;
+  IF NOT FOUND THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'patient not found');
+  END IF;
+  IF omics_clinical.fn_meta_dual_write_enabled('patient') THEN
+    PERFORM omics_clinical.sp_meta_mirror_patient(v_id);
+  END IF;
+  SELECT
+    v.patient_id, v.name, v.institution_id, v.sex, v.year_born, v.race, v.ethnicity, v.external_id
+  INTO v_row
+  FROM omics_clinical.v_patient v
+  WHERE v.patient_id = v_id;
+  RETURN v_row;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_patient_list(
+  p_user_id integer,
+  p_params jsonb,
+  p_limit integer
+)
+RETURNS TABLE (
+  patient_id integer,
+  name text,
+  institution_id integer,
+  sex text,
+  year_born integer,
+  race text,
+  ethnicity text,
+  external_id text
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = omics_clinical, portal, pg_temp
+AS $$
+DECLARE
+  v_institution_id integer;
+  v_lim integer;
+BEGIN
+  IF p_user_id IS NULL THEN
+    RETURN;
+  END IF;
+  v_institution_id := NULLIF(p_params->>'institution_id', '')::integer;
+  v_lim := GREATEST(0, COALESCE(p_limit, 500));
+  RETURN QUERY
+  SELECT
+    v.patient_id, v.name, v.institution_id, v.sex, v.year_born, v.race, v.ethnicity, v.external_id
+  FROM omics_clinical.v_patient v
+  WHERE (v_institution_id IS NULL OR v.institution_id = v_institution_id)
+  ORDER BY v.patient_id
+  LIMIT v_lim;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_disease_create(
   p_user_id integer,
   p_payload jsonb
@@ -469,6 +600,7 @@ SET search_path = omics_clinical, portal, pg_temp
 AS $$
 DECLARE
   v_customer_id integer;
+  v_patient_id integer;
   v_id integer;
   v_row portal.omics_sample_row;
 BEGIN
@@ -476,15 +608,19 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS401', 'user required');
   END IF;
   v_customer_id := NULLIF(p_payload->>'customer_id', '')::integer;
-  IF v_customer_id IS NULL
-    OR NOT omics_clinical.fn_user_can_access_customer(p_user_id, v_customer_id) THEN
+  IF v_customer_id IS NOT NULL
+    AND NOT omics_clinical.fn_user_can_access_customer(p_user_id, v_customer_id) THEN
     PERFORM portal.fn_semantic_raise('GS403', 'customer scope denied');
+  END IF;
+  v_patient_id := NULLIF(p_payload->>'patient_id', '')::integer;
+  IF v_patient_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'patient_id required');
   END IF;
   INSERT INTO portal."Samples" (
     "PatientID", "CustomerID", "DiseaseID", "SampleName", "Age", "BMI", "Stage"
   )
   VALUES (
-    NULLIF(p_payload->>'patient_id', '')::integer,
+    v_patient_id,
     v_customer_id,
     NULLIF(p_payload->>'disease_id', '')::integer,
     NULLIF(p_payload->>'sample_name', ''),
@@ -713,9 +849,12 @@ BEGIN
       COALESCE(m.stage::text, s."Stage"::text) AS stage
     FROM portal."Samples" s
     LEFT JOIN "Meta"."VOmicsSample" m ON m."ID" = s."MetaObjectID"
-    WHERE omics_clinical.fn_user_can_access_customer(
-        p_user_id,
-        COALESCE(m.customer_id::integer, s."CustomerID")
+    WHERE (
+        COALESCE(m.customer_id::integer, s."CustomerID") IS NULL
+        OR omics_clinical.fn_user_can_access_customer(
+          p_user_id,
+          COALESCE(m.customer_id::integer, s."CustomerID")
+        )
       )
       AND (
         v_customer_id IS NULL
@@ -748,7 +887,10 @@ BEGIN
       v.bmi,
       v.stage
     FROM omics_clinical.v_sample v
-    WHERE omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
+    WHERE (
+        v.customer_id IS NULL
+        OR omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
+      )
       AND (v_customer_id IS NULL OR v.customer_id = v_customer_id)
       AND (v_disease_id IS NULL OR v.disease_id = v_disease_id)
       AND (

@@ -28,6 +28,7 @@ nav:
       - Process packs: operators/process-packs.md
       - Lab inventory: operators/lab-inventory.md
       - Copy legacy SamplePrep runs: operators/legacy-run-migration.md
+      - Import public ENA/SRA samples: operators/ena-public-samples.md
   - Usage:
       - Index: usage/index.md
       - Prerequisites: usage/01-prerequisites-and-environment.md

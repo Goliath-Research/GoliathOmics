@@ -2281,9 +2281,530 @@
       "target_name": "omics_lab_inv.fn_semantic_lab_reagent_receive",
       "version": "1"
     },
+    "omics.patient.create": {
+      "base_namespace": null,
+      "content_hash": "3de06de4406b7559bc5c29fb939062ba35eb27413092ca15d8e3fb87cc824017",
+      "entity_code": "patient",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "ethnicity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ethnicity"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "External Id"
+          },
+          "institution_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Institution Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "race": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Race"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sex"
+          },
+          "year_born": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year Born"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "PatientWritePayload",
+        "type": "object"
+      },
+      "request_code": "omics.patient.create",
+      "required_permission": "omics.clinical.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "ethnicity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ethnicity"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "External Id"
+          },
+          "institution_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Institution Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "patient_id": {
+            "title": "Patient Id",
+            "type": "integer"
+          },
+          "race": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Race"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sex"
+          },
+          "year_born": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year Born"
+          }
+        },
+        "required": [
+          "patient_id",
+          "name"
+        ],
+        "title": "PatientRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_patient_row",
+      "schema_id": "goliath.semantic/omics/omics.patient.create/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_patient_create",
+      "version": "1"
+    },
+    "omics.patient.list": {
+      "base_namespace": null,
+      "content_hash": "67673c4d30534ea1147f86bf3f8474513ae94e1ddc2ba61a8cee7a815565c1f3",
+      "entity_code": "patient",
+      "filter_template": null,
+      "max_rows": 500,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "institution_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Institution Id"
+          }
+        },
+        "title": "PatientListParams",
+        "type": "object"
+      },
+      "request_code": "omics.patient.list",
+      "required_permission": "omics.clinical.read",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "ethnicity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ethnicity"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "External Id"
+          },
+          "institution_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Institution Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "patient_id": {
+            "title": "Patient Id",
+            "type": "integer"
+          },
+          "race": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Race"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sex"
+          },
+          "year_born": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year Born"
+          }
+        },
+        "required": [
+          "patient_id",
+          "name"
+        ],
+        "title": "PatientRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_patient_row",
+      "schema_id": "goliath.semantic/omics/omics.patient.list/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_patient_list",
+      "version": "1"
+    },
+    "omics.patient.update": {
+      "base_namespace": null,
+      "content_hash": "187ac2a523706e14c68c60e124ed440ef9ac1e090b86734192ff496d0e34e33e",
+      "entity_code": "patient",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "ethnicity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ethnicity"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "External Id"
+          },
+          "institution_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Institution Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "patient_id": {
+            "title": "Patient Id",
+            "type": "integer"
+          },
+          "race": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Race"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sex"
+          },
+          "year_born": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year Born"
+          }
+        },
+        "required": [
+          "patient_id"
+        ],
+        "title": "PatientUpdatePayload",
+        "type": "object"
+      },
+      "request_code": "omics.patient.update",
+      "required_permission": "omics.clinical.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "ethnicity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ethnicity"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "External Id"
+          },
+          "institution_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Institution Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "patient_id": {
+            "title": "Patient Id",
+            "type": "integer"
+          },
+          "race": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Race"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sex"
+          },
+          "year_born": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year Born"
+          }
+        },
+        "required": [
+          "patient_id",
+          "name"
+        ],
+        "title": "PatientRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_patient_row",
+      "schema_id": "goliath.semantic/omics/omics.patient.update/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_patient_update",
+      "version": "1"
+    },
     "omics.sample.create": {
       "base_namespace": null,
-      "content_hash": "e3d3998d240f4843d33f10f184c213c0ba2affe2738404138348ac574d15c752",
+      "content_hash": "0928482ec588d23b86ce58e8310c5b643070ef1ead400dca85d910e49e2c5cd9",
       "entity_code": "sample",
       "filter_template": null,
       "max_rows": 1,
@@ -2316,8 +2837,16 @@
             "title": "Bmi"
           },
           "customer_id": {
-            "title": "Customer Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Customer Id"
           },
           "disease_id": {
             "anyOf": [
@@ -2361,8 +2890,7 @@
           }
         },
         "required": [
-          "patient_id",
-          "customer_id"
+          "patient_id"
         ],
         "title": "SampleCreatePayload",
         "type": "object"
