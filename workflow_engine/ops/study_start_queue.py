@@ -1,8 +1,9 @@
 """Drain cfg.study_start_request rows: bake once, then portal.sp_create_and_start_instance.
 
-Portal never finalizes. This ops path loads site/profile/procedure from materialized
-``/work`` (``methyl-cfg materialize`` must have run) and calls
-``finalize_instance_context`` once.
+Portal never finalizes. This ops path loads the published cfg.site document via
+``portal.fn_published_site_document(site_id)`` (falling back to the work-root site
+manifest when that function returns null or is not installed), loads profile /
+procedure from materialized ``/work``, and calls ``finalize_instance_context`` once.
 """
 
 from __future__ import annotations
@@ -28,6 +29,51 @@ def _parse_json(value: Any) -> Any:
         text = value.strip()
         return json.loads(text) if text else {}
     return value
+
+
+
+def load_published_site_document(db: Any, site_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    """Return the published cfg.site document, or None so callers can use the file manifest.
+
+    Prefers ``portal.fn_published_site_document`` (GoliathApp). If that function is
+    not installed, reads ``cfg.site`` directly with the same published/default rule
+    study start already uses.
+    """
+    try:
+        row = db._fetch_one(
+            "SELECT portal.fn_published_site_document(%s) AS document",
+            (site_id,),
+        )
+    except Exception:
+        logger.debug("portal.fn_published_site_document unavailable; trying cfg.site", exc_info=True)
+        row = None
+        if site_id is not None:
+            try:
+                row = db._fetch_one(
+                    "SELECT document_json AS document FROM cfg.site "
+                    "WHERE id = %s AND status = 'published'",
+                    (site_id,),
+                )
+            except Exception:
+                logger.debug("cfg.site lookup by id failed", exc_info=True)
+                return None
+        else:
+            try:
+                row = db._fetch_one(
+                    "SELECT document_json AS document FROM cfg.site "
+                    "WHERE status = 'published' "
+                    "ORDER BY CASE WHEN name = 'default' THEN 0 ELSE 1 END, id DESC "
+                    "LIMIT 1",
+                    (),
+                )
+            except Exception:
+                logger.debug("cfg.site default lookup failed", exc_info=True)
+                return None
+    if not row:
+        return None
+    raw = row.get("document") if isinstance(row, dict) else None
+    parsed = _parse_json(raw)
+    return parsed if isinstance(parsed, dict) and parsed else None
 
 
 def _claim(db: Any, claimed_by: str, lease_seconds: int) -> Optional[Dict[str, Any]]:
@@ -123,6 +169,9 @@ def process_one_request(db: Any, row: Dict[str, Any]) -> Dict[str, Any]:
     study_row_id = int(row["study_row_id"])
     overlay = _overlay(db, study_row_id)
     body = _build_body(row, overlay)
+    site_doc = load_published_site_document(db, row.get("site_id"))
+    if site_doc and not body.get("siteConfig"):
+        body["siteConfig"] = site_doc
     stage = str(row["stage"])
     if stage == "sample_prep":
         context = plan_sample_prep_instance_context(db, body)

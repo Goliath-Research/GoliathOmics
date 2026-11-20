@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RnaAlignStepConfig",
+  "description": "RNA-seq align knobs (actionConfig.rna_align). Path keys override site rna_reference (rna_fq2bam_runner.py). Linear Align engine knobs may also be filled from the site parabricks object (action_config_resolver.site_slice_for_action). Field list is the union of those sources. No non-null defaults are declared on those keys.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "engine": {
+      "enum": [
+        "parabricks",
+        "mojo"
+      ],
+      "type": "string",
+      "description": "Linear Align implementation: 'parabricks' (Clara fq2bam_meth, NVIDIA) or 'mojo' (MojoFq2bamMeth, portable). Operator-set per site/profile.",
+      "title": "Engine"
+    },
+    "align_device": {
+      "enum": [
+        "auto",
+        "cpu",
+        "nvidia",
+        "amd"
+      ],
+      "type": "string",
+      "description": "Mojo portable device when engine=mojo: auto|cpu|nvidia|amd. Operator-set per site/profile. Ignored for Clara.",
+      "title": "Align Device"
+    },
+    "image": {
+      "type": "string",
+      "description": "Docker image for Align. Clara NGC tag when engine=parabricks; goliath/methylgrapher:1.70-mojo-cuda|rocm when engine=mojo.",
+      "title": "Image"
+    },
+    "bwa_threads": {
+      "minimum": 1,
+      "type": "integer",
+      "description": "BWA / MojoFq2bamMeth CPU thread pool. Operator-set per site/profile.",
+      "title": "Bwa Threads"
+    },
+    "gpu_flags": {
+      "type": "string",
+      "description": "Docker GPU flags for Clara (e.g. '--gpus all'). Operator-set per site.",
+      "title": "Gpu Flags"
+    },
+    "alignment_mode": {
+      "type": "string",
+      "description": "Must be linear when this section is used for SamplePrep linear arm.",
+      "title": "Alignment Mode"
+    },
+    "reference_fasta": {
+      "type": "string",
+      "description": "Genome FASTA matching the STAR index. Overrides site rna_reference.reference_fasta. rna_fq2bam_runner.py. Also a ParabricksStepConfig field."
+    },
+    "mojo_image": {
+      "type": "string",
+      "description": "Optional override image when engine=mojo (else image or goliath/methylgrapher:1.70-mojo).",
+      "title": "Mojo Image"
+    },
+    "write_methylation_tags": {
+      "type": "boolean",
+      "description": "When true, MojoFq2bamMeth writes XM:Z/XG:Z methylation tags (METHYLGRAPHER_WRITE_METH_TAGS). Operator-set per procedure/profile. Clara fq2bam_meth uses sequence+XG fallback when tags are absent.",
+      "title": "Write Methylation Tags"
+    },
+    "star_index_dir": {
+      "type": "string",
+      "description": "STAR genome index directory. Overrides site rna_reference.star_index_dir. rna_fq2bam_runner.py / site_manifest rna_reference."
+    },
+    "gtf": {
+      "type": "string",
+      "description": "Gene annotation GTF. Overrides site rna_reference.gtf. rna_fq2bam_runner.py."
+    },
+    "kallisto_index": {
+      "type": "string",
+      "description": "Prebuilt kallisto index. From site rna_reference, also applied to rna_align by site_slice_for_action."
+    },
+    "transcriptome_fasta": {
+      "type": "string",
+      "description": "Transcriptome FASTA. From site rna_reference; site_slice_for_action copies it onto rna_align."
+    },
+    "tx2gene": {
+      "type": "string",
+      "description": "Transcript-to-gene map. From site rna_reference; site_slice_for_action copies it onto rna_align."
+    }
+  }
+}

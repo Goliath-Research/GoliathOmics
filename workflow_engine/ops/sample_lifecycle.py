@@ -52,6 +52,7 @@ def plan_sample_prep_instance_context(db: Any, body: Dict[str, Any]) -> Dict[str
         "profilePath",
         "procedurePath",
         "siteConfigPath",
+        "siteConfig",
         "program_path",
         "program",
         "programPath",

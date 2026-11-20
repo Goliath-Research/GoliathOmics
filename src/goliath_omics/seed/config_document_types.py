@@ -1,9 +1,13 @@
-"""Register the typed document schema for Omics pipeline profiles (generic cfg document editor).
+"""Register typed document schemas for Omics pipeline profiles and site parameters.
 
 GoliathApp's config editors only edit a cfg kind's documents once the owning app registers a
-catalog data type for them (``cfg.sp_register_kind_document_type``). This seeds
-``omics/PipelineProfile`` from ``schemas/config/profile.schema.json``, with external ``$ref``s
-bundled in so the stored schema is self-contained. Idempotent.
+catalog data type for them (``cfg.sp_register_kind_document_type``). This seeds:
+
+* ``omics/PipelineProfile`` from ``schemas/config/profile.schema.json``
+* ``omics/SiteParameters`` from ``schemas/config/site_manifest.schema.json``
+
+External ``$ref``s are bundled so each stored schema is self-contained. Idempotent.
+No child-app UI is registered; the generic typed grid edits the documents.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 PIPELINE_PROFILE_TYPE = "omics/PipelineProfile"
+SITE_PARAMETERS_TYPE = "omics/SiteParameters"
 
 
 def _schemas_dir() -> Path:
@@ -81,6 +86,22 @@ def pipeline_profile_schema() -> dict[str, Any]:
     return bundle_schema(_schemas_dir() / "profile.schema.json")
 
 
+def site_parameters_schema() -> dict[str, Any]:
+    """Self-contained bundle of the Omics site document, titled SiteParameters."""
+    schema = bundle_schema(_schemas_dir() / "site_manifest.schema.json")
+    schema["title"] = "SiteParameters"
+    return schema
+
+
+def _upsert_type(cur, type_name: str, schema: dict[str, Any]) -> None:
+    text = json.dumps(schema, sort_keys=True)
+    content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    cur.execute(
+        "SELECT 1 FROM wf.wf_repo_upsert_data_type(%s, '1', 'published', 'object', NULL, '1', %s, %s::jsonb)",
+        (type_name, content_hash, text),
+    )
+
+
 def _connect():
     import psycopg
 
@@ -94,20 +115,16 @@ def _connect():
 
 
 def seed(conn) -> bool:
-    """Upsert the data type and register it for the pipeline_profile kind. False if unsupported."""
-    schema = pipeline_profile_schema()
-    text = json.dumps(schema, sort_keys=True)
-    content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    """Upsert both data types and register them for pipeline_profile and site. False if unsupported."""
     with conn.cursor() as cur:
         cur.execute("SELECT to_regprocedure('cfg.sp_register_kind_document_type(text,text)') IS NOT NULL")
         row = cur.fetchone()
         if not (row and row[0]):
             return False
-        cur.execute(
-            "SELECT 1 FROM wf.wf_repo_upsert_data_type(%s, '1', 'published', 'object', NULL, '1', %s, %s::jsonb)",
-            (PIPELINE_PROFILE_TYPE, content_hash, text),
-        )
+        _upsert_type(cur, PIPELINE_PROFILE_TYPE, pipeline_profile_schema())
         cur.execute("SELECT cfg.sp_register_kind_document_type('pipeline_profile', %s)", (PIPELINE_PROFILE_TYPE,))
+        _upsert_type(cur, SITE_PARAMETERS_TYPE, site_parameters_schema())
+        cur.execute("SELECT cfg.sp_register_kind_document_type('site', %s)", (SITE_PARAMETERS_TYPE,))
     conn.commit()
     return True
 
@@ -119,7 +136,10 @@ def main() -> int:
     with _connect() as conn:
         ok = seed(conn)
     if ok:
-        print(f"Registered {PIPELINE_PROFILE_TYPE} for cfg kind pipeline_profile")
+        print(
+            f"Registered {PIPELINE_PROFILE_TYPE} for pipeline_profile and "
+            f"{SITE_PARAMETERS_TYPE} for site"
+        )
     else:
         print("cfg.sp_register_kind_document_type is not installed; skipped", file=sys.stderr)
     return 0

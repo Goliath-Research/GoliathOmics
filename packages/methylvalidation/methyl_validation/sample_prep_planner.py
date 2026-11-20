@@ -60,6 +60,14 @@ class SamplePrepPlanRequest(BaseModel):
     samplesBaseDir: Optional[str] = None
     referenceFasta: Optional[str] = None
     referenceGtf: Optional[str] = None
+    siteConfig: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Published cfg.site document. When set, reference FASTA/GTF resolve from it instead of the work-root site file.",
+    )
+    siteConfigPath: Optional[str] = Field(
+        default=None,
+        description="Optional path to a site manifest used when siteConfig is absent.",
+    )
     primaryAnalyte: Optional[str] = None
     deleteFastqs: Optional[bool] = Field(
         default=None,
@@ -352,8 +360,18 @@ def _dedupe_samples(samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-def _default_reference_fasta(project) -> Optional[str]:
-    aq = resolve_for_project("alignment_qc", project)
+def _alignment_qc_defaults(project, *, site=None, site_path=None) -> Dict[str, Any]:
+    """Resolve alignment_qc, preferring a published site document over the work-root file."""
+    if isinstance(site, dict) and site:
+        from methyl_utils.action_config_resolver import resolve_action_config
+
+        reg = project.get_regulatory_config() if hasattr(project, "get_regulatory_config") else {}
+        return resolve_action_config("alignment_qc", site=site, regulatory=reg)
+    return resolve_for_project("alignment_qc", project, site_path=site_path)
+
+
+def _default_reference_fasta(project, *, site=None, site_path=None) -> Optional[str]:
+    aq = _alignment_qc_defaults(project, site=site, site_path=site_path)
     for key in ("genome_fasta", "reference_fasta", "referenceFasta"):
         val = aq.get(key)
         if val:
@@ -361,8 +379,8 @@ def _default_reference_fasta(project) -> Optional[str]:
     return None
 
 
-def _default_reference_gtf(project) -> Optional[str]:
-    aq = resolve_for_project("alignment_qc", project)
+def _default_reference_gtf(project, *, site=None, site_path=None) -> Optional[str]:
+    aq = _alignment_qc_defaults(project, site=site, site_path=site_path)
     for key in ("reference_gtf", "referenceGtf", "gtf"):
         val = aq.get(key)
         if val:
@@ -454,16 +472,26 @@ def plan_sample_prep_context(body: Dict[str, Any] | SamplePrepPlanRequest) -> Di
         context["sampleStorage"] = dumped
         context["h5Storage"] = dumped
 
-    ref_fasta = request.referenceFasta or _default_reference_fasta(project)
+    site = request.siteConfig if isinstance(request.siteConfig, dict) else None
+    site_path = request.siteConfigPath
+    ref_fasta = request.referenceFasta or _default_reference_fasta(
+        project, site=site, site_path=site_path
+    )
     if ref_fasta:
         context["referenceFasta"] = str(ref_fasta)
     else:
         raise ValueError(
-            "referenceFasta is required; set referenceFasta in request or profile actionConfig.alignment_qc.genome_fasta"
+            "referenceFasta is required; set referenceFasta in request, siteConfig, or profile actionConfig.alignment_qc.genome_fasta"
         )
 
-    ref_gtf = request.referenceGtf or _default_reference_gtf(project)
+    ref_gtf = request.referenceGtf or _default_reference_gtf(
+        project, site=site, site_path=site_path
+    )
     if ref_gtf is not None:
         context["referenceGtf"] = str(ref_gtf)
+    if site:
+        context["siteConfig"] = site
+    if site_path:
+        context["siteConfigPath"] = site_path
 
     return context

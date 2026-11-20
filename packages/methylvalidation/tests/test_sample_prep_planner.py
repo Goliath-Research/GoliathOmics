@@ -419,3 +419,20 @@ def test_prefix_base_on_fastq_storage(tmp_path: Path) -> None:
     assert ctx["samples"][0]["fastqPrefix"] == "samples/S1/"
     assert ctx["samples"][0]["fastqSource"]["prefix"] == "samples/S1/"
     assert ctx["samples"][0]["sampleDestination"] is None
+
+def test_site_config_document_supplies_reference_fasta(tmp_path: Path) -> None:
+    """Published siteConfig is used during planning, not only after finalize."""
+    project_path = _write_project(tmp_path)
+    fasta = tmp_path / "from_site.fa"
+    fasta.write_text(">chr1\nACGT\n", encoding="utf-8")
+    ctx = plan_sample_prep_context(
+        {
+            "projectPath": str(project_path),
+            "samples": [{"sampleId": "S1"}],
+            "fastqStorage": FILE_STORAGE,
+            "siteConfig": {"reference_genome": {"fasta": str(fasta)}},
+        }
+    )
+    assert ctx["referenceFasta"] == str(fasta)
+    assert ctx["siteConfig"]["reference_genome"]["fasta"] == str(fasta)
+
