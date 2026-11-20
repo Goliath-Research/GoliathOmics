@@ -20,7 +20,7 @@ Workers already merge per-action configuration in `packages/methylutils/methyl_u
 
 1. Study start records a published `cfg.site` id on the instance link (preferring the site named `default`, same rule as today).
 2. `ops/study_start_queue.py` loads that document with `portal.fn_published_site_document(site_id)` (generic GoliathApp function) and places it on the start body as `siteConfig`. If the function is missing or returns null, the worker/bake path falls back to the work-root site manifest (`load_site_manifest`, typically `/work/site/site.json` after `goliath-cfg materialize`).
-3. `finalize_instance_context` / `resolve_action_config` merge site → profile → overlays and bake `resolvedConfig__*`.
+3. Sample-prep planning resolves reference FASTA/GTF from that `siteConfig` (not only from the work-root file). `finalize_instance_context` / `resolve_action_config` then merge site → profile → overlays and bake `resolvedConfig__*`.
 4. Workers prefer the baked `resolvedConfig` on the task input and do not re-read the site file when that slice is present.
 
 There is no `wf.cluster.site_id` column today; a cluster's workers see the site document that was baked for the instance (or the manifest on that cluster's work root).

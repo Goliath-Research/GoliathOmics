@@ -86,14 +86,16 @@ def plan_study_validation_instance_context(body: Dict[str, Any]) -> Dict[str, An
 
     planner_payload = dict(body)
     planner_payload.setdefault("projectPath", project_path)
+    # ValidationPlanRequest is extra=forbid; keep site off the planner input
+    # and reattach it after planning so finalize still bakes the published document.
+    site_config = planner_payload.pop("siteConfig", None)
+    site_path = planner_payload.pop("siteConfigPath", None)
     planned = plan_validation_context(planner_payload)
     context = planned.model_dump(mode="json")
-    # Start-request site document (from cfg.site) must survive planning so
-    # finalize / resolve_action_config can use it as the lowest merge layer.
-    if body.get("siteConfig") and not context.get("siteConfig"):
-        context["siteConfig"] = body["siteConfig"]
-    if body.get("siteConfigPath") and not context.get("siteConfigPath"):
-        context["siteConfigPath"] = body["siteConfigPath"]
+    if isinstance(site_config, dict) and site_config and not context.get("siteConfig"):
+        context["siteConfig"] = site_config
+    if site_path and not context.get("siteConfigPath"):
+        context["siteConfigPath"] = site_path
     return finalize_instance_context(context)
 
 
