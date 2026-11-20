@@ -3,3 +3,4 @@
 # Pull request CI builds the site and does not deploy it.
 # Pushes to main publish https://goliath-research.github.io/GoliathOmics/
 mkdocs-material>=9.6,<10
+mkdocs-mermaid2-plugin>=1.2,<2

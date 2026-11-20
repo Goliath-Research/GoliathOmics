@@ -4,7 +4,7 @@ The registry engine and `goliath-cfg` live in GoliathApp. This chapter is the ge
 
 ## What this chapter is
 
-The database owns sites, profiles, procedures, studies, storage endpoints, and reference assets. `finalize_instance_context` syncs the published study onto `/work` when an instance starts. Production storage and credential rows are written through portal SQL. The sync script below is the git-to-database path for analytes, profiles, and procedures.
+The database owns sites, profiles, procedures, studies, storage endpoints, and reference assets. `goliath-omics-seed-config-document-types` registers `omics/SiteParameters` and `omics/PipelineProfile` so the GoliathApp generic typed grid can edit those documents. Published site documents reach workers through `portal.fn_published_site_document`; pipeline profile and step parameters can override site values. See [Site parameters](../architecture/site-parameters.md). `finalize_instance_context` syncs the published study onto `/work` when an instance starts. Production storage and credential rows are written through portal SQL. The sync script below is the git-to-database path for analytes, profiles, and procedures.
 
 ## Load the catalog
 

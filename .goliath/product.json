@@ -3,16 +3,16 @@
   "id": "goliathomics",
   "name": "GoliathOmics",
   "tagline": "Configurable genomics and multi-omics workflows: from raw sequencing reads to quality-controlled matrices and validated biomarker studies.",
-  "description": "GoliathOmics coordinates configurable genomics workflows, bringing sample preparation, two-stage quality control, biomarker discovery, and execution management into one application. Teams can start with a focused SamplePrep workflow—processing paired FASTQ reads through alignment, automated QC guardrails, optional cfDNA fragmentomics, and methylation extraction into analysis-ready HDF5 matrices—without adopting the broader application platform all at once. When studies expand, process packs and staged validation pipelines support methylation, RNA-seq, and proteomics cohorts from exploratory research through regulated clinical (SaMD) lifecycles on GoliathApp.",
+  "description": "GoliathOmics coordinates configurable genomics workflows, bringing sample preparation, two-stage quality control, biomarker discovery, and execution management into one application. Teams can start with a focused SamplePrep workflow\u2014processing paired FASTQ reads through alignment, automated QC guardrails, optional cfDNA fragmentomics, and methylation extraction into analysis-ready HDF5 matrices\u2014without adopting the broader application platform all at once. When studies expand, process packs and staged validation pipelines support methylation, RNA-seq, and proteomics cohorts from exploratory research through regulated clinical (SaMD) lifecycles on GoliathApp.",
   "category": "application",
   "features": [
     {
       "title": "SamplePrep workflow (FASTQ to analysis-ready HDF5)",
-      "description": "Processes paired FASTQ files through download, configurable alignment, alignment QC with automated trim-and-realign remediation, optional cfDNA fragmentomics, methylation extraction, extraction QC, archiving, and cleanup—delivering clean chromosome methylation matrices and QC reports for downstream analysis."
+      "description": "Processes paired FASTQ files through download, configurable alignment, alignment QC with automated trim-and-realign remediation, optional cfDNA fragmentomics, methylation extraction, extraction QC, archiving, and cleanup\u2014delivering clean chromosome methylation matrices and QC reports for downstream analysis."
     },
     {
       "title": "Two-stage QC guardrails with per-sample overlays",
-      "description": "Runs apply an established study QC configuration baked at instance start, with explicit per-sample guardrail overrides where a sample requires them—catching poor alignments or low-coverage extractions before they waste compute or corrupt cohort results."
+      "description": "Runs apply an established study QC configuration baked at instance start, with explicit per-sample guardrail overrides where a sample requires them\u2014catching poor alignments or low-coverage extractions before they waste compute or corrupt cohort results."
     },
     {
       "title": "Four alignment paths matched to study and hardware needs",
@@ -35,8 +35,12 @@
       "description": "Packages validated workflow bundles and manages authenticated worker gateway sessions (POST /v1/workers/session) and typed ActionSpec catalogs so IT teams can deploy repeatable releases and scale distributed GPU/CPU workers."
     },
     {
-      "title": "Platform tenancy and clinical data integration (R2–R5)",
-      "description": "Provides organization-scoped customer tenancy (portal.Organizations), Meta-backed clinical domain synchronization (OmicsCustomer, OmicsDisease, OmicsPatient, OmicsSample, OmicsLabBatch), and shared lab reagent inventory tracking for full platform deployments."
+      "title": "Clinical entities, tenancy, and action methods",
+      "description": "Provides organization-scoped customer tenancy, Meta-backed clinical entities (omics/Customer, omics/Disease, omics/Patient, omics/Sample, omics/LabBatch, and omics/Study), omics/Lab under platform/Organization, typed action methods derived from input schemas (one owner per action), and shared lab reagent inventory tracking. Legacy Omics* subclasses have been folded into the omics/* classes."
+    },
+    {
+      "title": "Typed site parameters and pipeline profiles",
+      "description": "Registers omics/SiteParameters and omics/PipelineProfile as the document types of the platform's site and pipeline_profile config kinds. Operators edit them in GoliathApp's generic typed grid. Workers receive published site documents through the platform resolver, with pipeline profile and step parameters able to override site values."
     }
   ],
   "links": {
@@ -44,8 +48,16 @@
     "docs": "https://goliath-research.github.io/GoliathOmics/",
     "website": null
   },
-  "related": ["goliathapp", "goliathalign", "goliathextractor"],
-  "dependsOn": ["goliathapp", "goliathalign", "goliathextractor"],
+  "related": [
+    "goliathapp",
+    "goliathalign",
+    "goliathextractor"
+  ],
+  "dependsOn": [
+    "goliathapp",
+    "goliathalign",
+    "goliathextractor"
+  ],
   "license": "MIT",
   "status": "ready"
 }

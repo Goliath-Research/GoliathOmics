@@ -1,4 +1,4 @@
-# Semantic layer integration (P1b, O1, O2)
+# Semantic layer integration
 
 GoliathOmics is a descendant application on [GoliathApp](https://github.com/Goliath-Research/GoliathApp). The platform owns the portal shell, organization tenancy, semantic registry machinery, gateway, and least-privilege database roles. This repository owns genomics domain tables, clinical portal APIs, the typed **ActionSpec** catalog, worker handlers, and the release scripts that apply both layers in order.
 
@@ -85,9 +85,11 @@ List functions require **`p_user_id`** and scope through GoliathApp RBAC helpers
 
 CI drift check: `goliath-omics-semantic-export --check schemas/semantic/catalog.json --row-types database/schema/09_portal_semantic_row_types.sql`.
 
-## Meta-backed clinical cutover (R4)
+## Clinical classes and semantic entities
 
-During incremental cutover, **legacy portal tables remain authoritative storage**; each row may carry optional `"MetaObjectID"` linking to `"Meta"."Objs"`. Canonical Meta classes are **`omics/*`** (`omics/Customer`, `omics/Disease`, …) under GoliathApp `platform/*` parents (`15_omics_meta_domain_classes.sql`); legacy `VOmics*` views keep stable `TableName` aliases. Fields and semantic registry links are applied via `goliath-omics-seed-meta-classes` and `17_omics_meta_clinical_class_reconcile.sql`.
+Clinical entities are stored in Meta on the canonical **`omics/*`** classes (`omics/Customer`, `omics/Disease`, `omics/Patient`, `omics/Sample`, `omics/LabBatch`) under GoliathApp `platform/*` parents. Legacy `Omics*` subclasses have been folded into those classes and removed. Generated `VOmics*` views remain as stable `TableName` aliases. Fields and semantic registry links are applied via `goliath-omics-seed-meta-classes`.
+
+The table below records the classes, the older portal table names used during the cutover, and the write requests still in use:
 
 | Entity | Meta class | Legacy table | Semantic write requests (PR2) | Cutover flags (`omics_clinical.meta_cutover_flag`) |
 |--------|------------|--------------|--------------------------------|-----------------------------------------------------|

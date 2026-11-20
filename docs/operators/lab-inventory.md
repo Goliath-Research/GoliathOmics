@@ -1,6 +1,6 @@
-# Lab inventory (R5)
+# Lab inventory
 
-GoliathOmics links methylation lab consumables to the shared GoliathApp **`inv`** module through the thin **`omics_lab_inv`** bridge. Omics does not ship `inv` DDL; apply GoliathApp `inv_schema.sql` / `inv_api.sql` first (R1 platform pin).
+GoliathOmics links methylation lab consumables to the shared GoliathApp **`inv`** module through the thin **`omics_lab_inv`** bridge. Omics does not ship `inv` DDL; apply GoliathApp `inv_schema.sql` / `inv_api.sql` first. The `omics/Lab` class is a subclass of `platform/Organization`. It is not related to `platform/Site` (Site is only for Cluster and Worker).
 
 ## Architecture
 
@@ -19,7 +19,7 @@ After GoliathApp + Omics domain schema apply:
 
 ```bash
 pip install -e domain
-goliath-omics-seed-meta-classes    # if Meta clinical cutover is in use
+goliath-omics-seed-meta-classes
 goliath-omics-seed-semantic
 goliath-omics-seed-nav
 ```
@@ -52,5 +52,5 @@ Workers ignore unknown keys; the portal or a future audit action can persist the
 ## Related
 
 - [Semantic layer](../architecture/semantic-layer.md)
-- [Refresh plan R5](../refresh-plan.md)
+- [Refresh plan](../refresh-plan.md) (historical R0–R5 plan)
 - GoliathApp [inventory module](https://goliath-research.github.io/GoliathApp/) (platform docs)

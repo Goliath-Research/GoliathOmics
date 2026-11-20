@@ -1,6 +1,10 @@
 # GoliathApp extension (GoliathOmics operators)
 
-GoliathOmics specializes the neutral GoliathApp platform. During phase **D** decoupling, runtime env vars and paths are renamed in the platform first; this repository accepts **both** names for one release cycle.
+GoliathOmics specializes the neutral GoliathApp platform. Child apps seed classes, data, programs, and document types; they do not ship operator UI. Site parameters are defined here as `omics/SiteParameters` and edited in the platform's generic typed grid. Clusters and workers live in GoliathApp's `wf` schema. `omics/Lab` is a subclass of `platform/Organization`, not `platform/Site`.
+
+The live operator host is [https://omics.goliathresearch.com](https://omics.goliathresearch.com). Live application hosts are listed at [https://www.goliathresearch.com/apps/](https://www.goliathresearch.com/apps/).
+
+During phase **D** decoupling, runtime env vars and paths were renamed in the platform first; this repository still accepts **both** names for one release cycle.
 
 ## Environment variables (preferred → legacy)
 
@@ -34,9 +38,11 @@ Capability markdown, domain types, DomainProgram fixtures, and pipeline profile 
 
 - [`workflow_engine/contract/`](../workflow_engine/contract/)
 - [`workflow_engine/domain/profiles/`](../workflow_engine/domain/profiles/)
-- [`workflow_engine/domain/pipeline_profiles.py`](../workflow_engine/domain/pipeline_profiles.py)
+- The `goliath.application_profiles` hook, which GoliathApp calls for science flags, modality, and profile merge rules. The platform module in GoliathApp stays generic.
 
-Paired plan: [GoliathApp `docs/decoupling-plan.md`](https://github.com/Goliath-Research/GoliathApp/blob/main/docs/decoupling-plan.md) phases D5–D7.
+Site and pipeline-profile documents are registered by `goliath-omics-seed-config-document-types`. See [Site parameters](architecture/site-parameters.md).
+
+Paired plan (historical): [GoliathApp `docs/decoupling-plan.md`](https://github.com/Goliath-Research/GoliathApp/blob/main/docs/decoupling-plan.md) phases D5–D7.
 
 ## Production renames (D8 — approved)
 
