@@ -20,9 +20,9 @@ if [[ "$(q "SELECT to_regprocedure('cfg.sp_register_kind_document_type(text,text
 fi
 
 echo "kind|type_name|data_type_status"
-q "SELECT d.kind, d.type_name, coalesce(t.status, '-')
+q "SELECT d.kind, t.name, coalesce(t.status, '-')
    FROM cfg.kind_document_type d
-   LEFT JOIN wf.data_type t ON t.name = d.type_name
+   LEFT JOIN wf.data_type t ON t.id = d.type_id
    WHERE d.kind IN ('pipeline_profile', 'site')
    ORDER BY d.kind"
 
@@ -31,9 +31,9 @@ missing=$(q "SELECT string_agg(wanted.kind, ', ')
     ('pipeline_profile', 'omics/PipelineProfile'),
     ('site', 'omics/SiteParameters')
   ) AS wanted(kind, type_name)
-  LEFT JOIN cfg.kind_document_type d
-    ON d.kind = wanted.kind AND d.type_name = wanted.type_name
-  WHERE d.kind IS NULL")
+  LEFT JOIN cfg.kind_document_type d ON d.kind = wanted.kind
+  LEFT JOIN wf.data_type t ON t.id = d.type_id AND t.name = wanted.type_name
+  WHERE t.name IS NULL")
 if [[ -n "$missing" ]]; then
   echo "FAIL: unregistered or mistyped kind(s): $missing" >&2
   fail=1
