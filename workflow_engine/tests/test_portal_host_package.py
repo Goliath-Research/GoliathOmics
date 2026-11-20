@@ -114,7 +114,7 @@ def test_omics_sample_subclasses_platform_material(portal_host_env: dict[str, st
 
 @pytest.mark.parametrize(
     ("child", "expected_parent"),
-    [("omics/Group", "platform/Entity"), ("omics/Lab", "platform/Site")],
+    [("omics/Group", "platform/Entity"), ("omics/Lab", "platform/Organization")],
 )
 def test_group_and_lab_classes_subclass_platform_parents(
     portal_host_env: dict[str, str], child: str, expected_parent: str
