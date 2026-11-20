@@ -71,7 +71,7 @@ def _psql(sql: str, env: dict[str, str]) -> str:
 def test_meta_class_registry_seeded(pg_meta_classes_env: dict[str, str]) -> None:
     env = pg_meta_classes_env
     count = _psql("SELECT count(*) FROM omics_clinical.meta_class_registry", env)
-    assert int(count) == 5
+    assert int(count) == 6
     subprocess.run(
         [sys.executable, "-m", "goliath_omics.seed.meta_classes"],
         env=env,
@@ -79,7 +79,7 @@ def test_meta_class_registry_seeded(pg_meta_classes_env: dict[str, str]) -> None
         cwd=str(REPO_ROOT),
     )
     count = _psql("SELECT count(*) FROM omics_clinical.meta_class_registry", env)
-    assert int(count) == 5
+    assert int(count) == 6
 
 
 def test_meta_cutover_flags_default_off(pg_meta_classes_env: dict[str, str]) -> None:
@@ -106,7 +106,7 @@ def test_semantic_entities_linked_to_meta(pg_meta_classes_env: dict[str, str]) -
         """,
         env,
     )
-    assert int(count) == 5
+    assert int(count) == 6
 
 
 def test_legacy_meta_object_id_columns_exist(pg_meta_classes_env: dict[str, str]) -> None:
@@ -119,8 +119,8 @@ def test_legacy_meta_object_id_columns_exist(pg_meta_classes_env: dict[str, str]
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'portal'
           AND a.attname = 'MetaObjectID'
-          AND c.relname IN ('Customers', 'Diseases', 'Patients', 'Samples', 'Batches')
+          AND c.relname IN ('Customers', 'Diseases', 'Institutions', 'Patients', 'Samples', 'Batches')
         """,
         env,
     )
-    assert int(cols) == 5
+    assert int(cols) == 6
