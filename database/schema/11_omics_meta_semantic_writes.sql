@@ -115,7 +115,9 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'patient % not found', p_patient_id;
   END IF;
+  -- platform/Person.Label is required; copy the public individual name.
   v_payload := jsonb_build_object(
+    'Label', v_row."Name",
     'legacy_patient_id', v_row."ID",
     'institution_id', v_row."InstitutionID",
     'name', v_row."Name",
@@ -153,7 +155,9 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'sample % not found', p_sample_id;
   END IF;
+  -- platform/Material.Label is required; copy the sample name.
   v_payload := jsonb_build_object(
+    'Label', v_row."SampleName",
     'legacy_sample_id', v_row."ID",
     'patient_id', v_row."PatientID",
     'customer_id', v_row."CustomerID",
@@ -225,7 +229,9 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'institution % not found', p_institution_id;
   END IF;
+  -- platform/Organization.Label is required; copy the institution name.
   v_payload := jsonb_build_object(
+    'Label', v_row."Name",
     'legacy_institution_id', v_row."ID",
     'name', v_row."Name"
   );
