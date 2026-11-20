@@ -87,6 +87,18 @@ SELECT
   i."Name"::text AS name
 FROM portal."Institutions" i;
 
+CREATE OR REPLACE VIEW omics_clinical.v_patient AS
+SELECT
+  p."ID" AS patient_id,
+  p."Name"::text AS name,
+  p."InstitutionID" AS institution_id,
+  p."Sex"::text AS sex,
+  p."YearBorn" AS year_born,
+  p."Race"::text AS race,
+  p."Ethnicity"::text AS ethnicity,
+  p."ExternalID"::text AS external_id
+FROM portal."Patients" p;
+
 CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_disease_list(
   p_user_id integer,
   p_params jsonb,
@@ -300,7 +312,10 @@ BEGIN
     v.bmi,
     v.stage
   FROM omics_clinical.v_sample v
-  WHERE omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
+  WHERE (
+    v.customer_id IS NULL
+    OR omics_clinical.fn_user_can_access_customer(p_user_id, v.customer_id)
+  )
   AND (v_customer_id IS NULL OR v.customer_id = v_customer_id)
   AND (v_disease_id IS NULL OR v.disease_id = v_disease_id)
   AND (

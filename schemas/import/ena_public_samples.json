@@ -1,0 +1,74 @@
+{
+  "fetched_at_utc": "2026-11-20T19:00:00Z",
+  "institution": {
+    "name": "ENA",
+    "official_name": "European Nucleotide Archive",
+    "source_url": "https://www.ebi.ac.uk/ena/browser/home"
+  },
+  "samples": [
+    {
+      "run_accession": "SRR28293403",
+      "sample_name": "canary-SRR28293403-linear-subset",
+      "ena_sample_title": "WGBS-HG00621-Rep1",
+      "ena_sample_accession": "SAMN40381571",
+      "ena_secondary_sample_accession": "SRS20725809",
+      "geo_sample": "GSM8140413",
+      "geo_series": "GSE261315",
+      "ena_study_accession": "PRJNA1086543",
+      "sources": {
+        "ena_filereport": "https://www.ebi.ac.uk/ena/portal/api/filereport?accession=SRR28293403&result=read_run&fields=run_accession,experiment_accession,sample_accession,secondary_sample_accession,study_accession,secondary_study_accession,scientific_name,sample_title,sample_alias,library_name,library_strategy,library_source,library_layout,instrument_platform,instrument_model,first_public,tax_id&format=json",
+        "ena_fastq": [
+          "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR282/003/SRR28293403/SRR28293403_1.fastq.gz",
+          "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR282/003/SRR28293403/SRR28293403_2.fastq.gz"
+        ],
+        "biosample_library": "https://www.ebi.ac.uk/biosamples/samples/SAMN40381571",
+        "biosample_individual": "https://www.ebi.ac.uk/biosamples/samples/SAME123082",
+        "ena_individual_xml": "https://www.ebi.ac.uk/ena/browser/api/xml/SAME123082",
+        "igsr_sample": "https://www.internationalgenome.org/data-portal/sample/HG00621"
+      },
+      "patient": {
+        "name": "HG00621",
+        "external_id": "HG00621",
+        "sex": "M",
+        "year_born": null,
+        "race": null,
+        "ethnicity": null,
+        "field_sources": {
+          "name": {
+            "value": "HG00621",
+            "source_url": "https://www.ebi.ac.uk/biosamples/samples/SAME123082",
+            "note": "BioSample name; ENA XML SUBMITTER_ID; SAMN40381571 cell line / source_name; ENA sample_title WGBS-HG00621-Rep1"
+          },
+          "external_id": {
+            "value": "HG00621",
+            "source_url": "https://www.ebi.ac.uk/biosamples/samples/SAME123082",
+            "note": "1000 Genomes / IGSR individual id (BioSample name, ENA SUBMITTER_ID)"
+          },
+          "sex": {
+            "value": "M",
+            "source_url": "https://www.ebi.ac.uk/biosamples/samples/SAME123082",
+            "note": "BioSample characteristic sex=male; ENA XML SAME123082 sex=male; IGSR Sex=M. Stored as Patients.Sex varchar(1) 'M'."
+          },
+          "year_born": {
+            "value": null,
+            "source_url": "https://www.ebi.ac.uk/biosamples/samples/SAMN40381571",
+            "note": "collection_date is 'missing'; no year of birth in ENA/BioSample/IGSR"
+          },
+          "race": {
+            "value": null,
+            "note": "No race field in ENA, BioSample, or IGSR. IGSR population 'Han Chinese South' is recorded only in provenance, not mapped to race."
+          },
+          "ethnicity": {
+            "value": null,
+            "note": "No ethnicity field in ENA or BioSample. IGSR population is not copied into ethnicity."
+          }
+        },
+        "igsr_population": {
+          "value": "Han Chinese South",
+          "source_url": "https://www.internationalgenome.org/data-portal/sample/HG00621",
+          "note": "IGSR Populations field. Not written to portal.Patients.Race or Ethnicity."
+        }
+      }
+    }
+  ]
+}

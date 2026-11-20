@@ -54,7 +54,33 @@ class PatientListParams(BaseModel):
     institution_id: Optional[int] = None
 
 
+class PatientWritePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    institution_id: Optional[int] = None
+    sex: Optional[str] = None
+    year_born: Optional[int] = None
+    race: Optional[str] = None
+    ethnicity: Optional[str] = None
+    external_id: Optional[str] = None
+
+
+class PatientUpdatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    patient_id: int
+    name: Optional[str] = None
+    institution_id: Optional[int] = None
+    sex: Optional[str] = None
+    year_born: Optional[int] = None
+    race: Optional[str] = None
+    ethnicity: Optional[str] = None
+    external_id: Optional[str] = None
+
+
 class LabBatchRow(BaseModel):
+
     model_config = ConfigDict(extra="forbid")
 
     lab_batch_id: int
@@ -182,7 +208,7 @@ class SampleCreatePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     patient_id: int
-    customer_id: int
+    customer_id: Optional[int] = None
     disease_id: Optional[int] = None
     sample_name: Optional[str] = None
     age: Optional[int] = None
