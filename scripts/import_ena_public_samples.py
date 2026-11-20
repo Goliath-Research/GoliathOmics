@@ -62,6 +62,8 @@ def _connect():
 
 def load_manifest(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise SystemExit("manifest must be a JSON object")
     if not data.get("institution", {}).get("name"):
         raise SystemExit("manifest institution.name is required")
     samples = data.get("samples") or []
