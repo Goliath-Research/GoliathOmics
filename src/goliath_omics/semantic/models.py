@@ -132,6 +132,30 @@ class LabListParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class InstitutionRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    institution_id: int
+    name: str
+
+
+class InstitutionListParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class InstitutionWritePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+
+
+class InstitutionUpdatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    institution_id: int
+    name: Optional[str] = None
+
+
 class DiseaseWritePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

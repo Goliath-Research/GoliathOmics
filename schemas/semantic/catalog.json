@@ -244,6 +244,57 @@
       "schema_version": "1",
       "storage_relation": "omics_clinical.v_group"
     },
+    "omics.institution": {
+      "attributes": [
+        {
+          "code": "institution_id",
+          "column_name": "legacy_institution_id",
+          "filterable_ops": [],
+          "json_type": "integer",
+          "role": "key"
+        },
+        {
+          "code": "name",
+          "column_name": "name",
+          "filterable_ops": [
+            "ilike"
+          ],
+          "json_type": "string",
+          "role": "list"
+        }
+      ],
+      "catalog_type_name": null,
+      "code": "institution",
+      "content_hash": "6f7bd77c03c0994d8259f20e2f473d7d78db269813ca0b9186072bd264bca5e4",
+      "description": "Clinical or research institution that patients belong to (legacy portal.Institutions mirror).",
+      "display_name": "Institution",
+      "meta_class_id": null,
+      "meta_class_name": "omics/Institution",
+      "namespace": "omics",
+      "row_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "institution_id": {
+            "title": "Institution Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "institution_id",
+          "name"
+        ],
+        "title": "InstitutionRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_institution_row",
+      "schema_id": "goliath:meta/class/omics/Institution",
+      "schema_version": "1",
+      "storage_relation": "\"Meta\".\"VOmicsInstitution\""
+    },
     "omics.lab": {
       "attributes": [
         {
@@ -1581,6 +1632,154 @@
       "schema_id": "goliath.semantic/omics/omics.group.list_for_enrollment/1",
       "target_kind": "function",
       "target_name": "omics_clinical.fn_semantic_group_list_for_enrollment",
+      "version": "1"
+    },
+    "omics.institution.create": {
+      "base_namespace": null,
+      "content_hash": "0faae29508021711ac8b1654bd2cf826f9a625b030a6e400e53fec6da94da209",
+      "entity_code": "institution",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "InstitutionWritePayload",
+        "type": "object"
+      },
+      "request_code": "omics.institution.create",
+      "required_permission": "omics.clinical.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "institution_id": {
+            "title": "Institution Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "institution_id",
+          "name"
+        ],
+        "title": "InstitutionRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_institution_row",
+      "schema_id": "goliath.semantic/omics/omics.institution.create/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_institution_create",
+      "version": "1"
+    },
+    "omics.institution.list": {
+      "base_namespace": null,
+      "content_hash": "de816ac3683f6df7ddc8ff7185c612652d110a7934b5c8a61765ed01b2373244",
+      "entity_code": "institution",
+      "filter_template": null,
+      "max_rows": 500,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "InstitutionListParams",
+        "type": "object"
+      },
+      "request_code": "omics.institution.list",
+      "required_permission": "omics.clinical.read",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "institution_id": {
+            "title": "Institution Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "institution_id",
+          "name"
+        ],
+        "title": "InstitutionRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_institution_row",
+      "schema_id": "goliath.semantic/omics/omics.institution.list/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_institution_list",
+      "version": "1"
+    },
+    "omics.institution.update": {
+      "base_namespace": null,
+      "content_hash": "7518f2616efcd7d0ac534afcccfb1fa0b83cdcd680354865e6ee03f0b9c1691d",
+      "entity_code": "institution",
+      "filter_template": null,
+      "max_rows": 1,
+      "namespace": "omics",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "institution_id": {
+            "title": "Institution Id",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          }
+        },
+        "required": [
+          "institution_id"
+        ],
+        "title": "InstitutionUpdatePayload",
+        "type": "object"
+      },
+      "request_code": "omics.institution.update",
+      "required_permission": "omics.clinical.write",
+      "result_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "institution_id": {
+            "title": "Institution Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "institution_id",
+          "name"
+        ],
+        "title": "InstitutionRow",
+        "type": "object"
+      },
+      "row_type": "portal.omics_institution_row",
+      "schema_id": "goliath.semantic/omics/omics.institution.update/1",
+      "target_kind": "function",
+      "target_name": "omics_clinical.fn_semantic_institution_update",
       "version": "1"
     },
     "omics.lab.list": {

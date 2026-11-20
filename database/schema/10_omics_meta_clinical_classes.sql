@@ -19,7 +19,8 @@ VALUES
   ('disease'),
   ('patient'),
   ('sample'),
-  ('lab_batch')
+  ('lab_batch'),
+  ('institution')
 ON CONFLICT (entity_code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS omics_clinical.meta_class_registry (
@@ -82,6 +83,9 @@ ALTER TABLE portal."Samples"
 ALTER TABLE portal."Batches"
   ADD COLUMN IF NOT EXISTS "MetaObjectID" integer NULL;
 
+ALTER TABLE portal."Institutions"
+  ADD COLUMN IF NOT EXISTS "MetaObjectID" integer NULL;
+
 DO $fk$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_portal_customers_meta_object') THEN
@@ -107,6 +111,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_portal_batches_meta_object') THEN
     ALTER TABLE portal."Batches"
       ADD CONSTRAINT fk_portal_batches_meta_object
+      FOREIGN KEY ("MetaObjectID") REFERENCES "Meta"."Objs" ("ID");
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_portal_institutions_meta_object') THEN
+    ALTER TABLE portal."Institutions"
+      ADD CONSTRAINT fk_portal_institutions_meta_object
       FOREIGN KEY ("MetaObjectID") REFERENCES "Meta"."Objs" ("ID");
   END IF;
 EXCEPTION

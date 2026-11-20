@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Verify that every omics semantic attribute reads a field of its owning Meta class, that the
-# 25 clinical fields stay on their omics/* classes, and that the reference fields are typed as
+# 27 clinical fields stay on their omics/* classes, and that the reference fields are typed as
 # relations. Prints one row per attribute. Exits 1 on any failure. Read-only.
 #
 #   export PGHOST=... PGDATABASE=... PGUSER=... PGPASSWORD=...
@@ -25,9 +25,10 @@ if [[ "$missing" != "0" ]]; then
   fail=1
 fi
 
-# The 25 clinical fields, each on its omics/* class.
+# The 27 clinical fields, each on its omics/* class.
 lost=$(q "SELECT string_agg(x.cls || '.' || x.fld, ', ')
   FROM (VALUES
+    ('omics/Institution','legacy_institution_id'),('omics/Institution','name'),
     ('omics/Customer','legacy_customer_id'),('omics/Customer','name'),('omics/Customer','organization_id'),
     ('omics/Disease','legacy_disease_id'),('omics/Disease','name'),('omics/Disease','parent_id'),
     ('omics/LabBatch','legacy_batch_id'),('omics/LabBatch','name'),('omics/LabBatch','lab_id'),
@@ -60,6 +61,16 @@ untyped=$(q "SELECT string_agg(x.cls || '.' || x.fld, ', ')
     WHERE c.\"Name\" = x.cls AND f.\"Name\" = x.fld AND t.schema_json ? 'x-goliath-relation')")
 if [[ -n "$untyped" ]]; then
   echo "FAIL: reference fields not typed as relations: $untyped" >&2
+  fail=1
+fi
+
+inst_rel=$(q "SELECT t.schema_json->'x-goliath-relation'->>'class'
+  FROM \"Meta\".\"Fields\" f
+  JOIN \"Meta\".\"Classes\" c ON c.\"ID\" = f.\"ClassID\"
+  JOIN wf.data_type t ON t.id = f.\"TypeID\"
+  WHERE c.\"Name\" = 'omics/Patient' AND f.\"Name\" = 'institution_id'")
+if [[ "$inst_rel" != "omics/Institution" ]]; then
+  echo "FAIL: omics/Patient.institution_id must relate to omics/Institution (got ${inst_rel:-missing})" >&2
   fail=1
 fi
 

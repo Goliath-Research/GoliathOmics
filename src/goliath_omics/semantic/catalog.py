@@ -18,6 +18,10 @@ from goliath_omics.semantic.models import (
     GroupEnrollmentListParams,
     GroupListParams,
     GroupRow,
+    InstitutionListParams,
+    InstitutionRow,
+    InstitutionUpdatePayload,
+    InstitutionWritePayload,
     LabListParams,
     LabReagentConsumePayload,
     LabReagentListParams,
@@ -214,6 +218,21 @@ LAB_ENTITY = SemanticEntitySpec(
     ),
 )
 
+INSTITUTION_ENTITY = SemanticEntitySpec(
+    namespace="omics",
+    code="institution",
+    display_name="Institution",
+    description="Clinical or research institution that patients belong to (legacy portal.Institutions mirror).",
+    schema_version="1",
+    row_model=InstitutionRow,
+    storage_relation='"Meta"."VOmicsInstitution"',
+    meta_class_name="omics/Institution",
+    attributes=(
+        SemanticAttributeSpec("institution_id", "legacy_institution_id", "integer", "key", ()),
+        SemanticAttributeSpec("name", "name", "string", "list", ("ilike",)),
+    ),
+)
+
 LAB_REAGENT_ENTITY = SemanticEntitySpec(
     namespace="omics",
     code="lab_reagent",
@@ -261,6 +280,7 @@ SEMANTIC_CATALOG: tuple[SemanticEntitySpec, ...] = (
     STUDY_ENTITY,
     GROUP_ENTITY,
     LAB_ENTITY,
+    INSTITUTION_ENTITY,
     LAB_REAGENT_ENTITY,
 )
 
@@ -336,6 +356,42 @@ SEMANTIC_REQUESTS: tuple[SemanticRequestSpec, ...] = (
         result_row_model=LabRow,
         required_permission="omics.clinical.read",
         max_rows=500,
+    ),
+    SemanticRequestSpec(
+        request_code="omics.institution.list",
+        version="1",
+        namespace="omics",
+        entity_code="institution",
+        target_kind="function",
+        target_name="omics_clinical.fn_semantic_institution_list",
+        params_model=InstitutionListParams,
+        result_row_model=InstitutionRow,
+        required_permission="omics.clinical.read",
+        max_rows=500,
+    ),
+    SemanticRequestSpec(
+        request_code="omics.institution.create",
+        version="1",
+        namespace="omics",
+        entity_code="institution",
+        target_kind="function",
+        target_name="omics_clinical.fn_semantic_institution_create",
+        params_model=InstitutionWritePayload,
+        result_row_model=InstitutionRow,
+        required_permission="omics.clinical.write",
+        max_rows=1,
+    ),
+    SemanticRequestSpec(
+        request_code="omics.institution.update",
+        version="1",
+        namespace="omics",
+        entity_code="institution",
+        target_kind="function",
+        target_name="omics_clinical.fn_semantic_institution_update",
+        params_model=InstitutionUpdatePayload,
+        result_row_model=InstitutionRow,
+        required_permission="omics.clinical.write",
+        max_rows=1,
     ),
     SemanticRequestSpec(
         request_code="omics.disease.create",

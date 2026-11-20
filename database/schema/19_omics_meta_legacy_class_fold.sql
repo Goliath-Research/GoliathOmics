@@ -145,7 +145,7 @@ BEGIN
       ('omics/Customer', 'organization_id', 'omics/ref/organization',
         '{"entity": "core.organization", "key": "organization_id"}'),
       ('omics/Patient', 'institution_id', 'omics/ref/institution',
-        '{"relation": "portal.\"Institutions\"", "key": "ID"}')
+        '{"entity": "omics.institution", "class": "omics/Institution", "key": "institution_id"}')
     ) AS t(class_name, field_name, type_name, relation)
   LOOP
     SELECT c."ID" INTO v_class FROM "Meta"."Classes" c WHERE c."Name" = rec.class_name;

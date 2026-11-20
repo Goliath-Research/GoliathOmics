@@ -18,7 +18,8 @@ BEGIN
         ('customer', 'omics/Customer', 'OmicsCustomer'),
         ('patient', 'omics/Patient', 'OmicsPatient'),
         ('sample', 'omics/Sample', 'OmicsSample'),
-        ('lab_batch', 'omics/LabBatch', 'OmicsLabBatch')
+        ('lab_batch', 'omics/LabBatch', 'OmicsLabBatch'),
+        ('institution', 'omics/Institution', 'OmicsInstitution')
     ) AS t(entity_code, canonical_name, legacy_name)
   LOOP
     SELECT c."ID" INTO v_canonical_id

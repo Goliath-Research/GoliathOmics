@@ -81,6 +81,12 @@ SELECT
   l."Name"::text AS name
 FROM portal."Labs" l;
 
+CREATE OR REPLACE VIEW omics_clinical.v_institution AS
+SELECT
+  i."ID" AS institution_id,
+  i."Name"::text AS name
+FROM portal."Institutions" i;
+
 CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_disease_list(
   p_user_id integer,
   p_params jsonb,
@@ -335,6 +341,35 @@ BEGIN
   RETURN QUERY
   SELECT v.lab_id, v.name
   FROM omics_clinical.v_lab v
+  ORDER BY v.name
+  LIMIT v_lim;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_institution_list(
+  p_user_id integer,
+  p_params jsonb,
+  p_limit integer
+)
+RETURNS TABLE (
+  institution_id integer,
+  name text
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = omics_clinical, portal, pg_temp
+AS $$
+DECLARE
+  v_lim integer;
+BEGIN
+  IF p_user_id IS NULL THEN
+    RETURN;
+  END IF;
+  v_lim := GREATEST(0, COALESCE(p_limit, 500));
+  RETURN QUERY
+  SELECT v.institution_id, v.name
+  FROM omics_clinical.v_institution v
   ORDER BY v.name
   LIMIT v_lim;
 END;

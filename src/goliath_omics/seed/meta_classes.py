@@ -70,6 +70,28 @@ META_CLASS_SPECS: tuple[dict[str, Any], ...] = (
         ],
     },
     {
+        "entity_code": "institution",
+        "class_name": "omics/Institution",
+        "display_name": "Institution",
+        "description": "Clinical or research institution (Meta-backed; legacy portal.Institutions mirror).",
+        "fields": [
+            {
+                "name": "legacy_institution_id",
+                "type_name": "omics/meta/int",
+                "type_kind": "int",
+                "type_schema": {"type": "integer"},
+                "required": False,
+            },
+            {
+                "name": "name",
+                "type_name": "omics/meta/string",
+                "type_kind": "string",
+                "type_schema": {"type": "string"},
+                "required": True,
+            },
+        ],
+    },
+    {
         "entity_code": "patient",
         "class_name": "omics/Patient",
         "display_name": "Patient",
@@ -258,7 +280,7 @@ RELATION_FIELDS: dict[tuple[str, str], tuple[str, dict[str, str]]] = {
     ),
     ("omics/Patient", "institution_id"): (
         "omics/ref/institution",
-        {"relation": 'portal."Institutions"', "key": "ID"},
+        {"entity": "omics.institution", "class": "omics/Institution", "key": "institution_id"},
     ),
 }
 

@@ -72,10 +72,10 @@ def test_fold_removes_only_the_legacy_classes_views_and_types(folded_env: dict[s
         """SELECT string_agg(c."Name" || '=' || n, ',' ORDER BY c."Name")
            FROM (SELECT "ClassID", count(*) n FROM "Meta"."Fields" GROUP BY 1) f
            JOIN "Meta"."Classes" c ON c."ID" = f."ClassID"
-           WHERE c."Name" IN ('omics/Customer','omics/Disease','omics/LabBatch','omics/Patient','omics/Sample')""",
+           WHERE c."Name" IN ('omics/Customer','omics/Disease','omics/Institution','omics/LabBatch','omics/Patient','omics/Sample')""",
         env,
     )
-    assert counts == "omics/Customer=3,omics/Disease=3,omics/LabBatch=3,omics/Patient=8,omics/Sample=8"
+    assert counts == "omics/Customer=3,omics/Disease=3,omics/Institution=2,omics/LabBatch=3,omics/Patient=8,omics/Sample=8"
 
 
 def test_reference_fields_are_relations_and_views_keep_integer_columns(folded_env: dict[str, str]) -> None:
@@ -92,7 +92,7 @@ def test_reference_fields_are_relations_and_views_keep_integer_columns(folded_en
         "omics/Customer.organization_id=omics/ref/organization:organization_id",
         "omics/Disease.parent_id=omics/ref/disease:disease_id",
         "omics/LabBatch.lab_id=omics/ref/lab:lab_id",
-        "omics/Patient.institution_id=omics/ref/institution:ID",
+        "omics/Patient.institution_id=omics/ref/institution:institution_id",
         "omics/Sample.customer_id=omics/ref/customer:customer_id",
         "omics/Sample.disease_id=omics/ref/disease:disease_id",
         "omics/Sample.patient_id=omics/ref/patient:patient_id",
