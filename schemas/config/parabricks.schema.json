@@ -1,0 +1,65 @@
+{
+  "additionalProperties": false,
+  "description": "Operator-tunable linear Align knobs (actionConfig.parabricks and the legacy top-level site parabricks object). Derived from methyl_worker.task_models.sample_prep_models.ParabricksStepConfig. All fields optional; no non-null defaults are declared on the model.",
+  "properties": {
+    "engine": {
+      "enum": [
+        "parabricks",
+        "mojo"
+      ],
+      "type": "string",
+      "description": "Linear Align implementation: 'parabricks' (Clara fq2bam_meth, NVIDIA) or 'mojo' (MojoFq2bamMeth, portable). Operator-set per site/profile.",
+      "title": "Engine"
+    },
+    "align_device": {
+      "enum": [
+        "auto",
+        "cpu",
+        "nvidia",
+        "amd"
+      ],
+      "type": "string",
+      "description": "Mojo portable device when engine=mojo: auto|cpu|nvidia|amd. Operator-set per site/profile. Ignored for Clara.",
+      "title": "Align Device"
+    },
+    "image": {
+      "type": "string",
+      "description": "Docker image for Align. Clara NGC tag when engine=parabricks; goliath/methylgrapher:1.70-mojo-cuda|rocm when engine=mojo.",
+      "title": "Image"
+    },
+    "bwa_threads": {
+      "minimum": 1,
+      "type": "integer",
+      "description": "BWA / MojoFq2bamMeth CPU thread pool. Operator-set per site/profile.",
+      "title": "Bwa Threads"
+    },
+    "gpu_flags": {
+      "type": "string",
+      "description": "Docker GPU flags for Clara (e.g. '--gpus all'). Operator-set per site.",
+      "title": "Gpu Flags"
+    },
+    "alignment_mode": {
+      "type": "string",
+      "description": "Must be linear when this section is used for SamplePrep linear arm.",
+      "title": "Alignment Mode"
+    },
+    "reference_fasta": {
+      "type": "string",
+      "description": "Linear GRCh38 FASTA path. Usually from site reference_genome.fasta.",
+      "title": "Reference Fasta"
+    },
+    "mojo_image": {
+      "type": "string",
+      "description": "Optional override image when engine=mojo (else image or goliath/methylgrapher:1.70-mojo).",
+      "title": "Mojo Image"
+    },
+    "write_methylation_tags": {
+      "type": "boolean",
+      "description": "When true, MojoFq2bamMeth writes XM:Z/XG:Z methylation tags (METHYLGRAPHER_WRITE_METH_TAGS). Operator-set per procedure/profile. Clara fq2bam_meth uses sequence+XG fallback when tags are absent.",
+      "title": "Write Methylation Tags"
+    }
+  },
+  "title": "ParabricksStepConfig",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

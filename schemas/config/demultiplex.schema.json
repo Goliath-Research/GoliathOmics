@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DemultiplexStepConfig",
+  "description": "Operator-pinned demultiplex knobs (actionConfig.demultiplex). Derived from workers/methyl_worker/demultiplex_runner.py. barcode_len defaults at runtime to len(barcode) when unset; that default is not a constant, so this schema leaves barcode_len without a default.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "barcode_tsv": {
+      "type": "string",
+      "description": "Barcode table path. Required at runtime unless skip is set. Alias: barcodeTsv. demultiplex_runner.py."
+    },
+    "barcodeTsv": {
+      "type": "string",
+      "description": "Alias of barcode_tsv. demultiplex_runner.py."
+    },
+    "barcode_len": {
+      "type": "integer",
+      "description": "Bases to trim. When unset, runtime uses len(barcode). Alias: barcodeLen. demultiplex_runner.py."
+    },
+    "barcodeLen": {
+      "type": "integer",
+      "description": "Alias of barcode_len. demultiplex_runner.py."
+    },
+    "skip": {
+      "type": "boolean",
+      "description": "Skip demultiplex when true. demultiplex_runner.py / DemultiplexTaskInput.resolvedConfig description."
+    }
+  }
+}

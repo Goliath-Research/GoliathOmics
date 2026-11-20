@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProteomicsQuantStepConfig",
+  "description": "DIA-NN / proteomics quant knobs (actionConfig.proteomics_quant). Derived from workers/methyl_worker/diann_runner.py resolve_diann_config and _resolve_reference. threads defaults to 8 when unset (METHYL_DIANN_THREADS default in diann_runner.py). image has no code default (empty env is a hard error).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "image": {
+      "type": "string",
+      "description": "DIA-NN Docker image (actionConfig.proteomics_quant.image). Required at runtime unless METHYL_DIANN_IMAGE is set. diann_runner.py."
+    },
+    "threads": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 8,
+      "description": "DIA-NN worker threads. Default 8 from os.environ.get('METHYL_DIANN_THREADS', '8') in diann_runner.py."
+    },
+    "protein_fasta": {
+      "type": "string",
+      "description": "Protein FASTA. Overrides site proteomics_reference.protein_fasta. diann_runner._resolve_reference."
+    },
+    "spectral_library": {
+      "type": "string",
+      "description": "DIA spectral library. Overrides site proteomics_reference.spectral_library. diann_runner._resolve_reference."
+    },
+    "prosit_model": {
+      "type": "string",
+      "description": "Copied onto proteomics_quant from site proteomics_reference by site_slice_for_action."
+    },
+    "casanovo_model": {
+      "type": "string",
+      "description": "Copied onto proteomics_quant from site proteomics_reference by site_slice_for_action."
+    }
+  }
+}

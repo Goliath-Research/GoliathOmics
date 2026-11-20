@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DockerAlignStepConfig",
+  "description": "Operator-pinned generic Docker aligner knobs (actionConfig.docker_align). Derived from workers/methyl_worker/docker_align_runner.py (image, argv/command, extra_docker_args, gpu_flags). No code-sourced defaults; missing image or argv fails at runtime.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "image": {
+      "type": "string",
+      "description": "Docker image. Required at runtime unless METHYL_DOCKER_ALIGN_IMAGE is set. docker_align_runner.py."
+    },
+    "argv": {
+      "description": "Command template (list of strings, or a single string that is shlex-split). Placeholders: {r1},{r2},{bam},{reference},{sample_dir}, {sample_id},{bam_dir},{metrics_dir}. Alias: command. docker_align_runner.py.",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "command": {
+      "description": "Alias of argv (docker_align_runner.py).",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "extra_docker_args": {
+      "description": "Extra docker run arguments (list or shlex-split string). Alias: extraDockerArgs. docker_align_runner.py.",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "extraDockerArgs": {
+      "description": "Alias of extra_docker_args. docker_align_runner.py.",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "gpu_flags": {
+      "description": "Docker GPU flags (list or shlex-split string). Alias: gpuFlags. docker_align_runner.py.",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "gpuFlags": {
+      "description": "Alias of gpu_flags. docker_align_runner.py.",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    }
+  }
+}

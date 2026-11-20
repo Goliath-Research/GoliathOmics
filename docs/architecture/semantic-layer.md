@@ -128,7 +128,7 @@ goliath-omics-seed-meta-action-methods
 
 `--remove-platform-duplicates N` deletes the `omics/*` copies of platform-owned action methods, after a Neon backup. It deletes nothing unless it finds exactly `N` of them. On GoliathOmics_v2 it removed 12 copies on 2026-11-19: 8 `workflow.*`, `validation.plan_iterations` and 3 `inv.stock.*`.
 
-**Pipeline profile documents.** `goliath-omics-seed-config-document-types` registers `omics/PipelineProfile`, a self-contained bundle of `schemas/config/profile.schema.json`, as the document type of cfg kind `pipeline_profile`. This makes profiles editable in GoliathApp's generic config editor.
+**Pipeline profile and site parameter documents.** `goliath-omics-seed-config-document-types` registers `omics/PipelineProfile` (from `schemas/config/profile.schema.json`) for cfg kind `pipeline_profile` and `omics/SiteParameters` (from `schemas/config/site_manifest.schema.json`) for cfg kind `site`. Both are self-contained schema bundles. GoliathApp's generic typed grid edits them; there is no child-app UI. See [Site parameters](site-parameters.md) for fields, defaults, and precedence.
 
 **GoliathOmics_v2 full portal host path (fresh DB, idempotent):**
 

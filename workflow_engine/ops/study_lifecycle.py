@@ -87,7 +87,14 @@ def plan_study_validation_instance_context(body: Dict[str, Any]) -> Dict[str, An
     planner_payload = dict(body)
     planner_payload.setdefault("projectPath", project_path)
     planned = plan_validation_context(planner_payload)
-    return finalize_instance_context(planned.model_dump(mode="json"))
+    context = planned.model_dump(mode="json")
+    # Start-request site document (from cfg.site) must survive planning so
+    # finalize / resolve_action_config can use it as the lowest merge layer.
+    if body.get("siteConfig") and not context.get("siteConfig"):
+        context["siteConfig"] = body["siteConfig"]
+    if body.get("siteConfigPath") and not context.get("siteConfigPath"):
+        context["siteConfigPath"] = body["siteConfigPath"]
+    return finalize_instance_context(context)
 
 
 def start_study_validation(
