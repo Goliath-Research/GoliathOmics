@@ -207,6 +207,151 @@ BEGIN
 END;
 $$;
 
+
+CREATE OR REPLACE FUNCTION omics_clinical.sp_meta_mirror_institution(p_institution_id integer)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = omics_clinical, portal, "Meta", pg_temp
+AS $$
+DECLARE
+  v_class_id integer;
+  v_row portal."Institutions"%ROWTYPE;
+  v_payload jsonb;
+  v_obj_id integer;
+BEGIN
+  v_class_id := omics_clinical.fn_meta_registry_class_id('institution');
+  SELECT * INTO v_row FROM portal."Institutions" WHERE "ID" = p_institution_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'institution % not found', p_institution_id;
+  END IF;
+  v_payload := jsonb_build_object(
+    'legacy_institution_id', v_row."ID",
+    'name', v_row."Name"
+  );
+  IF v_row."MetaObjectID" IS NULL THEN
+    v_obj_id := "Meta".sp_obj_insert(v_class_id, v_payload);
+    UPDATE portal."Institutions" SET "MetaObjectID" = v_obj_id WHERE "ID" = p_institution_id;
+  ELSE
+    PERFORM "Meta".sp_obj_update(v_row."MetaObjectID", v_payload);
+    v_obj_id := v_row."MetaObjectID";
+  END IF;
+  RETURN v_obj_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_institution_create(
+  p_user_id integer,
+  p_payload jsonb
+)
+RETURNS portal.omics_institution_row
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = omics_clinical, portal, pg_temp
+AS $$
+DECLARE
+  v_id integer;
+  v_row portal.omics_institution_row;
+  v_name text;
+BEGIN
+  IF p_user_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'user required');
+  END IF;
+  v_name := NULLIF(btrim(p_payload->>'name'), '');
+  IF v_name IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'name required');
+  END IF;
+  INSERT INTO portal."Institutions" ("Name")
+  VALUES (v_name)
+  RETURNING "ID" INTO v_id;
+  IF omics_clinical.fn_meta_dual_write_enabled('institution') THEN
+    PERFORM omics_clinical.sp_meta_mirror_institution(v_id);
+  END IF;
+  SELECT v.institution_id, v.name
+  INTO v_row
+  FROM omics_clinical.v_institution v
+  WHERE v.institution_id = v_id;
+  RETURN v_row;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_institution_update(
+  p_user_id integer,
+  p_payload jsonb
+)
+RETURNS portal.omics_institution_row
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = omics_clinical, portal, pg_temp
+AS $$
+DECLARE
+  v_id integer;
+  v_row portal.omics_institution_row;
+BEGIN
+  IF p_user_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'user required');
+  END IF;
+  v_id := NULLIF(p_payload->>'institution_id', '')::integer;
+  IF v_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'institution_id required');
+  END IF;
+  UPDATE portal."Institutions" i
+  SET "Name" = COALESCE(NULLIF(btrim(p_payload->>'name'), ''), i."Name")
+  WHERE i."ID" = v_id;
+  IF NOT FOUND THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'institution not found');
+  END IF;
+  IF omics_clinical.fn_meta_dual_write_enabled('institution') THEN
+    PERFORM omics_clinical.sp_meta_mirror_institution(v_id);
+  END IF;
+  SELECT v.institution_id, v.name
+  INTO v_row
+  FROM omics_clinical.v_institution v
+  WHERE v.institution_id = v_id;
+  RETURN v_row;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_institution_list(
+  p_user_id integer,
+  p_params jsonb,
+  p_limit integer
+)
+RETURNS TABLE (
+  institution_id integer,
+  name text
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = omics_clinical, portal, pg_temp
+AS $$
+DECLARE
+  v_lim integer;
+BEGIN
+  IF p_user_id IS NULL THEN
+    RETURN;
+  END IF;
+  v_lim := GREATEST(0, COALESCE(p_limit, 500));
+  IF omics_clinical.fn_meta_read_from_meta('institution') THEN
+    RETURN QUERY
+    SELECT
+      COALESCE((m.legacy_institution_id)::integer, i."ID") AS institution_id,
+      COALESCE(m.name::text, i."Name"::text) AS name
+    FROM portal."Institutions" i
+    LEFT JOIN "Meta"."VOmicsInstitution" m ON m."ID" = i."MetaObjectID"
+    ORDER BY COALESCE(m.name::text, i."Name"::text)
+    LIMIT v_lim;
+  ELSE
+    RETURN QUERY
+    SELECT v.institution_id, v.name
+    FROM omics_clinical.v_institution v
+    ORDER BY v.name
+    LIMIT v_lim;
+  END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION omics_clinical.fn_semantic_disease_create(
   p_user_id integer,
   p_payload jsonb

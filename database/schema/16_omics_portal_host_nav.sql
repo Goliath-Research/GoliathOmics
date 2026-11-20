@@ -67,6 +67,7 @@ BEGIN
   INSERT INTO _omics_nav (caption, node_path, sort_path, seq, parent_path, info_name, frame_key)
   VALUES
     ('Customers', '/app/omics/customers', '0010.0085.0010', 10, '/app/omics', 'platform.nav.meta_object:omics/Customer', 'meta_object'),
+    ('Institutions', '/app/omics/institutions', '0010.0085.0012', 12, '/app/omics', 'platform.nav.meta_object:omics/Institution', 'meta_object'),
     ('Patients', '/app/omics/patients', '0010.0085.0015', 15, '/app/omics', 'platform.nav.meta_object:omics/Patient', 'meta_object'),
     ('Diseases', '/app/omics/diseases', '0010.0085.0018', 18, '/app/omics', 'platform.nav.meta_object:omics/Disease', 'meta_object'),
     ('Samples', '/app/omics/samples', '0010.0085.0020', 20, '/app/omics', 'platform.nav.meta_object:omics/Sample', 'meta_object'),

@@ -16,7 +16,8 @@ DECLARE
     ARRAY['omics/SequencingRun', 'platform/Batch', 'OmicsSequencingRun'],
     ARRAY['omics/AlignmentResult', 'platform/Document', 'OmicsAlignmentResult'],
     ARRAY['omics/Group', 'platform/Entity', 'OmicsGroup'],
-    ARRAY['omics/Lab', 'platform/Organization', 'OmicsLab']
+    ARRAY['omics/Lab', 'platform/Organization', 'OmicsLab'],
+    ARRAY['omics/Institution', 'platform/Organization', 'OmicsInstitution']
   ];
   v_row text[];
   v_name text;

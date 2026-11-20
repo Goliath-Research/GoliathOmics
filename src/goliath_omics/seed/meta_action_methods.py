@@ -10,6 +10,7 @@ from pathlib import Path
 ENTITY_META_CLASS: dict[str, str] = {
     "disease": "omics/Disease",
     "customer": "omics/Customer",
+    "institution": "omics/Institution",
     "patient": "omics/Patient",
     "sample": "omics/Sample",
     "lab_batch": "omics/LabBatch",

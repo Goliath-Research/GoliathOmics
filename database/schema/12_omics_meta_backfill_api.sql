@@ -24,6 +24,8 @@ BEGIN
       SELECT count(*) INTO v_count FROM portal."Samples" WHERE "MetaObjectID" IS NULL;
     WHEN 'lab_batch' THEN
       SELECT count(*) INTO v_count FROM portal."Batches" WHERE "MetaObjectID" IS NULL;
+    WHEN 'institution' THEN
+      SELECT count(*) INTO v_count FROM portal."Institutions" WHERE "MetaObjectID" IS NULL;
     ELSE
       RAISE EXCEPTION 'unknown entity_code %', p_entity_code;
   END CASE;
@@ -57,6 +59,9 @@ BEGIN
     WHEN 'lab_batch' THEN
       SELECT md5(string_agg(b."ID"::text || '|' || coalesce(b."Name", ''), E'\n' ORDER BY b."ID"))
       INTO v_payload FROM portal."Batches" b;
+    WHEN 'institution' THEN
+      SELECT md5(string_agg(i."ID"::text || '|' || i."Name", E'\n' ORDER BY i."ID"))
+      INTO v_payload FROM portal."Institutions" i;
     ELSE
       RAISE EXCEPTION 'unknown entity_code %', p_entity_code;
   END CASE;
@@ -103,6 +108,12 @@ BEGIN
       FOR v_id IN SELECT b."ID" FROM portal."Batches" b WHERE b."MetaObjectID" IS NULL ORDER BY b."ID"
       LOOP
         PERFORM omics_clinical.sp_meta_mirror_lab_batch(v_id);
+        v_mirrored := v_mirrored + 1;
+      END LOOP;
+    WHEN 'institution' THEN
+      FOR v_id IN SELECT i."ID" FROM portal."Institutions" i WHERE i."MetaObjectID" IS NULL ORDER BY i."ID"
+      LOOP
+        PERFORM omics_clinical.sp_meta_mirror_institution(v_id);
         v_mirrored := v_mirrored + 1;
       END LOOP;
     ELSE
@@ -155,6 +166,13 @@ BEGIN
       FOR v_obj_id IN SELECT b."MetaObjectID" FROM portal."Batches" b WHERE b."MetaObjectID" IS NOT NULL
       LOOP
         UPDATE portal."Batches" SET "MetaObjectID" = NULL WHERE "MetaObjectID" = v_obj_id;
+        DELETE FROM "Meta"."Objs" o WHERE o."ID" = v_obj_id;
+        v_cleared := v_cleared + 1;
+      END LOOP;
+    WHEN 'institution' THEN
+      FOR v_obj_id IN SELECT i."MetaObjectID" FROM portal."Institutions" i WHERE i."MetaObjectID" IS NOT NULL
+      LOOP
+        UPDATE portal."Institutions" SET "MetaObjectID" = NULL WHERE "MetaObjectID" = v_obj_id;
         DELETE FROM "Meta"."Objs" o WHERE o."ID" = v_obj_id;
         v_cleared := v_cleared + 1;
       END LOOP;

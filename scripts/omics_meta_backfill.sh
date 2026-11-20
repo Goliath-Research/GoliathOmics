@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-ENTITY="${1:?entity_code required: disease|customer|patient|sample|lab_batch}"
+ENTITY="${1:?entity_code required: disease|customer|patient|sample|lab_batch|institution}"
 ENABLE_DUAL="${2:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
