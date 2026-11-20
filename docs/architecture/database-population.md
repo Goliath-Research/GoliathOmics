@@ -252,7 +252,7 @@ Read each file’s header before running.
 | Action or workflow not found | Run `seed_action_catalog.py` and `deploy_workflow_definitions.sh` **after** schema |
 | Meta / semantic features incomplete | Run documented `goliath-omics-seed-*` steps ([Semantic layer](semantic-layer.md)) |
 
-**Rollback:** There is no generic “undo release”. Restoring from backup or applying a corrective release is the supported production approach. Meta backfill scripts document entity-level rollback in [Semantic layer — Meta-backed clinical cutover](semantic-layer.md#meta-backed-clinical-cutover-r4).
+**Rollback:** There is no generic “undo release”. Restoring from backup or applying a corrective release is the supported production approach. Meta backfill scripts document entity-level rollback in [Semantic layer — Clinical classes and semantic entities](semantic-layer.md#clinical-classes-and-semantic-entities).
 
 ---
 

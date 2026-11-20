@@ -33,6 +33,7 @@ Choose the path that matches your role:
 ### For IT, platform, and operations teams
 *Understand how the system is deployed, scaled, and maintained.*
 
+- **Open the live operator host:** <https://omics.goliathresearch.com> (live application hosts are listed at <https://www.goliathresearch.com/apps/>)
 - **Deploy releases and enroll workers:** [Release, deploy, and worker enrollment](docs/operators/release.md) (current release: **2026.10.27**)
 - **Review deployment profiles and distributed execution:** [Deploy targets](docs/deploy-targets.md) and [Deployment & distributed workflow](docs/usage/14-deployment-and-distributed-workflow.md)
 - **Inspect system architecture and component boundaries:** [Dependency direction](docs/architecture/dependencies.md) and [Full documentation index](docs/README.md)
@@ -56,7 +57,8 @@ GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/Goliat
 
 - **Component boundaries:** [docs/architecture/dependencies.md](docs/architecture/dependencies.md)
 - **Platform environment aliases during decoupling:** [docs/goliathapp-extension.md](docs/goliathapp-extension.md)
-- **Platform alignment and roadmap (R0–R5):** [docs/refresh-plan.md](docs/refresh-plan.md)
+- **Site parameters and config precedence:** [docs/architecture/site-parameters.md](docs/architecture/site-parameters.md)
+- **Platform alignment plan (historical R0–R5):** [docs/refresh-plan.md](docs/refresh-plan.md)
 
 ### What lives here
 
@@ -83,7 +85,7 @@ GoliathOmics calls GoliathAlign and GoliathExtractor through a pinned image and 
 
 ### Docs site
 
-The MkDocs Material site renders `docs/` and is published from `main` at <https://goliath-research.github.io/GoliathOmics/>. Pull request CI builds it and does not deploy.
+The MkDocs Material site renders `docs/` and is published from `main` at <https://goliath-research.github.io/GoliathOmics/>. The live operator host is <https://omics.goliathresearch.com>. Pull request CI builds the docs site and does not deploy.
 
 ```bash
 python -m pip install -r requirements-docs.txt

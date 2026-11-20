@@ -16,6 +16,9 @@ Its ready-to-run **SamplePrep** workflow processes paired FASTQ files through al
   - [Alignment engines](usage/alignment-engines.md) — choosing between linear Clara Parabricks, linear GoliathAlign, stock Giraffe pangenome, and methylGrapher WGBS pangenome
   - [Usage manual](usage/index.md) and [Orchestration: workflow-run](usage/04-orchestration-workflow-run.md)
 - **For IT, platform, and operations teams** — *Understand how the system is deployed and operated:*
+  - Live operator host: [https://omics.goliathresearch.com](https://omics.goliathresearch.com) (shared GoliathApp platform host). The company site lists live application hosts at [https://www.goliathresearch.com/apps/](https://www.goliathresearch.com/apps/).
+  - [Site parameters](architecture/site-parameters.md) — typed `omics/SiteParameters` document, field sources, and config overlay precedence
+  - [Semantic layer](architecture/semantic-layer.md) — `omics/*` classes, action methods, and verifiers
   - [Release, deploy, and worker enrollment](operators/release.md) (current release: **2026.10.27**)
   - [Deploy targets](deploy-targets.md) and [Rollouts](rollouts.md)
   - [Dependency direction](architecture/dependencies.md) — how GoliathOmics specializes [GoliathApp](https://github.com/Goliath-Research/GoliathApp) and calls [GoliathAlign](https://github.com/Goliath-Research/GoliathAlign) and [GoliathExtractor](https://github.com/Goliath-Research/GoliathExtractor)
@@ -31,9 +34,9 @@ Its ready-to-run **SamplePrep** workflow processes paired FASTQ files through al
 | [research](research/README.md) | Disease application deep-dives, notes, and assessments |
 | [deploy-targets](deploy-targets.md) | Deployment profiles and target configurations |
 | [rollouts](rollouts.md) | Deployment reporting |
-| [architecture](architecture/dependencies.md) | Dependency direction, semantic layer, [PostgreSQL population](architecture/database-population.md), and sample-prep tooling |
+| [architecture](architecture/dependencies.md) | Dependency direction, [semantic layer](architecture/semantic-layer.md), [site parameters](architecture/site-parameters.md), [PostgreSQL population](architecture/database-population.md), and sample-prep tooling |
 | [contracts](contracts/omics-tool-requirements.md) | Features required from GoliathAlign and GoliathExtractor |
-| [refresh-plan](refresh-plan.md) | Platform alignment roadmap (R0 gap audit through R5) |
+| [refresh-plan](refresh-plan.md) | Historical R0–R5 alignment plan (the current state is in Architecture) |
 
 The MkDocs Material site is published from `main` at <https://goliath-research.github.io/GoliathOmics/>. Pull request CI builds it and does not deploy. Local preview from the repository root: `python -m pip install -r requirements-docs.txt && mkdocs serve`.
 

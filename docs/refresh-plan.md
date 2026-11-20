@@ -1,6 +1,8 @@
 # GoliathOmics refresh plan (R0 audit → R1…R5)
 
-**Status:** gap audit and phased roadmap (R0). No runtime behavior changes until R1+.
+**This page is historical.** It was the R0–R5 alignment plan as written in early November 2026. The work it describes — Meta-backed `omics/*` clinical classes, the semantic registry, action-method derivation, one owner per action, folding the legacy `Omics*` subclasses, moving `omics/Lab` under `platform/Organization`, and typed site/pipeline-profile documents — is documented in its current form in [Semantic layer](architecture/semantic-layer.md) and [Site parameters](architecture/site-parameters.md). Do not treat the gap tables below as the live state of `main`.
+
+**Original status line:** gap audit and phased roadmap (R0). No runtime behavior changes until R1+.
 
 **Reference baselines (Nov 2026):**
 
