@@ -35,7 +35,9 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = REPO_ROOT / "schemas/import/ena_public_samples.json"
-ACCESSION_RE = r"(SRR|ERR|DRR|ERS|SRS|SAMN|SAMEA|SAMD|SAME[0-9]|PRJEB|PRJNA|PRJDA|GSM|GSE)[0-9]+"
+# First capturing group must be the whole accession: Postgres regexp_matches()[1]
+# returns that group, so a capturing prefix like (SRR|ERR|...) would yield 'SRR'.
+ACCESSION_RE = r"((?:SRR|ERR|DRR|ERS|SRS|SAMN|SAMEA|SAMD|SAME[0-9]|PRJEB|PRJNA|PRJDA|GSM|GSE)[0-9]+)"
 
 
 def _connect():
@@ -213,8 +215,7 @@ def study_run_links(cur, sample_name: str) -> dict[str, Any]:
         """
         SELECT id, name, study_id, document_json->'sample_ids' AS sample_ids
         FROM cfg.study
-        WHERE document_json @> jsonb_build_array(%(name)s)
-           OR document_json->'sample_ids' @> to_jsonb(%(name)s::text)
+        WHERE document_json @> jsonb_build_object('sample_ids', jsonb_build_array(%(name)s::text))
         """,
         {"name": sample_name},
     )

@@ -64,3 +64,24 @@ def test_load_manifest_rejects_unsourced_race() -> None:
         raise AssertionError("expected SystemExit for unsourced race")
     finally:
         tmp.unlink(missing_ok=True)
+
+
+def test_accession_re_first_group_is_the_full_accession() -> None:
+    """Postgres regexp_matches()[1] is the first capturing group, not the full match."""
+    import re
+
+    mod = _load_script()
+    text = (
+        "canary-SRR28293403-linear-subset study PRJNA1086543 "
+        "alias GSM8140413 series GSE261315 sample SAMN40381571 individual SAME123082"
+    )
+    found = [m.group(1) for m in re.finditer(mod.ACCESSION_RE, text)]
+    assert found == [
+        "SRR28293403",
+        "PRJNA1086543",
+        "GSM8140413",
+        "GSE261315",
+        "SAMN40381571",
+        "SAME123082",
+    ]
+    assert "SRR" not in found
