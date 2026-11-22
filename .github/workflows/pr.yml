@@ -1,5 +1,8 @@
 name: PR
 
+# PostgreSQL matrix: 18 matches production (Neon) and is required. 19 is a
+# non-blocking forward-compatibility signal (continue-on-error); promote it to
+# required by flipping `experimental` to false once it has been green for a while.
 on:
   pull_request:
     branches:
@@ -37,7 +40,17 @@ jobs:
           mkdocs build
 
   deploy-scripts:
+    name: ${{ matrix.postgres == '18' && 'deploy-scripts' || format('deploy-scripts (PostgreSQL {0}, non-blocking)', matrix.postgres) }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - postgres: "18"
+            experimental: false
+          - postgres: "19"
+            experimental: true
     steps:
       - uses: actions/checkout@v6
 
@@ -63,11 +76,13 @@ jobs:
           path: _goliathapp
           sparse-checkout: workflow_engine/sql_pg
 
-      - name: Install PostgreSQL server binaries
-        run: |
-          if ! ls /usr/lib/postgresql/*/bin/initdb >/dev/null 2>&1; then
-            sudo apt-get install -y postgresql
-          fi
+      - name: Install PostgreSQL server binaries and client
+        run: bash scripts/ci/install_postgresql_client.sh "${{ matrix.postgres }}" server
+
+      - name: Assert PostgreSQL binaries are the expected major
+        run: bash scripts/ci/assert_postgres_binaries.sh
+        env:
+          EXPECTED_PG_MAJOR: ${{ matrix.postgres }}
 
       - name: Shellcheck deploy scripts
         run: |
@@ -170,12 +185,22 @@ jobs:
           bash scripts/test_bootstrap_companions.sh
 
   pr:
+    name: ${{ matrix.postgres == '18' && 'pr' || format('pr (PostgreSQL {0}, non-blocking)', matrix.postgres) }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - postgres: "18"
+            experimental: false
+          - postgres: "19"
+            experimental: true
     env:
       GOLIATH_GATEWAY_WORKFLOW_ENGINE: ${{ github.workspace }}/_goliathapp_gateway/workflow_engine
     services:
       postgres:
-        image: postgres:17
+        image: postgres:${{ matrix.postgres }}
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: methyl
@@ -215,6 +240,19 @@ jobs:
           sparse-checkout: |
             workflow_engine/sql_pg
             workflow_engine/contract
+
+      - name: Install PostgreSQL client
+        run: bash scripts/ci/install_postgresql_client.sh "${{ matrix.postgres }}"
+
+      - name: Assert PostgreSQL server major
+        run: bash scripts/ci/report_postgres_capabilities.sh
+        env:
+          EXPECTED_PG_MAJOR: ${{ matrix.postgres }}
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: methyl
+          PGDATABASE: goliath_omics_ci
 
       - name: Type check with Pyrefly
         run: |
