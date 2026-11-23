@@ -119,6 +119,7 @@ psql_base=(psql -X -q -v ON_ERROR_STOP=1)
 
 # Fast path outside the transaction: the ledger already has this release.
 recorded="$("${psql_base[@]}" -t -A -v release="$RELEASE_ID" <<'SQL'
+SET TIME ZONE 'UTC';
 SELECT to_regclass('wf.schema_release') IS NOT NULL AS has_ledger \gset
 \if :has_ledger
 SELECT goliathapp_sha || ' ' || to_char(applied_at_utc, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
@@ -159,10 +160,25 @@ CREATE TABLE IF NOT EXISTS wf.schema_release (
   goliathapp_sha text NOT NULL,
   manifest_sha256 text NOT NULL,
   script_count integer NOT NULL,
-  applied_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  applied_at_utc timestamptz NOT NULL DEFAULT now(),
   applied_by text NOT NULL DEFAULT current_user,
   apply_count integer NOT NULL DEFAULT 1
 );
+-- Older releases created applied_at_utc as a zoneless UTC wall clock (timestamp). Convert it in
+-- place to an absolute instant, reading the stored value as UTC; no-op once it is timestamptz.
+DO $utc$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_attribute
+    WHERE attrelid = 'wf.schema_release'::regclass AND attname = 'applied_at_utc' AND NOT attisdropped
+      AND atttypid = 'timestamp'::regtype
+  ) THEN
+    ALTER TABLE wf.schema_release
+      ALTER COLUMN applied_at_utc TYPE timestamptz USING applied_at_utc AT TIME ZONE 'UTC',
+      ALTER COLUMN applied_at_utc SET DEFAULT now();
+  END IF;
+END
+$utc$;
 COMMENT ON TABLE wf.schema_release IS
   'GoliathOmics releases whose GoliathApp sql_pg scripts were applied (scripts/apply_goliathapp_schema.sh).';
 SELECT EXISTS (SELECT 1 FROM wf.schema_release WHERE release = :'release') AS already_applied \gset
