@@ -248,6 +248,39 @@ grep -q 'not recorded' "$err" || fail "failure should say the release is not rec
 [[ -z "$(psql_q -c "SELECT to_regclass('wf.fixture_should_roll_back')")" ]] \
   || fail "failed release left a table behind"
 
+# --- release ledgers store applied_at_utc as an absolute UTC instant -----------
+# A ledger created by an older release (zoneless timestamp holding a UTC wall clock) is
+# converted in place, keeping the instant; the apply runs in a session far from UTC.
+PGUSER=goliath_admin psql_q -d postgres -c "CREATE DATABASE utc_ci OWNER app_owner" >/dev/null
+psql_q -d utc_ci -c "CREATE SCHEMA wf" -c "CREATE TABLE wf.schema_release (
+    release text PRIMARY KEY, goliathapp_sha text NOT NULL, manifest_sha256 text NOT NULL,
+    script_count integer NOT NULL,
+    applied_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+    applied_by text NOT NULL DEFAULT current_user, apply_count integer NOT NULL DEFAULT 1)" \
+  -c "INSERT INTO wf.schema_release (release, goliathapp_sha, manifest_sha256, script_count, applied_at_utc)
+      VALUES ('0.1.0', 'oldsha', 'x', 0, '2026-01-02 03:04:05')"
+PGDATABASE=utc_ci PGTZ=Pacific/Kiritimati bash "$APPLY" --release-dir "$rel1" >"$out" 2>"$err" \
+  || { cat "$err" >&2; fail "apply over a legacy ledger failed"; }
+utc_q() { PGDATABASE=utc_ci PGTZ=America/New_York psql_q -c "$1"; }
+[[ "$(utc_q "SELECT format_type(atttypid, atttypmod) FROM pg_attribute
+              WHERE attrelid = 'wf.schema_release'::regclass AND attname = 'applied_at_utc'")" \
+   == "timestamp with time zone" ]] || fail "wf.schema_release.applied_at_utc should be timestamptz"
+[[ "$(utc_q "SELECT applied_at_utc = '2026-01-02 03:04:05+00' FROM wf.schema_release WHERE release = '0.1.0'")" == "t" ]] \
+  || fail "legacy applied_at_utc should keep its UTC instant"
+[[ "$(utc_q "SELECT abs(extract(epoch FROM now() - applied_at_utc)) < 300 FROM wf.schema_release WHERE release = '1.0.0'")" == "t" ]] \
+  || fail "a release applied in a non-UTC session should record the current instant"
+[[ "$(utc_q "SELECT pg_get_expr(adbin, adrelid) FROM pg_attrdef
+              WHERE adrelid = 'wf.schema_release'::regclass
+                AND adnum = (SELECT attnum FROM pg_attribute WHERE attrelid = adrelid AND attname = 'applied_at_utc')")" \
+   == "now()" ]] || fail "applied_at_utc default should be now()"
+# The fast path prints the recorded instant in UTC whatever the session time zone.
+PGDATABASE=utc_ci PGTZ=Asia/Kolkata bash "$APPLY" --release-dir "$rel1" >"$out" 2>"$err" || fail "re-apply failed"
+grep -q 'already applied' "$out" || fail "re-apply should skip"
+# Converting again is a no-op.
+PGDATABASE=utc_ci bash "$APPLY" --release-dir "$rel1" --force >"$out" 2>"$err" || fail "forced apply on a converted ledger failed"
+[[ "$(utc_q "SELECT applied_at_utc = '2026-01-02 03:04:05+00' FROM wf.schema_release WHERE release = '0.1.0'")" == "t" ]] \
+  || fail "a second conversion must not shift the instant"
+
 # --- deploy_target.sh wiring ----------------------------------------------------
 cat >"$fixture_profile" <<EOF
 {
@@ -334,12 +367,36 @@ if [[ -n "${GOLIATH_APP_SQL_DIR:-}" ]]; then
   omics2="$work/omics-2"
   make_omics_release "$omics1" 9.1.0 "$omics_sha"
   make_omics_release "$omics2" 9.1.1 "$omics_sha"
-  bash "$OMICS_APPLY" --release-dir "$omics1" >"$out" 2>"$err" \
+  # A legacy Omics ledger (zoneless applied_at_utc) is converted in place by the first apply.
+  psql_q -c "CREATE TABLE wf.omics_schema_release (
+      release text PRIMARY KEY, omics_sha text NOT NULL, manifest_sha256 text NOT NULL,
+      script_count integer NOT NULL,
+      applied_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+      applied_by text NOT NULL DEFAULT current_user, apply_count integer NOT NULL DEFAULT 1)" \
+    -c "INSERT INTO wf.omics_schema_release (release, omics_sha, manifest_sha256, script_count, applied_at_utc)
+        VALUES ('0.1.0', 'oldsha', 'x', 0, '2026-01-02 03:04:05')"
+  PGTZ=America/New_York bash "$OMICS_APPLY" --release-dir "$omics1" >"$out" 2>"$err" \
     || { tail -20 "$err" >&2; fail "Omics schema: first apply failed"; }
+  [[ "$(PGTZ=Asia/Kolkata psql_q -c "SELECT applied_at_utc = '2026-01-02 03:04:05+00' FROM wf.omics_schema_release WHERE release = '0.1.0'")" == "t" ]] \
+    || fail "Omics schema: legacy applied_at_utc should keep its UTC instant"
   bash "$OMICS_APPLY" --release-dir "$omics2" >"$out" 2>"$err" \
     || { tail -20 "$err" >&2; fail "Omics schema: second apply failed (not idempotent)"; }
   [[ "$(psql_q -c "SELECT to_regclass('portal.\"Customers\"') IS NOT NULL")" == "t" ]] \
     || fail "Omics schema: portal.Customers table missing after apply"
+  # Every timestamp is an absolute instant: no zoneless timestamp column and no UTC wall-clock
+  # default or function anywhere in the applied database.
+  zoneless="$(psql_q -c "SELECT string_agg(format('%I.%I.%I', n.nspname, c.relname, a.attname), ', ')
+      FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE c.relkind IN ('r', 'p') AND a.attnum > 0 AND NOT a.attisdropped
+        AND a.atttypid = 'timestamp'::regtype
+        AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname NOT LIKE 'pg_toast%'")"
+  [[ -z "$zoneless" ]] || fail "timestamp without time zone columns remain: $zoneless"
+  [[ "$(psql_q -c "SELECT count(*) FROM portal.fn_utc_timestamp_violations()")" == "0" ]] \
+    || fail "portal.fn_utc_timestamp_violations(): $(psql_q -c "SELECT string_agg(object_name, ', ') FROM portal.fn_utc_timestamp_violations()")"
+  if [[ "$(psql_q -c "SELECT to_regprocedure('omics_clinical.fn_utc_timestamp_violations()') IS NOT NULL")" == "t" ]]; then
+    [[ "$(psql_q -c "SELECT count(*) FROM omics_clinical.fn_utc_timestamp_violations()")" == "0" ]] \
+      || fail "omics_clinical.fn_utc_timestamp_violations() is not empty"
+  fi
   echo "GoliathOmics sql_pg ($omics_sha): omics-sql applied 2x after GoliathApp on one database"
 fi
 

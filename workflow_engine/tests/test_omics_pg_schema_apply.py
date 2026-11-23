@@ -157,8 +157,10 @@ _UTC_WALL_CLOCK = re.compile(
     r"(now|clock_timestamp|statement_timestamp|transaction_timestamp)\(\)\s+AT\s+TIME\s+ZONE\s+'utc'", re.I
 )
 _TO_CHAR_UTC = re.compile(r"to_char\(\s*now\(\)\s+AT\s+TIME\s+ZONE\s+'utc'", re.I)
-# Bookkeeping columns typed `timestamp` (no zone) that deliberately hold a UTC wall clock.
-_WALL_CLOCK_TIMESTAMP_COLUMN = re.compile(r"\btimestamp\s+NOT\s+NULL\s+DEFAULT\s+\(now\(\)\s+AT\s+TIME\s+ZONE\s+'utc'\)", re.I)
+# A column declared `timestamp` / `timestamp without time zone` (a zoneless wall clock).
+_ZONELESS_TIMESTAMP_COLUMN = re.compile(
+    r"^\s*\"?\w+\"?\s+timestamp(\s+without\s+time\s+zone)?(\s*\(\d\))?\s*(NOT\s+NULL|NULL|DEFAULT|,|$)", re.I
+)
 
 
 def _zone_env(env: dict[str, str], zone: str) -> dict[str, str]:
@@ -170,14 +172,40 @@ def _zone_env(env: dict[str, str], zone: str) -> dict[str, str]:
 def test_sources_never_store_a_utc_wall_clock_in_timestamptz() -> None:
     sources = [p for p in (REPO_ROOT / "database" / "schema").glob("*.sql") if not p.name.startswith("21_")]
     sources += [p for p in OMICS_SQL.rglob("*.sql") if not p.is_symlink()]
-    sources += list((REPO_ROOT / "scripts").glob("*.sh")) + list((REPO_ROOT / "workflow_engine" / "ops").glob("*.py"))
+    # scripts/test_*.sh build legacy fixtures on purpose; everything else must be clean.
+    sources += [p for p in (REPO_ROOT / "scripts").glob("*.sh") if not p.name.startswith("test_")]
+    sources += list((REPO_ROOT / "workflow_engine" / "ops").glob("*.py"))
     offenders = []
     for path in sorted(sources):
         text = _TO_CHAR_UTC.sub("", path.read_text(encoding="utf-8"))
         for lineno, line in enumerate(text.splitlines(), 1):
-            if _UTC_WALL_CLOCK.search(line) and not _WALL_CLOCK_TIMESTAMP_COLUMN.search(line):
+            if _UTC_WALL_CLOCK.search(line):
                 offenders.append(f"{path.relative_to(REPO_ROOT)}:{lineno}: {line.strip()}")
     assert not offenders, "use now() for timestamptz values:\n" + "\n".join(offenders)
+
+
+def test_sources_declare_no_zoneless_timestamp_columns() -> None:
+    sources = list((REPO_ROOT / "database" / "schema").glob("*.sql"))
+    sources += [p for p in OMICS_SQL.rglob("*.sql") if not p.is_symlink()]
+    sources += [p for p in (REPO_ROOT / "scripts").glob("*.sh") if not p.name.startswith("test_")]
+    offenders = []
+    for path in sorted(set(sources)):
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if _ZONELESS_TIMESTAMP_COLUMN.search(line):
+                offenders.append(f"{path.relative_to(REPO_ROOT)}:{lineno}: {line.strip()}")
+    assert not offenders, "declare timestamp columns as timestamptz:\n" + "\n".join(offenders)
+
+
+def test_no_zoneless_timestamp_columns_deployed(pg_schema_applied: dict[str, str]) -> None:
+    rows = _psql(
+        """SELECT string_agg(format('%I.%I.%I', n.nspname, c.relname, a.attname), ', ')
+           FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE c.relkind IN ('r', 'p') AND a.attnum > 0 AND NOT a.attisdropped
+             AND a.atttypid = 'timestamp'::regtype
+             AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname NOT LIKE 'pg_toast%'""",
+        pg_schema_applied,
+    )
+    assert rows == "", rows
 
 
 def test_no_utc_wall_clock_defaults_or_writes_deployed(pg_schema_applied: dict[str, str]) -> None:
