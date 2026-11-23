@@ -89,6 +89,10 @@ def test_reference_fields_are_relations_and_views_keep_integer_columns(folded_en
         env,
     ).splitlines()
     assert rows == [
+        # Run and alignment relations (22_omics_run_alignment_objects.sql).
+        "omics/AlignmentResult.sample_id=omics/ref/sample:legacy_sample_id",
+        "omics/AlignmentResult.sequencing_run_id=omics/ref/sequencing_run:source_node_execution_id",
+        "omics/AlignmentResult.study_id=omics/ref/study:cfg_study_row_id",
         "omics/Customer.organization_id=omics/ref/organization:organization_id",
         "omics/Disease.parent_id=omics/ref/disease:disease_id",
         "omics/LabBatch.lab_id=omics/ref/lab:lab_id",
@@ -96,6 +100,8 @@ def test_reference_fields_are_relations_and_views_keep_integer_columns(folded_en
         "omics/Sample.customer_id=omics/ref/customer:customer_id",
         "omics/Sample.disease_id=omics/ref/disease:disease_id",
         "omics/Sample.patient_id=omics/ref/patient:patient_id",
+        "omics/SequencingRun.sample_id=omics/ref/sample:legacy_sample_id",
+        "omics/SequencingRun.study_id=omics/ref/study:cfg_study_row_id",
     ]
     # The relation type keeps the field's kind, so the view column type does not change.
     col_types = _psql(
