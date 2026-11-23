@@ -223,7 +223,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: 07d5e0fe7581f45b5689bbe4db14660d25ee653f
+          ref: b2a4f5528147c32d7ab04a0c764c3a7a44353260
           path: _goliathapp
           sparse-checkout: workflow_engine/sql_pg
 
@@ -266,7 +266,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: 07d5e0fe7581f45b5689bbe4db14660d25ee653f
+          ref: b2a4f5528147c32d7ab04a0c764c3a7a44353260
           path: _goliathapp
 
       # goliath-gateway distribution name (D10); older pins still expose methyl-gateway only.
@@ -274,7 +274,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Goliath-Research/GoliathApp
-          ref: 07d5e0fe7581f45b5689bbe4db14660d25ee653f
+          ref: b2a4f5528147c32d7ab04a0c764c3a7a44353260
           path: _goliathapp_gateway
           sparse-checkout: |
             workflow_engine

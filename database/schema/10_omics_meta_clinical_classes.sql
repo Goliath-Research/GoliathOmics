@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS omics_clinical.meta_cutover_flag (
   entity_code text PRIMARY KEY,
   dual_write_legacy_meta boolean NOT NULL DEFAULT false,
   read_from_meta boolean NOT NULL DEFAULT false,
-  updated_at timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  updated_at timestamptz NOT NULL DEFAULT (now())
 );
 
 INSERT INTO omics_clinical.meta_cutover_flag (entity_code)

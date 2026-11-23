@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS wf.instance_extension (
   workflow_instance_id bigint NOT NULL REFERENCES wf.workflow_instance(id) ON DELETE CASCADE,
   extension_key text NOT NULL,
   data_json jsonb NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
+  updated_at_utc timestamptz NOT NULL DEFAULT (now()),
   PRIMARY KEY (workflow_instance_id, extension_key)
 );
 
@@ -32,7 +32,7 @@ BEGIN
   VALUES (p_instance_id, p_extension_key, p_data_json)
   ON CONFLICT (workflow_instance_id, extension_key) DO UPDATE SET
     data_json = EXCLUDED.data_json,
-    updated_at_utc = (now() AT TIME ZONE 'utc');
+    updated_at_utc = (now());
 END;
 $$;
 

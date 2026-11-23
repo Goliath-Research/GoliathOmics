@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS omics_clinical.study_meta_link (
   study_row_id bigint NOT NULL,
   meta_obj_id integer NOT NULL,
   scope_id integer NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT pk_omics_study_meta_link PRIMARY KEY (study_row_id),
   CONSTRAINT uq_omics_study_meta_link_obj UNIQUE (meta_obj_id),
@@ -129,7 +129,7 @@ BEGIN
   ELSE
     PERFORM "Meta".sp_obj_update(v_obj_id, v_doc);
     UPDATE omics_clinical.study_meta_link
-    SET updated_at_utc = (now() AT TIME ZONE 'utc')
+    SET updated_at_utc = (now())
     WHERE study_row_id = p_study_row_id;
   END IF;
 

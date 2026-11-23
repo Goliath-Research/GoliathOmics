@@ -49,7 +49,7 @@ def register_domain_program_after_deploy(
                     UPDATE cfg.domain_program
                     SET workflow_def_id = COALESCE(%s, workflow_def_id),
                         compiled_workflow_version_id = COALESCE(%s, compiled_workflow_version_id),
-                        updated_at_utc = (now() AT TIME ZONE 'utc')
+                        updated_at_utc = (now())
                     WHERE name = %s AND version = %s
                     """,
                     (workflow_def_id, workflow_version_id, name, version),

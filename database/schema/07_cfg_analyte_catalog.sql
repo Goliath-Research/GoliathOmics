@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS cfg.analyte (
   status varchar(32) NOT NULL DEFAULT 'draft',
   content_hash text NOT NULL,
   document_json jsonb NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_analyte_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_analyte_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -175,7 +175,7 @@ BEGIN
       default_pipeline_profile_id = COALESCE(v_profile_id, ap.default_pipeline_profile_id),
       sample_prep_program_id = COALESCE(v_sp_id, ap.sample_prep_program_id),
       lifecycle_program_id = COALESCE(v_lc_id, ap.lifecycle_program_id),
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE ap.id = v_ap_id;
 
   RETURN QUERY
@@ -213,7 +213,7 @@ BEGIN
   -- LATERAL may not correlate to the UPDATE target alias on Postgres; join via subquery.
   UPDATE cfg.study s
   SET default_analyte_id = m.analyte_id,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   FROM (
     SELECT s2.id AS study_id, a.id AS analyte_id
     FROM cfg.study s2
@@ -713,7 +713,7 @@ BEGIN
         WHEN btrim(p_analyte) = '' THEN NULL
         ELSE v_analyte_id
       END,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE id = p_study_row_id;
 
   RETURN QUERY SELECT * FROM portal.sp_get_study_process_defaults(p_study_row_id);
@@ -801,7 +801,7 @@ BEGIN
     ) VALUES (p_study_group_id, v_portal, v_lab, v_resolved);
   END LOOP;
 
-  UPDATE cfg.study_group SET updated_at_utc = (now() AT TIME ZONE 'utc')
+  UPDATE cfg.study_group SET updated_at_utc = (now())
   WHERE id = p_study_group_id;
 
   RETURN QUERY

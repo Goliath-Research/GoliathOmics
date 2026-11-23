@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS wf.test_bed_run (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   workflow_instance_id bigint NOT NULL REFERENCES wf.workflow_instance(id) ON DELETE CASCADE,
   workflow_name text NOT NULL,
-  started_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  started_at_utc timestamptz NOT NULL DEFAULT (now()),
   completed_at_utc timestamptz NULL,
   tasks_submitted int NOT NULL DEFAULT 0,
   final_status text NULL,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS wf.test_bed_task_log (
   instance_status text NULL,
   input_json jsonb NULL,
   output_json jsonb NULL,
-  logged_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  logged_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE INDEX IF NOT EXISTS ix_tbtl_run ON wf.test_bed_task_log(test_bed_run_id);

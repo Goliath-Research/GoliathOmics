@@ -735,7 +735,7 @@ run_catalog_sync() {
   psql -q -v ON_ERROR_STOP=1 <<SQL
 CREATE TABLE IF NOT EXISTS wf.catalog_sync_release (
   release text PRIMARY KEY,
-  applied_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  applied_at_utc timestamptz NOT NULL DEFAULT (now()),
   applied_by text NOT NULL DEFAULT current_user,
   apply_count integer NOT NULL DEFAULT 1
 );

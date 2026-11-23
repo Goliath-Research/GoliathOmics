@@ -26,6 +26,7 @@ DOMAIN_SCHEMA_SCRIPTS=(
   18_omics_study_meta_link.sql
   19_omics_meta_legacy_class_fold.sql
   20_omics_clinical_record_history.sql
+  21_omics_utc_timestamps.sql
 )
 
 # Legacy sql_pg names (same order); used by release bundles and apply_schema.sh SCRIPTS=.
@@ -50,6 +51,7 @@ DOMAIN_SCHEMA_LEGACY_NAMES=(
   omics_study_meta_link.sql
   omics_meta_legacy_class_fold.sql
   omics_clinical_record_history.sql
+  omics_utc_timestamps.sql
 )
 
 if ((${#DOMAIN_SCHEMA_SCRIPTS[@]} != ${#DOMAIN_SCHEMA_LEGACY_NAMES[@]})); then

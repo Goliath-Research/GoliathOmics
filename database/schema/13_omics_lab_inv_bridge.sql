@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS omics_lab_inv.lab_stock_context (
   organization_id integer NOT NULL,
   lab_id integer NULL REFERENCES portal."Labs" ("ID") ON DELETE SET NULL,
   batch_id integer NULL REFERENCES portal."Batches" ("ID") ON DELETE SET NULL,
-  created_at timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE INDEX IF NOT EXISTS ix_lab_stock_context_org ON omics_lab_inv.lab_stock_context (organization_id);
