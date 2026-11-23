@@ -42,12 +42,14 @@ class _Conn:
         self.commits += 1
 
 
-def _semantic_answer(gaps: int = 0):
+def _semantic_answer(gaps: int = 0, anchor: bool = True):
     def answer(sql: str, params: tuple) -> Any:
         if "fn_semantic_entity_class_read_gaps" in sql:
             return (gaps,)
         if 'FROM "Meta"."Classes"' in sql:
             return (100 + len(params[0]),)
+        if "meta.permission_anchor" in sql:
+            return (7, 9) if anchor else None
         return (1,)
 
     return answer
@@ -151,3 +153,24 @@ def test_semantic_seed_grants_class_read_and_fails_on_access_gaps() -> None:
     with pytest.raises(RuntimeError, match="would lose access"):
         semantic_catalog.seed(failing)
     assert failing.commits == 0
+
+
+def test_semantic_seed_registers_request_permissions_before_class_read() -> None:
+    import pytest
+
+    names = semantic_catalog.request_permissions()
+    assert {"omics.clinical.read", "omics.clinical.write", "omics.lab_inventory.read", "omics.lab_inventory.write"} <= set(names)
+    conn = _Conn(_semantic_answer())
+    semantic_catalog.seed(conn)
+    inserted = [p[0] for s, p in conn.calls if s.startswith('INSERT INTO "RBAC"."Permissions"')]
+    assert inserted == names
+    assert all(p[1:3] == (7, 9) for s, p in conn.calls if s.startswith('INSERT INTO "RBAC"."Permissions"'))
+    role_grant = [p for s, p in conn.calls if s.startswith('INSERT INTO "RBAC"."Role_Permissions"')]
+    assert role_grant == [(names, "organization_admin")]
+    order = [i for i, (s, _) in enumerate(conn.calls) if "Role_Permissions" in s or "sp_grant_semantic_entity_class_read(%s)" in s]
+    assert "Role_Permissions" in conn.calls[order[0]][0]
+
+    missing = _Conn(_semantic_answer(anchor=False))
+    with pytest.raises(RuntimeError, match="permission anchor missing"):
+        semantic_catalog.seed(missing)
+    assert missing.commits == 0
