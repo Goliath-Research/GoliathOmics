@@ -42,6 +42,7 @@ SCRIPTS=(
   omics_meta_legacy_class_fold.sql
   omics_clinical_record_history.sql
   omics_utc_timestamps.sql
+  omics_run_alignment_objects.sql
 )
 
 exec bash "$REPO_ROOT/scripts/apply_domain_schema.sh"
