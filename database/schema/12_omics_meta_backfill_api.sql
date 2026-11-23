@@ -182,7 +182,7 @@ BEGIN
   UPDATE omics_clinical.meta_cutover_flag
   SET dual_write_legacy_meta = false,
       read_from_meta = false,
-      updated_at = (now() AT TIME ZONE 'utc')
+      updated_at = (now())
   WHERE entity_code = p_entity_code;
   RETURN v_cleared;
 END;
