@@ -167,9 +167,79 @@ def seed(conn) -> int:
                 ),
             )
             count += 1
+        ensure_request_permissions(cur)
         grant_entity_class_read(cur)
     conn.commit()
     return count
+
+
+# Role that receives every permission an omics request requires, matching how GoliathApp's
+# seed_platform_nav_tree.sql grants inv.stock.* to organization admins.
+OMICS_REQUEST_PERMISSION_ROLE = "organization_admin"
+
+
+def request_permissions() -> list[str]:
+    """Distinct permissions named by omics semantic requests, in a stable order."""
+    return sorted({req.required_permission for req in SEMANTIC_REQUESTS if req.required_permission})
+
+
+def ensure_request_permissions(cur) -> None:
+    """Register the permissions omics requests require and grant them to organization admins.
+
+    portal.sp_semantic_run checks required_permission against RBAC.Permissions. Without these
+    rows every omics.* request returns "permission denied" for every user. New permissions
+    reuse the anchor (Meta object + meta.permission_anchor operation) that GoliathApp's
+    platform permissions already use; the seed fails if that anchor does not exist yet.
+    """
+    names = request_permissions()
+    if not names:
+        return
+    cur.execute(
+        """
+        SELECT p."ObjID", p."OperationID"
+        FROM "RBAC"."Permissions" p
+        INNER JOIN "Meta"."Operations" op ON op."ID" = p."OperationID"
+        WHERE op."Name" = 'meta.permission_anchor'
+        ORDER BY p."ID"
+        LIMIT 1
+        """
+    )
+    anchor = cur.fetchone()
+    if not anchor:
+        raise RuntimeError(
+            "GoliathApp permission anchor missing; run GoliathApp seed_platform_nav_tree.sql before "
+            "goliath-omics-seed-semantic"
+        )
+    obj_id, op_id = int(anchor[0]), int(anchor[1])
+    for name in names:
+        cur.execute(
+            """
+            INSERT INTO "RBAC"."Permissions" ("Name", "ObjID", "OperationID")
+            SELECT %s, %s, %s
+            WHERE NOT EXISTS (SELECT 1 FROM "RBAC"."Permissions" p WHERE p."Name" = %s)
+            """,
+            (name, obj_id, op_id, name),
+        )
+    cur.execute(
+        """
+        INSERT INTO "RBAC"."Role_Permissions" ("RoleID", "PermissionID")
+        SELECT r."ID", p."ID"
+        FROM "RBAC"."Roles" r
+        INNER JOIN "RBAC"."Permissions" p ON p."Name" = ANY(%s)
+        WHERE r."Name" = %s
+          AND NOT EXISTS (
+            SELECT 1 FROM "RBAC"."Role_Permissions" rp
+            WHERE rp."RoleID" = r."ID" AND rp."PermissionID" = p."ID"
+          )
+        """,
+        (names, OMICS_REQUEST_PERMISSION_ROLE),
+    )
+    cur.execute(
+        "SELECT to_regprocedure('portal.sp_sync_god_architect_operator_entitlements()') IS NOT NULL"
+    )
+    row = cur.fetchone()
+    if row and row[0]:
+        cur.execute("SELECT portal.sp_sync_god_architect_operator_entitlements()")
 
 
 def grant_entity_class_read(cur) -> None:
