@@ -284,7 +284,9 @@ BEGIN
 END;
 $$;
 
--- Sample row, study row and scope for a workflow instance and sampleId.
+-- Sample row, study row and scope for a workflow instance and sampleId. A link is returned only
+-- when it is unambiguous: a SampleName shared by several samples (e.g. in different tenants) or an
+-- instance linked to several studies yields NULL rather than a guess.
 CREATE OR REPLACE FUNCTION omics_clinical.fn_run_alignment_context(p_workflow_instance_id bigint, p_sample_name text)
 RETURNS TABLE (sample_id integer, study_id bigint, scope_id integer)
 LANGUAGE sql
@@ -292,18 +294,23 @@ STABLE
 SECURITY DEFINER
 SET search_path = pg_catalog, portal, cfg, omics_clinical, pg_temp
 AS $$
+  WITH smp AS (
+    SELECT CASE WHEN count(*) = 1 THEN min(s."ID") END AS id
+    FROM portal."Samples" s WHERE s."SampleName" = p_sample_name
+  ), sty AS (
+    SELECT CASE WHEN count(DISTINCT sil.study_row_id) = 1 THEN min(sil.study_row_id) END AS id
+    FROM cfg.study_instance_link sil WHERE sil.workflow_instance_id = p_workflow_instance_id
+  )
   SELECT
-    (SELECT s."ID" FROM portal."Samples" s WHERE s."SampleName" = p_sample_name ORDER BY s."ID" LIMIT 1),
-    (SELECT sil.study_row_id FROM cfg.study_instance_link sil
-      WHERE sil.workflow_instance_id = p_workflow_instance_id ORDER BY sil.id LIMIT 1),
+    smp.id,
+    sty.id,
     COALESCE(
-      (SELECT l.scope_id FROM cfg.study_instance_link sil
-         JOIN omics_clinical.study_meta_link l ON l.study_row_id = sil.study_row_id
-        WHERE sil.workflow_instance_id = p_workflow_instance_id ORDER BY sil.id LIMIT 1),
+      (SELECT l.scope_id FROM omics_clinical.study_meta_link l WHERE l.study_row_id = sty.id),
       (SELECT sm."ScopeID" FROM portal."Samples" s
          JOIN portal."ScopedMetaObjects" sm ON sm."ObjID" = s."MetaObjectID"
-        WHERE s."SampleName" = p_sample_name ORDER BY s."ID" LIMIT 1)
-    );
+        WHERE s."ID" = smp.id)
+    )
+  FROM smp, sty;
 $$;
 
 -- Writers (class methods) ------------------------------------------------------------------

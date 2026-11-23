@@ -265,3 +265,22 @@ def test_a_writer_error_never_fails_the_engine(run_env: dict[str, Any]) -> None:
     assert _q(env, f"SELECT count(*) FROM omics_clinical.v_run_alignment_pending WHERE node_execution_id = {ne}") == "1"
     # Leave the shared database without an unrecordable row.
     _q(env, f"UPDATE wf.node_execution SET status = 'FAILED' WHERE id = {ne}")
+
+
+def test_an_ambiguous_sample_name_is_not_linked(run_env: dict[str, Any]) -> None:
+    """Two samples share a SampleName (e.g. in different tenants): the run keeps the name but no
+    sample relation, rather than guessing one."""
+    ctx = run_env
+    env = ctx["env"]
+    name = f"{ctx['sample_name']}-dup"
+    patient = _q(env, f"""SELECT "PatientID" FROM portal."Samples" WHERE "ID" = {ctx['sample_id']}""")
+    for _ in range(2):
+        _q(env, f"""INSERT INTO portal."Samples" ("PatientID", "SampleName") VALUES ({patient}, '{name}')""")
+    inst = _instance(ctx)
+    fetch = _step(ctx, inst, "fetch", {"sampleId": name, "fastqFiles": [f"/work/samples/{name}/SRR1_1.fastq.gz"]},
+                  input_json={"sampleId": name})
+    obj = _obj(env, fetch, "omics/SequencingRun")
+    assert obj
+    doc = _doc(env, obj)
+    assert doc["sample_name"] == name and "sample_id" not in doc
+    assert doc["study_id"] == ctx["study_id"]
