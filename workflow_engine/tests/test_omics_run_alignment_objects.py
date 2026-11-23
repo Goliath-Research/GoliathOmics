@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 import uuid
+from typing import Any
 from pathlib import Path
 
 import pytest
@@ -61,7 +62,7 @@ def _q(env: dict[str, str], sql: str) -> str:
 
 
 @pytest.fixture(scope="module")
-def run_env(pg_schema_applied: dict[str, str]) -> dict[str, object]:  # noqa: F811
+def run_env(pg_schema_applied: dict[str, str]) -> dict[str, Any]:  # noqa: F811
     env = pg_schema_applied
     suffix = uuid.uuid4().hex[:8]
     for action in ("sample.download_fastq", "sample.parabricks_fq2bam", "sample.methyl_qc"):
@@ -99,7 +100,7 @@ def run_env(pg_schema_applied: dict[str, str]) -> dict[str, object]:  # noqa: F8
             "sample_name": sample_name, "sample_id": sample_id, "study_id": study_id}
 
 
-def _instance(ctx: dict[str, object], *, link_study: bool = True) -> int:
+def _instance(ctx: dict[str, Any], *, link_study: bool = True) -> int:
     env = ctx["env"]
     inst = int(_q(env, f"""INSERT INTO wf.workflow_instance (workflow_version_id, status, context_json, started_at_utc)
                          VALUES ({ctx['version_id']}, 'RUNNING', '{{}}'::jsonb, now()) RETURNING id"""))
@@ -108,7 +109,7 @@ def _instance(ctx: dict[str, object], *, link_study: bool = True) -> int:
     return inst
 
 
-def _step(ctx: dict[str, object], inst: int, node: str, output: dict | None, *, status: str = "SUCCEEDED",
+def _step(ctx: dict[str, Any], inst: int, node: str, output: dict | None, *, status: str = "SUCCEEDED",
           input_json: dict | None = None) -> int:
     """Insert a RUNNING node execution, then finish it the way the engine does (one UPDATE)."""
     env = ctx["env"]
@@ -121,12 +122,12 @@ def _step(ctx: dict[str, object], inst: int, node: str, output: dict | None, *, 
     return ne
 
 
-def _fastq_out(ctx: dict[str, object]) -> dict:
+def _fastq_out(ctx: dict[str, Any]) -> dict:
     s = ctx["sample_name"]
     return {"status": "ok", "sampleId": s, "fastqFiles": [f.format(s=s) for f in FASTQ_OUT["fastqFiles"]]}
 
 
-def _align_out(ctx: dict[str, object], inst: int) -> dict:
+def _align_out(ctx: dict[str, Any], inst: int) -> dict:
     s = ctx["sample_name"]
     return {"status": "ok", "sampleId": s, "bamPath": f"/work/samples/{s}/run{inst}/{s}.bam",
             "qcMetricsTar": f"/work/samples/{s}/run{inst}/{s}.qc-metrics.tar",
@@ -138,16 +139,17 @@ def _obj(env: dict[str, str], ne: int, cls: str) -> int | None:
     return int(v) if v else None
 
 
-def _doc(env: dict[str, str], obj: int) -> dict:
-    return json.loads(_q(env, f"""SELECT jsonb_object_agg(k, v) FROM "Meta"."ObjValues" ov, jsonb_each(ov."Data") AS e(k, v)
+def _doc(env: dict[str, str], obj: int) -> dict[str, Any]:
+    doc: dict[str, Any] = json.loads(_q(env, f"""SELECT jsonb_object_agg(k, v) FROM "Meta"."ObjValues" ov, jsonb_each(ov."Data") AS e(k, v)
                                   WHERE ov."ObjID" = {obj}"""))
+    return doc
 
 
 def _history(env: dict[str, str], obj: int) -> int:
     return int(_q(env, f'SELECT count(*) FROM "Meta"."ObjValuesHistory" WHERE "ObjID" = {obj}'))
 
 
-def test_engine_hook_records_a_run_and_its_alignment_once(run_env: dict[str, object]) -> None:
+def test_engine_hook_records_a_run_and_its_alignment_once(run_env: dict[str, Any]) -> None:
     ctx = run_env
     env = dict(ctx["env"], PGTZ="America/New_York")  # a session far from UTC
     ctx = {**ctx, "env": env}
@@ -193,7 +195,7 @@ def test_engine_hook_records_a_run_and_its_alignment_once(run_env: dict[str, obj
     assert _q(env, "SELECT count(*) FROM portal.fn_ledger_verify_all()") == "0"
 
 
-def test_failed_alignment_records_nothing(run_env: dict[str, object]) -> None:
+def test_failed_alignment_records_nothing(run_env: dict[str, Any]) -> None:
     ctx = run_env
     inst = _instance(ctx)
     align = _step(ctx, inst, "align", {"status": "error"}, status="FAILED")
@@ -202,7 +204,7 @@ def test_failed_alignment_records_nothing(run_env: dict[str, object]) -> None:
         _q(ctx["env"], f"SELECT omics_clinical.sp_alignment_result_record({align})")
 
 
-def test_backfill_derives_objects_from_existing_rows_and_rerun_is_a_noop(run_env: dict[str, object]) -> None:
+def test_backfill_derives_objects_from_existing_rows_and_rerun_is_a_noop(run_env: dict[str, Any]) -> None:
     ctx = run_env
     env = ctx["env"]
     # Rows finished before the writers existed: the hook is off while they are written.
@@ -253,7 +255,7 @@ def test_backfill_derives_objects_from_existing_rows_and_rerun_is_a_noop(run_env
     assert int(link_history) >= int(counts)
 
 
-def test_a_writer_error_never_fails_the_engine(run_env: dict[str, object]) -> None:
+def test_a_writer_error_never_fails_the_engine(run_env: dict[str, Any]) -> None:
     ctx = run_env
     env = ctx["env"]
     inst = _instance(ctx)
