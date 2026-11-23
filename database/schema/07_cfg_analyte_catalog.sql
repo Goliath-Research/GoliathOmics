@@ -811,3 +811,33 @@ BEGIN
   ORDER BY m.processing_sample_key;
 END;
 $$;
+
+-- GoliathApp "catalogs as Meta classes": cfg.assay_procedure (and cfg.study) are catalog tables
+-- whose Meta class fields are generated from the table's columns when GoliathApp registers the
+-- kind. The analyte_id column above is added afterwards by this child app, so the row-capture
+-- trigger would reject it as an unknown field ("unknown field analyte_id in document for class ...")
+-- and cfg.cfg_repo_bind_assay_procedure fails. Re-register the affected kinds with their existing
+-- metadata so the platform's generic registration adds the new columns as fields. No-op on
+-- GoliathApp pins without catalog kinds, and idempotent on re-apply.
+DO $catalog_kinds$
+DECLARE
+  k record;
+BEGIN
+  IF to_regclass('"Meta".catalog_kind') IS NULL
+     OR to_regprocedure('"Meta".sp_catalog_register_kind(text,text,text,regclass,text[],text[],text,boolean)') IS NULL THEN
+    RETURN;
+  END IF;
+  FOR k IN
+    SELECT ck.kind, cl."Name" AS class_name, p."Name" AS parent_name, ck.relation,
+           ck.key_columns, ck.label_columns, ck.owner_app
+    FROM "Meta".catalog_kind ck
+    JOIN "Meta"."Classes" cl ON cl."ID" = ck.class_id
+    JOIN "Meta"."Classes" p ON p."ID" = cl."ParentID"
+    WHERE ck.relation IN ('cfg.assay_procedure'::regclass, 'cfg.study'::regclass)
+  LOOP
+    PERFORM "Meta".sp_catalog_register_kind(
+      k.kind, k.class_name, k.parent_name, k.relation, k.key_columns, k.label_columns, k.owner_app
+    );
+  END LOOP;
+END
+$catalog_kinds$;
