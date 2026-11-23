@@ -108,3 +108,42 @@ def test_clinical_nav_and_disease_list(pg_schema_applied: dict[str, str]) -> Non
         env,
     )
     assert int(nav) >= 1
+
+
+def test_clinical_record_history_records_changes(pg_schema_applied: dict[str, str]) -> None:
+    """20_*: every clinical table has history; no-op updates record nothing; history is append-only."""
+    env = pg_schema_applied
+    untracked = _psql(
+        """
+        SELECT count(*) FROM unnest(ARRAY['portal."Patients"', 'portal."Samples"', 'portal."Institutions"',
+                                          'portal."Customers"', 'omics_clinical.study_meta_link']) t(name)
+        WHERE NOT EXISTS (SELECT 1 FROM pg_trigger g WHERE g.tgrelid = to_regclass(t.name)
+                          AND g.tgname = 'trg_omics_record_history')
+        """,
+        env,
+    )
+    assert untracked == "0"
+    name = f"history-test-{uuid.uuid4().hex[:8]}"
+    inst_id = _psql(f"""INSERT INTO portal."Institutions" ("Name") VALUES ('{name}') RETURNING "ID" """, env)
+    _psql(f"""UPDATE portal."Institutions" SET "Name" = "Name" WHERE "ID" = {inst_id}""", env)
+    _psql(
+        f"""SELECT set_config('goliath.actor_user_id', '7', false);
+            UPDATE portal."Institutions" SET "Name" = '{name}-2' WHERE "ID" = {inst_id}""",
+        env,
+    )
+    _psql(f"""DELETE FROM portal."Institutions" WHERE "ID" = {inst_id}""", env)
+    rows = _psql(
+        f"""
+        SELECT string_agg(op || ':' || COALESCE(before_doc->>'Name', '-') || '>' || COALESCE(after_doc->>'Name', '-')
+                          || ':' || COALESCE(actor_user_id::text, '-'), ',' ORDER BY history_id)
+        FROM omics_clinical.record_history
+        WHERE table_name = 'portal.Institutions' AND row_key = jsonb_build_object('ID', {inst_id})
+        """,
+        env,
+    )
+    assert rows == f"insert:->{name}:-,update:{name}>{name}-2:7,delete:{name}-2>-:-"
+    for stmt in ("UPDATE omics_clinical.record_history SET op = 'insert'", "DELETE FROM omics_clinical.record_history"):
+        with pytest.raises(RuntimeError, match="append-only"):
+            _psql(stmt, env)
+    if _psql("SELECT to_regprocedure('portal.fn_ledger_verify_all()') IS NOT NULL", env) == "t":
+        assert _psql("SELECT count(*) FROM portal.fn_ledger_verify('omics_clinical.record_history')", env) == "0"
