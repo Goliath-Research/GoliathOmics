@@ -40,6 +40,7 @@ SCRIPTS=(
   omics_meta_clinical_class_reconcile.sql
   omics_study_meta_link.sql
   omics_meta_legacy_class_fold.sql
+  omics_clinical_record_history.sql
 )
 
 exec bash "$REPO_ROOT/scripts/apply_domain_schema.sh"

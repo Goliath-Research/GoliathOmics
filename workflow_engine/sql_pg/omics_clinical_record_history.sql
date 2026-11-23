@@ -1,0 +1,1 @@
+../../database/schema/20_omics_clinical_record_history.sql
