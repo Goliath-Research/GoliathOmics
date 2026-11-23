@@ -1,0 +1,1 @@
+../../database/schema/22_omics_run_alignment_objects.sql
