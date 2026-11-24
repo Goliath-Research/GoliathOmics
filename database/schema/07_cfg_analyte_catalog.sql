@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS cfg.analyte (
   status varchar(32) NOT NULL DEFAULT 'draft',
   content_hash text NOT NULL,
   document_json jsonb NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_analyte_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_analyte_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -175,7 +175,7 @@ BEGIN
       default_pipeline_profile_id = COALESCE(v_profile_id, ap.default_pipeline_profile_id),
       sample_prep_program_id = COALESCE(v_sp_id, ap.sample_prep_program_id),
       lifecycle_program_id = COALESCE(v_lc_id, ap.lifecycle_program_id),
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE ap.id = v_ap_id;
 
   RETURN QUERY
@@ -213,7 +213,7 @@ BEGIN
   -- LATERAL may not correlate to the UPDATE target alias on Postgres; join via subquery.
   UPDATE cfg.study s
   SET default_analyte_id = m.analyte_id,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   FROM (
     SELECT s2.id AS study_id, a.id AS analyte_id
     FROM cfg.study s2
@@ -713,7 +713,7 @@ BEGIN
         WHEN btrim(p_analyte) = '' THEN NULL
         ELSE v_analyte_id
       END,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE id = p_study_row_id;
 
   RETURN QUERY SELECT * FROM portal.sp_get_study_process_defaults(p_study_row_id);
@@ -801,7 +801,7 @@ BEGIN
     ) VALUES (p_study_group_id, v_portal, v_lab, v_resolved);
   END LOOP;
 
-  UPDATE cfg.study_group SET updated_at_utc = (now() AT TIME ZONE 'utc')
+  UPDATE cfg.study_group SET updated_at_utc = (now())
   WHERE id = p_study_group_id;
 
   RETURN QUERY
@@ -811,3 +811,33 @@ BEGIN
   ORDER BY m.processing_sample_key;
 END;
 $$;
+
+-- GoliathApp "catalogs as Meta classes": cfg.assay_procedure (and cfg.study) are catalog tables
+-- whose Meta class fields are generated from the table's columns when GoliathApp registers the
+-- kind. The analyte_id column above is added afterwards by this child app, so the row-capture
+-- trigger would reject it as an unknown field ("unknown field analyte_id in document for class ...")
+-- and cfg.cfg_repo_bind_assay_procedure fails. Re-register the affected kinds with their existing
+-- metadata so the platform's generic registration adds the new columns as fields. No-op on
+-- GoliathApp pins without catalog kinds, and idempotent on re-apply.
+DO $catalog_kinds$
+DECLARE
+  k record;
+BEGIN
+  IF to_regclass('"Meta".catalog_kind') IS NULL
+     OR to_regprocedure('"Meta".sp_catalog_register_kind(text,text,text,regclass,text[],text[],text,boolean)') IS NULL THEN
+    RETURN;
+  END IF;
+  FOR k IN
+    SELECT ck.kind, cl."Name" AS class_name, p."Name" AS parent_name, ck.relation,
+           ck.key_columns, ck.label_columns, ck.owner_app
+    FROM "Meta".catalog_kind ck
+    JOIN "Meta"."Classes" cl ON cl."ID" = ck.class_id
+    JOIN "Meta"."Classes" p ON p."ID" = cl."ParentID"
+    WHERE ck.relation IN ('cfg.assay_procedure'::regclass, 'cfg.study'::regclass)
+  LOOP
+    PERFORM "Meta".sp_catalog_register_kind(
+      k.kind, k.class_name, k.parent_name, k.relation, k.key_columns, k.label_columns, k.owner_app
+    );
+  END LOOP;
+END
+$catalog_kinds$;

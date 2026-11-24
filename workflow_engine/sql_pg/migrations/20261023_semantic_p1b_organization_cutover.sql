@@ -19,7 +19,7 @@ BEGIN
   END IF;
 
   INSERT INTO portal."Organizations" ("Name", "Active", "CreatedAtUtc")
-  SELECT c."Name", true, now() AT TIME ZONE 'utc'
+  SELECT c."Name", true, now()
   FROM portal."Customers" c
   WHERE c."OrganizationID" IS NULL
     AND NOT EXISTS (
@@ -119,7 +119,7 @@ BEGIN
       VALUES (
         COALESCE(rec."Name", 'Migrated scope ' || rec."ScopeID"::text),
         true,
-        now() AT TIME ZONE 'utc'
+        now()
       )
       RETURNING "ID" INTO v_org_id;
     END IF;

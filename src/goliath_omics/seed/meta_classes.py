@@ -340,6 +340,9 @@ def seed(conn) -> int:
                 ),
             )
             count += 1
+            # Registering a class regenerates every dependent Meta view; commit
+            # per class so the locks do not pile up in one transaction.
+            conn.commit()
         for entity_code, table_name in LEGACY_TABLE_NAMES.items():
             cur.execute(
                 """
@@ -352,13 +355,16 @@ def seed(conn) -> int:
                 """,
                 (table_name, entity_code, table_name),
             )
-        cur.execute(
-            """
-            SELECT "Meta".sp_class_regenerate_views(r.class_id)
-            FROM omics_clinical.meta_class_registry r
-            """
-        )
+        cur.execute("SELECT class_id FROM omics_clinical.meta_class_registry ORDER BY class_id")
+        class_ids = [row[0] for row in cur.fetchall()]
     conn.commit()
+    # Each regeneration drops and recreates every dependent Meta view (hundreds of
+    # locks). Doing them all in one transaction can exhaust the shared lock table
+    # (max_locks_per_transaction = 64 on a default PostgreSQL 18), so commit per class.
+    for class_id in class_ids:
+        with conn.cursor() as cur:
+            cur.execute('SELECT "Meta".sp_class_regenerate_views(%s)', (class_id,))
+        conn.commit()
     return count
 
 

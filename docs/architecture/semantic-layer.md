@@ -95,7 +95,7 @@ The table below records the classes, the older portal table names used during th
 |--------|------------|--------------|--------------------------------|-----------------------------------------------------|
 | Customer | `omics/Customer` | `portal."Customers"` | `omics.customer.create` | `dual_write_legacy_meta`, `read_from_meta` |
 | Disease | `omics/Disease` | `portal."Diseases"` | `omics.disease.create`, `omics.disease.update` | same |
-| Patient | `omics/Patient` | `portal."Patients"` | (mirror/backfill; portal writes TBD) | same |
+| Patient | `omics/Patient` | `portal."Patients"` | `omics.patient.create`, `omics.patient.update` | same |
 | Sample | `omics/Sample` | `portal."Samples"` | `omics.sample.create`, `omics.group.add_sample` | same |
 | Lab batch | `omics/LabBatch` | `portal."Batches"` | (mirror/backfill) | same |
 | Institution | `omics/Institution` | `portal."Institutions"` | `omics.institution.create`, `omics.institution.update` | same |

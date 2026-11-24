@@ -174,7 +174,7 @@ BEGIN
   SELECT wi.status INTO v_inst_status FROM wf.workflow_instance wi WHERE wi.id = p_instance_id;
 
   UPDATE wf.test_bed_run
-  SET completed_at_utc = (now() AT TIME ZONE 'utc'),
+  SET completed_at_utc = (now()),
       tasks_submitted = v_tasks,
       final_status = v_inst_status
   WHERE id = v_run_id;

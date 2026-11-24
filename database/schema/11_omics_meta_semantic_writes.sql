@@ -14,7 +14,7 @@ BEGIN
   UPDATE omics_clinical.meta_cutover_flag
   SET dual_write_legacy_meta = p_dual_write_legacy_meta,
       read_from_meta = p_read_from_meta,
-      updated_at = (now() AT TIME ZONE 'utc')
+      updated_at = (now())
   WHERE entity_code = p_entity_code;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'unknown entity_code %', p_entity_code;
