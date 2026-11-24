@@ -6,7 +6,7 @@ Inherited platform pieces use the `goliath` prefix. These tools stay separate re
 
 ## GoliathAlign
 
-Toolchain pin: Mojo 1.1 / Modular 26.6. Not Mojo 1.0.0b2.
+Toolchain pin: Mojo 1.2 / Modular MAX 26.7. Not Mojo 1.0.0b2.
 
 Image: `goliath/methylgrapher` (tags stay `*-mojo-*`). In-image tree: `/opt/goliath-align`, with `/opt/mojo-align` as a symlink for one cycle.
 
