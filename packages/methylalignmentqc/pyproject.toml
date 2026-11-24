@@ -7,7 +7,7 @@ name = "methyl_alignment_qc"
 version = "0.1.0"
 description = "Parse Parabricks alignment QC metrics into per-sample JSON for database storage."
 readme = "README.md"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 dependencies = [
     "pydantic",
     "methylutils",  # Monorepo: pip install -e ../methylutils first, or use from repo root

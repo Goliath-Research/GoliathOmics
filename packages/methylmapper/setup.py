@@ -18,7 +18,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),
-    python_requires=">=3.10,<3.15",
+    python_requires=">=3.10,<3.16",
     install_requires=[
         "sqlalchemy>=1.4.0",
         "pandas>=1.3.0",
@@ -46,6 +46,7 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
     ],
 )
 

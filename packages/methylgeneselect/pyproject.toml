@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [{include = "methyl_gene_select"}]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.15"
+python = ">=3.10,<3.16"
 pydantic = ">=2.6.0,<3.0.0"
 numpy = ">=2.0.0,<3.0.0"
 pandas = ">=2.1.0,<3.0.0"

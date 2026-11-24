@@ -3,7 +3,7 @@ name = "methyl-worker"
 version = "1.0.0"
 description = "REST workflow worker for MethylPipeline middle-tier"
 readme = "WORKER_PROTOCOL.md"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 dependencies = [
   "pydantic>=2.6.0,<3.0.0",
   "goliath-gateway",

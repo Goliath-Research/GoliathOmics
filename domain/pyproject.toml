@@ -7,7 +7,7 @@ name = "goliath-omics"
 version = "0.1.0"
 description = "GoliathApp specialization for genomics workflows (domain schema shell, semantic registry, actions)."
 readme = "README.md"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 license = "MIT"
 authors = [{ name = "Goliath Research" }]
 keywords = ["genomics", "methylation", "goliath", "omics"]

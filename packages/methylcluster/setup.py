@@ -16,7 +16,7 @@ setup(
     author="MethylPipeline Team",
     url="https://github.com/Goliath-Research/GoliathOmics",
     packages=find_packages(),
-    python_requires=">=3.10,<3.15",
+    python_requires=">=3.10,<3.16",
     install_requires=[
         "numpy>=1.21.0",
         "scipy>=1.7.0",
@@ -44,6 +44,7 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
     ],
 )
 

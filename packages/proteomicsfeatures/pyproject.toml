@@ -7,7 +7,7 @@ name = "proteomics_features"
 version = "0.1.0"
 description = "Proteomics adapter over the shared omics_features seam: DIA-NN / panel ingest to the abundance contract, and differential-abundance selection."
 readme = "README.md"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 dependencies = [
     "pydantic",
     "numpy",
