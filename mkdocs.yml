@@ -37,6 +37,14 @@ nav:
       - Orchestration: usage/04-orchestration-workflow-run.md
       - Deployment: usage/14-deployment-and-distributed-workflow.md
       - Config registry: usage/19-config-registry.md
+  - Workflows (DomainPrograms):
+      - Catalog: workflows/index.md
+      - Sample preparation: workflows/sample-prep.md
+      - Study and SaMD lifecycles: workflows/study-lifecycles.md
+      - Monte Carlo stability: workflows/mc-stability.md
+      - Validation freeze and model: workflows/validation-stages.md
+      - Detection and interpretation: workflows/analysis-and-detection.md
+      - Engine and event fixtures: workflows/engine-and-event-fixtures.md
   - Deploy:
       - Targets: deploy-targets.md
       - Rollouts: rollouts.md

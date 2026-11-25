@@ -1,0 +1,87 @@
+{
+  "categories": [
+    {
+      "slug": "sample-prep",
+      "title": "Sample preparation",
+      "intro": "Per-sample upstream preprocessing programs turning raw sequencing reads or mass-spectrometry/panel inputs into QC-gated analysis matrices.",
+      "filenames": [
+        "sample_prep.program.json",
+        "sample_prep_remediate.program.json",
+        "sample_prep_emseq.program.json",
+        "sample_prep_epigbs.program.json",
+        "sample_prep_rnaseq.program.json",
+        "sample_prep_proteomics.program.json"
+      ]
+    },
+    {
+      "slug": "study-lifecycles",
+      "title": "Study validation and SaMD lifecycles",
+      "intro": "End-to-end study validation, modality lifecycle, and SaMD tier entry-point programs spanning stability, panel freeze, model selection, and hold-out evaluation.",
+      "filenames": [
+        "full_lifecycle.program.json",
+        "study_validation_lifecycle.program.json",
+        "study_validation_lifecycle_no_deconv.program.json",
+        "study_validation_lifecycle_residual.program.json",
+        "study_validation_mhl_survival.program.json",
+        "plant_stress_study_lifecycle.program.json",
+        "plant_stress_study_lifecycle_with_deconv.program.json",
+        "rnaseq_study_lifecycle.program.json",
+        "proteomics_study_lifecycle.program.json",
+        "samd_research.program.json",
+        "samd_holdout_enrichment.program.json",
+        "samd_pivotal.program.json"
+      ]
+    },
+    {
+      "slug": "mc-stability",
+      "title": "Monte Carlo stability",
+      "intro": "Repeated Monte Carlo resampling workflows for centroid seeding, differential detection, optional feature selection, and freeze-readiness evaluation.",
+      "filenames": [
+        "mc_stability.program.json",
+        "mc_stability_smoke.program.json",
+        "mc_stability_staged.program.json",
+        "mc_stability_ppi.program.json",
+        "mc_stability_residual.program.json",
+        "mc_gene_enricher_stability.program.json"
+      ]
+    },
+    {
+      "slug": "validation-stages",
+      "title": "Validation freeze and model building",
+      "intro": "Post-stability stage programs for panel freezing, production model locking, and model-selection Monte Carlo runs.",
+      "filenames": [
+        "validation_freeze.program.json",
+        "validation_model.program.json",
+        "validation_model_mc.program.json",
+        "validation_model_mc_rebuild.program.json"
+      ]
+    },
+    {
+      "slug": "analysis-and-detection",
+      "title": "Detection, mapping, and interpretation",
+      "intro": "Single-pass comparison, differential detection, gene mapping, enrichment, deconvolution, and historical layout programs.",
+      "filenames": [
+        "data_driven.program.json",
+        "data_driven_smoke.program.json",
+        "two_group_comparison.program.json",
+        "detection_discovery_only.program.json",
+        "dmp_select_optional.program.json",
+        "mapper_per_comparison.program.json",
+        "enricher_with_overrides.program.json",
+        "interpretation.program.json",
+        "cell_deconv_tabular.program.json",
+        "legacy_dual.program.json"
+      ]
+    },
+    {
+      "slug": "engine-and-event-fixtures",
+      "title": "Engine control-flow and event fixtures",
+      "intro": "Generic DomainProgram fixtures exercising typed variable assignments, WHILE loops, and event-driven triggers / WAIT_EVENT nodes.",
+      "filenames": [
+        "assign_map_reduce.program.json",
+        "assign_while_pagination.program.json",
+        "event_wait_ack.program.json"
+      ]
+    }
+  ]
+}

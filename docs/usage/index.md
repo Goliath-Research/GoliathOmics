@@ -82,7 +82,7 @@ flowchart LR
 ## Canonical references
 
 - Sample prep workflow: [`workflow_engine/contract/SamplePrepFlow.md`](../../workflow_engine/contract/SamplePrepFlow.md)
-- DomainProgram fixtures: `workflow_engine/domain/fixtures/*.program.json`
+- DomainProgram catalog (Mermaid diagrams): [workflows/index.md](../workflows/index.md) (generated from `workflow_engine/domain/fixtures/*.program.json`)
 - Dependency direction: [`docs/architecture/dependencies.md`](../architecture/dependencies.md)
 - Validation orchestration: `packages/methylvalidation/docs/USAGE.md`
 - Distributed queue: `packages/methylvalidation/docs/DISTRIBUTED_QUEUE.md`

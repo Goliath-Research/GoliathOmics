@@ -38,6 +38,9 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v6
 
+      - name: Check DomainProgram Mermaid diagrams are up to date
+        run: python3 scripts/generate_domain_program_diagrams.py --check
+
       - name: Install docs dependencies
         run: python -m pip install -U -r requirements-docs.txt
 

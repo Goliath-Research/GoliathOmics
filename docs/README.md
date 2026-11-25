@@ -14,6 +14,7 @@ Its ready-to-run **SamplePrep** workflow processes paired FASTQ files through al
 - **For bioinformatics leads** — *Inspect how workflows are configured, executed, and troubleshot:*
   - [Start a SamplePrep instance](operators/start-sample-prep.md) — configuring runs, selecting alignment paths, and applying per-sample QC overlays
   - [Alignment engines](usage/alignment-engines.md) — choosing between linear Clara Parabricks, linear GoliathAlign, stock Giraffe pangenome, and methylGrapher WGBS pangenome
+  - [DomainProgram catalog (Mermaid diagrams)](workflows/index.md) — visual flowchart reference for all 41 workflow fixtures
   - [Usage manual](usage/index.md) and [Orchestration: workflow-run](usage/04-orchestration-workflow-run.md)
 - **For IT, platform, and operations teams** — *Understand how the system is deployed and operated:*
   - Live operator host: [https://omics.goliathresearch.com](https://omics.goliathresearch.com) (shared GoliathApp platform host). The company site lists live application hosts at [https://www.goliathresearch.com/apps/](https://www.goliathresearch.com/apps/).
@@ -28,6 +29,7 @@ Its ready-to-run **SamplePrep** workflow processes paired FASTQ files through al
 | Section | What it covers |
 |---------|----------------|
 | [usage](usage/index.md) | How to evaluate outputs, run SamplePrep, execute staged validation studies, and use application packs |
+| [workflows](workflows/index.md) | Mermaid flowchart catalog for all 41 DomainProgram fixtures (`workflow_engine/domain/fixtures/*.program.json`) |
 | [operators](operators/start-sample-prep.md) | Start a SamplePrep instance, configure process packs, and release, deploy, and enroll workers |
 | [theory](theory/index.md) | Statistical and biological background for methylation, feature selection, and validation |
 | [regulatory](regulatory/README.md) | SaMD lifecycle and operational controls |

@@ -40,7 +40,7 @@ In production, point `--program` and `--context-file` at the promoted runtime bu
 
 ## Programs by scope
 
-Pick a DomainProgram that matches how much of the lifecycle you need. Stage chapters (ch.05–09) describe artifacts and gates; this table maps them to programs.
+Pick a DomainProgram that matches how much of the lifecycle you need. Stage chapters (ch.05–09) describe artifacts and gates; this table maps them to programs. For Mermaid flowcharts of all 41 fixtures, see the [DomainProgram catalog](../workflows/index.md).
 
 | Scope | Example program | Covers |
 |-------|-----------------|--------|
