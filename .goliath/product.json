@@ -28,7 +28,7 @@
     },
     {
       "title": "Database-compiled workflows for reproducible, auditable runs",
-      "description": "Compiles DomainProgram workflow definitions into PostgreSQL nodes and freezes resolved configuration context at instance start, giving bioinformatics and regulatory teams an inspectable record of every sample run."
+      "description": "Compiles DomainProgram workflow definitions into PostgreSQL nodes and freezes resolved configuration context at instance start, giving bioinformatics and regulatory teams an inspectable record of every sample run. All 41 DomainProgram fixtures are documented as auto-generated Mermaid flowcharts in the published workflow catalog."
     },
     {
       "title": "Platform operations: release profiles and worker enrollment",
