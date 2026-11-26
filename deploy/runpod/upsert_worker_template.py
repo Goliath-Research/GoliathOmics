@@ -31,7 +31,7 @@ from typing import Any
 
 NAME = "goliath-worker"
 DEFAULT_API_BASE = "https://api.runpod.io"
-DEFAULT_IMAGE = "ghcr.io/goliath-research/goliath-worker:4.7.0-2"
+DEFAULT_IMAGE = "ghcr.io/goliath-research/goliath-worker:4.7.0-4"
 # Credential id already on the live goliath-worker template. Not a secret.
 DEFAULT_REGISTRY = "cmvfgr6i1003bl3r5rmi350hr"
 DEFAULT_DISK_GB = 30
