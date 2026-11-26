@@ -115,7 +115,7 @@ markers = [
 # comments suppressing the line. Root mypy checked untyped function bodies and
 # ignored missing imports; methyldetector also required annotations.
 [tool.pyrefly]
-python-version = "3.12.0"
+python-version = "3.14.0"
 preset = "legacy"
 ignore-missing-imports = ["*"]
 check-unannotated-defs = true

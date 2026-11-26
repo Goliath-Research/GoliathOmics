@@ -5,8 +5,8 @@ set -euo pipefail
 if [[ "${1:-}" == "--version-check" ]]; then
   command -v pbrun >/dev/null
   pbrun version
-  command -v python3.12 >/dev/null
-  python3.12 --version
+  command -v python3.14 >/dev/null
+  python3.14 --version
   exit 0
 fi
 

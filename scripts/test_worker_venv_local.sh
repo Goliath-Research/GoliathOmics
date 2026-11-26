@@ -161,7 +161,7 @@ set -e
 vdir="$work/verify"
 mkdir -p "$vdir"
 make_wheel "$vdir" goliath_fake_worker 1.0.0
-: >"$vdir/numpy-2.1.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+: >"$vdir/numpy-2.1.0-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
 printf 'goliath-fake-worker==1.0.0 \\\n    --hash=sha256:00\nnumpy==2.1.0\n' >"$vdir/lock"
 vlw() { python3 "$ROOT/scripts/verify_locked_wheels.py" "$vdir/lock" "$vdir" "$@"; }
 vlw --arch x86_64 --arch aarch64 2>"$work/err10" || fail "missing wheels must only warn by default"
@@ -171,7 +171,7 @@ if vlw --arch x86_64 --arch aarch64 --strict 2>/dev/null; then fail "--strict mu
 if GOLIATH_STRICT_WHEELS=1 vlw --arch x86_64 --arch aarch64 2>/dev/null; then fail "GOLIATH_STRICT_WHEELS=1 must fail"; fi
 vlw --strict 2>"$work/err10b" || fail "default arch is x86_64 only, which is complete"
 grep -q '2 pins, 1 arches, 0 missing' "$work/err10b" || { cat "$work/err10b" >&2; fail "default should check x86_64 only"; }
-: >"$vdir/numpy-2.1.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
+: >"$vdir/numpy-2.1.0-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
 vlw --arch x86_64 --arch aarch64 --strict 2>/dev/null || fail "both arches should verify"
 grep -q 'WHEEL_ARCHES="${GOLIATH_WHEEL_ARCHES:-x86_64}"' "$ROOT/scripts/build_release.sh" \
   || fail "build_release should bundle x86_64 only by default"

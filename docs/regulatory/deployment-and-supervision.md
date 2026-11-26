@@ -55,7 +55,7 @@ Release layout:
 
 `wheels/` holds, best-effort, a wheel for each pin in
 `requirements-worker.lock`, including third-party dependencies, for linux
-x86_64 (manylinux, CPython 3.12; aarch64 is opt-in with `--wheel-arches`).
+x86_64 (manylinux, CPython 3.14; aarch64 is opt-in with `--wheel-arches`).
 `scripts/build_release.sh` downloads them (PyPI plus `https://pypi.nvidia.com`)
 and `scripts/verify_locked_wheels.py` reports any pin left without a wheel as a
 warning; `--strict-wheels` / `GOLIATH_STRICT_WHEELS=1` fails the release

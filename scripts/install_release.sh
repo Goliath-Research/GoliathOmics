@@ -12,7 +12,7 @@ Options:
   --release-dir PATH   Release directory with wheels/ and requirements-worker.lock
   --venv PATH          Target virtualenv on local disk
                        (default: ${GOLIATH_LOCAL_ROOT:-/opt/goliath}/venv-<arch>; never under GOLIATH_WORK_MOUNT)
-  --python BIN         Python interpreter for venv creation (default: python3.12)
+  --python BIN         Python interpreter for venv creation (default: python3.14)
   --index-url URL      Also allow this package index (e.g. https://pypi.org/simple).
                        Omit to install offline from wheels/ in the release directory only.
                        Either way the lock pins are honored (hashes enforced when present).
@@ -34,7 +34,7 @@ source "$SCRIPT_DIR/worker_venv_local.sh"
 
 RELEASE_DIR=""
 VENV_DIR=""
-PYTHON_BIN="${PYTHON_BIN:-python3.12}"
+PYTHON_BIN="${PYTHON_BIN:-python3.14}"
 INDEX_URL=""
 EXTRA_INDEX_URLS=()
 RECREATE=0

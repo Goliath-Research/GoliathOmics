@@ -111,7 +111,7 @@ check || { cat "$TMP/check.out"; fail "complete wheels/ should pass the offline 
 mv "$W/gamma_pkg-3.1-py3-none-any.whl" "$TMP/"
 if check; then fail "a missing locked wheel must fail the offline check"; fi
 grep -q 'gamma-pkg' "$TMP/check.out" || { cat "$TMP/check.out"; fail "failure should name gamma-pkg"; }
-if "$PY" "$ROOT/scripts/verify_locked_wheels.py" "$TMP/lock.txt" "$W" --strict --python-version 3.12 >/dev/null 2>&1; then
+if "$PY" "$ROOT/scripts/verify_locked_wheels.py" "$TMP/lock.txt" "$W" --strict --python-version 3.14 >/dev/null 2>&1; then
   fail "verify_locked_wheels --strict (the release default) must fail when a wheel is missing"
 fi
 grep -q 'STRICT_WHEELS="${GOLIATH_STRICT_WHEELS:-1}"' "$ROOT/scripts/build_release.sh" || fail "build_release.sh must default to strict wheels"
@@ -217,7 +217,7 @@ bundle() {  # bundle CLOSURE [BUILD_IMAGE_HAS]
 # already has: libtinfo6 at the -updates build, which libncurses6 needs
 # exactly. The runpod image had an older libtinfo6, and the old bundle left
 # it out because the build image had it.
-CLOSURE="samtools:libhts3t64+libncurses6 bedtools fastp pigz acl:libacl1 libacl1 curl python3 python3.12 coreutils gzip tar libhts3t64 libncurses6:libtinfo6 libtinfo6"
+CLOSURE="samtools:libhts3t64+libncurses6 bedtools fastp pigz acl:libacl1 libacl1 curl python3 python3.14 coreutils gzip tar libhts3t64 libncurses6:libtinfo6 libtinfo6"
 rm -f "$TMP/apt.log"
 bundle "$CLOSURE" "coreutils gzip tar libtinfo6 libacl1" || { cat "$TMP/bundle.out"; fail "bundle should succeed"; }
 D="$TMP/sd/ubuntu-24.04-amd64"
@@ -237,8 +237,8 @@ jq -e '.format == "deb-repo" and .arch == "amd64" and (.packages | index("acl"))
   "$D/bundle.json" >/dev/null || { cat "$D/bundle.json"; fail "bundle.json"; }
 for p in $APT_PKGS; do ls "$D/${p}_"*.deb >/dev/null 2>&1 || fail "apt package $p not bundled"; done
 # A manifest package the resolver did not deliver fails the release.
-if bundle "${CLOSURE/python3.12 /}"; then fail "incomplete bundle must fail"; fi
-grep -qE 'python3.12 is missing from the bundle|Unable to locate package python3.12' "$TMP/bundle.out" || { cat "$TMP/bundle.out"; fail "incomplete bundle message"; }
+if bundle "${CLOSURE/python3.14 /}"; then fail "incomplete bundle must fail"; fi
+grep -qE 'python3.14 is missing from the bundle|Unable to locate package python3.14' "$TMP/bundle.out" || { cat "$TMP/bundle.out"; fail "incomplete bundle message"; }
 # A closure that is not self-contained (a Depends outside the set) fails.
 if bundle "${CLOSURE/libncurses6:libtinfo6 libtinfo6/libncurses6:libtinfo6}"; then fail "non-self-contained bundle must fail"; fi
 grep -q 'not self-contained' "$TMP/bundle.out" || { cat "$TMP/bundle.out"; fail "self-containment message"; }

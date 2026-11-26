@@ -2,7 +2,7 @@
 """Check that every name==version pin in a requirements lock has a wheel.
 
 Usage: verify_locked_wheels.py LOCK WHEELS_DIR [--arch x86_64 --arch aarch64]
-       [--python-version 3.12] [--list-missing]
+       [--python-version 3.14] [--list-missing]
 
 A wheel counts for an arch when its platform tag is "any" or a linux /
 manylinux / musllinux tag for that machine, and its python tag is py3,
@@ -130,7 +130,7 @@ def main() -> int:
     ap.add_argument("lock")
     ap.add_argument("wheels")
     ap.add_argument("--arch", action="append")
-    ap.add_argument("--python-version", default="3.12")
+    ap.add_argument("--python-version", default="3.14")
     ap.add_argument("--strict", action="store_true",
                     default=os.environ.get("GOLIATH_STRICT_WHEELS", "") == "1",
                     help="exit 1 when any pin lacks a wheel (env GOLIATH_STRICT_WHEELS=1)")

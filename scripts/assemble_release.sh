@@ -201,7 +201,7 @@ manifest = {
         "goliath_extractor": me_ver,
         "goliath_align": ga_ver,
     },
-    "python": base.get("python", "3.12"),
+    "python": base.get("python", "3.14"),
     "gateway_source": mp_manifest.get("gateway_source") or base.get("gateway_source", ""),
     "goliathapp_sql": mp_manifest.get("goliathapp_sql") or base.get("goliathapp_sql"),
     "parabricks_image": base.get("parabricks_image", ""),

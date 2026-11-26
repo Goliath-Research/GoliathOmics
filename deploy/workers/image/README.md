@@ -12,7 +12,7 @@ required. **Keep GHCR private** (Parabricks EULA). RunPod needs
 ## Offline system-deps
 
 Release builds full `ubuntu-22.04-amd64` offline apt repos (jammy + updates +
-security + deadsnakes python3.12). Pods install from `/work` automatically.
+security + deadsnakes python3.14). Pods install from `/work` automatically.
 
 ## GoliathAlign / Mojo (automatic)
 

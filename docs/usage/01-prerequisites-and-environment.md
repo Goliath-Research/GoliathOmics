@@ -6,7 +6,7 @@ Set up a checkout for package CLIs and for reading the operator guides. A produc
 
 ## Required tools
 
-- Python. `pyproject.toml` requires `>=3.10,<3.15`. The PR workflow and the release workflow use Python 3.12.
+- Python. `pyproject.toml` requires `>=3.10,<3.16`. The PR workflow and the release workflow use Python 3.14.
 - A repo-local `.venv`
 - Package CLIs installed from this repo (`methyl-centroid`, `methyl-validation`, `methyl-worker`, and the other scripts declared under `packages/*/pyproject.toml` and `workers/pyproject.toml`)
 
@@ -17,7 +17,7 @@ Set up a checkout for package CLIs and for reading the operator guides. A produc
 From the repository root:
 
 ```bash
-python3.12 -m venv .venv
+python3.14 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
 bash scripts/install_packages.sh --with-deps

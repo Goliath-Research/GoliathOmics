@@ -179,8 +179,8 @@ install_worker_venv_local() {
   installer="$_WVL_SCRIPT_DIR/install_release.sh"
   [[ -f "$installer" ]] || installer="$release/runtime-bundle/scripts/install_release.sh"
   [[ -f "$installer" ]] || { rm -rf "$stage"; _wvl_die "install_release.sh not found"; return 1; }
-  if [[ -z "${PYTHON_BIN:-}" ]] && ! command -v python3.12 >/dev/null 2>&1; then
-    _wvl_warn "python3.12 not found; building the venv with python3"
+  if [[ -z "${PYTHON_BIN:-}" ]] && ! command -v python3.14 >/dev/null 2>&1; then
+    _wvl_warn "python3.14 not found; building the venv with python3"
     local PYTHON_BIN=python3
     export PYTHON_BIN
   fi

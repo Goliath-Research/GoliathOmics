@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Validate product summary
         run: |
@@ -31,7 +31,7 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       # Builds the optional MkDocs Material site. Does not publish.
       - name: Check DomainProgram Mermaid diagrams are up to date
@@ -220,7 +220,7 @@ jobs:
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Check out GoliathApp sql_pg
         uses: actions/checkout@v6

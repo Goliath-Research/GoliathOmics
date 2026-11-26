@@ -9,7 +9,7 @@
 # to a *private* GHCR package only.
 #
 # System tools: release builds ubuntu-22.04-amd64 offline apt bundles; pods
-# install from /work via install_system_deps.sh. python3.12 is baked (deadsnakes)
+# install from /work via install_system_deps.sh. python3.14 is baked (deadsnakes)
 # and also carried in the jammy bundle.
 #
 # GoliathAlign / Mojo: release-assemble ships
@@ -30,20 +30,20 @@ RUN apt-get update \
  && add-apt-repository -y ppa:deadsnakes/ppa \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
-      python3.12 python3.12-venv python3.12-dev \
+      python3.14 python3.14-venv python3.14-dev \
       python3-pip \
       openssh-server \
       samtools bedtools fastp pigz gzip acl tar coreutils \
       tini \
- && ln -sf /usr/bin/python3.12 /usr/local/bin/python3 \
- && ln -sf /usr/bin/python3.12 /usr/local/bin/python \
+ && ln -sf /usr/bin/python3.14 /usr/local/bin/python3 \
+ && ln -sf /usr/bin/python3.14 /usr/local/bin/python \
  && mkdir -p /var/run/sshd /run/sshd \
  && ssh-keygen -A \
  && rm -rf /var/lib/apt/lists/*
 
 # aws CLI for cfg provision-assets / sync_genomes_to_s3.sh (S3-compatible QNAP/B2).
 # Own venv so it never touches the worker venv's botocore pins.
-RUN python3.12 -m venv /opt/awscli \
+RUN python3.14 -m venv /opt/awscli \
  && /opt/awscli/bin/pip install --no-cache-dir "awscli>=1.36,<2" \
  && ln -sf /opt/awscli/bin/aws /usr/local/bin/aws \
  && aws --version

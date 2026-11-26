@@ -10,7 +10,7 @@ Usage: scripts/build_release.sh [options]
 Options:
   --version VER        Release version string (required; SemVer e.g. 2026.6.1)
   --output DIR         Output directory (default: /work/goliath/releases/<version>)
-  --python BIN         Python for build/venv (default: python3.12)
+  --python BIN         Python for build/venv (default: python3.14)
   --skip-wheels        Only build runtime-bundle and manifest stub
   --with-gpu-reqs      Include GPU requirements in lockfile compile
   --wheel-arches LIST  Linux arches to bundle third-party wheels for
@@ -47,7 +47,7 @@ source "$SCRIPT_DIR/detect_platform.sh"
 
 VERSION=""
 OUTPUT=""
-PYTHON_BIN="${PYTHON_BIN:-python3.12}"
+PYTHON_BIN="${PYTHON_BIN:-python3.14}"
 SKIP_WHEELS=0
 WITH_GPU=0
 WHEEL_ARCHES="${GOLIATH_WHEEL_ARCHES:-x86_64}"
@@ -63,7 +63,7 @@ SKIP_SYSTEM_DEPS=0
 SKIP_SYSTEM_DEPS_CHECK=0
 EXTRA_INDEX_URLS="${GOLIATH_PIP_EXTRA_INDEX_URLS-https://pypi.nvidia.com}"
 _cli_extra_index=""
-WORKER_PY_VERSION="${GOLIATH_WORKER_PYTHON_VERSION:-3.12}"
+WORKER_PY_VERSION="${GOLIATH_WORKER_PYTHON_VERSION:-3.14}"
 SKIP_THIRD_PARTY=0
 
 while [[ $# -gt 0 ]]; do

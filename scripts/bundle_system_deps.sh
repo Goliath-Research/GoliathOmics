@@ -28,10 +28,10 @@
 # Distro packages are small, get security fixes from the distro, and install
 # with the same apt the online fallback uses. Each --target is a full closure
 # for that OS (jammy: jammy + jammy-updates + jammy-security; noble likewise).
-# Ubuntu 22.04 has no python3.12 in archive — the jammy resolver also adds the
-# deadsnakes PPA so python3.12 is in the offline repo (goliath-worker also
-# bakes python3.12 via deadsnakes; the bundle still carries it for stock/oldest
-# checks and any host that lacks it). check_system_deps_bundle.sh proves each
+# Ubuntu 22.04 and 24.04 have no python3.14 in stock archives — the resolver
+# also adds the deadsnakes PPA so python3.14 is in the offline repo
+# (goliath-worker also bakes python3.14 via deadsnakes; the bundle still carries
+# it for stock/oldest checks and any host that lacks it). check_system_deps_bundle.sh proves each
 # bundle installs offline before a release ships.
 #
 # Needs docker or podman (GOLIATH_CONTAINER_RUNTIME). An arch other than the
@@ -111,10 +111,10 @@ mkdir -p "$W/lists/partial" "$W/cache" "$W/parts" "$W/prefs" "$W/archives/partia
 printf "Types: deb\nURIs: %s\nSuites: %s %s-updates\nComponents: %s\nSigned-By: %s\n\nTypes: deb\nURIs: %s\nSuites: %s-security\nComponents: %s\nSigned-By: %s\n" \
   "$m" "$codename" "$codename" "$comps" "$key" "$s" "$codename" "$comps" "$key" >"$W/parts/goliath.sources"
 
-# Jammy: python3.12 only via deadsnakes (not in Ubuntu 22.04 archives).
+# Jammy & Noble: python3.14 only via deadsnakes (not in Ubuntu 22.04/24.04 archives).
 # trusted=yes only for this resolve step; the shipped bundle is integrity-rooted
 # by SHA256SUMS. Avoids needing curl/gpg inside a minimal stock image.
-if [[ "$id" == ubuntu && "$ver" == "22.04" ]]; then
+if [[ "$id" == ubuntu && ( "$ver" == "22.04" || "$ver" == "24.04" ) ]]; then
   printf "deb [trusted=yes] http://ppa.launchpad.net/deadsnakes/ppa/ubuntu %s main\n" \
     "$codename" >"$W/parts/deadsnakes.list"
 fi

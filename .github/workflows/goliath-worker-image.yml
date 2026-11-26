@@ -13,7 +13,7 @@ on:
         description: Published image tag (also tagged as latest when on main)
         required: false
         type: string
-        default: "4.7.0-3"
+        default: "4.7.0-4"
       pushToRegistry:
         description: docker push to GHCR after build
         required: false
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       IMAGE_REPO: ghcr.io/goliath-research/goliath-worker
-      IMAGE_TAG: ${{ inputs.imageTag || '4.7.0-3' }}
+      IMAGE_TAG: ${{ inputs.imageTag || '4.7.0-4' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -58,14 +58,14 @@ jobs:
             -f deploy/workers/image/Dockerfile \
             deploy/workers/image
 
-      - name: Smoke (pbrun + python3.12 + system tools)
+      - name: Smoke (pbrun + python3.14 + system tools)
         run: |
           set -euo pipefail
           docker run --rm --entrypoint /start.sh "${IMAGE_REPO}:${IMAGE_TAG}" --version-check
           # Offline-ish tool presence (image already installed system_tools.list)
           docker run --rm --entrypoint bash "${IMAGE_REPO}:${IMAGE_TAG}" -lc '
             set -euo pipefail
-            for t in pbrun python3.12 samtools bedtools fastp pigz gzip setfacl curl tar sha256sum aws; do
+            for t in pbrun python3.14 samtools bedtools fastp pigz gzip setfacl curl tar sha256sum aws; do
               command -v "$t" >/dev/null || { echo "missing $t"; exit 1; }
             done
             echo "smoke ok"

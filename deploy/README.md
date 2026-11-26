@@ -49,7 +49,7 @@ Workflow steps publish task output with `methyl_worker.work_share.publish_to_wor
 
 ## Worker system tools
 
-Every worker needs the external tools listed in [`scripts/system_tools.list`](../scripts/system_tools.list) (samtools, bedtools, fastp, pigz, setfacl from `acl`, python3.12, curl, tar, ...). That file is the only list. The installer and the check both read it, and `scripts/test_release_bundles.sh` fails when worker code looks up a tool that the list does not have.
+Every worker needs the external tools listed in [`scripts/system_tools.list`](../scripts/system_tools.list) (samtools, bedtools, fastp, pigz, setfacl from `acl`, python3.14, curl, tar, ...). That file is the only list. The installer and the check both read it, and `scripts/test_release_bundles.sh` fails when worker code looks up a tool that the list does not have.
 
 The shared start (`scripts/start_shared_worker.sh`) runs `scripts/install_system_deps.sh` after the release is in place and before anything else. This happens on every provider:
 

@@ -8,7 +8,7 @@
 # packaging, which install_release.sh upgrades a fresh venv with) the same way.
 #
 # Usage: check_offline_wheels.sh LOCK WHEELS_DIR [--arch x86_64 ...]
-#        [--python-version 3.12] [--python python3] [--bootstrap-lock FILE]
+#        [--python-version 3.14] [--python python3] [--bootstrap-lock FILE]
 
 set -euo pipefail
 
@@ -17,7 +17,7 @@ info() { printf '[check-offline-wheels] %s\n' "$*" >&2; }
 
 [[ $# -ge 2 ]] || die "usage: $0 LOCK WHEELS_DIR [--arch A ...] [--python-version X.Y] [--python BIN]"
 LOCK="$1" WHEELS="$2"; shift 2
-ARCHES=() PYVER=3.12 PY="${PYTHON_BIN:-python3}" BOOT_LOCK=""
+ARCHES=() PYVER=3.14 PY="${PYTHON_BIN:-python3}" BOOT_LOCK=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bootstrap-lock) BOOT_LOCK="$2"; shift 2 ;;

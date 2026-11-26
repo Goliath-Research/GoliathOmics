@@ -2,7 +2,7 @@
 """Build wheels at release time for locked pins that only ship an sdist.
 
 Usage: bundle_sdist_wheels.py LOCK WHEELS_DIR [--arch x86_64 ...]
-       [--python-version 3.12] [--python python3] [-- PIP_INDEX_ARGS...]
+       [--python-version 3.14] [--python python3] [-- PIP_INDEX_ARGS...]
 
 For every pin verify_locked_wheels.py reports missing, this downloads the
 pin's sdist (checked against the lock's --hash lines when the lock has
@@ -90,7 +90,7 @@ def main() -> int:
     ap.add_argument("lock")
     ap.add_argument("wheels")
     ap.add_argument("--arch", action="append")
-    ap.add_argument("--python-version", default="3.12")
+    ap.add_argument("--python-version", default="3.14")
     ap.add_argument("--python", default=sys.executable)
     a = ap.parse_args(argv)
     lock, wheels = Path(a.lock), Path(a.wheels)
